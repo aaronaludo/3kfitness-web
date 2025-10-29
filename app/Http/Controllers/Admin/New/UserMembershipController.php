@@ -1,0 +1,303 @@
+<?php
+
+namespace App\Http\Controllers\Admin\New;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\UserMembership;
+use Carbon\Carbon;
+use PhpOffice\PhpWord\IOFactory;
+use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\Style\Language;
+
+class UserMembershipController extends Controller
+{
+    public function index(Request $request)
+    {
+        $request->validate([
+            'search_column' => 'nullable|string',
+            'name'          => 'nullable|string|max:255',
+            'member_name'   => 'nullable|string|max:255',
+            'start_date'    => 'nullable|date_format:Y-m-d',
+            'end_date'      => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'status'        => 'nullable|in:all,pending,approved,rejected',
+        ]);
+
+        $keyword      = $request->input('name', $request->input('member_name'));
+        $searchColumn = $request->input('search_column');
+        $startDate    = $request->input('start_date');
+        $endDate      = $request->input('end_date');
+        $statusFilter = $request->input('status', 'all');
+        if (empty($statusFilter)) {
+            $statusFilter = 'all';
+        }
+
+        $allowedColumns = [
+            'id', 'member_name', 'membership', 'expiration_at', 'created_at', 'updated_at', 'status',
+        ];
+        if (!in_array($searchColumn, $allowedColumns, true)) {
+            $searchColumn = null;
+        }
+
+        $dateColumns = ['created_at', 'updated_at', 'expiration_at'];
+        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
+
+        $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : null;
+        $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
+
+        $statusTallies = [
+            'all'      => UserMembership::count(),
+            'pending'  => UserMembership::where('isapproved', 0)->count(),
+            'approved' => UserMembership::where('isapproved', 1)->count(),
+            'rejected' => UserMembership::where('isapproved', 2)->count(),
+        ];
+
+        $query = $this->buildUserMembershipQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $statusFilter);
+
+        $data = $query->paginate(10)->appends($request->query());
+
+        return view('admin.user-memberships.index', compact('data', 'statusTallies'));
+    }
+
+    public function view($id)
+    {
+        $data = UserMembership::findOrFail($id);
+
+        return view('admin.user-memberships.view', compact('data'));
+    }
+
+    public function isapprove(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:user_memberships,id',
+            'isapproved' => 'required|integer'
+        ]);
+
+        $data = UserMembership::findOrFail($request->id);
+        $data->isapproved = $request->isapproved;
+        $data->save();
+
+        return redirect()->route('admin.staff-account-management.user-memberships')->with('success', 'User Membership updated successfully');
+    }
+
+    public function print(Request $request)
+    {
+        $request->validate([
+            'created_start' => 'nullable|date',
+            'created_end'   => 'nullable|date|after_or_equal:created_start',
+            'search_column' => 'nullable|string',
+            'name'          => 'nullable|string|max:255',
+            'member_name'   => 'nullable|string|max:255',
+            'status'        => 'nullable|in:all,pending,approved,rejected',
+        ]);
+
+        $startInput   = $request->input('created_start');
+        $endInput     = $request->input('created_end');
+        $keyword      = $request->input('name', $request->input('member_name'));
+        $searchColumn = $request->input('search_column');
+        $statusFilter = $request->input('status', 'all');
+
+        if (empty($statusFilter)) {
+            $statusFilter = 'all';
+        }
+
+        $start = $startInput ? Carbon::parse($startInput)->startOfDay() : null;
+        $end   = $endInput   ? Carbon::parse($endInput)->endOfDay()   : null;
+
+        if ($start && !$end) {
+            $end = (clone $start)->endOfDay();
+        } elseif (!$start && $end) {
+            $start = Carbon::createFromTimestamp(0)->startOfDay();
+        }
+
+        $allowedColumns = [
+            'id', 'member_name', 'membership', 'expiration_at', 'created_at', 'updated_at', 'status',
+        ];
+        if (!in_array($searchColumn, $allowedColumns, true)) {
+            $searchColumn = null;
+        }
+
+        $dateColumns = ['created_at', 'updated_at', 'expiration_at'];
+        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
+
+        $query = $this->buildUserMembershipQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $statusFilter);
+        $data  = $query->get();
+
+        $suffix = '';
+        if ($start && $end) {
+            $suffix = '_' . $start->format('Ymd') . '_to_' . $end->format('Ymd');
+        }
+        $fileName = "user_memberships{$suffix}_" . date('Y-m-d') . ".docx";
+
+        $phpWord = new PhpWord();
+        $phpWord->getSettings()->setThemeFontLang(new Language(Language::EN_US));
+        $phpWord->setDefaultFontName('Calibri');
+        $phpWord->setDefaultFontSize(11);
+
+        $section = $phpWord->addSection([
+            'marginLeft'   => 800,
+            'marginRight'  => 800,
+            'marginTop'    => 800,
+            'marginBottom' => 800,
+        ]);
+
+        $title = 'User Memberships';
+        if ($start && $end) {
+            $title .= ' — ' . $start->format('M d, Y') . ' to ' . $end->format('M d, Y');
+        }
+        $section->addText($title, ['bold' => true, 'size' => 16]);
+        $section->addText('Generated: ' . now()->format('M d, Y H:i'));
+        $section->addTextBreak(1);
+
+        $tableStyle = [
+            'borderColor' => '777777',
+            'borderSize'  => 6,
+            'cellMargin'  => 80,
+        ];
+        $firstRowStyle = ['bgColor' => 'DDDDDD'];
+        $phpWord->addTableStyle('UserMembershipsTable', $tableStyle, $firstRowStyle);
+        $table = $section->addTable('UserMembershipsTable');
+
+        $headers = [
+            'ID',
+            'Member Name',
+            'Membership',
+            'Expiration Date',
+            'Created Date',
+            'Updated Date',
+            'Status',
+        ];
+        $headerRow = $table->addRow();
+        foreach ($headers as $header) {
+            $headerRow->addCell()->addText($header, ['bold' => true]);
+        }
+
+        $statusLabels = [
+            0 => 'Pending',
+            1 => 'Approved',
+            2 => 'Rejected',
+        ];
+
+        foreach ($data as $item) {
+            $memberName = trim(($item->user->first_name ?? '') . ' ' . ($item->user->last_name ?? ''));
+            $membership = optional($item->membership)->name ?? '';
+            $status     = $statusLabels[$item->isapproved] ?? 'Pending';
+
+            $row = $table->addRow();
+            $row->addCell()->addText((string) $item->id);
+            $row->addCell()->addText($memberName);
+            $row->addCell()->addText($membership);
+            $row->addCell()->addText((string) $item->expiration_at);
+            $row->addCell()->addText((string) $item->created_at);
+            $row->addCell()->addText((string) $item->updated_at);
+            $row->addCell()->addText($status);
+        }
+
+        $tempPath = storage_path('app/temp_exports');
+        if (!is_dir($tempPath)) {
+            @mkdir($tempPath, 0775, true);
+        }
+        $fullPath = $tempPath . DIRECTORY_SEPARATOR . $fileName;
+
+        $writer = IOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($fullPath);
+
+        return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Build the base query with shared filtering logic for index and export.
+     */
+    protected function buildUserMembershipQuery(?string $keyword, ?string $searchColumn, ?Carbon $start, ?Carbon $end, string $rangeColumn, string $statusFilter = 'all')
+    {
+        $query = UserMembership::query()
+            ->with([
+                'user:id,first_name,last_name',
+                'membership:id,name',
+            ])
+            ->orderBy('created_at', 'desc');
+
+        if ($keyword && !$searchColumn) {
+            $searchColumn = 'member_name';
+        }
+
+        $query->when($keyword && $searchColumn, function ($query) use ($keyword, $searchColumn) {
+            $keyword = trim($keyword);
+            switch ($searchColumn) {
+                case 'id':
+                    return $query->where('id', $keyword);
+                case 'member_name':
+                    return $query->whereHas('user', function ($subQuery) use ($keyword) {
+                        $subQuery->where(function ($builder) use ($keyword) {
+                            $builder->where('first_name', 'like', "%{$keyword}%")
+                                ->orWhere('last_name', 'like', "%{$keyword}%")
+                                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$keyword}%"]);
+                        });
+                    });
+                case 'membership':
+                    return $query->whereHas('membership', function ($subQuery) use ($keyword) {
+                        $subQuery->where('name', 'like', "%{$keyword}%");
+                    });
+                case 'status':
+                    $normalized = strtolower($keyword);
+                    $statusMap  = [
+                        'pending'  => 0,
+                        'approved' => 1,
+                        'rejected' => 2,
+                    ];
+                    $statusValue = null;
+                    foreach ($statusMap as $label => $value) {
+                        if ($normalized === $label || str_starts_with($label, $normalized)) {
+                            $statusValue = $value;
+                            break;
+                        }
+                    }
+                    if ($statusValue === null && is_numeric($keyword)) {
+                        $candidate = (int) $keyword;
+                        if (in_array($candidate, array_values($statusMap), true)) {
+                            $statusValue = $candidate;
+                        }
+                    }
+                    if ($statusValue !== null) {
+                        return $query->where('isapproved', $statusValue);
+                    }
+                    return $query;
+                case 'expiration_at':
+                case 'created_at':
+                case 'updated_at':
+                    try {
+                        $parsed = Carbon::parse($keyword);
+                        return $query->whereDate($searchColumn, $parsed->toDateString());
+                    } catch (\Exception $e) {
+                        return $query->where($searchColumn, 'like', "%{$keyword}%");
+                    }
+                default:
+                    return $query->where($searchColumn, 'like', "%{$keyword}%");
+            }
+        });
+
+        $query->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
+            if ($start && $end) {
+                $query->whereBetween($rangeColumn, [$start, $end]);
+            } elseif ($start) {
+                $query->whereDate($rangeColumn, '>=', $start->toDateString());
+            } elseif ($end) {
+                $query->whereDate($rangeColumn, '<=', $end->toDateString());
+            }
+        });
+
+        if ($statusFilter !== 'all') {
+            $statusMap = [
+                'pending'  => 0,
+                'approved' => 1,
+                'rejected' => 2,
+            ];
+
+            if (array_key_exists($statusFilter, $statusMap)) {
+                $query->where('isapproved', $statusMap[$statusFilter]);
+            }
+        }
+
+        return $query;
+    }
+}

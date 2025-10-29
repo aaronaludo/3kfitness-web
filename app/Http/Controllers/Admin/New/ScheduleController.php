@@ -1,0 +1,689 @@
+<?php
+
+namespace App\Http\Controllers\Admin\New;
+
+use App\Http\Controllers\Controller;
+use Illuminate\Http\Request;
+use App\Models\Schedule;
+use App\Models\User;
+use App\Models\Log;
+use Illuminate\Support\Facades\Validator;
+use Carbon\Carbon;
+use PhpOffice\PhpWord\PhpWord;
+use PhpOffice\PhpWord\IOFactory;
+
+class ScheduleController extends Controller
+{
+    public function all()
+    {
+        $data = Schedule::all();
+    
+        $data = $data->map(function ($item) {
+            $now = now();
+            $start_date = \Carbon\Carbon::parse($item->class_start_date);
+            $end_date = \Carbon\Carbon::parse($item->class_end_date);
+    
+            $status = 'Past';
+            if ($now->lt($start_date)) {
+                $status = 'Future';
+            } elseif ($now->between($start_date, $end_date)) {
+                $status = 'Present';
+            }
+    
+            return [
+                'id' => $item->id,
+                'name' => $item->name,
+                'class_code' => $item->class_code,
+                'trainer' => $item->trainer_id == 0 ? 'No Trainer for now' : optional($item->user)->first_name . ' ' . optional($item->user)->last_name,
+                'slots' => $item->slots,
+                'link' => '0',
+                'class_start_date' => $item->class_start_date,
+                'class_end_date' => $item->class_end_date,
+                'isenabled' => $item->isenabled ? 'Enabled' : 'Disabled',
+                'status' => $status,
+                'isadminapproved' => $item->isadminapproved,
+                'rejection_reason' => $item->rejection_reason,
+                'created_at' => $item->created_at,
+            ];
+        });
+    
+        return response()->json(['data' => $data]);
+    }
+    
+    public function index(Request $request)
+    {
+        $request->validate([
+            'search_column' => 'nullable|string',
+            'name'          => 'nullable|string|max:255',
+            'start_date'    => 'nullable|date_format:Y-m-d',
+            'end_date'      => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'status'        => 'nullable|in:all,upcoming,active,completed',
+        ]);
+
+        $search        = $request->input('name');
+        $searchColumn  = $request->input('search_column');
+        $startDate     = $request->input('start_date');
+        $endDate       = $request->input('end_date');
+        $status        = $request->input('status', 'all');
+
+        if (empty($status)) {
+            $status = 'all';
+        }
+    
+        $allowedColumns = [
+            'id', 'name', 'class_code', 'trainer_name', 'slots',
+            'class_start_date', 'class_end_date', 'isadminapproved',
+            'rejection_reason', 'created_at',
+        ];
+        if (!in_array($searchColumn, $allowedColumns, true)) {
+            $searchColumn = null;
+        }
+    
+        // Choose which date column to filter: default to created_at unless a date-type column is selected.
+        $dateColumns = ['class_start_date', 'class_end_date', 'created_at'];
+        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
+    
+        $classescreatedbyadmin = Schedule::where('created_role', 'Admin')->count();
+        $classescreatedbystaff = Schedule::where('created_role', 'Staff')->count();
+        $now = Carbon::now();
+        $statusTallies = [
+            'all' => Schedule::count(),
+            'upcoming' => Schedule::where('class_start_date', '>', $now)->count(),
+            'active' => Schedule::where('class_start_date', '<=', $now)
+                ->where('class_end_date', '>=', $now)
+                ->count(),
+            'completed' => Schedule::where('class_end_date', '<', $now)->count(),
+        ];
+
+        $data = Schedule::with(['user_schedules.user', 'user'])
+            ->withCount('user_schedules')
+            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
+                if ($searchColumn === 'trainer_name') {
+                    $likeSearch = "%{$search}%";
+
+                    return $query->whereHas('user', function ($userQuery) use ($likeSearch) {
+                        $userQuery->where(function ($nameQuery) use ($likeSearch) {
+                            $nameQuery->whereRaw(
+                                "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                [$likeSearch]
+                            )->orWhere('first_name', 'like', $likeSearch)
+                             ->orWhere('last_name', 'like', $likeSearch);
+                        });
+                    });
+                }
+
+                // Exact match for numeric-ish columns; LIKE for text columns
+                $exactColumns = ['id', 'slots', 'isadminapproved'];
+                if (in_array($searchColumn, $exactColumns, true)) {
+                    return $query->where($searchColumn, $search);
+                }
+                return $query->where($searchColumn, 'like', "%{$search}%");
+            })
+            ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
+                if ($startDate) {
+                    $query->whereDate($rangeColumn, '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
+                }
+                if ($endDate) {
+                    $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
+                }
+            })
+            ->when($status !== 'all', function ($query) use ($status, $now) {
+                if ($status === 'upcoming') {
+                    return $query->where('class_start_date', '>', $now);
+                }
+
+                if ($status === 'active') {
+                    return $query->where('class_start_date', '<=', $now)
+                        ->where('class_end_date', '>=', $now);
+                }
+
+                if ($status === 'completed') {
+                    return $query->where('class_end_date', '<', $now);
+                }
+
+                return $query;
+            })
+            ->orderBy('created_at', 'desc')
+            ->paginate(10)
+            ->appends($request->query()) // keep filters on pagination links
+            ->through(function ($schedule) {
+                // Keep the count already computed by withCount
+                $schedule->user_schedules_count = $schedule->user_schedules_count ?? $schedule->user_schedules->count();
+    
+                // Safe user mapping
+                $schedule->user_schedules_json = $schedule->user_schedules->map(function ($us) {
+                    $user = $us->user;
+                    $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '';
+                    return [
+                        'user_name'  => $fullName !== '' ? $fullName : 'Unknown',
+                        'user_email' => $user->email ?? 'Unknown',
+                    ];
+                });
+    
+                return $schedule;
+            });
+        
+        return view(
+            'admin.gymmanagement.schedules',
+            compact('data', 'classescreatedbyadmin', 'classescreatedbystaff', 'statusTallies')
+        );
+    }
+
+    public function view($id)
+    {
+        $data = Schedule::findOrFail($id);
+
+        return view('admin.gymmanagement.schedules-view', compact('data'));
+    }
+
+    public function create()
+    {
+        $trainers = User::where('role_id', 5)->get();
+        
+        return view('admin.gymmanagement.schedules-create', compact('trainers'));
+    }
+
+    public function edit($id)
+    {
+        $data = Schedule::findOrFail($id);
+        $trainers = User::where('role_id', 5)->get();
+        
+        return view('admin.gymmanagement.schedules-edit', compact('data', 'trainers'));
+    }
+
+    public function store(Request $request)
+    {
+        $request->validate([
+            'name' => 'required',
+            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            // 'isenabled' => 'required',
+            'slots' => 'required|integer|min:1',
+            'class_start_date' => 'required|date',
+            'class_end_date' => 'required|date|after:class_start_date',
+            'trainer_id' => 'required',
+        ]);
+        
+        $startRange = Carbon::parse($request->class_start_date)->subHour();
+        $endRange = Carbon::parse($request->class_end_date)->addHour();
+        
+        $existingSchedule = Schedule::where('trainer_id', $request->trainer_id)
+            ->where(function ($query) use ($startRange, $endRange) {
+                $query->whereBetween('class_start_date', [$startRange, $endRange])
+                      ->orWhereBetween('class_end_date', [$startRange, $endRange])
+                      ->orWhere(function ($q) use ($startRange, $endRange) {
+                          $q->where('class_start_date', '<=', $startRange)
+                            ->where('class_end_date', '>=', $endRange);
+                      });
+            })
+            ->first();
+        
+        if ($existingSchedule) {
+            return back()->withErrors(['schedule' => 'The trainer is already booked within this time range.']);
+        }
+        
+        $data = new Schedule;
+        $data->name = $request->name;
+        $nameParts = explode(' ', $request->name);
+        $initials = array_map(fn($word) => strtoupper($word[0]), $nameParts);
+        $prefix = implode('', $initials);
+        $latestCode = Schedule::where('class_code', 'LIKE', "$prefix-%")
+            ->orderBy('class_code', 'desc')
+            ->value('class_code');
+    
+        $number = $latestCode ? intval(substr($latestCode, strlen($prefix) + 1)) + 1 : 1;
+        $data->class_code = sprintf('%s-%02d', $prefix, $number);
+        $data->slots = $request->slots;
+        $data->class_start_date = $request->class_start_date;
+        $data->class_end_date = $request->class_end_date;
+        $data->isenabled = 1;
+        $data->trainer_id = $request->trainer_id;
+        $data->isadminapproved = $request->trainer_id == 0 ? 0 : 1; 
+        $data->created_role = $request->user()->role_id == 1 || $request->user()->role_id == 4 ? 'Admin' : 'Staff';
+        
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '_' . $image->getClientOriginalName();
+            $destinationPath = public_path('images/schedules');
+            
+            if (!file_exists($destinationPath)) {
+                mkdir($destinationPath, 0755, true);
+            }
+    
+            $image->move($destinationPath, $imageName);
+            $data->image = 'images/schedules/' . $imageName;
+        }
+        
+        $data->save();
+    
+        $log = new Log;
+        $log->message = $request->user()->first_name . " " . $request->user()->last_name . " has created class successfully.";
+        $log->role_name = 'Admin';
+        $log->save();
+        
+        return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule added successfully');
+    }    
+
+    public function update(Request $request, $id)
+    {
+        $data = Schedule::findOrFail($id);
+        
+        $request->validate([
+            'name' => 'required',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            // 'isenabled' => 'required',
+            'slots' => 'required|integer|min:1',
+            'class_start_date' => 'required',
+            'class_end_date' => 'required',
+            'trainer_id' => 'required',
+            'class_code' => 'required'
+        ]);
+
+        $startRange = Carbon::parse($request->class_start_date)->subHour();
+        $endRange = Carbon::parse($request->class_end_date)->addHour();
+        
+        $existingSchedule = Schedule::where('trainer_id', $request->trainer_id)
+            ->where('id', '!=', $data->id)
+            ->where(function ($query) use ($startRange, $endRange) {
+                $query->whereBetween('class_start_date', [$startRange, $endRange])
+                      ->orWhereBetween('class_end_date', [$startRange, $endRange])
+                      ->orWhere(function ($q) use ($startRange, $endRange) {
+                          $q->where('class_start_date', '<=', $startRange)
+                            ->where('class_end_date', '>=', $endRange);
+                      });
+            })
+            ->first();
+        
+        if ($existingSchedule) {
+            return back()->withErrors(['schedule' => 'The trainer is already booked within this time range.']);
+        }
+        
+        $data->name = $request->name;
+        $data->slots = $request->slots;
+        $data->class_start_date = $request->class_start_date;
+        $data->class_end_date = $request->class_end_date;
+        $data->isenabled = 1;
+        $data->trainer_id = $request->trainer_id;
+        $data->class_code = $request->class_code;
+        $data->isadminapproved = $request->trainer_id == 0 ? 0 : 1;
+    
+        if ($request->hasFile('image')) {
+            $image = $request->file('image');
+            $imageName = time() . '_' . $image->getClientOriginalName();
+            $destinationPath = public_path('images/schedules');
+            
+            if (!file_exists($destinationPath)) {
+                mkdir($destinationPath, 0755, true);
+            }
+    
+            $image->move($destinationPath, $imageName);
+            $data->image = 'images/schedules/' . $imageName;
+        }
+        
+        $data->save();
+
+        $log = new Log;
+        $log->message = $request->user()->first_name . " " . $request->user()->last_name . " has updated class successfully.";
+        $log->role_name = 'Admin';
+        $log->save();
+        
+        return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule updated successfully');
+    }
+
+    public function adminacceptance(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|exists:schedules,id',
+            'isadminapproved' => 'required'
+        ]);
+
+        $data = Schedule::findOrFail($request->id);
+        $data->isadminapproved = $request->isadminapproved;
+        $data->rejection_reason = null;
+        $data->save();
+
+        return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule changed successfully');
+    }
+    
+    public function delete(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:schedules,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+        
+        $user = $request->user();
+    
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+        
+        $data = Schedule::findOrFail($request->id);
+        $data->delete();
+
+        return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule deleted successfully');
+    }
+    
+    public function rejectmessage(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:schedules,id',
+                'rejection_reason' => 'required',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+        
+        $user = $request->user();
+    
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+        
+        $data = Schedule::findOrFail($request->id);
+        $data->rejection_reason = $request->rejection_reason;
+        $data->isadminapproved = 2;
+        $data->save();
+
+        return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule changed successfully');
+    }
+    
+    // public function print(Request $request)
+    // {
+    //     $request->validate([
+    //         'created_start' => 'nullable|date',
+    //         'created_end'   => 'nullable|date|after_or_equal:created_start',
+    //     ]);
+    
+    //     $startInput = $request->input('created_start');
+    //     $endInput   = $request->input('created_end');
+    
+    //     // Normalize range (all-day, inclusive)
+    //     $start = $startInput ? \Carbon\Carbon::parse($startInput)->startOfDay() : null;
+    //     $end   = $endInput   ? \Carbon\Carbon::parse($endInput)->endOfDay()   : null;
+    
+    //     if ($start && !$end) {
+    //         $end = (clone $start)->endOfDay();
+    //     } elseif (!$start && $end) {
+    //         $start = \Carbon\Carbon::createFromTimestamp(0)->startOfDay(); // include everything until $end
+    //     }
+    
+    //     $query = \App\Models\Schedule::with(['user:id,first_name,last_name'])
+    //         ->withCount('user_schedules');
+    
+    //     if ($start && $end) {
+    //         $query->whereBetween('created_at', [$start, $end]);
+    //     }
+    
+    //     $data = $query->orderBy('created_at', 'desc')->get();
+    
+    //     // Name with created date range for clarity
+    //     $suffix = '';
+    //     if ($start && $end) {
+    //         $suffix = '_' . $start->format('Ymd') . '_to_' . $end->format('Ymd');
+    //     }
+    //     $fileName = "classes{$suffix}_" . date('Y-m-d') . ".csv";
+    
+    //     header("Content-Type: text/csv");
+    //     header("Content-Disposition: attachment; filename=\"$fileName\"");
+    //     header("Pragma: no-cache");
+    //     header("Expires: 0");
+    
+    //     $output = fopen('php://output', 'w');
+    
+    //     fputcsv($output, [
+    //         'ID', 'Class Name', 'Class Code', 'Trainer', 'Slots', 'Total Members Enrolled',
+    //         'Class Start Date and Time', 'Class End Date and Time',
+    //         'Status', 'Categorization', 'Admin Acceptance', 'Reject Reason',
+    //         'Created Date', 'Updated Date',
+    //     ]);
+    
+    //     $now = now();
+    
+    //     foreach ($data as $item) {
+    //         $start_date = \Carbon\Carbon::parse($item->class_start_date);
+    //         $end_date   = \Carbon\Carbon::parse($item->class_end_date);
+    
+    //         $status = 'Past';
+    //         if ($now->lt($start_date)) {
+    //             $status = 'Future';
+    //         } elseif ($now->between($start_date, $end_date)) {
+    //             $status = 'Present';
+    //         }
+    
+    //         fputcsv($output, [
+    //             $item->id,
+    //             $item->name,
+    //             $item->class_code,
+    //             $item->trainer_id == 0
+    //                 ? 'No Trainer for now'
+    //                 : optional($item->user)->first_name . ' ' . optional($item->user)->last_name,
+    //             $item->slots,
+    //             $item->user_schedules_count, // real count
+    //             $item->class_start_date,
+    //             $item->class_end_date,
+    //             $item->isenabled ? 'Enabled' : 'Disabled',
+    //             $status,
+    //             $item->isadminapproved == 0 ? 'Pending' :
+    //                 ($item->isadminapproved == 1 ? 'Approve' :
+    //                 ($item->isadminapproved == 2 ? 'Reject' : '')),
+    //             $item->rejection_reason,
+    //             $item->created_at,
+    //             $item->updated_at,
+    //         ]);
+    //     }
+    
+    //     fclose($output);
+    //     exit;
+    // }    
+    
+    public function print(Request $request)
+    {
+        $request->validate([
+            'created_start' => 'nullable|date',
+            'created_end'   => 'nullable|date|after_or_equal:created_start',
+            'search_column' => 'nullable|string',
+            'name'          => 'nullable|string|max:255',
+            'status'        => 'nullable|in:all,upcoming,active,completed',
+        ]);
+
+        $startInput   = $request->input('created_start');
+        $endInput     = $request->input('created_end');
+        $search       = $request->input('name');
+        $searchColumn = $request->input('search_column');
+        $status       = $request->input('status', 'all');
+
+        if (empty($status)) {
+            $status = 'all';
+        }
+
+        // Normalize range (all-day, inclusive)
+        $start = $startInput ? \Carbon\Carbon::parse($startInput)->startOfDay() : null;
+        $end   = $endInput   ? \Carbon\Carbon::parse($endInput)->endOfDay()   : null;
+
+        if ($start && !$end) {
+            $end = (clone $start)->endOfDay();
+        } elseif (!$start && $end) {
+            $start = \Carbon\Carbon::createFromTimestamp(0)->startOfDay(); // include everything until $end
+        }
+
+        // Allowed columns
+        $allowedColumns = [
+            'id', 'name', 'class_code', 'trainer_name', 'slots',
+            'class_start_date', 'class_end_date', 'isadminapproved',
+            'rejection_reason', 'created_at',
+        ];
+        if (!in_array($searchColumn, $allowedColumns, true)) {
+            $searchColumn = null;
+        }
+
+        // Default date filter column
+        $dateColumns = ['class_start_date', 'class_end_date', 'created_at'];
+        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
+
+        $now = Carbon::now();
+
+        $query = \App\Models\Schedule::with(['user:id,first_name,last_name'])
+            ->withCount('user_schedules')
+            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
+                if ($searchColumn === 'trainer_name') {
+                    $likeSearch = "%{$search}%";
+
+                    return $query->whereHas('user', function ($userQuery) use ($likeSearch) {
+                        $userQuery->where(function ($nameQuery) use ($likeSearch) {
+                            $nameQuery->whereRaw(
+                                "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                [$likeSearch]
+                            )->orWhere('first_name', 'like', $likeSearch)
+                             ->orWhere('last_name', 'like', $likeSearch);
+                        });
+                    });
+                }
+
+                $exactColumns = ['id', 'slots', 'isadminapproved'];
+                if (in_array($searchColumn, $exactColumns, true)) {
+                    return $query->where($searchColumn, $search);
+                }
+                return $query->where($searchColumn, 'like', "%{$search}%");
+            })
+            ->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
+                if ($start && $end) {
+                    $query->whereBetween($rangeColumn, [$start, $end]);
+                } elseif ($start) {
+                    $query->whereDate($rangeColumn, '>=', $start->toDateString());
+                } elseif ($end) {
+                    $query->whereDate($rangeColumn, '<=', $end->toDateString());
+                }
+            })
+            ->when($status !== 'all', function ($query) use ($status, $now) {
+                if ($status === 'upcoming') {
+                    return $query->where('class_start_date', '>', $now);
+                }
+
+                if ($status === 'active') {
+                    return $query->where('class_start_date', '<=', $now)
+                        ->where('class_end_date', '>=', $now);
+                }
+
+                if ($status === 'completed') {
+                    return $query->where('class_end_date', '<', $now);
+                }
+
+                return $query;
+            })
+            ->orderBy('created_at', 'desc');
+
+        $data = $query->get();
+
+        // ------------------- Word export code (unchanged) -------------------
+        $suffix = '';
+        if ($start && $end) {
+            $suffix = '_' . $start->format('Ymd') . '_to_' . $end->format('Ymd');
+        }
+        $fileName = "classes{$suffix}_" . date('Y-m-d') . ".docx";
+
+        $phpWord = new \PhpOffice\PhpWord\PhpWord();
+        $phpWord->getSettings()->setThemeFontLang(
+            new \PhpOffice\PhpWord\Style\Language(\PhpOffice\PhpWord\Style\Language::EN_US)
+        );
+        $phpWord->setDefaultFontName('Calibri');
+        $phpWord->setDefaultFontSize(11);
+
+        $section = $phpWord->addSection([
+            'marginLeft'   => 800,
+            'marginRight'  => 800,
+            'marginTop'    => 800,
+            'marginBottom' => 800,
+        ]);
+
+        $title = 'Classes';
+        if ($start && $end) {
+            $title .= ' — ' . $start->format('M d, Y') . ' to ' . $end->format('M d, Y');
+        }
+        $section->addText($title, ['bold' => true, 'size' => 16]);
+        $section->addText('Generated: ' . now()->format('M d, Y H:i'));
+        $section->addTextBreak(1);
+
+        // Table setup
+        $tableStyle = [
+            'borderColor' => '777777',
+            'borderSize'  => 6,
+            'cellMargin'  => 80,
+        ];
+        $firstRowStyle = ['bgColor' => 'DDDDDD'];
+        $phpWord->addTableStyle('ClassesTable', $tableStyle, $firstRowStyle);
+        $table = $section->addTable('ClassesTable');
+
+        // Headers
+        $headers = [
+            'ID', 'Class Name', 'Class Code', 'Trainer', 'Slots', 'Total Members Enrolled',
+            'Class Start Date and Time', 'Class End Date and Time',
+            'Status', 'Categorization', 'Admin Acceptance', 'Reject Reason',
+            'Created Date', 'Updated Date',
+        ];
+        $headerRow = $table->addRow();
+        foreach ($headers as $h) {
+            $headerRow->addCell()->addText($h, ['bold' => true]);
+        }
+
+        // Rows
+        $now = now();
+        foreach ($data as $item) {
+            $row = $table->addRow();
+
+            $start_date = \Carbon\Carbon::parse($item->class_start_date);
+            $end_date   = \Carbon\Carbon::parse($item->class_end_date);
+
+            $status = 'Past';
+            if ($now->lt($start_date)) {
+                $status = 'Future';
+            } elseif ($now->between($start_date, $end_date)) {
+                $status = 'Present';
+            }
+
+            $adminAcceptance = $item->isadminapproved == 0 ? 'Pending' :
+                ($item->isadminapproved == 1 ? 'Approve' :
+                ($item->isadminapproved == 2 ? 'Reject' : ''));
+
+            $cells = [
+                $item->id,
+                (string) $item->name,
+                (string) $item->class_code,
+                $item->trainer_id == 0
+                    ? 'No Trainer for now'
+                    : trim((optional($item->user)->first_name ?? '') . ' ' . (optional($item->user)->last_name ?? '')),
+                (string) $item->slots,
+                (string) $item->user_schedules_count,
+                $item->class_start_date,
+                $item->class_end_date,
+                $item->isenabled ? 'Enabled' : 'Disabled',
+                $status,
+                $adminAcceptance,
+                (string) $item->rejection_reason,
+                $item->created_at,
+                $item->updated_at
+            ];
+
+            foreach ($cells as $val) {
+                $row->addCell()->addText((string) $val);
+            }
+        }
+
+        // Save + return
+        $tempPath = storage_path('app/temp_exports');
+        if (!is_dir($tempPath)) {
+            @mkdir($tempPath, 0775, true);
+        }
+        $fullPath = $tempPath . DIRECTORY_SEPARATOR . $fileName;
+
+        $writer = \PhpOffice\PhpWord\IOFactory::createWriter($phpWord, 'Word2007');
+        $writer->save($fullPath);
+
+        return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
+    }
+}
