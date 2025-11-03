@@ -11,10 +11,14 @@ use Illuminate\Support\Facades\Validator;
 class AdminAccountController extends Controller
 {
     public function changePassword(){
+        $this->logAdminActivity('viewed the change password page.');
+
         return view('admin.change-password');
     }
     
     public function editProfile(){
+        $this->logAdminActivity('viewed the edit profile page.');
+
         return view('admin.edit-profile');
     }
 
@@ -26,6 +30,8 @@ class AdminAccountController extends Controller
         $user->phone_number = $request->phone_number;
         $user->email = $request->email;
         $user->save();
+
+        $this->logAdminActivity('updated their profile information.');
 
         return redirect('/admin/edit-profile')->with('success', 'Profile updated successfully');
     }
@@ -50,6 +56,8 @@ class AdminAccountController extends Controller
         
         $user->password = Hash::make($request->new_password);
         $user->save();
+
+        $this->logAdminActivity('updated their account password.');
 
         return redirect('/admin/change-password')->with('success', 'Password changed successfully');
     }

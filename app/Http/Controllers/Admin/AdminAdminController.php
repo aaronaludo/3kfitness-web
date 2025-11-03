@@ -12,15 +12,21 @@ class AdminAdminController extends Controller
     public function index(){
         $users = User::where('role_id', 1)->get();
 
+        $this->logAdminActivity('viewed the admin accounts list.');
+
         return view('admin.admins', compact('users'));
     }
 
     public function add(){
+        $this->logAdminActivity('opened the admin account creation form.');
+
         return view('admin.admins-add');
     }
 
     public function view($id){
         $user = User::where('role_id', 1)->find($id);
+
+        $this->logAdminActivity("viewed admin account details for user ID {$id}.");
 
         return view('admin.admins-view', compact('user'));
     }
@@ -51,6 +57,8 @@ class AdminAdminController extends Controller
         $users->email = $request->email;
         $users->password = $request->password;
         $users->save();
+
+        $this->logAdminActivity("created a new admin account for {$request->first_name} {$request->last_name}.");
 
         return redirect()->route('admin.admins.add')->with('success', 'Admin created successfully');
     }

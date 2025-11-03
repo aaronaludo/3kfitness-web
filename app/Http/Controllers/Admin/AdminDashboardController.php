@@ -15,6 +15,8 @@ class AdminDashboardController extends Controller
         $histories = RideHistory::all()->count();
         $latestHistories = RideHistory::latest()->take(5)->get();
 
+        $this->logAdminActivity('viewed the admin dashboard.');
+
         return view('admin.dashboard', compact('users','admins','histories','latestHistories'));
     }
 }

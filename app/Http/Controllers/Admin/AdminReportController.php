@@ -8,6 +8,8 @@ use Illuminate\Http\Request;
 class AdminReportController extends Controller
 {
     public function index(){
+        $this->logAdminActivity('viewed the reports page.');
+
         return view('admin.reports');
     }
 }
