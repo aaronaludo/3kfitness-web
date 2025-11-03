@@ -207,6 +207,42 @@ class ScheduleController extends Controller
         return view('admin.gymmanagement.schedules-view', compact('data'));
     }
 
+    public function users(Request $request, $id)
+    {
+        $schedule = Schedule::with(['user'])
+            ->withCount('user_schedules')
+            ->findOrFail($id);
+
+        $search = trim((string) $request->input('search', ''));
+
+        $userSchedulesQuery = $schedule->user_schedules()
+            ->with('user')
+            ->orderByDesc('created_at');
+
+        if ($search !== '') {
+            $userSchedulesQuery->whereHas('user', function ($query) use ($search) {
+                $like = "%{$search}%";
+                $query->where(function ($inner) use ($like) {
+                    $inner->where('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", [$like])
+                        ->orWhere('email', 'like', $like)
+                        ->orWhere('phone_number', 'like', $like);
+                });
+            });
+        }
+
+        $userSchedules = $userSchedulesQuery
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.gymmanagement.schedules-users', [
+            'schedule' => $schedule,
+            'userSchedules' => $userSchedules,
+            'search' => $search,
+        ]);
+    }
+
     public function create()
     {
         $trainers = User::where('role_id', 5)->get();
@@ -270,7 +306,8 @@ class ScheduleController extends Controller
         $data->trainer_id = $request->trainer_id;
         $data->isadminapproved = $request->trainer_id == 0 ? 0 : 1; 
         $data->created_role = $request->user()->role_id == 1 || $request->user()->role_id == 4 ? 'Admin' : 'Staff';
-        
+        $data->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
+
         if ($request->hasFile('image')) {
             $image = $request->file('image');
             $imageName = time() . '_' . $image->getClientOriginalName();

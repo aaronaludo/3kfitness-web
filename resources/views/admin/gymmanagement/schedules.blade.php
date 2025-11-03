@@ -307,6 +307,7 @@
                                             <th class="sortable" data-column="admin_acceptance">Admin Acceptance <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="reject_reason">Reject Reason <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -321,12 +322,11 @@
                                                 </td>
                                                 <td>{{ $item->slots }}</td>
                                                 <td>
-                                                    <a href="#" 
-                                                        class="show-modal text-primary" 
-                                                        data-bs-toggle="modal" 
-                                                        data-bs-target="#userSchedulesModal"
-                                                        data-id="{{ $item->id }}"
-                                                        data-user-schedules="{{ $item->user_schedules }}">
+                                                    <a 
+                                                        href="{{ route('admin.gym-management.schedules.users', $item->id) }}"
+                                                        class="text-primary"
+                                                        title="View enrolled users"
+                                                    >
                                                         {{ $item->user_schedules_count }}
                                                     </a>
                                                 </td>
@@ -471,6 +471,9 @@
                                                     {{ $item->created_at }}
                                                 </td>
                                                 <td>
+                                                    {{ $item->created_by }}
+                                                </td>
+                                                <td>
                                                     <div class="d-flex">
                                                         <!--<div class="action-button"><a href="{{ route('admin.gym-management.schedules.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>-->
                                                         <div class="action-button"><a href="{{ route('admin.gym-management.schedules.edit', $item->id) }}" title="Edit"><i class="fa-solid fa-pencil text-primary"></i></a></div>
@@ -548,46 +551,6 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="modal fade" id="userSchedulesModal" tabindex="-1" aria-labelledby="userSchedulesModalLabel" aria-hidden="true">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="userSchedulesModalLabel">User Schedules</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            <ul id="modalUserSchedules" class="list-group">
-                                                                <li class='list-group-item'>No users found</li>
-                                                            </ul>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <script>
-                                                document.addEventListener("DOMContentLoaded", function () {
-                                                const modal = document.getElementById("userSchedulesModal");
-                                                const modalList = document.getElementById("modalUserSchedules");
-                                                const modalTitle = document.getElementById("userSchedulesModalLabel");
-
-                                                modal.addEventListener("show.bs.modal", function (event) {
-                                                    let triggerElement = event.relatedTarget;
-                                                    let dataUserSchedules = triggerElement.getAttribute("data-user-schedules");
-
-                                                    const dataUserSchedulesList = JSON.parse(dataUserSchedules);
-                                                    console.log(dataUserSchedulesList);
-
-                                                    modalTitle.innerHTML = `User Schedules - 1`;
-
-                                                    modalList.innerHTML = "";
-                                                    dataUserSchedulesList.forEach(item => {
-                                                        modalList.innerHTML += `<li class='list-group-item'>${item.user_id} (${item.schedule_id})</li>`;
-                                                    });
-                                                });
-                                            });
-                                            </script>
                                             <script>
                                                 document.getElementById('reject-modal-form-{{ $item->id }}').addEventListener('submit', function(e) {
                                                     const submitButton = document.getElementById('reject-modal-submit-button-{{ $item->id }}');
