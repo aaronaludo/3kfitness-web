@@ -7,6 +7,9 @@
             <div class="col-lg-12 d-flex justify-content-between">
                 <div><h2 class="title">User Memberships</h2></div>
                 <div class="d-flex align-items-center">
+                    <a href="{{ route('admin.sales.index') }}" class="btn btn-outline-secondary ms-2">
+                        <i class="fa-solid fa-chart-line"></i>&nbsp;&nbsp;&nbsp;Sales
+                    </a>
                     <form action="{{ route('admin.staff-account-management.user-memberships.print') }}" method="POST" id="print-form">
                         @csrf
                         <input type="hidden" name="created_start" value="{{ request('start_date') }}">

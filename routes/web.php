@@ -16,6 +16,7 @@ use App\Http\Controllers\Admin\New\FeedbackController as Feedback;
 use App\Http\Controllers\Admin\New\GymMemberAttendanceController as GymMemberAttendance;
 use App\Http\Controllers\Admin\New\OnlineRegistrationController as OnlineRegistration;
 use App\Http\Controllers\Admin\New\ReportController as Report;
+use App\Http\Controllers\Admin\New\SalesController as Sales;
 use App\Http\Controllers\Admin\New\StaffAccountManagementController as StaffAccountManagement;
 use App\Http\Controllers\Admin\New\ScheduleController as Schedule;
 use App\Http\Controllers\Admin\New\MemberDataController as MemberData;
@@ -146,6 +147,9 @@ Route::middleware(['auth:admin'])->group(function () {
  
     Route::get('/admin/online-registrations', [OnlineRegistration::class, 'index'])->name('admin.online-registrations.index');
     Route::get('/admin/reports', [Report::class, 'index'])->name('admin.reports.index');
+    
+    // Sales Module
+    Route::get('/admin/sales', [Sales::class, 'index'])->name('admin.sales.index');
 
     Route::get('/admin/staff-account-management/attendances', [Attendance::class, 'index'])->name('admin.staff-account-management.attendances');
     Route::get('/admin/staff-account-management/attendances/scanner', [Attendance::class, 'scanner'])->name('admin.staff-account-management.attendances.scanner');
