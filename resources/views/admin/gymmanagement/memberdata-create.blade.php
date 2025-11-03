@@ -1,11 +1,11 @@
 @extends('layouts.admin')
-@section('title', 'Create Member')
+@section('title', 'Walk-in Registration')
 
 @section('content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-lg-12 d-flex justify-content-between">
-                <div><h2 class="title">Create Member</h1></div>
+                <div><h2 class="title">Walk-in Registration</h1></div>
             </div>
             <div class="col-lg-12">
                 <div class="box">
@@ -27,6 +27,11 @@
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
                                         <input type="file" class="form-control" id="profile_picture" name="profile_picture"/>
                                     </div>
+                                </div>
+
+                                <div class="alert alert-info d-flex align-items-center" role="alert">
+                                    <i class="fa-solid fa-person-walking me-2"></i>
+                                    This form is for in-gym walk-ins. Assign an upcoming class and collect payment to generate a receipt.
                                 </div>
                                 <div class="mb-3 row">
                                     <label for="first_name" class="col-sm-12 col-lg-2 col-form-label">First name: <span class="required">*</span></label>
@@ -64,7 +69,31 @@
                                             Please enter a valid Philippine mobile number (e.g., +639557735516).
                                         </div>
                                     </div>
-                                </div>                                
+                                </div>
+
+                                <div class="mb-3 row">
+                                    <label for="class_id" class="col-sm-12 col-lg-2 col-form-label">Assign Class (upcoming):</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <select class="form-control" id="class_id" name="class_id">
+                                            <option value="">-- Optional: Select a class --</option>
+                                            @php
+                                                $now = \Carbon\Carbon::now();
+                                            @endphp
+                                            @foreach(($classes ?? []) as $cls)
+                                                @php
+                                                    $start = $cls->class_start_date ? \Carbon\Carbon::parse($cls->class_start_date) : null;
+                                                    $end = $cls->class_end_date ? \Carbon\Carbon::parse($cls->class_end_date) : null;
+                                                    $isUpcoming = $start && $now->lt($start);
+                                                @endphp
+                                                @if($isUpcoming)
+                                                    <option value="{{ $cls->id }}">
+                                                        {{ $cls->name }} ({{ $start ? $start->format('M j, Y g:iA') : 'TBA' }}) — Code: {{ $cls->class_code }}
+                                                    </option>
+                                                @endif
+                                            @endforeach
+                                        </select>
+                                    </div>
+                                </div>
                                 <div class="mb-3 row">
                                     <label for="email" class="col-sm-12 col-lg-2 col-form-label">Email: <span class="required">*</span></label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">

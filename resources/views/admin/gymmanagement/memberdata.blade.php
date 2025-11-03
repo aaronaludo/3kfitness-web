@@ -16,7 +16,7 @@
                         </button>
                     </form> --}}
                     <a class="btn btn-danger" href="{{ route('admin.gym-management.members.create') }}">
-                        <i class="fa-solid fa-plus"></i>&nbsp;&nbsp;&nbsp;Add
+                        <i class="fa-solid fa-plus"></i>&nbsp;&nbsp;&nbsp;Walk-in Registration
                     </a>
                     <form action="{{ route('admin.gym-management.members.print') }}" method="POST" id="print-form">
                         @csrf

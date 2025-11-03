@@ -204,6 +204,7 @@
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="status">Status <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="amount">Amount <i class="fa fa-sort"></i></th>
                                             <th>Classes Enrolled</th>
                                             <th>Created By</th>
                                             <th>Actions</th>
@@ -353,7 +354,14 @@
                                                         }
                                                     })();
                                                     </script>
-                                                </td>                                                
+                                                </td>
+                                                <td>
+                                                    @php
+                                                        $currency = optional($item->membership)->currency ?: 'PHP';
+                                                        $price = optional($item->membership)->price ?: 0;
+                                                    @endphp
+                                                    {{ $currency }} {{ number_format((float) $price, 2) }}
+                                                </td>
                                                 <td>
                                                     @php
                                                         $classes = collect(optional($item->user)->userSchedules)
@@ -389,6 +397,9 @@
                                                     <div class="d-flex gap-2">
                                                         <div class="action-button">
                                                             <a href="{{ route('admin.staff-account-management.user-memberships.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a>
+                                                        </div>
+                                                        <div class="action-button">
+                                                            <a href="{{ route('admin.staff-account-management.user-memberships.receipt', $item->id) }}" title="Receipt"><i class="fa-solid fa-receipt text-primary"></i></a>
                                                         </div>
                                                         <div class="action-button">
                                                             <button type="button" data-bs-toggle="modal" data-bs-target="#userMembershipArchiveModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">

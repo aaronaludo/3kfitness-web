@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Membership;
 use App\Models\UserMembership;
 use App\Models\Schedule;
+use App\Models\UserSchedule;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
@@ -142,7 +143,8 @@ class MemberDataController extends Controller
             'phone_number' => 'required',
             'email' => 'required|email|unique:users',
             'password' => 'required|confirmed',
-            'membership_id' => 'required'
+            'membership_id' => 'required',
+            'class_id' => 'nullable|exists:schedules,id'
         ]);
 
         $users = new User;
@@ -187,8 +189,23 @@ class MemberDataController extends Controller
         $data->expiration_at = $currentDate;
 
         $data->save();
-        
-        return redirect()->route('admin.gym-management.members')->with('success', 'Gym member added successfully');
+
+        // Optionally enroll to selected upcoming class (walk-in)
+        if (!empty($validatedData['class_id'])) {
+            $schedule = Schedule::find($validatedData['class_id']);
+            if ($schedule) {
+                $currentCount = UserSchedule::where('schedule_id', $schedule->id)->count();
+                if (!isset($schedule->slots) || $currentCount < (int) $schedule->slots) {
+                    $enroll = new UserSchedule();
+                    $enroll->user_id = $users->id;
+                    $enroll->schedule_id = $schedule->id;
+                    $enroll->save();
+                }
+            }
+        }
+
+        // Redirect to printable walk-in payment receipt
+        return redirect()->route('admin.staff-account-management.user-memberships.receipt', ['id' => $data->id])->with('success', 'Gym member added successfully');
     }
 
     public function update(Request $request, $id)
@@ -197,6 +214,19 @@ class MemberDataController extends Controller
             'membership_id' => 'required'
         ]);
         
+        // Block issuing a new membership if the user already has an active approved membership
+        $now = Carbon::now();
+        $existingActive = UserMembership::where('user_id', $id)
+            ->where('isapproved', 1)
+            ->where(function ($q) use ($now) {
+                $q->whereNull('expiration_at')->orWhere('expiration_at', '>=', $now);
+            })
+            ->exists();
+
+        if ($existingActive) {
+            return redirect()->back()->withErrors(['membership_id' => 'User already has an active membership.'])->withInput();
+        }
+
         if ($validatedData['membership_id'] == 0) {
             $membership = (object) ['year' => 0, 'month' => 0, 'week' => 0]; 
             $validatedData['membership_id'] = null;

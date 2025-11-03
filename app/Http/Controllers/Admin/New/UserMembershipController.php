@@ -5,6 +5,8 @@ namespace App\Http\Controllers\Admin\New;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\UserMembership;
+use App\Models\Membership;
+use App\Models\User;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
@@ -75,6 +77,17 @@ class UserMembershipController extends Controller
         $data = UserMembership::findOrFail($id);
 
         return view('admin.user-memberships.view', compact('data'));
+    }
+
+    public function receipt($id)
+    {
+        $record = UserMembership::with(['membership', 'user'])->findOrFail($id);
+        $createdAt = $record->created_at ? Carbon::parse($record->created_at) : Carbon::now();
+
+        return view('admin.payments.receipt', [
+            'record' => $record,
+            'createdAt' => $createdAt,
+        ]);
     }
 
     public function isapprove(Request $request)
@@ -296,7 +309,7 @@ class UserMembershipController extends Controller
                             },
                         ]);
                 },
-                'membership:id,name',
+                'membership:id,name,currency,price',
             ])
             ->orderBy('created_at', 'desc');
 

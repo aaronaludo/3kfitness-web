@@ -35,6 +35,7 @@ use App\Http\Controllers\Admin\New\AboutController as About;
 use App\Http\Controllers\Admin\New\PayrollController as Payroll;
 
 use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagement;
+// use App\Http\Controllers\Admin\New\WalkInPaymentController as WalkInPayments;
 
 Route::get('/', function () {
     return redirect('/login');
@@ -196,4 +197,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/update-change-password', [AdminAccountController::class, 'updatePassword'])->name('admin.account.update_change_password');
 
     Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
+
+    // User Memberships receipt (moved from Walk-in Payments)
+    Route::get('/admin/user-memberships/receipt/{id}', [UserMembership::class, 'receipt'])->name('admin.staff-account-management.user-memberships.receipt');
 });
