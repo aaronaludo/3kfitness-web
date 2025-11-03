@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
 use App\Models\User;
 use App\Models\Log;
 
@@ -103,5 +104,52 @@ class MemberAuthController extends Controller
         $log->save();
         
         return response()->json(['message' => 'Member account only'], 401);
+    }
+
+    public function sendEmailVerificationCode(Request $request)
+    {
+        $user = Auth::user();
+
+        if (!$user || $user->role_id !== 3) {
+            return response()->json(['message' => 'Member account only'], 401);
+        }
+
+        if ($user->is_email_verified) {
+            return response()->json(['message' => 'Email already verified', 'user' => $user]);
+        }
+
+        $code = Str::upper(Str::random(10));
+        $user->email_verification_code = $code;
+        $user->is_email_verified = 0;
+        $user->save();
+
+        return response()->json(['message' => 'Verification code generated', 'user' => $user]);
+    }
+
+    public function verifyEmail(Request $request)
+    {
+        $request->validate([
+            'code' => 'required|string'
+        ]);
+
+        $user = Auth::user();
+
+        if (!$user || $user->role_id !== 3) {
+            return response()->json(['message' => 'Member account only'], 401);
+        }
+
+        if ($user->is_email_verified) {
+            return response()->json(['message' => 'Email already verified']);
+        }
+
+        if (strcasecmp((string) $user->email_verification_code, (string) $request->code) !== 0) {
+            return response()->json(['message' => 'Invalid verification code'], 422);
+        }
+
+        $user->is_email_verified = 1;
+        $user->email_verification_code = null;
+        $user->save();
+
+        return response()->json(['message' => 'Email verified successfully', 'user' => $user]);
     }
 }

@@ -115,6 +115,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 
         Route::post('/edit-profile', [MemberAccountController::class, 'editProfile'])->name('members.edit-profile');
         Route::post('/change-password', [MemberAccountController::class, 'changePassword'])->name('members.change-password');
+        Route::post('/send-email-verification-code', [MemberAuthController::class, 'sendEmailVerificationCode'])->name('members.send-email-verification-code');
+        Route::post('/verify-email', [MemberAuthController::class, 'verifyEmail'])->name('members.verify-email');
     });
 
     Route::prefix('trainers')->group(function () {

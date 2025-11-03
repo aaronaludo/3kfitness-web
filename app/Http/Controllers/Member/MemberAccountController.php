@@ -24,11 +24,18 @@ class MemberAccountController extends Controller
             return response()->json(['message' => 'Member account only'], 401);
         }
 
+        $emailChanged = $user->email !== $request->email;
+
         $user->first_name = $request->first_name;
         $user->last_name = $request->last_name;
         $user->phone_number = $request->phone_number;
         $user->address = $request->address;
         $user->email = $request->email;
+
+        if ($emailChanged) {
+            $user->is_email_verified = 0;
+            $user->email_verification_code = null;
+        }
         $user->save();
 
         return response()->json(['user' => $user]);
