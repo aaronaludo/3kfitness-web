@@ -55,9 +55,14 @@ class User extends Authenticatable
         return $this->hasMany(UserMembership::class);
     }
     
-     public function memberships()
+    public function memberships()
     {
         return $this->belongsToMany(Membership::class, 'user_memberships', 'user_id', 'membership_id');
+    }
+    
+    public function userSchedules()
+    {
+        return $this->hasMany(UserSchedule::class);
     }
     
     public function payrolls(){

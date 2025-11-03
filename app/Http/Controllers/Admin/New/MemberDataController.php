@@ -172,7 +172,8 @@ class MemberDataController extends Controller
         $data->membership_id = $validatedData['membership_id'];
         $data->isapproved = 1;
         $data->proof_of_payment = 'blank_for_now';
-    
+        $data->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
+        
         $currentDate = new \DateTime();
         if ($membership->year) {
             $currentDate->modify("+{$membership->year} years");
@@ -216,6 +217,7 @@ class MemberDataController extends Controller
         $data->membership_id = $validatedData['membership_id'];
         $data->isapproved = 1;
         $data->proof_of_payment = 'blank_for_now';
+        $data->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
         
         $currentDate = new \DateTime();
         if ($membership->year) {

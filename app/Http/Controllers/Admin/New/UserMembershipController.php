@@ -212,7 +212,19 @@ class UserMembershipController extends Controller
     {
         $query = UserMembership::query()
             ->with([
-                'user:id,first_name,last_name',
+                'user' => function ($userQuery) {
+                    $userQuery->select('id', 'first_name', 'last_name')
+                        ->with([
+                            'userSchedules' => function ($userScheduleQuery) {
+                                $userScheduleQuery->select('id', 'user_id', 'schedule_id')
+                                    ->with([
+                                        'schedule' => function ($scheduleQuery) {
+                                            $scheduleQuery->select('id', 'name', 'class_code');
+                                        },
+                                    ]);
+                            },
+                        ]);
+                },
                 'membership:id,name',
             ])
             ->orderBy('created_at', 'desc');

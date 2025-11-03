@@ -186,6 +186,8 @@
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="status">Status <i class="fa fa-sort"></i></th>
+                                            <th>Classes Enrolled</th>
+                                            <th>Created By</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -329,6 +331,37 @@
                                                     })();
                                                     </script>
                                                 </td>                                                
+                                                <td>
+                                                    @php
+                                                        $classes = collect(optional($item->user)->userSchedules)
+                                                            ->map(function ($userSchedule) {
+                                                                $schedule = $userSchedule->schedule;
+                                                                if (!$schedule) {
+                                                                    return null;
+                                                                }
+                                                                return [
+                                                                    'id' => $schedule->id,
+                                                                    'name' => $schedule->name,
+                                                                ];
+                                                            })
+                                                            ->filter()
+                                                            ->unique('id')
+                                                            ->values();
+                                                    @endphp
+                                                    @if($classes->isNotEmpty())
+                                                        @foreach($classes as $class)
+                                                            <a
+                                                                href="{{ route('admin.gym-management.schedules.view', $class['id']) }}"
+                                                                class="text-decoration-none"
+                                                            >
+                                                                {{ $class['name'] }}
+                                                            </a>@if(!$loop->last), @endif
+                                                        @endforeach
+                                                    @else
+                                                        <span class="text-muted">No classes enrolled</span>
+                                                    @endif
+                                                </td>
+                                                <td>{{ $item->created_by }}</td>
                                                 <td>
                                                     <div class="d-flex">
                                                         <div class="action-button"><a href="{{ route('admin.staff-account-management.user-memberships.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>
