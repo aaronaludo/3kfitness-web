@@ -193,6 +193,7 @@
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="phone_number">Phone Number <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="email">Email <i class="fa fa-sort"></i></th>
+                                            <th>Assignments</th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
@@ -225,6 +226,19 @@
                                                 <td>{{ $item->first_name }} {{ $item->last_name }}</td>
                                                 <td>{{ $item->phone_number }}</td>
                                                 <td>{{ $item->email }}</td>
+                                                @php
+                                                    $trainerSchedules = collect($item->trainerSchedules ?? []);
+                                                @endphp
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-outline-secondary btn-sm"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#assignmentsModal-{{ $item->id }}"
+                                                    >
+                                                        View Assignments
+                                                    </button>
+                                                </td>
                                                 <td>{{ $item->created_at }}</td>
                                                 <td>{{ $item->updated_at }}</td>
                                                 <td>
@@ -247,6 +261,63 @@
                                                     </div>
                                                 </td>
                                             </tr>
+                                            <div class="modal fade" id="assignmentsModal-{{ $item->id }}" tabindex="-1" aria-labelledby="assignmentsModalLabel-{{ $item->id }}" aria-hidden="true">
+                                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="assignmentsModalLabel-{{ $item->id }}">Assignments for {{ $item->first_name }} {{ $item->last_name }}</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            @if($trainerSchedules->isNotEmpty())
+                                                                @foreach($trainerSchedules as $schedule)
+                                                                    <div class="mb-4">
+                                                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
+                                                                        @if(!empty($schedule->class_code))
+                                                                            <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
+                                                                        @endif
+                                                                        @if(!empty($schedule->class_start_date) || !empty($schedule->class_end_date))
+                                                                            <span class="text-muted small d-block">
+                                                                                {{ $schedule->class_start_date ?? 'N/A' }}
+                                                                                @if(!empty($schedule->class_end_date))
+                                                                                    &ndash; {{ $schedule->class_end_date }}
+                                                                                @endif
+                                                                            </span>
+                                                                        @endif
+                                                                        @php
+                                                                            $scheduleStudents = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
+                                                                                $user = $userSchedule->user ?? null;
+                                                                                if (!$user) {
+                                                                                    return null;
+                                                                                }
+                                                                                $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                                                                                return $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                                            })->filter()->unique()->values();
+                                                                        @endphp
+                                                                        <div class="mt-2">
+                                                                            <span class="text-muted small text-uppercase fw-semibold">Students</span>
+                                                                            @if($scheduleStudents->isNotEmpty())
+                                                                                <ul class="list-unstyled mb-0 small mt-1">
+                                                                                    @foreach($scheduleStudents as $student)
+                                                                                        <li>{{ $student }}</li>
+                                                                                    @endforeach
+                                                                                </ul>
+                                                                            @else
+                                                                                <p class="text-muted small mb-0">No students assigned.</p>
+                                                                            @endif
+                                                                        </div>
+                                                                    </div>
+                                                                @endforeach
+                                                            @else
+                                                                <p class="text-muted mb-0">No schedules assigned.</p>
+                                                            @endif
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
                                             <div class="modal fade" id="deleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
                                                 <div class="modal-dialog">
                                                     <div class="modal-content">
