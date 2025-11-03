@@ -60,16 +60,17 @@ class TrainerManagementController extends Controller
             ->filter()
             ->values();
 
+        $activeTrainerBaseQuery = User::where('role_id', 5)->where('is_archive', 0);
         $statusTallies = [
-            'all' => User::where('role_id', 5)->count(),
-            'assigned' => User::where('role_id', 5)
+            'all' => (clone $activeTrainerBaseQuery)->count(),
+            'assigned' => (clone $activeTrainerBaseQuery)
                 ->whereIn('id', $activeTrainerIds)
                 ->count(),
         ];
 
         $statusTallies['unassigned'] = max($statusTallies['all'] - $statusTallies['assigned'], 0);
-     
-        $trainers = User::where('role_id', 5)
+
+        $baseQuery = User::where('role_id', 5)
             ->with(['trainerSchedules.user_schedules.user'])
             ->when($search && $search_column, function ($query) use ($search, $search_column) {
                 if ($search_column === 'name') {
@@ -77,9 +78,9 @@ class TrainerManagementController extends Controller
                         $q->where('first_name', 'like', "%{$search}%")
                           ->orWhere('last_name', 'like', "%{$search}%");
                     });
-                } else {
-                    return $query->where($search_column, 'like', "%{$search}%");
                 }
+
+                return $query->where($search_column, 'like', "%{$search}%");
             })
             ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
                 if ($startDate) {
@@ -89,10 +90,16 @@ class TrainerManagementController extends Controller
                 if ($endDate) {
                     $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
                 }
-            })
+            });
+
+        $queryParamsWithoutArchivePage = $request->except('archive_page');
+        $queryParamsWithoutMainPage = $request->except('page');
+
+        $trainers = (clone $baseQuery)
+            ->where('is_archive', 0)
             ->when($statusFilter !== 'all', function ($query) use ($statusFilter, $activeTrainerIds) {
                 if ($statusFilter === 'assigned') {
-                    return $query->whereIn('id', $activeTrainerIds);
+                    return $query->whereIn('id', $activeTrainerIds->all());
                 }
 
                 if ($statusFilter === 'unassigned') {
@@ -100,16 +107,22 @@ class TrainerManagementController extends Controller
                         return $query;
                     }
 
-                    return $query->whereNotIn('id', $activeTrainerIds);
+                    return $query->whereNotIn('id', $activeTrainerIds->all());
                 }
 
                 return $query;
             })
             ->orderByDesc('created_at')
             ->paginate(10)
-            ->appends($request->query());
+            ->appends($queryParamsWithoutArchivePage);
 
-        return view('admin.trainermanagement.index', compact('trainers', 'current_time', 'statusTallies', 'statusFilter'));
+        $archivedData = (clone $baseQuery)
+            ->where('is_archive', 1)
+            ->orderByDesc('created_at')
+            ->paginate(10, ['*'], 'archive_page')
+            ->appends($queryParamsWithoutMainPage);
+
+        return view('admin.trainermanagement.index', compact('trainers', 'archivedData', 'current_time', 'statusTallies', 'statusFilter'));
     } 
 
     public function view($id){
@@ -217,9 +230,46 @@ class TrainerManagementController extends Controller
         }
         
         $data = User::where('role_id', 5)->findOrFail($request->id);
-        $data->delete();
 
-        return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer deleted successfully');
+        if ((int) $data->is_archive === 1) {
+            $data->delete();
+            $message = 'Trainer deleted permanently';
+        } else {
+            $data->is_archive = 1;
+            $data->save();
+            $message = 'Trainer moved to archive';
+        }
+
+        return redirect()->route('admin.trainer-management.index')->with('success', $message);
+    }
+
+    public function restore(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:users,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = User::where('role_id', 5)->findOrFail($request->id);
+
+        if ((int) $data->is_archive === 0) {
+            return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer is already active');
+        }
+
+        $data->is_archive = 0;
+        $data->save();
+
+        return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer restored successfully');
     }
 
     public function print(Request $request)

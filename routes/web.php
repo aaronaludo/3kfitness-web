@@ -186,6 +186,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/trainer-management', [TrainerManagement::class, 'store'])->name('admin.trainer-management.store');
     Route::put('/admin/trainer-management/{id}', [TrainerManagement::class, 'update'])->name('admin.trainer-management.update');
     Route::delete('/admin/trainer-management', [TrainerManagement::class, 'delete'])->name('admin.trainer-management.delete');
+    Route::match(['put', 'post'], '/admin/trainer-management/restore', [TrainerManagement::class, 'restore'])->name('admin.trainer-management.restore');
 
     Route::get('/admin/settings', [AdminSettingController::class, 'index'])->name('admin.settings.index');
 

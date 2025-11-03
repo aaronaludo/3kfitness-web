@@ -218,7 +218,7 @@
                                         </tr>
                                     </thead>
                                     <tbody id="table-body">
-                                        @foreach($trainers as $item)
+                                        @forelse($trainers as $item)
                                             <tr>
                                                 <td>{{ $item->id }}</td>
                                                 {{-- <td>
@@ -336,11 +336,11 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="modal fade" id="deleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+                                            <div class="modal fade" id="deleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ $item->id }}" aria-hidden="true">
                                                 <div class="modal-dialog">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
-                                                            <h5 class="modal-title" id="rejectModalLabel">Are you sure you want to delete ({{ $item->email }})?</h5>
+                                                            <h5 class="modal-title" id="deleteModalLabel-{{ $item->id }}">Move trainer ({{ $item->email }}) to archive?</h5>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
                                                         <form action="{{ route('admin.trainer-management.delete') }}" method="POST" id="main-form-{{ $item->id }}">
@@ -355,10 +355,9 @@
                                                             </div>
                                                             <div class="modal-footer">
                                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                                <!--<button type="submit" class="btn btn-danger">Submit</button>-->
                                                                 <button class="btn btn-danger" type="submit" id="submitButton-{{ $item->id }}">
                                                                     <span id="loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                                                                    Submit
+                                                                    Archive
                                                                 </button>
                                                             </div>
                                                         </form>
@@ -375,10 +374,207 @@
                                                     loader.classList.remove('d-none');
                                                 });
                                             </script>
-                                        @endforeach
+                                        @empty
+                                            <tr>
+                                                <td colspan="8" class="text-center text-muted">No trainers found.</td>
+                                            </tr>
+                                        @endforelse
                                     </tbody>
                                 </table>
                                 {{ $trainers->links() }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="box mt-5">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+                                <h4 class="fw-semibold mb-0">Archived Trainers</h4>
+                                <span class="text-muted small">Showing {{ $archivedData->total() }} archived</span>
+                            </div>
+                            <div class="table-responsive mb-3">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Phone Number</th>
+                                            <th>Email</th>
+                                            <th>Assignments</th>
+                                            <th>Created Date</th>
+                                            <th>Updated Date</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse($archivedData as $archive)
+                                            <tr>
+                                                <td>{{ $archive->id }}</td>
+                                                <td>{{ $archive->first_name }} {{ $archive->last_name }}</td>
+                                                <td>{{ $archive->phone_number }}</td>
+                                                <td>{{ $archive->email }}</td>
+                                                @php
+                                                    $archivedSchedules = collect($archive->trainerSchedules ?? []);
+                                                @endphp
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-outline-secondary btn-sm"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#archiveAssignmentsModal-{{ $archive->id }}"
+                                                    >
+                                                        View Assignments
+                                                    </button>
+                                                </td>
+                                                <td>{{ $archive->created_at }}</td>
+                                                <td>{{ $archive->updated_at }}</td>
+                                                <td class="action-button">
+                                                    <div class="d-flex gap-2">
+                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#archiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                            <i class="fa-solid fa-rotate-left text-success"></i>
+                                                        </button>
+                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#archiveDeleteModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                            <i class="fa-solid fa-trash text-danger"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <div class="modal fade" id="archiveAssignmentsModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveAssignmentsModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="archiveAssignmentsModalLabel-{{ $archive->id }}">Assignments for {{ $archive->first_name }} {{ $archive->last_name }}</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body">
+                                                            @if($archivedSchedules->isNotEmpty())
+                                                                @foreach($archivedSchedules as $schedule)
+                                                                    <div class="mb-4">
+                                                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
+                                                                        @if(!empty($schedule->class_code))
+                                                                            <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
+                                                                        @endif
+                                                                        @if(!empty($schedule->class_start_date) || !empty($schedule->class_end_date))
+                                                                            <span class="text-muted small d-block">
+                                                                                {{ $schedule->class_start_date ?? 'N/A' }}
+                                                                                @if(!empty($schedule->class_end_date))
+                                                                                    &ndash; {{ $schedule->class_end_date }}
+                                                                                @endif
+                                                                            </span>
+                                                                        @endif
+                                                                        @php
+                                                                            $scheduleStudents = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
+                                                                                $user = $userSchedule->user ?? null;
+                                                                                if (!$user) {
+                                                                                    return null;
+                                                                                }
+                                                                                $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                                                                                return $fullName !== '' ? $fullName : ($user->email ?? 'Unknown');
+                                                                            })->filter();
+                                                                        @endphp
+                                                                        @if($scheduleStudents->isNotEmpty())
+                                                                            <div class="mt-2">
+                                                                                <span class="text-muted small d-block">Enrolled members:</span>
+                                                                                <ul class="mb-0 small ms-3">
+                                                                                    @foreach($scheduleStudents as $student)
+                                                                                        <li>{{ $student }}</li>
+                                                                                    @endforeach
+                                                                                </ul>
+                                                                            </div>
+                                                                        @else
+                                                                            <span class="text-muted small">No members enrolled.</span>
+                                                                        @endif
+                                                                    </div>
+                                                                @endforeach
+                                                            @else
+                                                                <p class="text-muted mb-0">No schedules assigned.</p>
+                                                            @endif
+                                                        </div>
+                                                        <div class="modal-footer">
+                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal fade" id="archiveRestoreModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveRestoreModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="archiveRestoreModalLabel-{{ $archive->id }}">Restore trainer ({{ $archive->email }})?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.trainer-management.restore') }}" method="POST" id="archive-restore-modal-form-{{ $archive->id }}">
+                                                            @csrf
+                                                            <input type="hidden" name="id" value="{{ $archive->id }}">
+                                                            <div class="modal-body">
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-success" type="submit" id="archive-restore-modal-submit-button-{{ $archive->id }}">
+                                                                    <span id="archive-restore-modal-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Restore
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal fade" id="archiveDeleteModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveDeleteModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="archiveDeleteModalLabel-{{ $archive->id }}">Delete archived trainer ({{ $archive->email }}) permanently?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.trainer-management.delete') }}" method="POST" id="archive-delete-modal-form-{{ $archive->id }}">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <input type="hidden" name="id" value="{{ $archive->id }}">
+                                                            <div class="modal-body">
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-danger" type="submit" id="archive-delete-modal-submit-button-{{ $archive->id }}">
+                                                                    <span id="archive-delete-modal-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <script>
+                                                document.getElementById('archive-restore-modal-form-{{ $archive->id }}').addEventListener('submit', function () {
+                                                    const submitButton = document.getElementById('archive-restore-modal-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('archive-restore-modal-loader-{{ $archive->id }}');
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                                document.getElementById('archive-delete-modal-form-{{ $archive->id }}').addEventListener('submit', function () {
+                                                    const submitButton = document.getElementById('archive-delete-modal-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('archive-delete-modal-loader-{{ $archive->id }}');
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                            </script>
+                                        @empty
+                                            <tr>
+                                                <td colspan="8" class="text-center text-muted">No archived trainers found.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                                {{ $archivedData->links() }}
                             </div>
                         </div>
                     </div>
