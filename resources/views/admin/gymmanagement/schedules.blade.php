@@ -116,12 +116,10 @@
                                     <a href="{{ route('admin.gym-management.schedules') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
 
                                     <button
-                                        class="btn btn-outline-secondary rounded-pill px-3"
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
                                         type="button"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#schedule-advanced-filters"
-                                        aria-expanded="{{ $advancedFiltersOpen ? 'true' : 'false' }}"
-                                        aria-controls="schedule-advanced-filters"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#scheduleFiltersModal"
                                     >
                                         <i class="fa-solid fa-sliders"></i> Filters
                                     </button>
@@ -133,53 +131,73 @@
                                 </div>
                             </div>
 
-                            <div class="collapse border-top mt-4 pt-4{{ $advancedFiltersOpen ? ' show' : '' }}" id="schedule-advanced-filters">
-                                <div class="row g-3">
-                                    <div class="col-12">
-                                        <span class="text-muted text-uppercase small fw-semibold">Quick ranges</span>
-                                        <div class="d-flex flex-wrap gap-2 mt-2">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-week">Last week</button>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
+                            <div class="modal fade" id="scheduleFiltersModal" tabindex="-1" aria-labelledby="scheduleFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-md">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="scheduleFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
-                                    </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-column gap-4">
+                                                <div>
+                                                    <span class="text-muted text-uppercase small fw-semibold d-block">Quick ranges</span>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-week">Last week</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
+                                                    </div>
+                                                </div>
 
-                                    <div class="col-lg-4">
-                                        <label for="search-column" class="form-label text-muted text-uppercase small">Search by</label>
-                                        <select id="search-column" name="search_column" class="form-select rounded-3">
-                                            <option value="" {{ request('search_column') ? '' : 'selected' }}>Best match</option>
-                                            <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
-                                            <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Class Name</option>
-                                            <option value="class_code" {{ request('search_column') == 'class_code' ? 'selected' : '' }}>Class Code</option>
-                                            <option value="trainer_name" {{ request('search_column') == 'trainer_name' ? 'selected' : '' }}>Trainer</option>
-                                            <option value="slots" {{ request('search_column') == 'slots' ? 'selected' : '' }}>Slots</option>
-                        	                <option value="class_start_date" {{ request('search_column') == 'class_start_date' ? 'selected' : '' }}>Class Start Date</option>
-                                            <option value="class_end_date" {{ request('search_column') == 'class_end_date' ? 'selected' : '' }}>Class End Date</option>
-                                            <option value="rejection_reason" {{ request('search_column') == 'rejection_reason' ? 'selected' : '' }}>Reject Reason</option>
-                                            <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                        </select>
-                                    </div>
+                                                <div>
+                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
+                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
+                                                        <option value="" {{ request('search_column') ? '' : 'selected' }}>Best match</option>
+                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
+                                                        <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Class Name</option>
+                                                        <option value="class_code" {{ request('search_column') == 'class_code' ? 'selected' : '' }}>Class Code</option>
+                                                        <option value="trainer_name" {{ request('search_column') == 'trainer_name' ? 'selected' : '' }}>Trainer</option>
+                                                        <option value="slots" {{ request('search_column') == 'slots' ? 'selected' : '' }}>Slots</option>
+                        	                            <option value="class_start_date" {{ request('search_column') == 'class_start_date' ? 'selected' : '' }}>Class Start Date</option>
+                                                        <option value="class_end_date" {{ request('search_column') == 'class_end_date' ? 'selected' : '' }}>Class End Date</option>
+                                                        <option value="rejection_reason" {{ request('search_column') == 'rejection_reason' ? 'selected' : '' }}>Reject Reason</option>
+                                                        <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
+                                                    </select>
+                                                </div>
 
-                                    <div class="col-lg-4">
-                                        <label for="start-date" class="form-label text-muted text-uppercase small">Start date</label>
-                                        <input
-                                            type="date"
-                                            id="start-date"
-                                            class="form-control rounded-3"
-                                            name="start_date"
-                                            value="{{ request('start_date') }}"
-                                        />
-                                    </div>
-
-                                    <div class="col-lg-4">
-                                        <label for="end-date" class="form-label text-muted text-uppercase small">End date</label>
-                                        <input
-                                            type="date"
-                                            id="end-date"
-                                            class="form-control rounded-3"
-                                            name="end_date"
-                                            value="{{ request('end_date') }}"
-                                        />
+                                                <div>
+                                                    <span class="form-label text-muted text-uppercase small d-block mb-2">Date range</span>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="start-date" class="form-label small text-muted mb-1">Start date</label>
+                                                            <input
+                                                                type="date"
+                                                                id="start-date"
+                                                                name="start_date"
+                                                                class="form-control rounded-3"
+                                                                value="{{ request('start_date') }}"
+                                                            />
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="end-date" class="form-label small text-muted mb-1">End date</label>
+                                                            <input
+                                                                type="date"
+                                                                id="end-date"
+                                                                class="form-control rounded-3"
+                                                                name="end_date"
+                                                                value="{{ request('end_date') }}"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-magnifying-glass me-2"></i>Apply filters
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
