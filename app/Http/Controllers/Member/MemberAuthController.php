@@ -9,6 +9,7 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
 use App\Models\User;
 use App\Models\Log;
+use App\Models\UserMembership;
 
 class MemberAuthController extends Controller
 {
@@ -33,6 +34,23 @@ class MemberAuthController extends Controller
             $user = Auth::user();
 
             if ($user->role_id === 3 && $user->status_id === 2) {
+                $hasActiveMembership = UserMembership::where('user_id', $user->id)
+                    ->where('isapproved', 1)
+                    ->where(function ($query) {
+                        $query->whereNull('expiration_at')
+                              ->orWhere('expiration_at', '>', now());
+                    })
+                    ->where('is_archive', 0)
+                    ->exists();
+
+                if (! $hasActiveMembership) {
+                    Auth::logout();
+
+                    return response()->json([
+                        'message' => 'You currently do not have an active membership. Please visit the gym to activate your account again.'
+                    ], 403);
+                }
+
                 $token = $user->createToken('member_fithub_token')->plainTextToken;
 
                 $response = [
