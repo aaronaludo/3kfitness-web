@@ -68,12 +68,12 @@
                                     @foreach ($statusOptions as $key => $option)
                                         <button
                                             type="button"
-                                            class="status-chip btn btn-sm rounded-pill px-3 {{ $statusFilter === $key ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary' }}"
+                                            class="status-chip btn btn-sm rounded-pill px-3 {{ $statusFilter === $key ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary text-dark' }}"
                                             data-status="{{ $key }}"
                                         >
                                             {{ $option['label'] }}
                                             @if(!is_null($option['count']))
-                                                <span class="badge bg-transparent text-muted fw-semibold ms-2">{{ $option['count'] }}</span>
+                                                <span class="badge bg-transparent {{ $statusFilter === $key ? 'text-white' : 'text-dark' }} fw-semibold ms-2">{{ $option['count'] }}</span>
                                             @endif
                                         </button>
                                     @endforeach
@@ -97,12 +97,10 @@
                                     <a href="{{ route('admin.staff-account-management.user-memberships') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
 
                                     <button
-                                        class="btn btn-outline-secondary rounded-pill px-3"
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
                                         type="button"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#user-membership-advanced-filters"
-                                        aria-expanded="{{ $advancedFiltersOpen ? 'true' : 'false' }}"
-                                        aria-controls="user-membership-advanced-filters"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#userMembershipFiltersModal"
                                     >
                                         <i class="fa-solid fa-sliders"></i> Filters
                                     </button>
@@ -114,51 +112,71 @@
                                 </div>
                             </div>
 
-                            <div class="collapse border-top mt-4 pt-4{{ $advancedFiltersOpen ? ' show' : '' }}" id="user-membership-advanced-filters">
-                                <div class="row g-3">
-                                    <div class="col-12">
-                                        <span class="text-muted text-uppercase small fw-semibold">Quick ranges</span>
-                                        <div class="d-flex flex-wrap gap-2 mt-2">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-week">Last week</button>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
+                            <div class="modal fade" id="userMembershipFiltersModal" tabindex="-1" aria-labelledby="userMembershipFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-md">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="userMembershipFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
-                                    </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-column gap-4">
+                                                <div>
+                                                    <span class="text-muted text-uppercase small fw-semibold d-block">Quick ranges</span>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-week">Last week</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
+                                                    </div>
+                                                </div>
 
-                                    <div class="col-lg-4">
-                                        <label for="search-column" class="form-label text-muted text-uppercase small">Search by</label>
-                                        <select id="search-column" name="search_column" class="form-select rounded-3">
-                                            <option value="" {{ request('search_column') ? '' : 'selected' }}>Best match</option>
-                                            <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
-                                            <option value="member_name" {{ request('search_column', 'member_name') == 'member_name' ? 'selected' : '' }}>Member Name</option>
-                                            <option value="membership" {{ request('search_column') == 'membership' ? 'selected' : '' }}>Membership</option>
-                                            <option value="expiration_at" {{ request('search_column') == 'expiration_at' ? 'selected' : '' }}>Expiration Date</option>
-                                            <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                            <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                            <option value="status" {{ request('search_column') == 'status' ? 'selected' : '' }}>Status</option>
-                                        </select>
-                                    </div>
+                                                <div>
+                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
+                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
+                                                        <option value="" {{ request('search_column') ? '' : 'selected' }}>Best match</option>
+                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
+                                                        <option value="member_name" {{ request('search_column', 'member_name') == 'member_name' ? 'selected' : '' }}>Member Name</option>
+                                                        <option value="membership" {{ request('search_column') == 'membership' ? 'selected' : '' }}>Membership</option>
+                                                        <option value="expiration_at" {{ request('search_column') == 'expiration_at' ? 'selected' : '' }}>Expiration Date</option>
+                                                        <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
+                                                        <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
+                                                        <option value="status" {{ request('search_column') == 'status' ? 'selected' : '' }}>Status</option>
+                                                    </select>
+                                                </div>
 
-                                    <div class="col-lg-4">
-                                        <label for="start-date" class="form-label text-muted text-uppercase small">Start date</label>
-                                        <input
-                                            type="date"
-                                            id="start-date"
-                                            class="form-control rounded-3"
-                                            name="start_date"
-                                            value="{{ request('start_date') }}"
-                                        />
-                                    </div>
-
-                                    <div class="col-lg-4">
-                                        <label for="end-date" class="form-label text-muted text-uppercase small">End date</label>
-                                        <input
-                                            type="date"
-                                            id="end-date"
-                                            class="form-control rounded-3"
-                                            name="end_date"
-                                            value="{{ request('end_date') }}"
-                                        />
+                                                <div>
+                                                    <span class="form-label text-muted text-uppercase small d-block mb-2">Date range</span>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="start-date" class="form-label small text-muted mb-1">Start date</label>
+                                                            <input
+                                                                type="date"
+                                                                id="start-date"
+                                                                class="form-control rounded-3"
+                                                                name="start_date"
+                                                                value="{{ request('start_date') }}"
+                                                            />
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="end-date" class="form-label small text-muted mb-1">End date</label>
+                                                            <input
+                                                                type="date"
+                                                                id="end-date"
+                                                                class="form-control rounded-3"
+                                                                name="end_date"
+                                                                value="{{ request('end_date') }}"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-magnifying-glass me-2"></i>Apply filters
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
