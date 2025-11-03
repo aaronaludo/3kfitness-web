@@ -300,8 +300,8 @@
                                             <th class="sortable" data-column="trainer">Trainer <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="slots">Slots <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="total_members_enrolled">Total Members Enrolled <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="start_date">Class Start Date and Time <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="end_date">Class End Date and Time <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="start_date">Start Date <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="end_date">End Date <i class="fa fa-sort"></i></th>
                                             {{-- <th class="sortable" data-column="status">Status <i class="fa fa-sort"></i></th> --}}
                                             <th class="sortable" data-column="categorization">Categorization <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="admin_acceptance">Admin Acceptance <i class="fa fa-sort"></i></th>
@@ -610,6 +610,152 @@
                                     </tbody>
                                 </table>
                                 {{ $data->links() }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="box mt-5">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+                                <h4 class="fw-semibold mb-0">Archived Classes</h4>
+                                <span class="text-muted small">Showing {{ $archivedData->total() }} archived</span>
+                            </div>
+                            <div class="table-responsive mb-3">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Class Name</th>
+                                            <th>Class Code</th>
+                                            <th>Trainer</th>
+                                            <th>Slots</th>
+                                            <th>Members</th>
+                                            <th>Start Date</th>
+                                            <th>End Date</th>
+                                            <th>Admin Acceptance</th>
+                                            <th>Updated Date</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse ($archivedData as $archive)
+                                            <tr>
+                                                <td>{{ $archive->id }}</td>
+                                                <td>{{ $archive->name }}</td>
+                                                <td>{{ $archive->class_code }}</td>
+                                                <td>{{ $archive->trainer_id == 0 ? 'No Trainer for now' : optional($archive->user)->first_name .' '. optional($archive->user)->last_name }}</td>
+                                                <td>{{ $archive->slots }}</td>
+                                                <td>{{ $archive->user_schedules_count }}</td>
+                                                <td>{{ $archive->class_start_date }}</td>
+                                                <td>{{ $archive->class_end_date }}</td>
+                                                <td>
+                                                    @php
+                                                        $statusMap = [
+                                                            0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
+                                                            1 => ['label' => 'Approved', 'class' => 'bg-success'],
+                                                            2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
+                                                        ];
+                                                        $archivedStatus = $statusMap[$archive->isadminapproved] ?? $statusMap[0];
+                                                    @endphp
+                                                    <span class="badge {{ $archivedStatus['class'] }} px-3 py-2">
+                                                        {{ $archivedStatus['label'] }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ $archive->updated_at }}</td>
+                                                <td class="action-button">
+                                                    <div class="d-flex gap-2">
+                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#archiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                            <i class="fa-solid fa-rotate-left text-success"></i>
+                                                        </button>
+                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#archiveDeleteModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                            <i class="fa-solid fa-trash text-danger"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <div class="modal fade" id="archiveRestoreModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveRestoreModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="archiveRestoreModalLabel-{{ $archive->id }}">Restore class ({{ $archive->class_code }})?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.gym-management.schedules.restore') }}" method="POST" id="archive-restore-modal-form-{{ $archive->id }}">
+                                                            @csrf
+                                                            {{-- @method('PUT') --}}
+                                                            <input type="hidden" name="id" value="{{ $archive->id }}">
+                                                            <div class="modal-body">
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-success" type="submit" id="archive-restore-modal-submit-button-{{ $archive->id }}">
+                                                                    <span id="archive-restore-modal-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Restore
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal fade" id="archiveDeleteModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveDeleteModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="archiveDeleteModalLabel-{{ $archive->id }}">Delete archived class ({{ $archive->class_code }}) permanently?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.gym-management.schedules.delete') }}" method="POST" id="archive-delete-modal-form-{{ $archive->id }}">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <input type="hidden" name="id" value="{{ $archive->id }}">
+                                                            <div class="modal-body">
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-danger" type="submit" id="archive-delete-modal-submit-button-{{ $archive->id }}">
+                                                                    <span id="archive-delete-modal-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Submit
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <script>
+                                                document.getElementById('archive-restore-modal-form-{{ $archive->id }}').addEventListener('submit', function(e) {
+                                                    const submitButton = document.getElementById('archive-restore-modal-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('archive-restore-modal-loader-{{ $archive->id }}');
+
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                            </script>
+                                            <script>
+                                                document.getElementById('archive-delete-modal-form-{{ $archive->id }}').addEventListener('submit', function(e) {
+                                                    const submitButton = document.getElementById('archive-delete-modal-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('archive-delete-modal-loader-{{ $archive->id }}');
+
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                            </script>
+                                        @empty
+                                            <tr>
+                                                <td colspan="11" class="text-center text-muted">No archived classes found.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                                {{ $archivedData->links() }}
                             </div>
                         </div>
                     </div>

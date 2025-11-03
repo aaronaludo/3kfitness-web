@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Validator;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
-
+    
 class ScheduleController extends Controller
 {
     public function all()
@@ -44,6 +44,7 @@ class ScheduleController extends Controller
                 'isadminapproved' => $item->isadminapproved,
                 'rejection_reason' => $item->rejection_reason,
                 'created_at' => $item->created_at,
+                'is_archieve' => $item->is_archieve,
             ];
         });
     
@@ -83,89 +84,119 @@ class ScheduleController extends Controller
         $dateColumns = ['class_start_date', 'class_end_date', 'created_at'];
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
     
-        $classescreatedbyadmin = Schedule::where('created_role', 'Admin')->count();
-        $classescreatedbystaff = Schedule::where('created_role', 'Staff')->count();
+        $classescreatedbyadmin = Schedule::where('created_role', 'Admin')
+            ->where('is_archieve', 0)
+            ->count();
+        $classescreatedbystaff = Schedule::where('created_role', 'Staff')
+            ->where('is_archieve', 0)
+            ->count();
         $now = Carbon::now();
         $statusTallies = [
-            'all' => Schedule::count(),
-            'upcoming' => Schedule::where('class_start_date', '>', $now)->count(),
-            'active' => Schedule::where('class_start_date', '<=', $now)
+            'all' => Schedule::where('is_archieve', 0)->count(),
+            'upcoming' => Schedule::where('is_archieve', 0)
+                ->where('class_start_date', '>', $now)->count(),
+            'active' => Schedule::where('is_archieve', 0)
+                ->where('class_start_date', '<=', $now)
                 ->where('class_end_date', '>=', $now)
                 ->count(),
-            'completed' => Schedule::where('class_end_date', '<', $now)->count(),
+            'completed' => Schedule::where('is_archieve', 0)
+                ->where('class_end_date', '<', $now)->count(),
         ];
 
-        $data = Schedule::with(['user_schedules.user', 'user'])
-            ->withCount('user_schedules')
-            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
-                if ($searchColumn === 'trainer_name') {
-                    $likeSearch = "%{$search}%";
+        $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn, $status, $now) {
+            return $query
+                ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
+                    if ($searchColumn === 'trainer_name') {
+                        $likeSearch = "%{$search}%";
 
-                    return $query->whereHas('user', function ($userQuery) use ($likeSearch) {
-                        $userQuery->where(function ($nameQuery) use ($likeSearch) {
-                            $nameQuery->whereRaw(
-                                "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                [$likeSearch]
-                            )->orWhere('first_name', 'like', $likeSearch)
-                             ->orWhere('last_name', 'like', $likeSearch);
+                        return $query->whereHas('user', function ($userQuery) use ($likeSearch) {
+                            $userQuery->where(function ($nameQuery) use ($likeSearch) {
+                                $nameQuery->whereRaw(
+                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                    [$likeSearch]
+                                )->orWhere('first_name', 'like', $likeSearch)
+                                 ->orWhere('last_name', 'like', $likeSearch);
+                            });
                         });
-                    });
-                }
+                    }
 
-                // Exact match for numeric-ish columns; LIKE for text columns
-                $exactColumns = ['id', 'slots', 'isadminapproved'];
-                if (in_array($searchColumn, $exactColumns, true)) {
-                    return $query->where($searchColumn, $search);
-                }
-                return $query->where($searchColumn, 'like', "%{$search}%");
-            })
-            ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
-                if ($startDate) {
-                    $query->whereDate($rangeColumn, '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
-                }
-                if ($endDate) {
-                    $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
-                }
-            })
-            ->when($status !== 'all', function ($query) use ($status, $now) {
-                if ($status === 'upcoming') {
-                    return $query->where('class_start_date', '>', $now);
-                }
+                    $exactColumns = ['id', 'slots', 'isadminapproved'];
+                    if (in_array($searchColumn, $exactColumns, true)) {
+                        return $query->where($searchColumn, $search);
+                    }
+                    return $query->where($searchColumn, 'like', "%{$search}%");
+                })
+                ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
+                    if ($startDate) {
+                        $query->whereDate($rangeColumn, '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
+                    }
+                    if ($endDate) {
+                        $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
+                    }
+                })
+                ->when($status !== 'all', function ($query) use ($status, $now) {
+                    if ($status === 'upcoming') {
+                        return $query->where('class_start_date', '>', $now);
+                    }
 
-                if ($status === 'active') {
-                    return $query->where('class_start_date', '<=', $now)
-                        ->where('class_end_date', '>=', $now);
-                }
+                    if ($status === 'active') {
+                        return $query->where('class_start_date', '<=', $now)
+                            ->where('class_end_date', '>=', $now);
+                    }
 
-                if ($status === 'completed') {
-                    return $query->where('class_end_date', '<', $now);
-                }
+                    if ($status === 'completed') {
+                        return $query->where('class_end_date', '<', $now);
+                    }
 
-                return $query;
-            })
+                    return $query;
+                });
+        };
+
+        $mapSchedule = function ($schedule) {
+            $schedule->user_schedules_count = $schedule->user_schedules_count ?? $schedule->user_schedules->count();
+
+            $schedule->user_schedules_json = $schedule->user_schedules->map(function ($us) {
+                $user = $us->user;
+                $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '';
+                return [
+                    'user_name'  => $fullName !== '' ? $fullName : 'Unknown',
+                    'user_email' => $user->email ?? 'Unknown',
+                ];
+            });
+
+            return $schedule;
+        };
+
+        $queryParamsWithoutArchivePage = $request->except('archive_page');
+        $queryParamsWithoutMainPage = $request->except('page');
+
+        $activeQuery = $applyFilters(
+            Schedule::with(['user_schedules.user', 'user'])
+                ->withCount('user_schedules')
+                ->where('is_archieve', 0)
+        );
+
+        $data = $activeQuery
             ->orderBy('created_at', 'desc')
             ->paginate(10)
-            ->appends($request->query()) // keep filters on pagination links
-            ->through(function ($schedule) {
-                // Keep the count already computed by withCount
-                $schedule->user_schedules_count = $schedule->user_schedules_count ?? $schedule->user_schedules->count();
-    
-                // Safe user mapping
-                $schedule->user_schedules_json = $schedule->user_schedules->map(function ($us) {
-                    $user = $us->user;
-                    $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '';
-                    return [
-                        'user_name'  => $fullName !== '' ? $fullName : 'Unknown',
-                        'user_email' => $user->email ?? 'Unknown',
-                    ];
-                });
-    
-                return $schedule;
-            });
+            ->appends($queryParamsWithoutArchivePage)
+            ->through($mapSchedule);
+
+        $archivedQuery = $applyFilters(
+            Schedule::with(['user_schedules.user', 'user'])
+                ->withCount('user_schedules')
+                ->where('is_archieve', 1)
+        );
+
+        $archivedData = $archivedQuery
+            ->orderBy('created_at', 'desc')
+            ->paginate(10, ['*'], 'archive_page')
+            ->appends($queryParamsWithoutMainPage)
+            ->through($mapSchedule);
         
         return view(
             'admin.gymmanagement.schedules',
-            compact('data', 'classescreatedbyadmin', 'classescreatedbystaff', 'statusTallies')
+            compact('data', 'archivedData', 'classescreatedbyadmin', 'classescreatedbystaff', 'statusTallies')
         );
     }
 
@@ -362,9 +393,46 @@ class ScheduleController extends Controller
         }
         
         $data = Schedule::findOrFail($request->id);
-        $data->delete();
 
-        return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule deleted successfully');
+        if ((int) $data->is_archieve === 1) {
+            $data->delete();
+            $message = 'Schedule deleted permanently';
+        } else {
+            $data->is_archieve = 1;
+            $data->save();
+            $message = 'Schedule moved to archive';
+        }
+
+        return redirect()->route('admin.gym-management.schedules')->with('success', $message);
+    }
+
+    public function restore(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:schedules,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = Schedule::findOrFail($request->id);
+
+        if ((int) $data->is_archieve === 0) {
+            return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule is already active');
+        }
+
+        $data->is_archieve = 0;
+        $data->save();
+
+        return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule restored successfully');
     }
     
     public function rejectmessage(Request $request)

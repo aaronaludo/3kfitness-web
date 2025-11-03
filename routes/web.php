@@ -127,6 +127,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/classes/{id}/edit', [Schedule::class, 'edit'])->name('admin.gym-management.schedules.edit');
     Route::put('/admin/classes/{id}', [Schedule::class, 'update'])->name('admin.gym-management.schedules.update');
     Route::delete('/admin/classes', [Schedule::class, 'delete'])->name('admin.gym-management.schedules.delete');
+    Route::match(['put', 'post'], '/admin/classes/restore', [Schedule::class, 'restore'])->name('admin.gym-management.schedules.restore');
     Route::put('/admin/admin-acceptance-classes', [Schedule::class, 'adminacceptance'])->name('admin.gym-management.schedules.adminacceptance');
     Route::post('/admin/reject-message-classes', [Schedule::class, 'rejectmessage'])->name('admin.gym-management.schedules.rejectmessage');
     
