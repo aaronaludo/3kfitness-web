@@ -46,17 +46,28 @@ class UserMembershipController extends Controller
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
 
         $statusTallies = [
-            'all'      => UserMembership::count(),
-            'pending'  => UserMembership::where('isapproved', 0)->count(),
-            'approved' => UserMembership::where('isapproved', 1)->count(),
-            'rejected' => UserMembership::where('isapproved', 2)->count(),
+            'all'      => UserMembership::where('is_archive', 0)->count(),
+            'pending'  => UserMembership::where('is_archive', 0)->where('isapproved', 0)->count(),
+            'approved' => UserMembership::where('is_archive', 0)->where('isapproved', 1)->count(),
+            'rejected' => UserMembership::where('is_archive', 0)->where('isapproved', 2)->count(),
         ];
 
-        $query = $this->buildUserMembershipQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $statusFilter);
+        $baseQuery = $this->buildUserMembershipQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $statusFilter);
 
-        $data = $query->paginate(10)->appends($request->query());
+        $queryParamsWithoutArchivePage = $request->except('archive_page');
+        $queryParamsWithoutMainPage = $request->except('page');
 
-        return view('admin.user-memberships.index', compact('data', 'statusTallies'));
+        $activeQuery = (clone $baseQuery)->where('is_archive', 0);
+        $data = $activeQuery
+            ->paginate(10)
+            ->appends($queryParamsWithoutArchivePage);
+
+        $archivedQuery = (clone $baseQuery)->where('is_archive', 1);
+        $archivedData = $archivedQuery
+            ->paginate(10, ['*'], 'archive_page')
+            ->appends($queryParamsWithoutMainPage);
+
+        return view('admin.user-memberships.index', compact('data', 'archivedData', 'statusTallies'));
     }
 
     public function view($id)
@@ -78,6 +89,66 @@ class UserMembershipController extends Controller
         $data->save();
 
         return redirect()->route('admin.staff-account-management.user-memberships')->with('success', 'User Membership updated successfully');
+    }
+
+    public function delete(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:user_memberships,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = UserMembership::findOrFail($request->id);
+
+        if ((int) $data->is_archive === 1) {
+            $data->delete();
+            $message = 'User membership deleted permanently';
+        } else {
+            $data->is_archive = 1;
+            $data->save();
+            $message = 'User membership moved to archive';
+        }
+
+        return redirect()->route('admin.staff-account-management.user-memberships')->with('success', $message);
+    }
+
+    public function restore(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:user_memberships,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = UserMembership::findOrFail($request->id);
+
+        if ((int) $data->is_archive === 0) {
+            return redirect()->route('admin.staff-account-management.user-memberships')->with('success', 'User membership is already active');
+        }
+
+        $data->is_archive = 0;
+        $data->save();
+
+        return redirect()->route('admin.staff-account-management.user-memberships')->with('success', 'User membership restored successfully');
     }
 
     public function print(Request $request)

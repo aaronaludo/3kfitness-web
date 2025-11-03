@@ -117,6 +117,8 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/user-memberships/isapprove', [UserMembership::class, 'isapprove'])->name('admin.staff-account-management.user-memberships.isapprove');
     Route::post('/admin/user-memberships/print', [UserMembership::class, 'print'])->name('admin.staff-account-management.user-memberships.print');
     Route::get('/admin/user-memberships/{id}', [UserMembership::class, 'view'])->name('admin.staff-account-management.user-memberships.view');
+    Route::delete('/admin/user-memberships', [UserMembership::class, 'delete'])->name('admin.staff-account-management.user-memberships.delete');
+    Route::match(['put', 'post'], '/admin/user-memberships/restore', [UserMembership::class, 'restore'])->name('admin.staff-account-management.user-memberships.restore');
 
     Route::get('/admin/classes', [Schedule::class, 'index'])->name('admin.gym-management.schedules');
     Route::get('/admin/classes/all', [Schedule::class, 'all'])->name('admin.gym-management.schedules.all');

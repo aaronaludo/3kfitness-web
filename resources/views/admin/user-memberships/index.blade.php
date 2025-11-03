@@ -363,15 +363,197 @@
                                                 </td>
                                                 <td>{{ $item->created_by }}</td>
                                                 <td>
-                                                    <div class="d-flex">
-                                                        <div class="action-button"><a href="{{ route('admin.staff-account-management.user-memberships.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>
+                                                    <div class="d-flex gap-2">
+                                                        <div class="action-button">
+                                                            <a href="{{ route('admin.staff-account-management.user-memberships.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a>
+                                                        </div>
+                                                        <div class="action-button">
+                                                            <button type="button" data-bs-toggle="modal" data-bs-target="#userMembershipArchiveModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                                <i class="fa-solid fa-box-archive text-danger"></i>
+                                                            </button>
+                                                        </div>
                                                     </div>
                                                 </td>
                                             </tr>
+                                            <div class="modal fade" id="userMembershipArchiveModal-{{ $item->id }}" tabindex="-1" aria-labelledby="userMembershipArchiveModalLabel-{{ $item->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="userMembershipArchiveModalLabel-{{ $item->id }}">Archive membership (#{{ $item->id }})?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.staff-account-management.user-memberships.delete') }}" method="POST" id="user-membership-archive-form-{{ $item->id }}">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <input type="hidden" name="id" value="{{ $item->id }}">
+                                                            <div class="modal-body">
+                                                                <p class="mb-3 text-muted small">Provide your password to confirm moving this membership to archive.</p>
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-danger" type="submit" id="user-membership-archive-submit-button-{{ $item->id }}">
+                                                                    <span id="user-membership-archive-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Archive
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <script>
+                                                document.getElementById('user-membership-archive-form-{{ $item->id }}').addEventListener('submit', function(e) {
+                                                    const submitButton = document.getElementById('user-membership-archive-submit-button-{{ $item->id }}');
+                                                    const loader = document.getElementById('user-membership-archive-loader-{{ $item->id }}');
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                            </script>
                                         @endforeach
                                     </tbody>
                                 </table>
                                 {{ $data->links() }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="box mt-5">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+                                <h4 class="fw-semibold mb-0">Archived Memberships</h4>
+                                <span class="text-muted small">Showing {{ $archivedData->total() }} archived</span>
+                            </div>
+                            <div class="table-responsive mb-3">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Member Name</th>
+                                            <th>Membership</th>
+                                            <th>Status</th>
+                                            <th>Expiration Date</th>
+                                            <th>Updated Date</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse ($archivedData as $archive)
+                                            <tr>
+                                                <td>{{ $archive->id }}</td>
+                                                <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
+                                                <td>{{ optional($archive->membership)->name }}</td>
+                                                <td>
+                                                    @php
+                                                        $statusMap = [
+                                                            0 => ['label' => 'Pending',  'class' => 'bg-warning text-dark'],
+                                                            1 => ['label' => 'Approved', 'class' => 'bg-success'],
+                                                            2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
+                                                        ];
+                                                        $archiveStatus = $statusMap[$archive->isapproved] ?? $statusMap[0];
+                                                    @endphp
+                                                    <span class="badge {{ $archiveStatus['class'] }} px-3 py-2">
+                                                        {{ $archiveStatus['label'] }}
+                                                    </span>
+                                                </td>
+                                                <td>{{ $archive->expiration_at }}</td>
+                                                <td>{{ $archive->updated_at }}</td>
+                                                <td class="action-button">
+                                                    <div class="d-flex gap-2">
+                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#userMembershipArchiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                            <i class="fa-solid fa-rotate-left text-success"></i>
+                                                        </button>
+                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#userMembershipArchiveDeleteModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                            <i class="fa-solid fa-trash text-danger"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <div class="modal fade" id="userMembershipArchiveRestoreModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="userMembershipArchiveRestoreModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="userMembershipArchiveRestoreModalLabel-{{ $archive->id }}">Restore membership (#{{ $archive->id }})?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.staff-account-management.user-memberships.restore') }}" method="POST" id="user-membership-archive-restore-form-{{ $archive->id }}">
+                                                            @csrf
+                                                            @method('PUT')
+                                                            <input type="hidden" name="id" value="{{ $archive->id }}">
+                                                            <div class="modal-body">
+                                                                <p class="mb-3 text-muted small">Provide your password to confirm restoring this membership.</p>
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-success" type="submit" id="user-membership-archive-restore-submit-button-{{ $archive->id }}">
+                                                                    <span id="user-membership-archive-restore-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Restore
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal fade" id="userMembershipArchiveDeleteModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="userMembershipArchiveDeleteModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="userMembershipArchiveDeleteModalLabel-{{ $archive->id }}">Delete membership (#{{ $archive->id }}) permanently?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.staff-account-management.user-memberships.delete') }}" method="POST" id="user-membership-archive-delete-form-{{ $archive->id }}">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <input type="hidden" name="id" value="{{ $archive->id }}">
+                                                            <div class="modal-body">
+                                                                <p class="mb-3 text-muted small">This action permanently removes the membership. Confirm with your password.</p>
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-danger" type="submit" id="user-membership-archive-delete-submit-button-{{ $archive->id }}">
+                                                                    <span id="user-membership-archive-delete-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Delete
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <script>
+                                                document.getElementById('user-membership-archive-restore-form-{{ $archive->id }}').addEventListener('submit', function(e) {
+                                                    const submitButton = document.getElementById('user-membership-archive-restore-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('user-membership-archive-restore-loader-{{ $archive->id }}');
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                            </script>
+                                            <script>
+                                                document.getElementById('user-membership-archive-delete-form-{{ $archive->id }}').addEventListener('submit', function(e) {
+                                                    const submitButton = document.getElementById('user-membership-archive-delete-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('user-membership-archive-delete-loader-{{ $archive->id }}');
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                            </script>
+                                        @empty
+                                            <tr>
+                                                <td colspan="7" class="text-center text-muted">No archived memberships found.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                                {{ $archivedData->links() }}
                             </div>
                         </div>
                     </div>
