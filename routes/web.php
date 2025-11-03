@@ -114,6 +114,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/memberships/{id}/edit', [Membership::class, 'edit'])->name('admin.staff-account-management.memberships.edit');
     Route::put('/admin/memberships/{id}', [Membership::class, 'update'])->name('admin.staff-account-management.memberships.update');
     Route::delete('/admin/memberships', [Membership::class, 'delete'])->name('admin.staff-account-management.memberships.delete');
+    Route::match(['put', 'post'], '/admin/memberships/restore', [Membership::class, 'restore'])->name('admin.staff-account-management.memberships.restore');
 
     Route::get('/admin/user-memberships', [UserMembership::class, 'index'])->name('admin.staff-account-management.user-memberships');
     Route::post('/admin/user-memberships/isapprove', [UserMembership::class, 'isapprove'])->name('admin.staff-account-management.user-memberships.isapprove');
@@ -144,6 +145,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/members/{id}/edit', [MemberData::class, 'edit'])->name('admin.gym-management.members.edit');
     Route::put('/admin/members/{id}', [MemberData::class, 'update'])->name('admin.gym-management.members.update');
     Route::delete('/admin/members', [MemberData::class, 'delete'])->name('admin.gym-management.members.delete');
+    Route::match(['put', 'post'], '/admin/members/restore', [MemberData::class, 'restore'])->name('admin.gym-management.members.restore');
  
     Route::get('/admin/online-registrations', [OnlineRegistration::class, 'index'])->name('admin.online-registrations.index');
     Route::get('/admin/reports', [Report::class, 'index'])->name('admin.reports.index');
@@ -156,6 +158,8 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/staff-account-management/attendances/print', [Attendance::class, 'print'])->name('admin.staff-account-management.attendances.print');
     Route::post('/admin/staff-account-management/attendances/scanner', [Attendance::class, 'fetchScanner'])->name('admin.staff-account-management.attendances.scanner.fetch');
     Route::post('/admin/staff-account-management/attendances/scanner2', [Attendance::class, 'fetchScanner2'])->name('admin.staff-account-management.attendances.scanner2.fetch');
+    Route::delete('/admin/staff-account-management/attendances', [Attendance::class, 'delete'])->name('admin.staff-account-management.attendances.delete');
+    Route::match(['put', 'post'], '/admin/staff-account-management/attendances/restore', [Attendance::class, 'restore'])->name('admin.staff-account-management.attendances.restore');
     
     Route::get('/admin/staff-account-management', [StaffAccountManagement::class, 'index'])->name('admin.staff-account-management.index');
     Route::get('/admin/staff-account-management/add', [StaffAccountManagement::class, 'add'])->name('admin.staff-account-management.add');
@@ -165,6 +169,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/staff-account-management/{id}/edit', [StaffAccountManagement::class, 'edit'])->name('admin.staff-account-management.edit');
     Route::put('/admin/staff-account-management/{id}', [StaffAccountManagement::class, 'update'])->name('admin.staff-account-management.update');
     Route::delete('/admin/staff-account-management', [StaffAccountManagement::class, 'delete'])->name('admin.staff-account-management.delete');
+    Route::match(['put', 'post'], '/admin/staff-account-management/restore', [StaffAccountManagement::class, 'restore'])->name('admin.staff-account-management.restore');
     
     Route::get('/admin/users', [AdminUserController::class, 'index'])->name('admin.users.index');
     Route::get('/admin/users/search', [AdminUserController::class, 'search'])->name('admin.users.search');

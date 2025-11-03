@@ -46,8 +46,9 @@ class MembershipController extends Controller
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : null;
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
     
-        $totalMemberships = Membership::count();
-        $activeMemberships = Membership::whereHas('usermemberships', function ($query) {
+        $activeBase = Membership::where('is_archive', 0);
+        $totalMemberships = (clone $activeBase)->count();
+        $activeMemberships = (clone $activeBase)->whereHas('usermemberships', function ($query) {
             $query->where('isapproved', 1);
         })->count();
         $statusTallies = [
@@ -56,7 +57,7 @@ class MembershipController extends Controller
             'empty' => max($totalMemberships - $activeMemberships, 0),
         ];
 
-        $data = Membership::query()
+        $baseQuery = Membership::query()
             ->withCount([
                 'usermemberships as members_approved' => function ($query) {
                     $query->where('isapproved', 1);
@@ -98,10 +99,22 @@ class MembershipController extends Controller
 
                 return $query;
             })
+            ->orderByDesc('created_at');
+
+        $queryParamsWithoutArchivePage = $request->except('archive_page');
+        $queryParamsWithoutMainPage = $request->except('page');
+
+        $data = (clone $baseQuery)
+            ->where('is_archive', 0)
             ->paginate(10)
-            ->appends($request->query());
+            ->appends($queryParamsWithoutArchivePage);
+
+        $archivedData = (clone $baseQuery)
+            ->where('is_archive', 1)
+            ->paginate(10, ['*'], 'archive_page')
+            ->appends($queryParamsWithoutMainPage);
     
-        return view('admin.memberships.index', compact('data', 'statusTallies'));
+        return view('admin.memberships.index', compact('data', 'archivedData', 'statusTallies'));
     }
 
 
@@ -182,9 +195,46 @@ class MembershipController extends Controller
         }
         
         $data = Membership::findOrFail($request->id);
-        $data->delete();
 
-        return redirect()->route('admin.staff-account-management.memberships')->with('success', 'Membership deleted successfully');
+        if ((int) $data->is_archive === 1) {
+            $data->delete();
+            $message = 'Membership deleted permanently';
+        } else {
+            $data->is_archive = 1;
+            $data->save();
+            $message = 'Membership moved to archive';
+        }
+
+        return redirect()->route('admin.staff-account-management.memberships')->with('success', $message);
+    }
+    
+    public function restore(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:memberships,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = Membership::findOrFail($request->id);
+
+        if ((int) $data->is_archive === 0) {
+            return redirect()->route('admin.staff-account-management.memberships')->with('success', 'Membership is already active');
+        }
+
+        $data->is_archive = 0;
+        $data->save();
+
+        return redirect()->route('admin.staff-account-management.memberships')->with('success', 'Membership restored successfully');
     }
     
     public function print(Request $request)
@@ -228,6 +278,7 @@ class MembershipController extends Controller
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
         $query = Membership::query()
+            ->where('is_archive', 0)
             ->withCount([
                 'usermemberships as members_approved' => function ($query) {
                     $query->where('isapproved', 1);

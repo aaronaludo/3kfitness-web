@@ -46,17 +46,31 @@ class StaffAccountManagementController extends Controller
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : null;
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
 
+        $activeStaffBase = User::where('role_id', 2)->where('is_archive', 0);
+        $totalStaff = (clone $activeStaffBase)->count();
+        $withPayrollsCount = (clone $activeStaffBase)->whereHas('payrolls')->count();
         $payrollTallies = [
-            'all'          => User::where('role_id', 2)->count(),
-            'with-payrolls' => User::where('role_id', 2)->whereHas('payrolls')->count(),
-            'no-payrolls'   => User::where('role_id', 2)->whereDoesntHave('payrolls')->count(),
+            'all'           => $totalStaff,
+            'with-payrolls' => $withPayrollsCount,
+            'no-payrolls'   => max($totalStaff - $withPayrollsCount, 0),
         ];
 
-        $query = $this->buildStaffQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $payrollStatus);
+        $baseQuery = $this->buildStaffQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $payrollStatus);
 
-        $data = $query->paginate(10)->appends($request->query());
+        $queryParamsWithoutArchivePage = $request->except('archive_page');
+        $queryParamsWithoutMainPage = $request->except('page');
 
-        return view('admin.staffaccountmanagement.index', compact('data', 'payrollTallies', 'payrollStatus'));
+        $data = (clone $baseQuery)
+            ->where('is_archive', 0)
+            ->paginate(10)
+            ->appends($queryParamsWithoutArchivePage);
+
+        $archivedData = (clone $baseQuery)
+            ->where('is_archive', 1)
+            ->paginate(10, ['*'], 'archive_page')
+            ->appends($queryParamsWithoutMainPage);
+
+        return view('admin.staffaccountmanagement.index', compact('data', 'archivedData', 'payrollTallies', 'payrollStatus'));
     }
 
     
@@ -195,9 +209,46 @@ class StaffAccountManagementController extends Controller
         }
         
         $data = User::where('role_id', 2)->findOrFail($request->id);
-        $data->delete();
 
-        return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff deleted successfully');
+        if ((int) $data->is_archive === 1) {
+            $data->delete();
+            $message = 'Staff deleted permanently';
+        } else {
+            $data->is_archive = 1;
+            $data->save();
+            $message = 'Staff moved to archive';
+        }
+
+        return redirect()->route('admin.staff-account-management.index')->with('success', $message);
+    }
+    
+    public function restore(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:users,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = User::where('role_id', 2)->findOrFail($request->id);
+
+        if ((int) $data->is_archive === 0) {
+            return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff is already active');
+        }
+
+        $data->is_archive = 0;
+        $data->save();
+
+        return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff restored successfully');
     }
     
     public function print(Request $request)
@@ -239,7 +290,8 @@ class StaffAccountManagementController extends Controller
         $dateColumns = ['created_at', 'updated_at'];
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
-        $query = $this->buildStaffQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $payrollStatus);
+        $query = $this->buildStaffQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $payrollStatus)
+            ->where('is_archive', 0);
         $data  = $query->get();
 
         $suffix = '';

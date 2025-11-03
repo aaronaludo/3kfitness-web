@@ -22,6 +22,7 @@
                         </button>
                     </form>
                 </div>
+
             </div>
             @php
                 $payrollStatus = request('payroll_status', 'all');
@@ -94,12 +95,10 @@
                                     <a href="{{ route('admin.staff-account-management.index') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
 
                                     <button
-                                        class="btn btn-outline-secondary rounded-pill px-3"
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
                                         type="button"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#staff-advanced-filters"
-                                        aria-expanded="{{ $advancedFiltersOpen ? 'true' : 'false' }}"
-                                        aria-controls="staff-advanced-filters"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#staffFiltersModal"
                                     >
                                         <i class="fa-solid fa-sliders"></i> Filters
                                     </button>
@@ -111,51 +110,71 @@
                                 </div>
                             </div>
 
-                            <div class="collapse border-top mt-4 pt-4{{ $advancedFiltersOpen ? ' show' : '' }}" id="staff-advanced-filters">
-                                <div class="row g-3">
-                                    <div class="col-12">
-                                        <span class="text-muted text-uppercase small fw-semibold">Quick ranges</span>
-                                        <div class="d-flex flex-wrap gap-2 mt-2">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-week">Last week</button>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
-                                            <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
+                            <div class="modal fade" id="staffFiltersModal" tabindex="-1" aria-labelledby="staffFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-md">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="staffFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
-                                    </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-column gap-4">
+                                                <div>
+                                                    <span class="text-muted text-uppercase small fw-semibold d-block">Quick ranges</span>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-week">Last week</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
+                                                    </div>
+                                                </div>
 
-                                    <div class="col-lg-4">
-                                        <label for="search-column" class="form-label text-muted text-uppercase small">Search by</label>
-                                        <select id="search-column" name="search_column" class="form-select rounded-3">
-                                            <option value="" {{ request('search_column') ? '' : 'selected' }}>Best match</option>
-                                            <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
-                                            <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
-                                            <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>
-                                            <option value="role_id" {{ request('search_column') == 'role_id' ? 'selected' : '' }}>Role</option>
-                                            <option value="phone_number" {{ request('search_column') == 'phone_number' ? 'selected' : '' }}>Contact Number</option>
-                                            <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                            <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                        </select>
-                                    </div>
+                                                <div>
+                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
+                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
+                                                        <option value="" {{ request('search_column') ? '' : 'selected' }}>Best match</option>
+                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
+                                                        <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
+                                                        <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>
+                                                        <option value="role_id" {{ request('search_column') == 'role_id' ? 'selected' : '' }}>Role</option>
+                                                        <option value="phone_number" {{ request('search_column') == 'phone_number' ? 'selected' : '' }}>Contact Number</option>
+                                                        <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
+                                                        <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
+                                                    </select>
+                                                </div>
 
-                                    <div class="col-lg-4">
-                                        <label for="start-date" class="form-label text-muted text-uppercase small">Start date</label>
-                                        <input
-                                            type="date"
-                                            id="start-date"
-                                            class="form-control rounded-3"
-                                            name="start_date"
-                                            value="{{ request('start_date') }}"
-                                        />
-                                    </div>
-
-                                    <div class="col-lg-4">
-                                        <label for="end-date" class="form-label text-muted text-uppercase small">End date</label>
-                                        <input
-                                            type="date"
-                                            id="end-date"
-                                            class="form-control rounded-3"
-                                            name="end_date"
-                                            value="{{ request('end_date') }}"
-                                        />
+                                                <div>
+                                                    <span class="form-label text-muted text-uppercase small d-block mb-2">Date range</span>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="start-date" class="form-label small text-muted mb-1">Start date</label>
+                                                            <input
+                                                                type="date"
+                                                                id="start-date"
+                                                                class="form-control rounded-3"
+                                                                name="start_date"
+                                                                value="{{ request('start_date') }}"
+                                                            />
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="end-date" class="form-label small text-muted mb-1">End date</label>
+                                                            <input
+                                                                type="date"
+                                                                id="end-date"
+                                                                class="form-control rounded-3"
+                                                                name="end_date"
+                                                                value="{{ request('end_date') }}"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-magnifying-glass me-2"></i>Apply filters
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -379,6 +398,150 @@
                                     </tbody>
                                 </table>
                                 {{ $data->links() }}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="box mt-5">
+                    <div class="row">
+                        <div class="col-lg-12">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
+                                <h4 class="fw-semibold mb-0">Archived Staff</h4>
+                                <span class="text-muted small">Showing {{ $archivedData->total() }} archived</span>
+                            </div>
+                            <div class="table-responsive mb-3">
+                                <table class="table table-hover">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Name</th>
+                                            <th>Email</th>
+                                            <th>Type</th>
+                                            <th>Contact Number</th>
+                                            <th>Created Date</th>
+                                            <th>Rate per hour</th>
+                                            <th>Payrolls</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @forelse ($archivedData as $archive)
+                                            <tr>
+                                                <td>{{ $archive->id }}</td>
+                                                <td>{{ $archive->first_name }} {{ $archive->last_name }}</td>
+                                                <td>{{ $archive->email }}</td>
+                                                <td>{{ optional($archive->role)->name }}</td>
+                                                <td>{{ $archive->phone_number }}</td>
+                                                <td>{{ $archive->created_at }}</td>
+                                                <td>₱{{ $archive->rate_per_hour }}</td>
+                                                <td>{{ $archive->payrolls_count ?? $archive->payrolls->count() }}</td>
+                                                <td class="action-button">
+                                                    <div class="d-flex gap-2">
+                                                        <button
+                                                            type="button"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#archiveRestoreModal-{{ $archive->id }}"
+                                                            data-id="{{ $archive->id }}"
+                                                            title="Restore"
+                                                            style="background: none; border: none; padding: 0; cursor: pointer;"
+                                                        >
+                                                            <i class="fa-solid fa-rotate-left text-success"></i>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#archiveDeleteModal-{{ $archive->id }}"
+                                                            data-id="{{ $archive->id }}"
+                                                            title="Delete"
+                                                            style="background: none; border: none; padding: 0; cursor: pointer;"
+                                                        >
+                                                            <i class="fa-solid fa-trash text-danger"></i>
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                            <div class="modal fade" id="archiveRestoreModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveRestoreModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="archiveRestoreModalLabel-{{ $archive->id }}">Restore staff ({{ $archive->email }})?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.staff-account-management.restore') }}" method="POST" id="archive-restore-modal-form-{{ $archive->id }}">
+                                                            @csrf
+                                                            <input type="hidden" name="id" value="{{ $archive->id }}">
+                                                            <div class="modal-body">
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-success" type="submit" id="archive-restore-modal-submit-button-{{ $archive->id }}">
+                                                                    <span id="archive-restore-modal-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Restore
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div class="modal fade" id="archiveDeleteModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveDeleteModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                                <div class="modal-dialog">
+                                                    <div class="modal-content">
+                                                        <div class="modal-header">
+                                                            <h5 class="modal-title" id="archiveDeleteModalLabel-{{ $archive->id }}">Delete archived staff ({{ $archive->email }}) permanently?</h5>
+                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <form action="{{ route('admin.staff-account-management.delete') }}" method="POST" id="archive-delete-modal-form-{{ $archive->id }}">
+                                                            @csrf
+                                                            @method('DELETE')
+                                                            <input type="hidden" name="id" value="{{ $archive->id }}">
+                                                            <div class="modal-body">
+                                                                <div class="input-group mt-3">
+                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                </div>
+                                                            </div>
+                                                            <div class="modal-footer">
+                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                                <button class="btn btn-danger" type="submit" id="archive-delete-modal-submit-button-{{ $archive->id }}">
+                                                                    <span id="archive-delete-modal-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                    Submit
+                                                                </button>
+                                                            </div>
+                                                        </form>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <script>
+                                                document.getElementById('archive-restore-modal-form-{{ $archive->id }}')?.addEventListener('submit', function (e) {
+                                                    const submitButton = document.getElementById('archive-restore-modal-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('archive-restore-modal-loader-{{ $archive->id }}');
+
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                            </script>
+                                            <script>
+                                                document.getElementById('archive-delete-modal-form-{{ $archive->id }}')?.addEventListener('submit', function (e) {
+                                                    const submitButton = document.getElementById('archive-delete-modal-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('archive-delete-modal-loader-{{ $archive->id }}');
+
+                                                    submitButton.disabled = true;
+                                                    loader.classList.remove('d-none');
+                                                });
+                                            </script>
+                                        @empty
+                                            <tr>
+                                                <td colspan="9" class="text-center text-muted">No archived staff found.</td>
+                                            </tr>
+                                        @endforelse
+                                    </tbody>
+                                </table>
+                                {{ $archivedData->links() }}
                             </div>
                         </div>
                     </div>

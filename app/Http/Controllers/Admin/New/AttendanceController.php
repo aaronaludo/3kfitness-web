@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Attendance;
 use App\Models\Attendance2;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Hash;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Style\Language;
@@ -45,13 +46,14 @@ class AttendanceController extends Controller
         $date_columns = ['clockin_at', 'clockout_at', 'created_at'];
         $rangeColumn = in_array($search_column, $date_columns, true) ? $search_column : 'clockin_at';
 
+        $activeAttendanceBase = Attendance2::where('is_archive', 0);
         $statusTallies = [
-            'all' => Attendance2::count(),
-            'open' => Attendance2::whereNull('clockout_at')->count(),
-            'completed' => Attendance2::whereNotNull('clockout_at')->count(),
+            'all' => (clone $activeAttendanceBase)->count(),
+            'open' => (clone $activeAttendanceBase)->whereNull('clockout_at')->count(),
+            'completed' => (clone $activeAttendanceBase)->whereNotNull('clockout_at')->count(),
         ];
     
-        $data = Attendance2::query()
+        $baseQuery = Attendance2::query()
             ->with('user.role') // Ensure role relationship is loaded
             ->when($search && $search_column, function ($query) use ($search, $search_column) {
                 if ($search_column === 'role') {
@@ -88,11 +90,22 @@ class AttendanceController extends Controller
 
                 return $query;
             })
-            ->orderByDesc('clockin_at')
-            ->paginate(10)
-            ->appends($request->query());
+            ->orderByDesc('clockin_at');
 
-        return view('admin.attendances.index', compact('data', 'statusTallies', 'statusFilter'));
+        $queryParamsWithoutArchivePage = $request->except('archive_page');
+        $queryParamsWithoutMainPage = $request->except('page');
+
+        $data = (clone $baseQuery)
+            ->where('is_archive', 0)
+            ->paginate(10)
+            ->appends($queryParamsWithoutArchivePage);
+
+        $archivedData = (clone $baseQuery)
+            ->where('is_archive', 1)
+            ->paginate(10, ['*'], 'archive_page')
+            ->appends($queryParamsWithoutMainPage);
+
+        return view('admin.attendances.index', compact('data', 'archivedData', 'statusTallies', 'statusFilter'));
     }
 
 
@@ -205,6 +218,66 @@ class AttendanceController extends Controller
         return response()->json(['data' => 'An unexpected error occurred.']);
     }
     
+    public function delete(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:attendances2,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = Attendance2::findOrFail($request->id);
+
+        if ((int) $data->is_archive === 1) {
+            $data->delete();
+            $message = 'Attendance record deleted permanently';
+        } else {
+            $data->is_archive = 1;
+            $data->save();
+            $message = 'Attendance record moved to archive';
+        }
+
+        return redirect()->route('admin.staff-account-management.attendances')->with('success', $message);
+    }
+
+    public function restore(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:attendances2,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = Attendance2::findOrFail($request->id);
+
+        if ((int) $data->is_archive === 0) {
+            return redirect()->route('admin.staff-account-management.attendances')->with('success', 'Attendance record is already active');
+        }
+
+        $data->is_archive = 0;
+        $data->save();
+
+        return redirect()->route('admin.staff-account-management.attendances')->with('success', 'Attendance record restored successfully');
+    }
+    
     public function print(Request $request)
     {
         $request->validate([
@@ -279,6 +352,7 @@ class AttendanceController extends Controller
 
                 return $query;
             })
+            ->where('is_archive', 0)
             ->orderByDesc('clockin_at');
 
         $records = $query->get();

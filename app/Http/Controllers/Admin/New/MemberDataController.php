@@ -47,8 +47,10 @@ class MemberDataController extends Controller
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
         $current_time = Carbon::now();
-        $totalMembers = User::where('role_id', 3)->count();
-        $withMembershipCount = User::where('role_id', 3)
+
+        $activeMembersBase = User::where('role_id', 3)->where('is_archive', 0);
+        $totalMembers = (clone $activeMembersBase)->count();
+        $withMembershipCount = (clone $activeMembersBase)
             ->whereHas('usermemberships', function ($query) use ($current_time) {
                 $query->where('isapproved', 1)
                     ->where('expiration_at', '>=', $current_time);
@@ -59,17 +61,17 @@ class MemberDataController extends Controller
             'with' => $withMembershipCount,
             'none' => max($totalMembers - $withMembershipCount, 0),
         ];
-     
-        $gym_members = User::where('role_id', 3)
+
+        $baseQuery = User::where('role_id', 3)
             ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
                 if ($searchColumn === 'name') {
                     return $query->where(function ($q) use ($search) {
                         $q->where('first_name', 'like', "%{$search}%")
                           ->orWhere('last_name', 'like', "%{$search}%");
                     });
-                } else {
-                    return $query->where($searchColumn, 'like', "%{$search}%");
                 }
+
+                return $query->where($searchColumn, 'like', "%{$search}%");
             })
             ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
                 if ($startDate) {
@@ -96,10 +98,22 @@ class MemberDataController extends Controller
 
                 return $query;
             })
-            ->paginate(10)
-            ->appends($request->query());
+            ->orderByDesc('created_at');
 
-        return view('admin.gymmanagement.memberdata', compact('gym_members', 'current_time', 'statusTallies'));
+        $queryParamsWithoutArchivePage = $request->except('archive_page');
+        $queryParamsWithoutMainPage = $request->except('page');
+
+        $gym_members = (clone $baseQuery)
+            ->where('is_archive', 0)
+            ->paginate(10)
+            ->appends($queryParamsWithoutArchivePage);
+
+        $archivedData = (clone $baseQuery)
+            ->where('is_archive', 1)
+            ->paginate(10, ['*'], 'archive_page')
+            ->appends($queryParamsWithoutMainPage);
+
+        return view('admin.gymmanagement.memberdata', compact('gym_members', 'archivedData', 'current_time', 'statusTallies'));
     }
     
     public function view($id)
@@ -285,9 +299,46 @@ class MemberDataController extends Controller
         }
         
         $data = User::where('role_id', 3)->findOrFail($request->id);
-        $data->delete();
 
-        return redirect()->route('admin.gym-management.members')->with('success', 'Gym member deleted successfully');
+        if ((int) $data->is_archive === 1) {
+            $data->delete();
+            $message = 'Gym member deleted permanently';
+        } else {
+            $data->is_archive = 1;
+            $data->save();
+            $message = 'Gym member moved to archive';
+        }
+
+        return redirect()->route('admin.gym-management.members')->with('success', $message);
+    }
+    
+    public function restore(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:users,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $data = User::where('role_id', 3)->findOrFail($request->id);
+
+        if ((int) $data->is_archive === 0) {
+            return redirect()->route('admin.gym-management.members')->with('success', 'Gym member is already active');
+        }
+
+        $data->is_archive = 0;
+        $data->save();
+
+        return redirect()->route('admin.gym-management.members')->with('success', 'Gym member restored successfully');
     }
     
 
