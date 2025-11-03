@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Schedule;
 use App\Models\UserSchedule;
+use Carbon\Carbon;
 
 class MemberClassController extends Controller
 {
@@ -14,36 +15,68 @@ class MemberClassController extends Controller
         $user = $request->user();
         $now = now();
 
-        $availableclasses = Schedule::withCount('user_schedules')->get();
+        $availableClasses = Schedule::with(['user'])
+            ->withCount('user_schedules')
+            ->where('isadminapproved', 1)
+            ->where(function ($query) use ($now) {
+                $query->whereNull('class_start_date')->orWhere('class_start_date', '>=', $now);
+            })
+            ->where(function ($query) use ($now) {
+                $query->whereNull('class_end_date')->orWhere('class_end_date', '>=', $now);
+            })
+            ->whereDoesntHave('user_schedules', function ($query) use ($user) {
+                $query->where('user_id', $user->id);
+            })
+            ->get()
+            ->filter(function ($class) {
+                if ($class->slots === null) {
+                    return true;
+                }
 
-        $filteredavailableclasses = $availableclasses->filter(function ($class) use ($now) {
-            return $class->user_schedules_count < $class->slots 
-                && $class->class_start_date >= $now
-                && $class->isadminapproved == 1
-                && !$class->user_schedules->isNotEmpty();
-        })->values()->map(function ($class) {
-            $class->trainer = ($class->trainer_id == 0) ? 'No Trainer' : ($class->user->first_name . ' ' . $class->user->last_name);
-            $class->type = 'availableclasses';
-            return $class;
-        });
+                return $class->user_schedules_count < $class->slots;
+            })
+            ->values();
 
         $myclasses = UserSchedule::where('user_id', $user->id)
-            ->with('schedule')
+            ->with(['schedule' => function ($query) {
+                $query->with(['user'])
+                    ->withCount('user_schedules');
+            }])
             ->get()
             ->filter(function ($class) use ($now) {
-                return optional($class->schedule)->class_start_date >= $now
-                    && optional($class->schedule)->isadminapproved == 1;
+                $schedule = $class->schedule;
+                if (!$schedule) {
+                    return false;
+                }
+
+                if ((int) $schedule->isadminapproved !== 1) {
+                    return false;
+                }
+
+                if ($schedule->class_start_date === null) {
+                    return true;
+                }
+
+                return Carbon::parse($schedule->class_start_date)->greaterThanOrEqualTo($now);
             })
-            ->values()
-            ->map(function ($class) {
-                $class->schedule->trainer = ($class->schedule->trainer_id == 0) ? 'No Trainer' : ($class->schedule->user->first_name . ' ' . $class->schedule->user->last_name);
-                $class->schedule->type = 'myclasses';
-                return $class;
-            });
+            ->values();
+
+        $formattedAvailableClasses = $availableClasses->map(function ($class) use ($now) {
+            return $this->transformSchedule($class, 'availableclasses', false, $now);
+        });
+
+        $formattedMyClasses = $myclasses->map(function ($class) use ($now) {
+            $schedule = $class->schedule;
+            if (!$schedule) {
+                return null;
+            }
+
+            return $this->transformSchedule($schedule, 'myclasses', true, $now);
+        })->filter()->values();
 
         return response()->json([
-            'myclasses' => $myclasses,
-            'availableclasses' => $filteredavailableclasses
+            'myclasses' => $formattedMyClasses,
+            'availableclasses' => $formattedAvailableClasses,
         ]);
     }
 
@@ -91,5 +124,61 @@ class MemberClassController extends Controller
         $data->delete();
 
         return response()->json(['message' => 'Leave Class successfully.']);
+    }
+
+    protected function transformSchedule(Schedule $schedule, string $type, bool $isJoined, Carbon $now): array
+    {
+        $startDate = $schedule->class_start_date ? Carbon::parse($schedule->class_start_date) : null;
+        $endDate = $schedule->class_end_date ? Carbon::parse($schedule->class_end_date) : null;
+
+        $status = 'unknown';
+        if ($startDate && $now->lt($startDate)) {
+            $status = 'upcoming';
+        } elseif ($startDate && $endDate && $now->between($startDate, $endDate)) {
+            $status = 'active';
+        } elseif ($endDate && $now->gt($endDate)) {
+            $status = 'completed';
+        }
+
+        $joinedCount = $schedule->user_schedules_count ?? $schedule->user_schedules()->count();
+        $availableSlots = null;
+        if ($schedule->slots !== null) {
+            $availableSlots = max($schedule->slots - $joinedCount, 0);
+        }
+
+        $trainerName = 'Trainer details pending';
+        if ((int) $schedule->trainer_id === 0) {
+            $trainerName = 'No trainer assigned yet';
+        } elseif ($schedule->user) {
+            $trainerName = trim(collect([
+                $schedule->user->first_name ?? null,
+                $schedule->user->last_name ?? null,
+            ])->filter()->implode(' '));
+        }
+
+        return [
+            'id' => $schedule->id,
+            'name' => $schedule->name,
+            'description' => $schedule->description,
+            'class_code' => $schedule->class_code,
+            'class_start_date' => $startDate ? $startDate->toIso8601String() : null,
+            'class_end_date' => $endDate ? $endDate->toIso8601String() : null,
+            'class_status' => $status,
+            'slots' => $schedule->slots,
+            'user_schedules_count' => $joinedCount,
+            'available_slots' => $availableSlots,
+            'trainer_id' => $schedule->trainer_id,
+            'trainer_name' => $trainerName,
+            'trainer' => $trainerName,
+            'type' => $type,
+            'is_joined' => $isJoined,
+            'isadminapproved' => (bool) $schedule->isadminapproved,
+            'istrainerapproved' => (bool) $schedule->istrainerapproved,
+            'rejection_reason' => $schedule->rejection_reason,
+            'image' => $schedule->image,
+            'image_url' => $schedule->image ? url($schedule->image) : null,
+            'created_at' => $schedule->created_at ? $schedule->created_at->toIso8601String() : null,
+            'updated_at' => $schedule->updated_at ? $schedule->updated_at->toIso8601String() : null,
+        ];
     }
 }
