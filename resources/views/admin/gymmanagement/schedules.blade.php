@@ -433,6 +433,15 @@
                                                                             </label>
                                                                         </div>
                                                                     </div>
+                                                                    <div class="mb-3 d-none" id="rejectReasonGroup-{{ $item->id }}">
+                                                                        <label for="rejectReasonInput-{{ $item->id }}" class="form-label fw-semibold">Rejection reason</label>
+                                                                        <textarea
+                                                                            class="form-control"
+                                                                            id="rejectReasonInput-{{ $item->id }}"
+                                                                            name="rejection_reason"
+                                                                            rows="3"
+                                                                            placeholder="Provide rejection reason">{{ old('rejection_reason', $item->rejection_reason) }}</textarea>
+                                                                    </div>
                                                                 </div>
 
                                                                 <div class="modal-footer">
@@ -455,16 +464,35 @@
                                                         const confirmC = document.getElementById('rejectConfirm-{{ $item->id }}');
                                                         const saveBtn  = document.getElementById('saveStatusBtn-{{ $item->id }}');
                                                         const hasUsers = form.dataset.hasUsers === 'true';
+                                                        const reasonGroup = document.getElementById('rejectReasonGroup-{{ $item->id }}');
+                                                        const reasonInput = document.getElementById('rejectReasonInput-{{ $item->id }}');
 
                                                         function updateGuard() {
                                                             const rejectChosen = select.value === '2';
+                                                            if (reasonGroup && reasonInput) {
+                                                                if (rejectChosen) {
+                                                                    reasonGroup.classList.remove('d-none');
+                                                                    reasonInput.required = true;
+                                                                } else {
+                                                                    reasonGroup.classList.add('d-none');
+                                                                    reasonInput.required = false;
+                                                                }
+                                                            }
                                                             if (hasUsers && rejectChosen) {
-                                                                guardBox.classList.remove('d-none');
-                                                                saveBtn.disabled = !confirmC.checked;
+                                                                if (guardBox) {
+                                                                    guardBox.classList.remove('d-none');
+                                                                }
+                                                                if (confirmC) {
+                                                                    saveBtn.disabled = !confirmC.checked;
+                                                                }
                                                             } else {
-                                                                guardBox.classList.add('d-none');
+                                                                if (guardBox) {
+                                                                    guardBox.classList.add('d-none');
+                                                                }
                                                                 saveBtn.disabled = false;
-                                                                if (confirmC) confirmC.checked = false;
+                                                                if (confirmC) {
+                                                                    confirmC.checked = false;
+                                                                }
                                                             }
                                                         }
 

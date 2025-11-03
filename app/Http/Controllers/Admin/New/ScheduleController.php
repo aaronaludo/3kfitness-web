@@ -8,6 +8,7 @@ use App\Models\Schedule;
 use App\Models\User;
 use App\Models\Log;
 use Illuminate\Support\Facades\Validator;
+    use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
@@ -399,14 +400,23 @@ class ScheduleController extends Controller
 
     public function adminacceptance(Request $request)
     {
-        $request->validate([
-            'id' => 'required|exists:schedules,id',
-            'isadminapproved' => 'required'
+        $validated = $request->validate([
+            'id'               => ['required', 'exists:schedules,id'],
+            'isadminapproved'  => ['required', Rule::in([0, 1, 2])],
+            'rejection_reason' => ['nullable', 'string'],
+        ], [
+            'rejection_reason.required_if' => 'Please provide a rejection reason when rejecting a class.',
         ]);
 
-        $data = Schedule::findOrFail($request->id);
-        $data->isadminapproved = $request->isadminapproved;
-        $data->rejection_reason = null;
+        $data = Schedule::findOrFail($validated['id']);
+        $data->isadminapproved = (int) $validated['isadminapproved'];
+
+        if ((int) $validated['isadminapproved'] === 2) {
+            $data->rejection_reason = trim($validated['rejection_reason']);
+        } else {
+            $data->rejection_reason = null;
+        }
+
         $data->save();
 
         return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule changed successfully');
