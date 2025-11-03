@@ -211,13 +211,18 @@
                                     </thead>
                                     <tbody id="table-body">
                                         @foreach($data as $item)
+                                            @php
+                                                $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
+                                                $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
+                                                $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
+                                            @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
                                                 <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
                                                 <td>{{ $item->membership->name }}</td>
-                                                <td>{{ $item->expiration_at }}</td>
-                                                <td>{{ $item->created_at }}</td>
-                                                <td>{{ $item->updated_at }}</td>
+                                                <td>{{ $expirationAt ? $expirationAt->format('F j, Y g:iA') : '' }}</td>
+                                                <td>{{ $createdAt ? $createdAt->format('F j, Y g:iA') : '' }}</td>
+                                                <td>{{ $updatedAt ? $updatedAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>
                                                     @php
                                                         $statusMap = [
@@ -460,6 +465,10 @@
                                     </thead>
                                     <tbody>
                                         @forelse ($archivedData as $archive)
+                                            @php
+                                                $archiveExpiration = $archive->expiration_at ? \Carbon\Carbon::parse($archive->expiration_at) : null;
+                                                $archiveUpdated = $archive->updated_at ? \Carbon\Carbon::parse($archive->updated_at) : null;
+                                            @endphp
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
                                                 <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
@@ -477,8 +486,8 @@
                                                         {{ $archiveStatus['label'] }}
                                                     </span>
                                                 </td>
-                                                <td>{{ $archive->expiration_at }}</td>
-                                                <td>{{ $archive->updated_at }}</td>
+                                                <td>{{ $archiveExpiration ? $archiveExpiration->format('F j, Y g:iA') : '' }}</td>
+                                                <td>{{ $archiveUpdated ? $archiveUpdated->format('F j, Y g:iA') : '' }}</td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
                                                         <button type="button" data-bs-toggle="modal" data-bs-target="#userMembershipArchiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">

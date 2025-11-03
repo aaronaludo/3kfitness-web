@@ -219,6 +219,10 @@
                                     </thead>
                                     <tbody id="table-body">
                                         @forelse($trainers as $item)
+                                            @php
+                                                $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
+                                                $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
+                                            @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
                                                 {{-- <td>
@@ -257,8 +261,8 @@
                                                         View Assignments
                                                     </button>
                                                 </td>
-                                                <td>{{ $item->created_at }}</td>
-                                                <td>{{ $item->updated_at }}</td>
+                                                <td>{{ $createdAt ? $createdAt->format('F j, Y g:iA') : '' }}</td>
+                                                <td>{{ $updatedAt ? $updatedAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>
                                                     <div class="d-flex">
                                                         <div class="action-button"><a href="{{ route('admin.trainer-management.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>
@@ -410,6 +414,10 @@
                                     </thead>
                                     <tbody>
                                         @forelse($archivedData as $archive)
+                                            @php
+                                                $archiveCreated = $archive->created_at ? \Carbon\Carbon::parse($archive->created_at) : null;
+                                                $archiveUpdated = $archive->updated_at ? \Carbon\Carbon::parse($archive->updated_at) : null;
+                                            @endphp
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
                                                 <td>{{ $archive->first_name }} {{ $archive->last_name }}</td>
@@ -428,8 +436,8 @@
                                                         View Assignments
                                                     </button>
                                                 </td>
-                                                <td>{{ $archive->created_at }}</td>
-                                                <td>{{ $archive->updated_at }}</td>
+                                                <td>{{ $archiveCreated ? $archiveCreated->format('F j, Y g:iA') : '' }}</td>
+                                                <td>{{ $archiveUpdated ? $archiveUpdated->format('F j, Y g:iA') : '' }}</td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
                                                         <button type="button" data-bs-toggle="modal" data-bs-target="#archiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">

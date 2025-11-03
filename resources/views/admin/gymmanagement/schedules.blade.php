@@ -331,6 +331,10 @@
                                     </thead>
                                     <tbody id="table-body">
                                         @foreach($data as $item)
+                                            @php
+                                                $start_date = $item->class_start_date ? \Carbon\Carbon::parse($item->class_start_date) : null;
+                                                $end_date = $item->class_end_date ? \Carbon\Carbon::parse($item->class_end_date) : null;
+                                            @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
                                                 <td>{{ $item->name }}</td>
@@ -348,20 +352,20 @@
                                                         {{ $item->user_schedules_count }}
                                                     </a>
                                                 </td>
-                                                <td>{{ $item->class_start_date }}</td>
-                                                <td>{{ $item->class_end_date }}</td>
+                                                <td>{{ $start_date ? $start_date->format('F j, Y g:iA') : '' }}</td>
+                                                <td>{{ $end_date ? $end_date->format('F j, Y g:iA') : '' }}</td>
                                                 {{-- <td>{{ $item->isenabled ? 'Enabled' : 'Disabled' }}</td> --}}
                                                 <td>
                                                     @php
                                                         $now = now();
-                                                        $start_date = \Carbon\Carbon::parse($item->class_start_date);
-                                                        $end_date = \Carbon\Carbon::parse($item->class_end_date);
                                                     @endphp
                                                 
-                                                    @if ($now->lt($start_date))
+                                                    @if ($start_date && $now->lt($start_date))
                                                         <span class="badge rounded-pill bg-warning">Future</span>
-                                                    @elseif ($now->between($start_date, $end_date))
+                                                    @elseif ($start_date && $end_date && $now->between($start_date, $end_date))
                                                         <span class="badge rounded-pill bg-success">Present</span>
+                                                    @elseif ($end_date && $now->gt($end_date))
+                                                        <span class="badge rounded-pill bg-primary">Past</span>
                                                     @else
                                                         <span class="badge rounded-pill bg-primary">Past</span>
                                                     @endif
@@ -514,7 +518,7 @@
                                                     {{ $item->rejection_reason }}
                                                 </td>
                                                 <td>
-                                                    {{ $item->created_at }}
+                                                    {{ $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('F j, Y g:iA') : '' }}
                                                 </td>
                                                 <td>
                                                     {{ $item->created_by }}
@@ -649,6 +653,10 @@
                                     </thead>
                                     <tbody>
                                         @forelse ($archivedData as $archive)
+                                            @php
+                                                $archiveStart = $archive->class_start_date ? \Carbon\Carbon::parse($archive->class_start_date) : null;
+                                                $archiveEnd = $archive->class_end_date ? \Carbon\Carbon::parse($archive->class_end_date) : null;
+                                            @endphp
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
                                                 <td>{{ $archive->name }}</td>
@@ -656,8 +664,8 @@
                                                 <td>{{ $archive->trainer_id == 0 ? 'No Trainer for now' : optional($archive->user)->first_name .' '. optional($archive->user)->last_name }}</td>
                                                 <td>{{ $archive->slots }}</td>
                                                 <td>{{ $archive->user_schedules_count }}</td>
-                                                <td>{{ $archive->class_start_date }}</td>
-                                                <td>{{ $archive->class_end_date }}</td>
+                                                <td>{{ $archiveStart ? $archiveStart->format('F j, Y g:iA') : '' }}</td>
+                                                <td>{{ $archiveEnd ? $archiveEnd->format('F j, Y g:iA') : '' }}</td>
                                                 <td>
                                                     @php
                                                         $statusMap = [
