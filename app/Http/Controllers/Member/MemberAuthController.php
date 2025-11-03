@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log as Logger;
 use Illuminate\Support\Str;
 use App\Models\User;
 use App\Models\Log;
 use App\Models\UserMembership;
+use App\Mail\MemberVerificationCode;
 
 class MemberAuthController extends Controller
 {
@@ -141,7 +144,22 @@ class MemberAuthController extends Controller
         $user->is_email_verified = 0;
         $user->save();
 
-        return response()->json(['message' => 'Verification code generated', 'user' => $user]);
+        try {
+            Mail::to($user->email)->send(new MemberVerificationCode($code));
+            Logger::info('Member verification email sent.', ['user_id' => $user->id]);
+        } catch (\Throwable $e) {
+            Logger::error('Failed to send member verification email.', [
+                'user_id' => $user->id,
+                'error' => $e->getMessage(),
+            ]);
+            return response()->json([
+                'message' => 'Verification code generated but email failed to send.',
+                'error' => $e->getMessage(),
+                'user' => $user,
+            ], 500);
+        }
+
+        return response()->json(['message' => 'Verification code sent', 'user' => $user]);
     }
 
     public function verifyEmail(Request $request)
