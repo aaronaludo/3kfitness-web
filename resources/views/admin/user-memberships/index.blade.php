@@ -136,7 +136,7 @@
                                                 <div>
                                                     <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
                                                     <select id="search-column" name="search_column" class="form-select rounded-3">
-                                                        <option value="" {{ request('search_column') ? '' : 'selected' }}>Best match</option>
+                                                        <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
                                                         <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
                                                         <option value="member_name" {{ request('search_column', 'member_name') == 'member_name' ? 'selected' : '' }}>Member Name</option>
                                                         <option value="membership" {{ request('search_column') == 'membership' ? 'selected' : '' }}>Membership</option>

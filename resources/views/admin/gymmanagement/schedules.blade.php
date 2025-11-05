@@ -152,7 +152,7 @@
                                                 <div>
                                                     <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
                                                     <select id="search-column" name="search_column" class="form-select rounded-3">
-                                                        <option value="" {{ request('search_column') ? '' : 'selected' }}>Best match</option>
+                                                        <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
                                                         <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Class Name</option>
                                                         <option value="class_code" {{ request('search_column') == 'class_code' ? 'selected' : '' }}>Class Code</option>
