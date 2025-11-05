@@ -75,17 +75,9 @@ use App\Http\Controllers\Trainer\TrainerAccountController;
 use App\Http\Controllers\Trainer\TrainerClassController;
 
 use App\Http\Controllers\Mobile\BannerController;
-use App\Http\Controllers\Mobile\AboutController;
-use App\Http\Controllers\Mobile\MotivationalVideoController;
-use App\Http\Controllers\Mobile\WorkoutCategoryController;
-use App\Http\Controllers\Mobile\DietCategoryController;
 use App\Http\Controllers\Mobile\AttendanceController;
 
 Route::get('/banners', [BannerController::class, 'index'])->name('banners.index');
-Route::get('/abouts', [AboutController::class, 'index'])->name('abouts.index');
-Route::get('/motivational-videos', [MotivationalVideoController::class, 'index'])->name('motivational-videos.index');
-Route::get('/workout-categories', [WorkoutCategoryController::class, 'index'])->name('workout-categories.index');
-Route::get('/diet-categories', [DietCategoryController::class, 'index'])->name('diet-categories.index');
 
 Route::prefix('members')->group(function () {
     Route::get('/test', [MemberAuthController::class, 'test'])->name('members.test');
@@ -130,12 +122,6 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('/trainer-approve-class', [TrainerClassController::class, 'trainerapproveclass'])->name('trainers.trainer-approve-class');
         Route::post('/trainer-reject-class', [TrainerClassController::class, 'trainerrejectclass'])->name('trainers.trainer-reject-class');
          
-        Route::post('/create-diet-categories', [DietCategoryController::class, 'create'])->name('diet-categories.create');
-        Route::delete('/delete-diet-categories', [DietCategoryController::class, 'delete'])->name('diet-categories.delete');
-        
-        Route::post('/create-workout-categories', [WorkoutCategoryController::class, 'create'])->name('workout-categories.create');
-        Route::delete('/delete-workout-categories', [WorkoutCategoryController::class, 'delete'])->name('workout-categories.delete');
-        
         Route::post('/edit-profile', [TrainerAccountController::class, 'editProfile'])->name('trainers.edit-profile');
         Route::post('/change-password', [TrainerAccountController::class, 'changePassword'])->name('trainers.change-password');
     });

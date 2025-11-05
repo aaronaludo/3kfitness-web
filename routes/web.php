@@ -28,11 +28,6 @@ use App\Http\Controllers\Admin\New\LogController as Log;
 use App\Http\Controllers\Admin\New\BannerController as Banner;
 use App\Http\Controllers\Admin\New\GoalController as Goal;
 use App\Http\Controllers\Admin\New\PopularWorkoutController as PopularWorkout;
-use App\Http\Controllers\Admin\New\MotivationalVideoController as MotivationalVideo;
-use App\Http\Controllers\Admin\New\WorkoutCategoryController as WorkoutCategory;
-use App\Http\Controllers\Admin\New\DietCategoryController as DietCategory;
-use App\Http\Controllers\Admin\New\HelpController as Help;
-use App\Http\Controllers\Admin\New\AboutController as About;
 use App\Http\Controllers\Admin\New\PayrollController as Payroll;
 
 use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagement;
@@ -60,40 +55,9 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/banners', [Banner::class, 'index'])->name('admin.banners.index');
     Route::post('/admin/banners', [Banner::class, 'update'])->name('admin.banners.update');
     
-    Route::get('/admin/abouts', [About::class, 'index'])->name('admin.abouts.index');
-    Route::post('/admin/abouts', [About::class, 'update'])->name('admin.abouts.update');
-    
-    Route::get('/admin/motivational-videos', [MotivationalVideo::class, 'index'])->name('admin.motivational-videos.index');
-    Route::get('/admin/motivational-videos/create', [MotivationalVideo::class, 'create'])->name('admin.motivational-videos.create');
-    Route::get('/admin/motivational-videos/{id}', [MotivationalVideo::class, 'view'])->name('admin.motivational-videos.view');
-    Route::post('/admin/motivational-videos', [MotivationalVideo::class, 'store'])->name('admin.motivational-videos.store');
-    Route::post('/admin/motivational-videos/print', [MotivationalVideo::class, 'print'])->name('admin.motivational-videos.print');
-    Route::get('/admin/motivational-videos/{id}/edit', [MotivationalVideo::class, 'edit'])->name('admin.motivational-videos.edit');
-    Route::put('/admin/motivational-videos/{id}', [MotivationalVideo::class, 'update'])->name('admin.motivational-videos.update');
-    Route::delete('/admin/motivational-videos', [MotivationalVideo::class, 'delete'])->name('admin.motivational-videos.delete');
-    
-    Route::get('/admin/workout-categories', [WorkoutCategory::class, 'index'])->name('admin.workout-categories.index');
-    Route::get('/admin/workout-categories/create', [WorkoutCategory::class, 'create'])->name('admin.workout-categories.create');
-    Route::get('/admin/workout-categories/{id}', [WorkoutCategory::class, 'view'])->name('admin.workout-categories.view');
-    Route::post('/admin/workout-categories', [WorkoutCategory::class, 'store'])->name('admin.workout-categories.store');
-    Route::post('/admin/workout-categories/print', [WorkoutCategory::class, 'print'])->name('admin.workout-categories.print');
-    Route::get('/admin/workout-categories/{id}/edit', [WorkoutCategory::class, 'edit'])->name('admin.workout-categories.edit');
-    Route::put('/admin/workout-categories/{id}', [WorkoutCategory::class, 'update'])->name('admin.workout-categories.update');
-    Route::delete('/admin/workout-categories', [WorkoutCategory::class, 'delete'])->name('admin.workout-categories.delete');
-    
-    Route::get('/admin/diet-categories', [DietCategory::class, 'index'])->name('admin.diet-categories.index');
-    Route::get('/admin/diet-categories/create', [DietCategory::class, 'create'])->name('admin.diet-categories.create');
-    Route::get('/admin/diet-categories/{id}', [DietCategory::class, 'view'])->name('admin.diet-categories.view');
-    Route::post('/admin/diet-categories', [DietCategory::class, 'store'])->name('admin.diet-categories.store');
-    Route::post('/admin/diet-categories/print', [DietCategory::class, 'print'])->name('admin.diet-categories.print');
-    Route::get('/admin/diet-categories/{id}/edit', [DietCategory::class, 'edit'])->name('admin.diet-categories.edit');
-    Route::put('/admin/diet-categories/{id}', [DietCategory::class, 'update'])->name('admin.diet-categories.update');
-    Route::delete('/admin/diet-categories', [DietCategory::class, 'delete'])->name('admin.diet-categories.delete');
-    
     Route::get('/admin/goals', [Goal::class, 'index'])->name('admin.goals.index');
     
     Route::get('/admin/popular-workouts', [PopularWorkout::class, 'index'])->name('admin.popular-workouts.index');
-    Route::get('/admin/helps', [Help::class, 'index'])->name('admin.helps.index');
 
     Route::get('/admin/payrolls', [Payroll::class, 'index'])->name('admin.payrolls.index');
     Route::get('/admin/payrolls/{id}', [Payroll::class, 'view'])->name('admin.payrolls.view');

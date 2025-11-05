@@ -216,11 +216,6 @@
                         <a class="collapsed {{ 
                             in_array(Request::route()->getName(), [
                                 'admin.banners.index',
-                                'admin.abouts.index',
-                                'admin.motivational-videos.index',
-                                'admin.workout-categories.index',
-                                'admin.diet-categories.index',
-                                'admin.helps.index',
                                 'admin.logs.index'
                             ]) ? 'active' : '' }}" 
                             data-bs-toggle="collapse" 
@@ -229,11 +224,6 @@
                             aria-expanded="{{ 
                                 in_array(Request::route()->getName(), [
                                     'admin.banners.index',
-                                    'admin.abouts.index',
-                                    'admin.motivational-videos.index',
-                                    'admin.workout-categories.index',
-                                    'admin.diet-categories.index',
-                                    'admin.helps.index',
                                     'admin.logs.index'
                                 ]) ? 'true' : 'false' }}" 
                             aria-controls="operations-menu">
@@ -242,19 +232,9 @@
                         <ul id="operations-menu" class="collapse {{ 
                             in_array(Request::route()->getName(), [
                                 'admin.banners.index',
-                                'admin.abouts.index',
-                                'admin.motivational-videos.index',
-                                'admin.workout-categories.index',
-                                'admin.diet-categories.index',
-                                'admin.helps.index',
                                 'admin.logs.index'
                             ]) ? 'show' : '' }}">
                             <li><a href="{{ route('admin.banners.index') }}" class="{{ Request::route()->getName() === 'admin.banners.index' ? 'active' : '' }}">Banners</a></li>
-                            <li><a href="{{ route('admin.abouts.index') }}" class="{{ Request::route()->getName() === 'admin.abouts.index' ? 'active' : '' }}">Abouts</a></li>
-                            <li><a href="{{ route('admin.motivational-videos.index') }}" class="{{ Request::route()->getName() === 'admin.motivational-videos.index' ? 'active' : '' }}">Motivational Videos</a></li>
-                            <li><a href="{{ route('admin.workout-categories.index') }}" class="{{ Request::route()->getName() === 'admin.workout-categories.index' ? 'active' : '' }}">Workout Categories</a></li>
-                            <li><a href="{{ route('admin.diet-categories.index') }}" class="{{ Request::route()->getName() === 'admin.diet-categories.index' ? 'active' : '' }}">Diet Categories</a></li>
-                            <li><a href="{{ route('admin.helps.index') }}" class="{{ Request::route()->getName() === 'admin.helps.index' ? 'active' : '' }}">Help</a></li>
                             <li><a href="{{ route('admin.logs.index') }}" class="{{ Request::route()->getName() === 'admin.logs.index' ? 'active' : '' }}">Logs</a></li>
                         </ul>
                     </li>
@@ -269,12 +249,6 @@
                 <!--</li>-->
                 
                 <!--<li>-->
-                <!--    <a href="{{ route('admin.abouts.index') }}">-->
-                <!--        <i class="fa-solid fa-user"></i> Abouts-->
-                <!--    </a>-->
-                <!--</li>-->
-                
-                <!--<li>-->
                 <!--    <a href="{{ route('admin.goals.index') }}">-->
                 <!--        <i class="fa-solid fa-user"></i> Goals-->
                 <!--    </a>-->
@@ -283,30 +257,6 @@
                 <!--<li>-->
                 <!--    <a href="{{ route('admin.popular-workouts.index') }}">-->
                 <!--        <i class="fa-solid fa-user"></i> Popular Workout-->
-                <!--    </a>-->
-                <!--</li>-->
-                
-                <!--<li>-->
-                <!--    <a href="{{ route('admin.motivational-videos.index') }}">-->
-                <!--        <i class="fa-solid fa-user"></i> Motivational Videos-->
-                <!--    </a>-->
-                <!--</li>-->
-                
-                <!--<li>-->
-                <!--    <a href="{{ route('admin.workout-categories.index') }}">-->
-                <!--        <i class="fa-solid fa-user"></i> Workout Categories-->
-                <!--    </a>-->
-                <!--</li>-->
-                
-                <!--<li>-->
-                <!--    <a href="{{ route('admin.diet-categories.index') }}">-->
-                <!--        <i class="fa-solid fa-user"></i> Diet Categories -->
-                <!--    </a>-->
-                <!--</li>-->
-                
-                <!--<li>-->
-                <!--    <a href="{{ route('admin.helps.index') }}">-->
-                <!--        <i class="fa-solid fa-user"></i> Help-->
                 <!--    </a>-->
                 <!--</li>-->
                 
