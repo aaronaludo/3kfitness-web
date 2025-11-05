@@ -22,7 +22,7 @@ use App\Http\Controllers\Admin\New\ScheduleController as Schedule;
 use App\Http\Controllers\Admin\New\MemberDataController as MemberData;
 use App\Http\Controllers\Admin\New\AttendanceController as Attendance;
 use App\Http\Controllers\Admin\New\MembershipController as Membership;
-use App\Http\Controllers\Admin\New\UserMembershipController as UserMembership;
+use App\Http\Controllers\Admin\New\MembershipPaymentController as MembershipPayment;
 use App\Http\Controllers\Admin\New\LogController as Log;
 
 use App\Http\Controllers\Admin\New\BannerController as Banner;
@@ -116,12 +116,12 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::delete('/admin/memberships', [Membership::class, 'delete'])->name('admin.staff-account-management.memberships.delete');
     Route::match(['put', 'post'], '/admin/memberships/restore', [Membership::class, 'restore'])->name('admin.staff-account-management.memberships.restore');
 
-    Route::get('/admin/user-memberships', [UserMembership::class, 'index'])->name('admin.staff-account-management.user-memberships');
-    Route::post('/admin/user-memberships/isapprove', [UserMembership::class, 'isapprove'])->name('admin.staff-account-management.user-memberships.isapprove');
-    Route::post('/admin/user-memberships/print', [UserMembership::class, 'print'])->name('admin.staff-account-management.user-memberships.print');
-    Route::get('/admin/user-memberships/{id}', [UserMembership::class, 'view'])->name('admin.staff-account-management.user-memberships.view');
-    Route::delete('/admin/user-memberships', [UserMembership::class, 'delete'])->name('admin.staff-account-management.user-memberships.delete');
-    Route::match(['put', 'post'], '/admin/user-memberships/restore', [UserMembership::class, 'restore'])->name('admin.staff-account-management.user-memberships.restore');
+    Route::get('/admin/membership-payments', [MembershipPayment::class, 'index'])->name('admin.staff-account-management.membership-payments');
+    Route::post('/admin/membership-payments/isapprove', [MembershipPayment::class, 'isapprove'])->name('admin.staff-account-management.membership-payments.isapprove');
+    Route::post('/admin/membership-payments/print', [MembershipPayment::class, 'print'])->name('admin.staff-account-management.membership-payments.print');
+    Route::get('/admin/membership-payments/{id}', [MembershipPayment::class, 'view'])->name('admin.staff-account-management.membership-payments.view');
+    Route::delete('/admin/membership-payments', [MembershipPayment::class, 'delete'])->name('admin.staff-account-management.membership-payments.delete');
+    Route::match(['put', 'post'], '/admin/membership-payments/restore', [MembershipPayment::class, 'restore'])->name('admin.staff-account-management.membership-payments.restore');
 
     Route::get('/admin/classes', [Schedule::class, 'index'])->name('admin.gym-management.schedules');
     Route::get('/admin/classes/all', [Schedule::class, 'all'])->name('admin.gym-management.schedules.all');
@@ -207,6 +207,6 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::post('/admin/logout', [AdminAuthController::class, 'logout'])->name('admin.logout');
 
-    // User Memberships receipt (moved from Walk-in Payments)
-    Route::get('/admin/user-memberships/receipt/{id}', [UserMembership::class, 'receipt'])->name('admin.staff-account-management.user-memberships.receipt');
+    // Membership Payments receipt (moved from Walk-in Payments)
+    Route::get('/admin/membership-payments/receipt/{id}', [MembershipPayment::class, 'receipt'])->name('admin.staff-account-management.membership-payments.receipt');
 });

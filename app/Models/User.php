@@ -51,13 +51,14 @@ class User extends Authenticatable
         return $this->belongsTo(Role::class);
     }
 
-    public function usermemberships(){
-        return $this->hasMany(UserMembership::class);
+    public function membershipPayments()
+    {
+        return $this->hasMany(MembershipPayment::class);
     }
     
     public function memberships()
     {
-        return $this->belongsToMany(Membership::class, 'user_memberships', 'user_id', 'membership_id');
+        return $this->belongsToMany(Membership::class, 'membership_payments', 'user_id', 'membership_id');
     }
 
     public function trainerSchedules()

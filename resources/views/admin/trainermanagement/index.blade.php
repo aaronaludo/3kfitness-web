@@ -227,7 +227,7 @@
                                                 <td>{{ $item->id }}</td>
                                                 {{-- <td>
                                                     {{ 
-                                                        optional($item->usermemberships()
+                                                        optional($item->membershipPayments()
                                                             ->where('isapproved', 1)
                                                             ->where('expiration_at', '>=', $current_time)
                                                             ->orderBy('created_at', 'desc')
@@ -237,7 +237,7 @@
                                                 </td>
                                                 <td>
                                                     {{ 
-                                                        optional($item->usermemberships()
+                                                        optional($item->membershipPayments()
                                                             ->where('isapproved', 1)
                                                             ->where('expiration_at', '>=', $current_time)
                                                             ->orderBy('created_at', 'desc')

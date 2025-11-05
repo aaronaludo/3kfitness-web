@@ -5,7 +5,7 @@ namespace App\Http\Controllers\Member;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Membership;
-use App\Models\UserMembership;
+use App\Models\MembershipPayment;
 
 class MemberMembershipController extends Controller
 {
@@ -14,19 +14,19 @@ class MemberMembershipController extends Controller
         $user = $request->user();
         $data = Membership::all();
     
-        $user_membership = UserMembership::where('user_id', $user->id)
+        $membership_payment = MembershipPayment::where('user_id', $user->id)
                                           ->where('expiration_at', '>', now())
                                           ->orderBy('created_at', 'desc')
                                           ->first();
         
         $membership_message = null;
     
-        if ($user_membership) {
-            if ($user_membership->isapproved === 1) {
-                $expiry_date = \Carbon\Carbon::parse($user_membership->expiration_at)->format('m/d/Y h:i A');
-                $membership_message = "Your Membership: {$user_membership->membership->name} is approved until {$expiry_date}";
-            } else if ($user_membership->isapproved === 0) {
-                $membership_message = "Your Membership: {$user_membership->membership->name} is pending, please wait for the admin to approve it";
+        if ($membership_payment) {
+            if ($membership_payment->isapproved === 1) {
+                $expiry_date = \Carbon\Carbon::parse($membership_payment->expiration_at)->format('m/d/Y h:i A');
+                $membership_message = "Your Membership: {$membership_payment->membership->name} is approved until {$expiry_date}";
+            } else if ($membership_payment->isapproved === 0) {
+                $membership_message = "Your Membership: {$membership_payment->membership->name} is pending, please wait for the admin to approve it";
             }
         } else {
             $membership_message = "You currently do not have an active membership.";
@@ -34,7 +34,7 @@ class MemberMembershipController extends Controller
     
         return response()->json([
             'data' => $data,
-            'user_membership' => $user_membership,
+            'membership_payment' => $membership_payment,
             'membership_message' => $membership_message,
         ]);
     }           
@@ -44,7 +44,7 @@ class MemberMembershipController extends Controller
         $user = $request->user();
         $membership = Membership::find($request->membership_id);
     
-        $existingMembership = UserMembership::where('user_id', $user->id)
+        $existingMembership = MembershipPayment::where('user_id', $user->id)
         ->whereIn('isapproved', [0, 1])
         ->where(function ($query) {
             $query->where('isapproved', 0)
@@ -65,7 +65,7 @@ class MemberMembershipController extends Controller
             ], 400);
         }
     
-        $data = new UserMembership;
+        $data = new MembershipPayment;
         $data->user_id = $user->id;
         $data->membership_id = $membership->id;
         $data->isapproved = 0;

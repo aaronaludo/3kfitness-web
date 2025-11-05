@@ -48,7 +48,7 @@ class MembershipController extends Controller
     
         $activeBase = Membership::where('is_archive', 0);
         $totalMemberships = (clone $activeBase)->count();
-        $activeMemberships = (clone $activeBase)->whereHas('usermemberships', function ($query) {
+        $activeMemberships = (clone $activeBase)->whereHas('membershipPayments', function ($query) {
             $query->where('isapproved', 1);
         })->count();
         $statusTallies = [
@@ -59,13 +59,13 @@ class MembershipController extends Controller
 
         $baseQuery = Membership::query()
             ->withCount([
-                'usermemberships as members_approved' => function ($query) {
+                'membershipPayments as members_approved' => function ($query) {
                     $query->where('isapproved', 1);
                 },
-                'usermemberships as members_pending' => function ($query) {
+                'membershipPayments as members_pending' => function ($query) {
                     $query->where('isapproved', 0);
                 },
-                'usermemberships as members_reject' => function ($query) {
+                'membershipPayments as members_reject' => function ($query) {
                     $query->where('isapproved', 2);
                 },
             ])
@@ -86,13 +86,13 @@ class MembershipController extends Controller
             })
             ->when($statusFilter !== 'all', function ($query) use ($statusFilter) {
                 if ($statusFilter === 'active') {
-                    return $query->whereHas('usermemberships', function ($q) {
+                    return $query->whereHas('membershipPayments', function ($q) {
                         $q->where('isapproved', 1);
                     });
                 }
 
                 if ($statusFilter === 'empty') {
-                    return $query->whereDoesntHave('usermemberships', function ($q) {
+                    return $query->whereDoesntHave('membershipPayments', function ($q) {
                         $q->where('isapproved', 1);
                     });
                 }
@@ -280,13 +280,13 @@ class MembershipController extends Controller
         $query = Membership::query()
             ->where('is_archive', 0)
             ->withCount([
-                'usermemberships as members_approved' => function ($query) {
+                'membershipPayments as members_approved' => function ($query) {
                     $query->where('isapproved', 1);
                 },
-                'usermemberships as members_pending' => function ($query) {
+                'membershipPayments as members_pending' => function ($query) {
                     $query->where('isapproved', 0);
                 },
-                'usermemberships as members_reject' => function ($query) {
+                'membershipPayments as members_reject' => function ($query) {
                     $query->where('isapproved', 2);
                 },
             ])
@@ -314,13 +314,13 @@ class MembershipController extends Controller
             })
             ->when($statusFilter !== 'all', function ($query) use ($statusFilter) {
                 if ($statusFilter === 'active') {
-                    return $query->whereHas('usermemberships', function ($q) {
+                    return $query->whereHas('membershipPayments', function ($q) {
                         $q->where('isapproved', 1);
                     });
                 }
 
                 if ($statusFilter === 'empty') {
-                    return $query->whereDoesntHave('usermemberships', function ($q) {
+                    return $query->whereDoesntHave('membershipPayments', function ($q) {
                         $q->where('isapproved', 1);
                     });
                 }

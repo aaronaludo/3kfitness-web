@@ -9,8 +9,8 @@ class Membership extends Model
 {
     use HasFactory;
     
-    public function usermemberships()
+    public function membershipPayments()
     {
-        return $this->hasMany(UserMembership::class);
+        return $this->hasMany(MembershipPayment::class);
     }
 }

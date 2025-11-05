@@ -247,15 +247,15 @@
                                     <tbody id="table-body">
                                         @foreach($gym_members as $item)
                                         @php
-                                            $latestUserMembership = $item->usermemberships()
+                                            $latestMembershipPayment = $item->membershipPayments()
                                                 ->where('isapproved', 1)
                                                 ->where('expiration_at', '>=', $current_time)
                                                 ->with('membership')
                                                 ->orderBy('created_at', 'desc')
                                                 ->first();
 
-                                            $membershipName = optional(optional($latestUserMembership)->membership)->name ?? 'No Membership';
-                                            $expirationAt   = optional($latestUserMembership)->expiration_at ?? 'No Expiration Date';
+                                            $membershipName = optional(optional($latestMembershipPayment)->membership)->name ?? 'No Membership';
+                                            $expirationAt   = optional($latestMembershipPayment)->expiration_at ?? 'No Expiration Date';
 
                                             // UPDATED START: compute boolean for client-side filtering
                                             $hasMembership = $membershipName !== 'No Membership';
@@ -279,8 +279,8 @@
                                             {{-- UPDATED END --}}
 
                                             <td>
-                                                @if ($latestUserMembership && $latestUserMembership->expiration_at)
-                                                    {{ \Carbon\Carbon::parse($latestUserMembership->expiration_at)->format('Y-m-d H:i') }}
+                                                @if ($latestMembershipPayment && $latestMembershipPayment->expiration_at)
+                                                    {{ \Carbon\Carbon::parse($latestMembershipPayment->expiration_at)->format('Y-m-d H:i') }}
                                                 @else
                                                     {{ $expirationAt }}
                                                 @endif
@@ -399,15 +399,15 @@
                                 <tbody>
                                     @forelse ($archivedData as $archive)
                                         @php
-                                            $latestUserMembership = $archive->usermemberships()
+                                            $latestMembershipPayment = $archive->membershipPayments()
                                                 ->where('isapproved', 1)
                                                 ->where('expiration_at', '>=', $current_time)
                                                 ->with('membership')
                                                 ->orderBy('created_at', 'desc')
                                                 ->first();
 
-                                            $membershipName = optional(optional($latestUserMembership)->membership)->name ?? 'No Membership';
-                                            $expirationAt   = optional($latestUserMembership)->expiration_at ?? 'No Expiration Date';
+                                            $membershipName = optional(optional($latestMembershipPayment)->membership)->name ?? 'No Membership';
+                                            $expirationAt   = optional($latestMembershipPayment)->expiration_at ?? 'No Expiration Date';
                                         @endphp
                                         <tr>
                                             <td>{{ $archive->id }}</td>
@@ -419,8 +419,8 @@
                                                 @endif
                                             </td>
                                             <td>
-                                                @if ($latestUserMembership && $latestUserMembership->expiration_at)
-                                                    {{ \Carbon\Carbon::parse($latestUserMembership->expiration_at)->format('Y-m-d H:i') }}
+                                                @if ($latestMembershipPayment && $latestMembershipPayment->expiration_at)
+                                                    {{ \Carbon\Carbon::parse($latestMembershipPayment->expiration_at)->format('Y-m-d H:i') }}
                                                 @else
                                                     {{ $expirationAt }}
                                                 @endif

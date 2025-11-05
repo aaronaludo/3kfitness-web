@@ -1,11 +1,11 @@
 @extends('layouts.admin')
-@section('title', 'View User Membership')
+@section('title', 'View Membership Payment')
 
 @section('content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-lg-12 d-flex justify-content-between">
-                <div><h2 class="title">View</h1></div>
+                <div><h2 class="title">Membership Payment Details</h2></div>
             </div>
             <div class="col-lg-12">
                 <div class="alert alert-danger">

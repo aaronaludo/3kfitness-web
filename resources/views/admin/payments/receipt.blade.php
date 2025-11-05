@@ -11,7 +11,7 @@
                 </div>
                 <div class="d-flex align-items-center gap-2">
                     <button class="btn btn-danger" onclick="window.print()"><i class="fa-solid fa-print"></i>&nbsp; Print</button>
-                    <a class="btn btn-outline-secondary" href="{{ route('admin.staff-account-management.user-memberships') }}">Back to Payments</a>
+                    <a class="btn btn-outline-secondary" href="{{ route('admin.staff-account-management.membership-payments') }}">Back to Payments</a>
                 </div>
             </div>
 

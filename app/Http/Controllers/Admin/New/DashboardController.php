@@ -9,7 +9,7 @@ use App\Models\Feedback;
 
 use App\Models\Membership;
 use App\Models\Schedule;
-use App\Models\UserMembership;
+use App\Models\MembershipPayment;
 use App\Models\Log;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
@@ -23,7 +23,7 @@ class DashboardController extends Controller
         $feedbacks_count = Feedback::count();
         $memberships_count = Membership::count();
         $classes_count = Schedule::count();
-        $user_membership_count = UserMembership::where('isapproved', 0)->count();
+        $membership_payment_count = MembershipPayment::where('isapproved', 0)->count();
         
         $gym_members = User::where('role_id', 3)->limit(10)->get();
         $logs = Log::orderBy('id', 'desc')->limit(10)->get();
@@ -59,7 +59,7 @@ class DashboardController extends Controller
         $membersPerMonth = $countByMonth(User::where('role_id', 3));
         $membershipsPerMonth = $countByMonth(Membership::query());
         $classesPerMonth = $countByMonth(Schedule::query());
-        $approvedUserMembershipsPerMonth = $countByMonth(UserMembership::where('isapproved', 1), 'updated_at');
+        $approvedMembershipPaymentsPerMonth = $countByMonth(MembershipPayment::where('isapproved', 1), 'updated_at');
 
         return view(
             'admin.dashboard.index',
@@ -70,14 +70,14 @@ class DashboardController extends Controller
                 'gym_members',
                 'memberships_count',
                 'classes_count',
-                'user_membership_count',
+                'membership_payment_count',
                 'logs'
             ) + [
                 'chartLabels' => $chartLabels,
                 'membersPerMonth' => $membersPerMonth,
                 'membershipsPerMonth' => $membershipsPerMonth,
                 'classesPerMonth' => $classesPerMonth,
-                'approvedUserMembershipsPerMonth' => $approvedUserMembershipsPerMonth,
+                'approvedMembershipPaymentsPerMonth' => $approvedMembershipPaymentsPerMonth,
             ]
         );
     }

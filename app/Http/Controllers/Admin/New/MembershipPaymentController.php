@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin\New;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\UserMembership;
+use App\Models\MembershipPayment;
 use App\Models\Membership;
 use App\Models\User;
 use Carbon\Carbon;
@@ -12,7 +12,7 @@ use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Style\Language;
 
-class UserMembershipController extends Controller
+class MembershipPaymentController extends Controller
 {
     public function index(Request $request)
     {
@@ -48,13 +48,13 @@ class UserMembershipController extends Controller
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
 
         $statusTallies = [
-            'all'      => UserMembership::where('is_archive', 0)->count(),
-            'pending'  => UserMembership::where('is_archive', 0)->where('isapproved', 0)->count(),
-            'approved' => UserMembership::where('is_archive', 0)->where('isapproved', 1)->count(),
-            'rejected' => UserMembership::where('is_archive', 0)->where('isapproved', 2)->count(),
+            'all'      => MembershipPayment::where('is_archive', 0)->count(),
+            'pending'  => MembershipPayment::where('is_archive', 0)->where('isapproved', 0)->count(),
+            'approved' => MembershipPayment::where('is_archive', 0)->where('isapproved', 1)->count(),
+            'rejected' => MembershipPayment::where('is_archive', 0)->where('isapproved', 2)->count(),
         ];
 
-        $baseQuery = $this->buildUserMembershipQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $statusFilter);
+        $baseQuery = $this->buildMembershipPaymentQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $statusFilter);
 
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
@@ -69,19 +69,19 @@ class UserMembershipController extends Controller
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
 
-        return view('admin.user-memberships.index', compact('data', 'archivedData', 'statusTallies'));
+        return view('admin.membership-payments.index', compact('data', 'archivedData', 'statusTallies'));
     }
 
     public function view($id)
     {
-        $data = UserMembership::findOrFail($id);
+        $data = MembershipPayment::findOrFail($id);
 
-        return view('admin.user-memberships.view', compact('data'));
+        return view('admin.membership-payments.view', compact('data'));
     }
 
     public function receipt($id)
     {
-        $record = UserMembership::with(['membership', 'user'])->findOrFail($id);
+        $record = MembershipPayment::with(['membership', 'user'])->findOrFail($id);
         $createdAt = $record->created_at ? Carbon::parse($record->created_at) : Carbon::now();
 
         return view('admin.payments.receipt', [
@@ -93,22 +93,22 @@ class UserMembershipController extends Controller
     public function isapprove(Request $request)
     {
         $request->validate([
-            'id' => 'required|exists:user_memberships,id',
+            'id' => 'required|exists:membership_payments,id',
             'isapproved' => 'required|integer'
         ]);
 
-        $data = UserMembership::findOrFail($request->id);
+        $data = MembershipPayment::findOrFail($request->id);
         $data->isapproved = $request->isapproved;
         $data->save();
 
-        return redirect()->route('admin.staff-account-management.user-memberships')->with('success', 'User Membership updated successfully');
+        return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership Payment updated successfully');
     }
 
     public function delete(Request $request)
     {
         try {
             $request->validate([
-                'id' => 'required|exists:user_memberships,id',
+                'id' => 'required|exists:membership_payments,id',
                 'password' => 'required',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -121,25 +121,25 @@ class UserMembershipController extends Controller
             return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
         }
 
-        $data = UserMembership::findOrFail($request->id);
+        $data = MembershipPayment::findOrFail($request->id);
 
         if ((int) $data->is_archive === 1) {
             $data->delete();
-            $message = 'User membership deleted permanently';
+            $message = 'Membership payment deleted permanently';
         } else {
             $data->is_archive = 1;
             $data->save();
-            $message = 'User membership moved to archive';
+            $message = 'Membership payment moved to archive';
         }
 
-        return redirect()->route('admin.staff-account-management.user-memberships')->with('success', $message);
+        return redirect()->route('admin.staff-account-management.membership-payments')->with('success', $message);
     }
 
     public function restore(Request $request)
     {
         try {
             $request->validate([
-                'id' => 'required|exists:user_memberships,id',
+                'id' => 'required|exists:membership_payments,id',
                 'password' => 'required',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -152,16 +152,16 @@ class UserMembershipController extends Controller
             return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
         }
 
-        $data = UserMembership::findOrFail($request->id);
+        $data = MembershipPayment::findOrFail($request->id);
 
         if ((int) $data->is_archive === 0) {
-            return redirect()->route('admin.staff-account-management.user-memberships')->with('success', 'User membership is already active');
+            return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership payment is already active');
         }
 
         $data->is_archive = 0;
         $data->save();
 
-        return redirect()->route('admin.staff-account-management.user-memberships')->with('success', 'User membership restored successfully');
+        return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership payment restored successfully');
     }
 
     public function print(Request $request)
@@ -204,14 +204,14 @@ class UserMembershipController extends Controller
         $dateColumns = ['created_at', 'updated_at', 'expiration_at'];
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
-        $query = $this->buildUserMembershipQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $statusFilter);
+        $query = $this->buildMembershipPaymentQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $statusFilter);
         $data  = $query->get();
 
         $suffix = '';
         if ($start && $end) {
             $suffix = '_' . $start->format('Ymd') . '_to_' . $end->format('Ymd');
         }
-        $fileName = "user_memberships{$suffix}_" . date('Y-m-d') . ".docx";
+        $fileName = "membership_payments{$suffix}_" . date('Y-m-d') . ".docx";
 
         $phpWord = new PhpWord();
         $phpWord->getSettings()->setThemeFontLang(new Language(Language::EN_US));
@@ -225,7 +225,7 @@ class UserMembershipController extends Controller
             'marginBottom' => 800,
         ]);
 
-        $title = 'User Memberships';
+        $title = 'Membership Payments';
         if ($start && $end) {
             $title .= ' — ' . $start->format('M d, Y') . ' to ' . $end->format('M d, Y');
         }
@@ -239,8 +239,8 @@ class UserMembershipController extends Controller
             'cellMargin'  => 80,
         ];
         $firstRowStyle = ['bgColor' => 'DDDDDD'];
-        $phpWord->addTableStyle('UserMembershipsTable', $tableStyle, $firstRowStyle);
-        $table = $section->addTable('UserMembershipsTable');
+        $phpWord->addTableStyle('MembershipPaymentsTable', $tableStyle, $firstRowStyle);
+        $table = $section->addTable('MembershipPaymentsTable');
 
         $headers = [
             'ID',
@@ -292,9 +292,9 @@ class UserMembershipController extends Controller
     /**
      * Build the base query with shared filtering logic for index and export.
      */
-    protected function buildUserMembershipQuery(?string $keyword, ?string $searchColumn, ?Carbon $start, ?Carbon $end, string $rangeColumn, string $statusFilter = 'all')
+    protected function buildMembershipPaymentQuery(?string $keyword, ?string $searchColumn, ?Carbon $start, ?Carbon $end, string $rangeColumn, string $statusFilter = 'all')
     {
-        $query = UserMembership::query()
+        $query = MembershipPayment::query()
             ->with([
                 'user' => function ($userQuery) {
                     $userQuery->select('id', 'first_name', 'last_name')

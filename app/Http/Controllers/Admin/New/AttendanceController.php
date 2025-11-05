@@ -127,7 +127,7 @@ class AttendanceController extends Controller
     
         if ($user) {
             if ($user->role_id == 3) {
-                $membership = $user->usermemberships()
+                $membership = $user->membershipPayments()
                     ->where('isapproved', 1)
                     ->where('expiration_at', '>', now())
                     ->latest('expiration_at')
@@ -180,7 +180,7 @@ class AttendanceController extends Controller
         }
     
         if ($user->role_id == 3) {
-            $membership = $user->usermemberships()
+            $membership = $user->membershipPayments()
                 ->where('isapproved', 1)
                 ->where('expiration_at', '>', now())
                 ->latest('expiration_at')

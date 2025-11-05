@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Membership;
-use App\Models\UserMembership;
+use App\Models\MembershipPayment;
 use App\Models\Schedule;
 use App\Models\UserSchedule;
 use App\Models\Attendance;
@@ -54,7 +54,7 @@ class MemberDataController extends Controller
         $activeMembersBase = User::where('role_id', 3)->where('is_archive', 0);
         $totalMembers = (clone $activeMembersBase)->count();
         $withMembershipCount = (clone $activeMembersBase)
-            ->whereHas('usermemberships', function ($query) use ($current_time) {
+            ->whereHas('membershipPayments', function ($query) use ($current_time) {
                 $query->where('isapproved', 1)
                     ->where('expiration_at', '>=', $current_time);
             })
@@ -86,14 +86,14 @@ class MemberDataController extends Controller
             })
             ->when($membershipStatus !== 'all', function ($query) use ($membershipStatus, $current_time) {
                 if ($membershipStatus === 'with') {
-                    return $query->whereHas('usermemberships', function ($q) use ($current_time) {
+                    return $query->whereHas('membershipPayments', function ($q) use ($current_time) {
                         $q->where('isapproved', 1)
                             ->where('expiration_at', '>=', $current_time);
                     });
                 }
 
                 if ($membershipStatus === 'none') {
-                    return $query->whereDoesntHave('usermemberships', function ($q) use ($current_time) {
+                    return $query->whereDoesntHave('membershipPayments', function ($q) use ($current_time) {
                         $q->where('isapproved', 1)
                             ->where('expiration_at', '>=', $current_time);
                     });
@@ -140,7 +140,7 @@ class MemberDataController extends Controller
         $memberships = Membership::all();
         $current_time = Carbon::now();
         
-        $gym_member_membership = optional($gym_member->usermemberships()
+        $gym_member_membership = optional($gym_member->membershipPayments()
             ->where('isapproved', 1)
             ->where('expiration_at', '>=', $current_time)
             ->orderBy('created_at', 'desc')
@@ -186,7 +186,7 @@ class MemberDataController extends Controller
         $users->save();
 
         $membership = Membership::find($validatedData['membership_id']);
-        $data = new UserMembership;
+        $data = new MembershipPayment;
         $data->user_id = $users->id;
         $data->membership_id = $validatedData['membership_id'];
         $data->isapproved = 1;
@@ -222,7 +222,7 @@ class MemberDataController extends Controller
         }
 
         // Redirect to printable walk-in payment receipt
-        return redirect()->route('admin.staff-account-management.user-memberships.receipt', ['id' => $data->id])->with('success', 'Gym member added successfully');
+        return redirect()->route('admin.staff-account-management.membership-payments.receipt', ['id' => $data->id])->with('success', 'Gym member added successfully');
     }
 
     public function update(Request $request, $id)
@@ -233,7 +233,7 @@ class MemberDataController extends Controller
         
         // Block issuing a new membership if the user already has an active approved membership
         $now = Carbon::now();
-        $existingActive = UserMembership::where('user_id', $id)
+        $existingActive = MembershipPayment::where('user_id', $id)
             ->where('isapproved', 1)
             ->where(function ($q) use ($now) {
                 $q->whereNull('expiration_at')->orWhere('expiration_at', '>=', $now);
@@ -252,14 +252,13 @@ class MemberDataController extends Controller
         }
     
         $gym_member = User::where('role_id', 3)->findOrFail($id);
-        
-         $existingMemberships = UserMembership::where('user_id', $gym_member->id)->get();
+        $existingMemberships = MembershipPayment::where('user_id', $gym_member->id)->get();
         foreach ($existingMemberships as $existingMembership) {
             $existingMembership->isapproved = 0;
             $existingMembership->save();
         }
         
-        $data = new UserMembership;
+        $data = new MembershipPayment;
         $data->user_id = $gym_member->id;
         $data->membership_id = $validatedData['membership_id'];
         $data->isapproved = 1;
@@ -305,7 +304,7 @@ class MemberDataController extends Controller
 
         if ((int) $data->is_archive === 1) {
             DB::transaction(function () use ($data) {
-                UserMembership::where('user_id', $data->id)->delete();
+                MembershipPayment::where('user_id', $data->id)->delete();
                 UserSchedule::where('user_id', $data->id)->delete();
                 Attendance::where('user_id', $data->id)->delete();
                 Attendance2::where('user_id', $data->id)->delete();
@@ -396,12 +395,12 @@ class MemberDataController extends Controller
 
         $query = User::where('role_id', 3)
             ->with([
-                'usermemberships' => function ($q) use ($now) {
+                'membershipPayments' => function ($q) use ($now) {
                     $q->where('isapproved', 1)
                         ->where('expiration_at', '>=', $now)
                         ->orderBy('created_at', 'desc');
                 },
-                'usermemberships.membership',
+                'membershipPayments.membership',
             ])
             ->when($search && $searchColumn, function ($q) use ($search, $searchColumn) {
                 if ($searchColumn === 'name') {
@@ -429,14 +428,14 @@ class MemberDataController extends Controller
             })
             ->when($membershipStatus !== 'all', function ($q) use ($membershipStatus, $now) {
                 if ($membershipStatus === 'with') {
-                    return $q->whereHas('usermemberships', function ($inner) use ($now) {
+                    return $q->whereHas('membershipPayments', function ($inner) use ($now) {
                         $inner->where('isapproved', 1)
                             ->where('expiration_at', '>=', $now);
                     });
                 }
 
                 if ($membershipStatus === 'none') {
-                    return $q->whereDoesntHave('usermemberships', function ($inner) use ($now) {
+                    return $q->whereDoesntHave('membershipPayments', function ($inner) use ($now) {
                         $inner->where('isapproved', 1)
                             ->where('expiration_at', '>=', $now);
                     });
@@ -501,7 +500,7 @@ class MemberDataController extends Controller
         }
 
         foreach ($data as $user) {
-            $membership = $user->usermemberships->first();
+            $membership = $user->membershipPayments->first();
 
             $membershipName = optional(optional($membership)->membership)->name ?? 'No Membership';
             $expirationAt   = optional($membership)->expiration_at;

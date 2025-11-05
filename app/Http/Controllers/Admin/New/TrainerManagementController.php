@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Membership;
-use App\Models\UserMembership;
 use App\Models\Schedule;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;

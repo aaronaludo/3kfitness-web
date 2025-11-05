@@ -4,7 +4,7 @@ namespace App\Http\Controllers\Admin\New;
 
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
-use App\Models\UserMembership;
+use App\Models\MembershipPayment;
 use App\Models\Membership;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -26,7 +26,7 @@ class SalesController extends Controller
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : Carbon::now()->endOfDay();
 
         // Base scope: approved, not archived, with membership relation
-        $base = UserMembership::query()
+        $base = MembershipPayment::query()
             ->with(['membership:id,name,currency,price'])
             ->where('isapproved', 1)
             ->where('is_archive', 0)
@@ -44,7 +44,7 @@ class SalesController extends Controller
         $dailyRows = (clone $base)
             ->select([
                 DB::raw("DATE(created_at) as day"),
-                DB::raw("SUM(COALESCE((SELECT price FROM memberships WHERE memberships.id = user_memberships.membership_id), 0)) as revenue")
+                DB::raw("SUM(COALESCE((SELECT price FROM memberships WHERE memberships.id = membership_payments.membership_id), 0)) as revenue")
             ])
             ->groupBy(DB::raw('DATE(created_at)'))
             ->orderBy(DB::raw('DATE(created_at)'))
@@ -65,7 +65,7 @@ class SalesController extends Controller
         $byMembership = (clone $base)
             ->select([
                 'membership_id',
-                DB::raw("SUM(COALESCE((SELECT price FROM memberships WHERE memberships.id = user_memberships.membership_id), 0)) as revenue")
+                DB::raw("SUM(COALESCE((SELECT price FROM memberships WHERE memberships.id = membership_payments.membership_id), 0)) as revenue")
             ])
             ->groupBy('membership_id')
             ->get();
@@ -83,9 +83,9 @@ class SalesController extends Controller
 
         // Status tallies for the period (for quick insights)
         $statusTallies = [
-            'approved' => UserMembership::where('is_archive', 0)->where('isapproved', 1)->whereBetween('created_at', [$start, $end])->count(),
-            'pending'  => UserMembership::where('is_archive', 0)->where('isapproved', 0)->whereBetween('created_at', [$start, $end])->count(),
-            'rejected' => UserMembership::where('is_archive', 0)->where('isapproved', 2)->whereBetween('created_at', [$start, $end])->count(),
+            'approved' => MembershipPayment::where('is_archive', 0)->where('isapproved', 1)->whereBetween('created_at', [$start, $end])->count(),
+            'pending'  => MembershipPayment::where('is_archive', 0)->where('isapproved', 0)->whereBetween('created_at', [$start, $end])->count(),
+            'rejected' => MembershipPayment::where('is_archive', 0)->where('isapproved', 2)->whereBetween('created_at', [$start, $end])->count(),
         ];
 
         // Currency display (fallback)

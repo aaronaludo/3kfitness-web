@@ -1,16 +1,16 @@
 @extends('layouts.admin')
-@section('title', 'User Memberships')
+@section('title', 'Membership Payments')
 
 @section('content')
     <div class="container-fluid">
         <div class="row">
             <div class="col-lg-12 d-flex justify-content-between">
-                <div><h2 class="title">User Memberships</h2></div>
+                <div><h2 class="title">Membership Payments</h2></div>
                 <div class="d-flex align-items-center">
                     <a href="{{ route('admin.sales.index') }}" class="btn btn-outline-secondary ms-2">
                         <i class="fa-solid fa-chart-line"></i>&nbsp;&nbsp;&nbsp;Sales
                     </a>
-                    <form action="{{ route('admin.staff-account-management.user-memberships.print') }}" method="POST" id="print-form">
+                    <form action="{{ route('admin.staff-account-management.membership-payments.print') }}" method="POST" id="print-form">
                         @csrf
                         <input type="hidden" name="created_start" value="{{ request('start_date') }}">
                         <input type="hidden" name="created_end" value="{{ request('end_date') }}">
@@ -55,7 +55,7 @@
                         <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
                             <div>
                                 <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Overview</span>
-                                <h4 class="fw-semibold mb-1">User memberships</h4>
+                                <h4 class="fw-semibold mb-1">Membership payments</h4>
                                 <p class="text-muted mb-0">Quickly spot pending approvals or focus on recent renewals using the filters below.</p>
                             </div>
                             <div class="text-end">
@@ -63,8 +63,8 @@
                             </div>
                         </div>
 
-                        <form action="{{ route('admin.staff-account-management.user-memberships') }}" method="GET" id="user-membership-filter-form" class="mt-4">
-                            <input type="hidden" name="status" id="user-membership-status-filter" value="{{ $statusFilter }}">
+                        <form action="{{ route('admin.staff-account-management.membership-payments') }}" method="GET" id="membership-payment-filter-form" class="mt-4">
+                            <input type="hidden" name="status" id="membership-payment-status-filter" value="{{ $statusFilter }}">
 
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                                 <div class="d-flex flex-wrap align-items-center gap-2">
@@ -92,18 +92,18 @@
                                                 name="name"
                                                 placeholder="Search members or plans"
                                                 value="{{ request('name', request('member_name')) }}"
-                                                aria-label="Search user memberships"
+                                                aria-label="Search membership payments"
                                             />
                                         </div>
                                     </div>
 
-                                    <a href="{{ route('admin.staff-account-management.user-memberships') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+                                    <a href="{{ route('admin.staff-account-management.membership-payments') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
 
                                     <button
                                         class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
                                         type="button"
                                         data-bs-toggle="modal"
-                                        data-bs-target="#userMembershipFiltersModal"
+                                        data-bs-target="#membershipPaymentFiltersModal"
                                     >
                                         <i class="fa-solid fa-sliders"></i> Filters
                                     </button>
@@ -115,11 +115,11 @@
                                 </div>
                             </div>
 
-                            <div class="modal fade" id="userMembershipFiltersModal" tabindex="-1" aria-labelledby="userMembershipFiltersModalLabel" aria-hidden="true">
+                            <div class="modal fade" id="membershipPaymentFiltersModal" tabindex="-1" aria-labelledby="membershipPaymentFiltersModalLabel" aria-hidden="true">
                                 <div class="modal-dialog modal-dialog-centered modal-md">
                                     <div class="modal-content rounded-4 border-0 shadow-sm">
                                         <div class="modal-header border-0 pb-0">
-                                            <h5 class="modal-title fw-semibold" id="userMembershipFiltersModalLabel">Advanced filters</h5>
+                                            <h5 class="modal-title fw-semibold" id="membershipPaymentFiltersModalLabel">Advanced filters</h5>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
@@ -258,7 +258,7 @@
                                                         <div class="modal-dialog">
                                                             <form
                                                                 method="POST"
-                                                                action="{{ route('admin.staff-account-management.user-memberships.isapprove') }}"
+                                                                action="{{ route('admin.staff-account-management.membership-payments.isapprove') }}"
                                                                 class="modal-content"
                                                                 id="umStatusForm-{{ $item->id }}"
                                                                 {{-- Optional: if you have a related count (e.g., active usages), pass it here. If not present, guard stays hidden. --}}
@@ -399,27 +399,27 @@
                                                 <td>
                                                     <div class="d-flex gap-2">
                                                         <div class="action-button">
-                                                            <a href="{{ route('admin.staff-account-management.user-memberships.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a>
+                                                            <a href="{{ route('admin.staff-account-management.membership-payments.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a>
                                                         </div>
                                                         <div class="action-button">
-                                                            <a href="{{ route('admin.staff-account-management.user-memberships.receipt', $item->id) }}" title="Receipt"><i class="fa-solid fa-receipt text-primary"></i></a>
+                                                            <a href="{{ route('admin.staff-account-management.membership-payments.receipt', $item->id) }}" title="Receipt"><i class="fa-solid fa-receipt text-primary"></i></a>
                                                         </div>
                                                         <div class="action-button">
-                                                            <button type="button" data-bs-toggle="modal" data-bs-target="#userMembershipArchiveModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                            <button type="button" data-bs-toggle="modal" data-bs-target="#membershipPaymentArchiveModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">
                                                                 <i class="fa-solid fa-box-archive text-danger"></i>
                                                             </button>
                                                         </div>
                                                     </div>
                                                 </td>
                                             </tr>
-                                            <div class="modal fade" id="userMembershipArchiveModal-{{ $item->id }}" tabindex="-1" aria-labelledby="userMembershipArchiveModalLabel-{{ $item->id }}" aria-hidden="true">
+                                            <div class="modal fade" id="membershipPaymentArchiveModal-{{ $item->id }}" tabindex="-1" aria-labelledby="membershipPaymentArchiveModalLabel-{{ $item->id }}" aria-hidden="true">
                                                 <div class="modal-dialog">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
-                                                            <h5 class="modal-title" id="userMembershipArchiveModalLabel-{{ $item->id }}">Archive membership (#{{ $item->id }})?</h5>
+                                                            <h5 class="modal-title" id="membershipPaymentArchiveModalLabel-{{ $item->id }}">Archive membership payment (#{{ $item->id }})?</h5>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
-                                                        <form action="{{ route('admin.staff-account-management.user-memberships.delete') }}" method="POST" id="user-membership-archive-form-{{ $item->id }}">
+                                                        <form action="{{ route('admin.staff-account-management.membership-payments.delete') }}" method="POST" id="membership-payment-archive-form-{{ $item->id }}">
                                                             @csrf
                                                             @method('DELETE')
                                                             <input type="hidden" name="id" value="{{ $item->id }}">
@@ -432,8 +432,8 @@
                                                             </div>
                                                             <div class="modal-footer">
                                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                                <button class="btn btn-danger" type="submit" id="user-membership-archive-submit-button-{{ $item->id }}">
-                                                                    <span id="user-membership-archive-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                <button class="btn btn-danger" type="submit" id="membership-payment-archive-submit-button-{{ $item->id }}">
+                                                                    <span id="membership-payment-archive-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
                                                                     Archive
                                                                 </button>
                                                             </div>
@@ -442,9 +442,9 @@
                                                 </div>
                                             </div>
                                             <script>
-                                                document.getElementById('user-membership-archive-form-{{ $item->id }}').addEventListener('submit', function(e) {
-                                                    const submitButton = document.getElementById('user-membership-archive-submit-button-{{ $item->id }}');
-                                                    const loader = document.getElementById('user-membership-archive-loader-{{ $item->id }}');
+                                                document.getElementById('membership-payment-archive-form-{{ $item->id }}').addEventListener('submit', function(e) {
+                                                    const submitButton = document.getElementById('membership-payment-archive-submit-button-{{ $item->id }}');
+                                                    const loader = document.getElementById('membership-payment-archive-loader-{{ $item->id }}');
                                                     submitButton.disabled = true;
                                                     loader.classList.remove('d-none');
                                                 });
@@ -504,23 +504,23 @@
                                                 <td>{{ $archiveUpdated ? $archiveUpdated->format('F j, Y g:iA') : '' }}</td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
-                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#userMembershipArchiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#membershipPaymentArchiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">
                                                             <i class="fa-solid fa-rotate-left text-success"></i>
                                                         </button>
-                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#userMembershipArchiveDeleteModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                        <button type="button" data-bs-toggle="modal" data-bs-target="#membershipPaymentArchiveDeleteModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
                                                             <i class="fa-solid fa-trash text-danger"></i>
                                                         </button>
                                                     </div>
                                                 </td>
                                             </tr>
-                                            <div class="modal fade" id="userMembershipArchiveRestoreModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="userMembershipArchiveRestoreModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                            <div class="modal fade" id="membershipPaymentArchiveRestoreModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="membershipPaymentArchiveRestoreModalLabel-{{ $archive->id }}" aria-hidden="true">
                                                 <div class="modal-dialog">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
-                                                            <h5 class="modal-title" id="userMembershipArchiveRestoreModalLabel-{{ $archive->id }}">Restore membership (#{{ $archive->id }})?</h5>
+                                                            <h5 class="modal-title" id="membershipPaymentArchiveRestoreModalLabel-{{ $archive->id }}">Restore membership payment (#{{ $archive->id }})?</h5>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
-                                                        <form action="{{ route('admin.staff-account-management.user-memberships.restore') }}" method="POST" id="user-membership-archive-restore-form-{{ $archive->id }}">
+                                                        <form action="{{ route('admin.staff-account-management.membership-payments.restore') }}" method="POST" id="membership-payment-archive-restore-form-{{ $archive->id }}">
                                                             @csrf
                                                             @method('PUT')
                                                             <input type="hidden" name="id" value="{{ $archive->id }}">
@@ -533,8 +533,8 @@
                                                             </div>
                                                             <div class="modal-footer">
                                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                                <button class="btn btn-success" type="submit" id="user-membership-archive-restore-submit-button-{{ $archive->id }}">
-                                                                    <span id="user-membership-archive-restore-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                <button class="btn btn-success" type="submit" id="membership-payment-archive-restore-submit-button-{{ $archive->id }}">
+                                                                    <span id="membership-payment-archive-restore-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
                                                                     Restore
                                                                 </button>
                                                             </div>
@@ -542,14 +542,14 @@
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div class="modal fade" id="userMembershipArchiveDeleteModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="userMembershipArchiveDeleteModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                            <div class="modal fade" id="membershipPaymentArchiveDeleteModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="membershipPaymentArchiveDeleteModalLabel-{{ $archive->id }}" aria-hidden="true">
                                                 <div class="modal-dialog">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
-                                                            <h5 class="modal-title" id="userMembershipArchiveDeleteModalLabel-{{ $archive->id }}">Delete membership (#{{ $archive->id }}) permanently?</h5>
+                                                            <h5 class="modal-title" id="membershipPaymentArchiveDeleteModalLabel-{{ $archive->id }}">Delete membership payment (#{{ $archive->id }}) permanently?</h5>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
-                                                        <form action="{{ route('admin.staff-account-management.user-memberships.delete') }}" method="POST" id="user-membership-archive-delete-form-{{ $archive->id }}">
+                                                        <form action="{{ route('admin.staff-account-management.membership-payments.delete') }}" method="POST" id="membership-payment-archive-delete-form-{{ $archive->id }}">
                                                             @csrf
                                                             @method('DELETE')
                                                             <input type="hidden" name="id" value="{{ $archive->id }}">
@@ -562,8 +562,8 @@
                                                             </div>
                                                             <div class="modal-footer">
                                                                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                                <button class="btn btn-danger" type="submit" id="user-membership-archive-delete-submit-button-{{ $archive->id }}">
-                                                                    <span id="user-membership-archive-delete-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                <button class="btn btn-danger" type="submit" id="membership-payment-archive-delete-submit-button-{{ $archive->id }}">
+                                                                    <span id="membership-payment-archive-delete-loader-{{ $archive->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
                                                                     Delete
                                                                 </button>
                                                             </div>
@@ -572,17 +572,17 @@
                                                 </div>
                                             </div>
                                             <script>
-                                                document.getElementById('user-membership-archive-restore-form-{{ $archive->id }}').addEventListener('submit', function(e) {
-                                                    const submitButton = document.getElementById('user-membership-archive-restore-submit-button-{{ $archive->id }}');
-                                                    const loader = document.getElementById('user-membership-archive-restore-loader-{{ $archive->id }}');
+                                                document.getElementById('membership-payment-archive-restore-form-{{ $archive->id }}').addEventListener('submit', function(e) {
+                                                    const submitButton = document.getElementById('membership-payment-archive-restore-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('membership-payment-archive-restore-loader-{{ $archive->id }}');
                                                     submitButton.disabled = true;
                                                     loader.classList.remove('d-none');
                                                 });
                                             </script>
                                             <script>
-                                                document.getElementById('user-membership-archive-delete-form-{{ $archive->id }}').addEventListener('submit', function(e) {
-                                                    const submitButton = document.getElementById('user-membership-archive-delete-submit-button-{{ $archive->id }}');
-                                                    const loader = document.getElementById('user-membership-archive-delete-loader-{{ $archive->id }}');
+                                                document.getElementById('membership-payment-archive-delete-form-{{ $archive->id }}').addEventListener('submit', function(e) {
+                                                    const submitButton = document.getElementById('membership-payment-archive-delete-submit-button-{{ $archive->id }}');
+                                                    const loader = document.getElementById('membership-payment-archive-delete-loader-{{ $archive->id }}');
                                                     submitButton.disabled = true;
                                                     loader.classList.remove('d-none');
                                                 });
@@ -604,12 +604,12 @@
     </div>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
-            const form = document.getElementById('user-membership-filter-form');
+            const form = document.getElementById('membership-payment-filter-form');
             if (!form) {
                 return;
             }
 
-            const statusInput = document.getElementById('user-membership-status-filter');
+            const statusInput = document.getElementById('membership-payment-status-filter');
             const statusChips = form.querySelectorAll('.status-chip');
             const rangeButtons = form.querySelectorAll('.range-chip');
             const startInput = document.getElementById('start-date');

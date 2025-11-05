@@ -62,12 +62,12 @@
                     </div>
                     <div class="col-sm-6 col-lg-4">
                         <div class="tile tile-primary">
-                            <div class="tile-heading">Pending User Memberships</div>
+                            <div class="tile-heading">Pending Membership Payments</div>
                             <div class="tile-body">
                                 <i class="fa-regular fa-clock"></i>
-                                <h2 class="float-end">{{ $user_membership_count }}</h2>
+                                <h2 class="float-end">{{ $membership_payment_count }}</h2>
                             </div>
-                            <div class="tile-footer"><a href="{{ route('admin.staff-account-management.user-memberships') }}">View more...</a></div>
+                            <div class="tile-footer"><a href="{{ route('admin.staff-account-management.membership-payments') }}">View more...</a></div>
                         </div>
                     </div>
                 </div>
@@ -136,7 +136,7 @@
         const membersPerMonth = @json($membersPerMonth ?? []);
         const membershipsPerMonth = @json($membershipsPerMonth ?? []);
         const classesPerMonth = @json($classesPerMonth ?? []);
-        const approvedUserMembershipsPerMonth = @json($approvedUserMembershipsPerMonth ?? []);
+        const approvedMembershipPaymentsPerMonth = @json($approvedMembershipPaymentsPerMonth ?? []);
 
         var ctx = document.getElementById('gymChart').getContext('2d');
         var gymChart = new Chart(ctx, {
@@ -224,8 +224,8 @@
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Approved User Memberships',
-                    data: approvedUserMembershipsPerMonth,
+                    label: 'Approved Membership Payments',
+                    data: approvedMembershipPaymentsPerMonth,
                     backgroundColor: 'rgba(75, 192, 192, 0.2)',
                     borderColor: 'rgba(75, 192, 192, 1)',
                     borderWidth: 2,
@@ -243,7 +243,7 @@
                 plugins: {
                     title: {
                         display: true,
-                        text: 'Approved User Memberships (Last 6 Months)'
+                        text: 'Approved Membership Payments (Last 6 Months)'
                     }
                 }
             }
@@ -260,7 +260,7 @@
                     data: [
                         {{ (int) ($gym_members_count ?? 0) }},
                         {{ (int) ($staffs_count ?? 0) }},
-                        {{ (int) ($user_membership_count ?? 0) }}
+                        {{ (int) ($membership_payment_count ?? 0) }}
                     ],
                     backgroundColor: [
                         'rgba(54, 162, 235, 0.2)',

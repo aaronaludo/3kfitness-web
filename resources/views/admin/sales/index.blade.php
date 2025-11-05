@@ -7,10 +7,10 @@
             <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
                 <div>
                     <h2 class="title mb-0">Sales</h2>
-                    <p class="text-muted mb-0">Revenue from approved, non-archived memberships.</p>
+                    <p class="text-muted mb-0">Revenue from approved, non-archived membership payments.</p>
                 </div>
                 <div class="d-flex align-items-center gap-2">
-                    <a class="btn btn-outline-secondary" href="{{ route('admin.staff-account-management.user-memberships') }}">User Memberships</a>
+                    <a class="btn btn-outline-secondary" href="{{ route('admin.staff-account-management.membership-payments') }}">Membership Payments</a>
                 </div>
             </div>
 
