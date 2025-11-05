@@ -1,4 +1,10 @@
 @extends('layouts.admin')
+
+@section('styles')
+    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+@endsection
+
 @section('title', 'Attendances')
 
 @section('content')
@@ -7,7 +13,7 @@
             <div class="col-lg-12 d-flex justify-content-between">
                 <div><h2 class="title">Attendances</h2></div>
                 <div class="d-flex align-items-center">
-                    <a class="btn btn-danger" href="{{ route('admin.staff-account-management.attendances.scanner') }}"><i class="fa-solid fa-qrcode"></i>&nbsp;&nbsp;&nbsp;Scanner</a>
+                    <a class="btn btn-danger" href="#attendance-scanner-card"><i class="fa-solid fa-qrcode"></i>&nbsp;&nbsp;&nbsp;Scanner</a>
                     <form action="{{ route('admin.staff-account-management.attendances.print') }}" method="POST" id="print-form">
                         @csrf
                         <input type="hidden" name="created_start" value="{{ request('start_date') }}">
@@ -21,6 +27,34 @@
                             Print
                         </button>
                     </form>
+                </div>
+            </div>
+
+            <div class="col-12 mt-4" id="attendance-scanner-card">
+                <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                            <div>
+                                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">QR Scanner</span>
+                                <h4 class="fw-semibold mb-1">Scan attendance</h4>
+                                <p class="text-muted mb-0">Enable the camera to scan staff QR codes without leaving this page.</p>
+                            </div>
+                            <div class="text-end">
+                                <div class="btn-group" role="group" aria-label="Camera controls">
+                                    <button class="btn btn-dark" type="button" id="enable-camera-btn" disabled>
+                                        <i class="fa-solid fa-play"></i>&nbsp;&nbsp;Enable camera
+                                    </button>
+                                    <button class="btn btn-outline-secondary" type="button" id="disable-camera-btn" disabled>
+                                        <i class="fa-solid fa-stop"></i>&nbsp;&nbsp;Disable camera
+                                    </button>
+                                </div>
+                                <small class="d-block mt-2 text-muted" id="camera-status-text">Camera not ready</small>
+                            </div>
+                        </div>
+                        <div id="attendance-scanner-wrapper" class="ratio ratio-16x9 border rounded-4 overflow-hidden bg-black mt-3 d-none">
+                            <video id="attendance-scanner" class="w-100 h-100" playsinline></video>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -415,8 +449,221 @@
         </div>
     </div>
 
+    <div class="modal fade" id="scannerModal" tabindex="-1" aria-labelledby="scannerModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="scannerModalLabel">Scanned Data</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="modalContent" class="mb-0"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            const scannerWrapper = document.getElementById('attendance-scanner-wrapper');
+            const scannerVideo = document.getElementById('attendance-scanner');
+            const enableCameraBtn = document.getElementById('enable-camera-btn');
+            const disableCameraBtn = document.getElementById('disable-camera-btn');
+            const cameraStatusText = document.getElementById('camera-status-text');
+            const modalContent = document.getElementById('modalContent');
+            const scannerModalElement = document.getElementById('scannerModal');
+
+            let scannerInstance = null;
+            let availableCameras = [];
+            let activeCameraIndex = 0;
+            let isCameraRunning = false;
+
+            function toggleScannerVisibility(show) {
+                if (!scannerWrapper) {
+                    return;
+                }
+
+                scannerWrapper.classList.toggle('d-none', !show);
+            }
+
+            function setCameraStatus(message, variant = 'muted') {
+                if (!cameraStatusText) {
+                    return;
+                }
+
+                cameraStatusText.textContent = message;
+                cameraStatusText.classList.remove('text-muted', 'text-success', 'text-danger');
+
+                const variantClassMap = {
+                    muted: 'text-muted',
+                    success: 'text-success',
+                    danger: 'text-danger',
+                };
+
+                cameraStatusText.classList.add(variantClassMap[variant] ?? 'text-muted');
+            }
+
+            function syncCameraButtons() {
+                if (enableCameraBtn) {
+                    enableCameraBtn.disabled = isCameraRunning || !availableCameras.length;
+                }
+                if (disableCameraBtn) {
+                    disableCameraBtn.disabled = !isCameraRunning;
+                }
+            }
+
+            function startCamera() {
+                if (!scannerInstance || !availableCameras.length) {
+                    setCameraStatus('No camera found', 'danger');
+                    return;
+                }
+
+                scannerInstance.start(availableCameras[activeCameraIndex]).then(function () {
+                    isCameraRunning = true;
+                    syncCameraButtons();
+                    toggleScannerVisibility(true);
+                    setCameraStatus('Camera active', 'success');
+                }).catch(function (error) {
+                    console.error(error);
+                    setCameraStatus('Unable to start camera', 'danger');
+                    toggleScannerVisibility(false);
+                });
+            }
+
+            function stopCamera() {
+                if (!scannerInstance || !isCameraRunning) {
+                    return;
+                }
+
+                Promise.resolve(scannerInstance.stop()).then(function () {
+                    isCameraRunning = false;
+                    syncCameraButtons();
+                    setCameraStatus('Camera disabled');
+                    toggleScannerVisibility(false);
+                }).catch(function (error) {
+                    console.error(error);
+                    setCameraStatus('Error while stopping camera', 'danger');
+                    toggleScannerVisibility(false);
+                });
+            }
+
+            function sendScannedData(content) {
+                const csrfMeta = document.querySelector("meta[name='csrf-token']");
+                const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : null;
+
+                if (!csrfToken) {
+                    console.warn('CSRF token missing; skipping attendance lookup');
+                    return;
+                }
+
+                fetch("{{ route('admin.staff-account-management.attendances.scanner2.fetch') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ result: content })
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (modalContent) {
+                            modalContent.textContent = data.data ?? 'No data returned';
+                        }
+                        if (scannerModalElement) {
+                            const scannerModal = new bootstrap.Modal(scannerModalElement);
+                            scannerModal.show();
+                        }
+                    })
+                    .catch(error => {
+                        console.error(error);
+                        setCameraStatus('Scan failed — see console', 'danger');
+                    });
+            }
+
+            toggleScannerVisibility(false);
+            syncCameraButtons();
+
+            if (scannerVideo && typeof Instascan !== 'undefined') {
+                scannerInstance = new Instascan.Scanner({ video: scannerVideo, mirror: false });
+
+                scannerInstance.addListener('scan', function (content) {
+                    sendScannedData(content);
+                });
+
+                Instascan.Camera.getCameras().then(function (cameras) {
+                    availableCameras = cameras;
+                    if (!cameras.length) {
+                        toggleScannerVisibility(false);
+                        setCameraStatus('No camera found', 'danger');
+                    } else {
+                        setCameraStatus('Camera ready — enable to start');
+                    }
+                    syncCameraButtons();
+                }).catch(function (error) {
+                    console.error(error);
+                    toggleScannerVisibility(false);
+                    setCameraStatus('Camera access denied', 'danger');
+                    syncCameraButtons();
+                });
+            } else if (scannerVideo) {
+                setCameraStatus('Scanner script unavailable', 'danger');
+                syncCameraButtons();
+                toggleScannerVisibility(false);
+            }
+
+            if (enableCameraBtn) {
+                enableCameraBtn.addEventListener('click', function () {
+                    if (isCameraRunning) {
+                        return;
+                    }
+
+                    if (typeof Instascan === 'undefined') {
+                        setCameraStatus('Scanner script unavailable', 'danger');
+                        return;
+                    }
+
+                    if (!availableCameras.length) {
+                        Instascan.Camera.getCameras().then(function (cameras) {
+                            availableCameras = cameras;
+                            syncCameraButtons();
+
+                            if (!cameras.length) {
+                                toggleScannerVisibility(false);
+                                setCameraStatus('No camera found', 'danger');
+                                return;
+                            }
+
+                            startCamera();
+                        }).catch(function (error) {
+                            console.error(error);
+                            toggleScannerVisibility(false);
+                            setCameraStatus('Camera access denied', 'danger');
+                        });
+
+                        return;
+                    }
+
+                    startCamera();
+                });
+            }
+
+            if (disableCameraBtn) {
+                disableCameraBtn.addEventListener('click', function () {
+                    stopCamera();
+                });
+            }
+
+            window.addEventListener('beforeunload', function () {
+                if (scannerInstance && isCameraRunning) {
+                    scannerInstance.stop();
+                }
+                toggleScannerVisibility(false);
+            });
+
             const form = document.getElementById('attendance-filter-form');
             if (!form) {
                 return;
