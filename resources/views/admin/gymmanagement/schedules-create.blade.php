@@ -103,11 +103,53 @@
     </div>
     
     <script>
-        document.getElementById('main-form').addEventListener('submit', function(e) {
-            const submitButton = document.getElementById('submitButton');
-            const loader = document.getElementById('loader');
+        const form = document.getElementById('main-form');
+        const submitButton = document.getElementById('submitButton');
+        const loader = document.getElementById('loader');
+        const startInput = document.getElementById('class_start_date');
+        const endInput = document.getElementById('class_end_date');
 
-            // Disable the button and show loader
+        const toLocalIsoString = (date) => {
+            return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+        };
+
+        const enforceMinDate = () => {
+            const now = new Date();
+            const nowIso = toLocalIsoString(now);
+            if (startInput) {
+                startInput.min = nowIso;
+            }
+            if (endInput) {
+                endInput.min = nowIso;
+            }
+        };
+
+        enforceMinDate();
+
+        form.addEventListener('submit', function(e) {
+            const errors = [];
+            const now = new Date();
+            const startDate = startInput && startInput.value ? new Date(startInput.value) : null;
+            const endDate = endInput && endInput.value ? new Date(endInput.value) : null;
+
+            if (startDate && startDate < now) {
+                errors.push('Class start date cannot be in the past.');
+            }
+            if (endDate && endDate < now) {
+                errors.push('Class end date cannot be in the past.');
+            }
+            if (startDate && endDate && endDate <= startDate) {
+                errors.push('Class end date must be after the start date.');
+            }
+
+            if (errors.length) {
+                e.preventDefault();
+                alert(errors.join('\n'));
+                submitButton.disabled = false;
+                loader.classList.add('d-none');
+                return;
+            }
+
             submitButton.disabled = true;
             loader.classList.remove('d-none');
         });
