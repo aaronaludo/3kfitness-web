@@ -9,6 +9,9 @@ use App\Models\Membership;
 use App\Models\UserMembership;
 use App\Models\Schedule;
 use App\Models\UserSchedule;
+use App\Models\Attendance;
+use App\Models\Attendance2;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
@@ -301,7 +304,15 @@ class MemberDataController extends Controller
         $data = User::where('role_id', 3)->findOrFail($request->id);
 
         if ((int) $data->is_archive === 1) {
-            $data->delete();
+            DB::transaction(function () use ($data) {
+                UserMembership::where('user_id', $data->id)->delete();
+                UserSchedule::where('user_id', $data->id)->delete();
+                Attendance::where('user_id', $data->id)->delete();
+                Attendance2::where('user_id', $data->id)->delete();
+
+                $data->delete();
+            });
+
             $message = 'Gym member deleted permanently';
         } else {
             $data->is_archive = 1;
