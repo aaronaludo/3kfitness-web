@@ -28,37 +28,142 @@
                                     </div>
                                 @endif
                                 <input type="hidden" name="id" value="{{ $data->id ?? 0 }}" />
-                                <div class="mb-3 row">
+                                {{-- <div class="mb-3 row">
                                     <label for="background_image" class="col-sm-12 col-lg-2 col-form-label">Background Image: </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center flex-column justify-content-center">
                                         <img src="{{ asset($data->background_image ?? "" ) }}" alt="{{ $data->title ?? "" }}" style="width: 200px;"/><br/>
                                         <input type="file" class="form-control" id="background_image" name="background_image"/>
                                     </div>
-                                </div>   
+                                </div>    --}}
                                 <div class="mb-3 row">
-                                    <label for="title" class="col-sm-12 col-lg-2 col-form-label">Title: </label>
+                                    <label for="title" class="col-sm-12 col-lg-2 col-form-label">Hero Title: </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="text" class="form-control" id="title" name="title" value="{{ $data->title ?? "" }}" required/>
+                                        <input type="text" class="form-control" id="title" name="title" value="{{ old('title', $data->title ?? '') }}" required/>
                                     </div>
                                 </div>   
                                 <div class="mb-3 row">
-                                    <label for="description" class="col-sm-12 col-lg-2 col-form-label">Description: </label>
+                                    <label for="description" class="col-sm-12 col-lg-2 col-form-label">Hero Subtitle: </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <textarea class="form-control" id="description" name="description" rows="4" required>{{ $data->description ?? "" }}</textarea>
+                                        <textarea class="form-control" id="description" name="description" rows="4" required>{{ old('description', $data->description ?? '') }}</textarea>
                                     </div>
                                 </div>
                                 <div class="mb-3 row">
-                                    <label for="button_text" class="col-sm-12 col-lg-2 col-form-label">Button Text: </label>
+                                    <label for="button_text" class="col-sm-12 col-lg-2 col-form-label">Primary CTA Text: </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="text" class="form-control" id="button_text" name="button_text" value="{{ $data->button_text ?? "" }}" required/>
+                                        <input type="text" class="form-control" id="button_text" name="button_text" value="{{ old('button_text', $data->button_text ?? '') }}" required/>
                                     </div>
                                 </div>   
                                 <div class="mb-3 row">
-                                    <label for="pricing_text" class="col-sm-12 col-lg-2 col-form-label">Pricing Text: </label>
+                                    <label for="pricing_text" class="col-sm-12 col-lg-2 col-form-label">Pricing Line (legacy): </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="text" class="form-control" id="pricing_text" name="pricing_text" value="{{ $data->pricing_text ?? "" }}" required/>
+                                        <input type="text" class="form-control" id="pricing_text" name="pricing_text" value="{{ old('pricing_text', $data->pricing_text ?? '') }}" required/>
                                     </div>
-                                </div>  
+                                </div>
+
+                                <hr class="my-4"/>
+                                <div class="mb-3">
+                                    <h5 class="fw-semibold mb-3">Tag &amp; Schedule Pill</h5>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="tag_icon" class="col-sm-12 col-lg-2 col-form-label">Tag Icon:</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input type="text" class="form-control" id="tag_icon" name="tag_icon" placeholder="e.g. bolt" value="{{ old('tag_icon', $data->tag_icon ?? '') }}"/>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="tag_text" class="col-sm-12 col-lg-2 col-form-label">Tag Text:</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input type="text" class="form-control" id="tag_text" name="tag_text" placeholder="Personal coaching" value="{{ old('tag_text', $data->tag_text ?? '') }}"/>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="schedule_button_icon" class="col-sm-12 col-lg-2 col-form-label">Schedule Icon:</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input type="text" class="form-control" id="schedule_button_icon" name="schedule_button_icon" placeholder="calendar-today" value="{{ old('schedule_button_icon', $data->schedule_button_icon ?? '') }}"/>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="schedule_button_text" class="col-sm-12 col-lg-2 col-form-label">Schedule Text:</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input type="text" class="form-control" id="schedule_button_text" name="schedule_button_text" placeholder="My schedule" value="{{ old('schedule_button_text', $data->schedule_button_text ?? '') }}"/>
+                                    </div>
+                                </div>
+
+                                <hr class="my-4"/>
+                                <div class="mb-3">
+                                    <h5 class="fw-semibold mb-3">Footnote</h5>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="footnote_prefix" class="col-sm-12 col-lg-2 col-form-label">Prefix:</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input type="text" class="form-control" id="footnote_prefix" name="footnote_prefix" placeholder="Starting" value="{{ old('footnote_prefix', $data->footnote_prefix ?? '') }}"/>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="footnote_price" class="col-sm-12 col-lg-2 col-form-label">Price:</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input type="text" class="form-control" id="footnote_price" name="footnote_price" placeholder="@999" value="{{ old('footnote_price', $data->footnote_price ?? '') }}"/>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="footnote_suffix" class="col-sm-12 col-lg-2 col-form-label">Suffix:</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input type="text" class="form-control" id="footnote_suffix" name="footnote_suffix" placeholder="/month" value="{{ old('footnote_suffix', $data->footnote_suffix ?? '') }}"/>
+                                    </div>
+                                </div>
+
+                                <hr class="my-4"/>
+                                <div class="mb-3">
+                                    <h5 class="fw-semibold mb-3">Stats Cards</h5>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label class="col-sm-12 col-lg-2 col-form-label">Stat 1:</label>
+                                    <div class="col-lg-10 col-sm-12">
+                                        <div class="row g-3">
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_one_icon" placeholder="Icon e.g. self-improvement" value="{{ old('stat_one_icon', $data->stat_one_icon ?? '') }}"/>
+                                            </div>
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_one_value" placeholder="Value e.g. 24/7" value="{{ old('stat_one_value', $data->stat_one_value ?? '') }}"/>
+                                            </div>
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_one_label" placeholder="Label e.g. Smart guidance" value="{{ old('stat_one_label', $data->stat_one_label ?? '') }}"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label class="col-sm-12 col-lg-2 col-form-label">Stat 2:</label>
+                                    <div class="col-lg-10 col-sm-12">
+                                        <div class="row g-3">
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_two_icon" placeholder="Icon e.g. restaurant" value="{{ old('stat_two_icon', $data->stat_two_icon ?? '') }}"/>
+                                            </div>
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_two_value" placeholder="Value e.g. Daily" value="{{ old('stat_two_value', $data->stat_two_value ?? '') }}"/>
+                                            </div>
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_two_label" placeholder="Label e.g. Meal plans" value="{{ old('stat_two_label', $data->stat_two_label ?? '') }}"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="mb-4 row">
+                                    <label class="col-sm-12 col-lg-2 col-form-label">Stat 3:</label>
+                                    <div class="col-lg-10 col-sm-12">
+                                        <div class="row g-3">
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_three_icon" placeholder="Icon e.g. insights" value="{{ old('stat_three_icon', $data->stat_three_icon ?? '') }}"/>
+                                            </div>
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_three_value" placeholder="Value e.g. Progress" value="{{ old('stat_three_value', $data->stat_three_value ?? '') }}"/>
+                                            </div>
+                                            <div class="col-lg-4 col-sm-12">
+                                                <input type="text" class="form-control" name="stat_three_label" placeholder="Label e.g. Check-ins" value="{{ old('stat_three_label', $data->stat_three_label ?? '') }}"/>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                                 <div class="d-flex justify-content-center mt-5 mb-4">
                                     <button class="btn btn-danger" type="submit" id="submitButton">
                                         <span id="loader" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
