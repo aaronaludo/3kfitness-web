@@ -15,6 +15,7 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('currency');
+            $table->text('description')->nullable();
             $table->decimal('price', 10, 2)->default(0);
             $table->integer('year')->nullable()->default(0);
             $table->integer('month')->nullable()->default(0);

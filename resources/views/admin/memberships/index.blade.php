@@ -133,6 +133,7 @@
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
                                                         <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
+                                                        <option value="description" {{ request('search_column') == 'description' ? 'selected' : '' }}>Description</option>
                                                         <option value="month" {{ request('search_column') == 'month' ? 'selected' : '' }}>Month</option>
                                                         <option value="members_approved" {{ request('search_column') == 'members_approved' ? 'selected' : '' }}>Total Members Approved</option>
                                                         <option value="members_pending" {{ request('search_column') == 'members_pending' ? 'selected' : '' }}>Total Members Pending</option>
@@ -206,6 +207,7 @@
                                         <tr>
                                             <th class="sortable" data-column="id">ID <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="description">Description <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="price">Price <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="month">Month <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="total_members_approved">Total Members Approved <i class="fa fa-sort"></i></th>
@@ -221,6 +223,7 @@
                                             <tr>
                                                 <td>{{ $item->id }}</td>
                                                 <td>{{ $item->name }}</td>
+                                                <td>{{ $item->description }}</td>
                                                 <td>{{ $item->price }}</td>
                                                 <td>{{ $item->month ?? '0' }}</td>
                                                 <td>{{ $item->members_approved }}</td>
@@ -309,6 +312,7 @@
                                         <tr>
                                             <th>ID</th>
                                             <th>Name</th>
+                                            <th>Description</th>
                                             <th>Price</th>
                                             <th>Month</th>
                                             <th>Members Approved</th>
@@ -324,6 +328,7 @@
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
                                                 <td>{{ $archive->name }}</td>
+                                                <td>{{ $archive->description }}</td>
                                                 <td>{{ $archive->price }}</td>
                                                 <td>{{ $archive->month ?? '0' }}</td>
                                                 <td>{{ $archive->members_approved }}</td>
@@ -431,7 +436,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="10" class="text-center text-muted">No archived memberships found.</td>
+                                                <td colspan="11" class="text-center text-muted">No archived memberships found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>

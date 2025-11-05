@@ -16,12 +16,14 @@ class MembershipsTableSeeder extends Seeder
         Membership::create([
             'name' => 'Full Membership (1 Month)',
             'currency' => "PHP",
+            'description' => 'Access to all facilities with unlimited classes for one month.',
             'price' =>  "600",
             'year' => 1,
         ]);
         Membership::create([
             'name' => 'Half Membership (1 Month)',
             'currency' => "PHP",
+            'description' => 'Includes gym access and selected classes for six months.',
             'price' =>  "300",
             'month' => 6
         ]); 

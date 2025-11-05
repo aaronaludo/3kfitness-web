@@ -32,7 +32,7 @@ class MembershipController extends Controller
         }
     
         $allowed_columns = [
-            'id', 'name', 'month', 'members_approved', 'members_pending', 'members_reject',
+            'id', 'name', 'description', 'month', 'members_approved', 'members_pending', 'members_reject',
             'created_at', 'updated_at',
         ];
     
@@ -142,13 +142,15 @@ class MembershipController extends Controller
         $request->validate([
             'name' => 'required',
             // 'currency' => 'required',
-            'price' => 'required'
+            'price' => 'required',
+            'description' => 'nullable|string|max:2000',
         ]);
 
         $data = new Membership;
         $data->name = $request->name;
         // $data->currency = $request->currency;
         $data->price = $request->price;
+        $data->description = $request->description;
         // $data->year = $request->year;
         $data->month = $request->month;
         // $data->week = $request->week;
@@ -162,13 +164,15 @@ class MembershipController extends Controller
         $request->validate([
             'name' => 'required',
             // 'currency' => 'required',
-            'price' => 'required'
+            'price' => 'required',
+            'description' => 'nullable|string|max:2000',
         ]);
 
         $data = Membership::findOrFail($id);
         $data->name = $request->name;
         // $data->currency = $request->currency;
         $data->price = $request->price;
+        $data->description = $request->description;
         // $data->year = $request->year;
         $data->month = $request->month;
         // $data->week = $request->week;
@@ -267,7 +271,7 @@ class MembershipController extends Controller
         }
 
         $allowedColumns = [
-            'id', 'name', 'price', 'month', 'members_approved', 'members_pending', 'members_reject',
+            'id', 'name', 'description', 'price', 'month', 'members_approved', 'members_pending', 'members_reject',
             'created_at', 'updated_at',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {
@@ -369,6 +373,7 @@ class MembershipController extends Controller
         $headers = [
             'ID',
             'Name',
+            'Description',
             'Price',
             'Month',
             'Total Members Approved',
@@ -386,6 +391,7 @@ class MembershipController extends Controller
             $row = $table->addRow();
             $row->addCell()->addText((string) $item->id);
             $row->addCell()->addText((string) ($item->name ?? ''));
+            $row->addCell()->addText((string) ($item->description ?? ''));
             $row->addCell()->addText((string) ($item->price ?? ''));
             $row->addCell()->addText((string) ($item->month ?? 0));
             $row->addCell()->addText((string) ($item->members_approved ?? 0));

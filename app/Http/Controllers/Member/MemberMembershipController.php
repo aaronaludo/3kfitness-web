@@ -12,7 +12,7 @@ class MemberMembershipController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $data = Membership::all();
+        $data = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week')->get();
     
         $membership_payment = MembershipPayment::where('user_id', $user->id)
                                           ->where('expiration_at', '>', now())

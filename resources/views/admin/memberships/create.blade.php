@@ -32,6 +32,12 @@
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
                                         <input type="text" class="form-control" id="name" name="name" required/>
                                     </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="description" class="col-sm-12 col-lg-2 col-form-label">Description:</label>
+                                    <div class="col-lg-10 col-sm-12">
+                                        <textarea class="form-control" id="description" name="description" rows="3" placeholder="Provide membership details"></textarea>
+                                    </div>
                                 </div>   
                                 <!--<div class="mb-3 row">-->
                                 <!--    <label for="currency" class="col-sm-12 col-lg-2 col-form-label">Currency: <span class="required">*</span></label>-->

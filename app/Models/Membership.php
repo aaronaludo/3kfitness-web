@@ -8,6 +8,16 @@ use Illuminate\Database\Eloquent\Model;
 class Membership extends Model
 {
     use HasFactory;
+
+    protected $fillable = [
+        'name',
+        'currency',
+        'description',
+        'price',
+        'year',
+        'month',
+        'week',
+    ];
     
     public function membershipPayments()
     {
