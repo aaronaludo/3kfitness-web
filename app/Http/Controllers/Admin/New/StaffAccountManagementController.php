@@ -126,6 +126,7 @@ class StaffAccountManagementController extends Controller
         $users->email = $request->email;
         $users->password = $request->password;
         $users->rate_per_hour = $request->rate_per_hour;
+        $users->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
         $users->save();
 
         return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff created successfully');

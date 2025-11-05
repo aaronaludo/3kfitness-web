@@ -139,6 +139,7 @@
                                                         <option value="phone_number" {{ request('search_column') == 'phone_number' ? 'selected' : '' }}>Contact Number</option>
                                                         <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
                                                         <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
+                                                        <option value="created_by" {{ request('search_column') == 'created_by' ? 'selected' : '' }}>Created By</option>
                                                     </select>
                                                 </div>
 
@@ -211,6 +212,7 @@
                                             <th class="sortable" data-column="rate_per_hour">Rate per hour <i class="fa fa-sort"></i></th>
                                             <th>Net Pay (This Month)</th>
                                             <th class="sortable" data-column="payrolls">Payrolls <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -263,6 +265,7 @@
                                                     @endif
                                                 </td>
                                                 <td><button class="btn btn-primary see-more" data-bs-toggle="modal" data-bs-target="#detailsModal-{{ $item->id }}">See More</button></td>
+                                                <td>{{ $item->created_by }}</td>
                                                 <td>
                                                     <div class="d-flex">
                                                         <div class="action-button"><a href="{{ route('admin.staff-account-management.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>

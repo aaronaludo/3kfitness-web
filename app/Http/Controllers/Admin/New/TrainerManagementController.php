@@ -161,7 +161,8 @@ class TrainerManagementController extends Controller
         $users->phone_number = $validatedData['phone_number'];
         $users->email = $validatedData['email'];
         $users->password = bcrypt($validatedData['password']);
-        
+        $users->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
+
         $destinationPath = public_path('uploads');
         
         if ($request->hasFile('profile_picture')) {

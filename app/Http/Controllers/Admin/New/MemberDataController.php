@@ -173,7 +173,8 @@ class MemberDataController extends Controller
         $users->phone_number = $validatedData['phone_number'];
         $users->email = $validatedData['email'];
         $users->password = bcrypt($validatedData['password']);
-        
+        $users->created_by = $validatedData['first_name'] . " " .  $validatedData['last_name'];
+
         $destinationPath = public_path('uploads');
         
         if ($request->hasFile('profile_picture')) {

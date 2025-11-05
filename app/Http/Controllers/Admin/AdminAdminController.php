@@ -56,6 +56,7 @@ class AdminAdminController extends Controller
         $users->phone_number = $request->phone_number;
         $users->email = $request->email;
         $users->password = $request->password;
+        $users->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
         $users->save();
 
         $this->logAdminActivity("created a new admin account for {$request->first_name} {$request->last_name}.");

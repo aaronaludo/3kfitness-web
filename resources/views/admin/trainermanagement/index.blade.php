@@ -140,6 +140,7 @@
                                                         <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>
                                                         <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
                                                         <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
+                                                        <option value="created_by" {{ request('search_column') == 'created_by' ? 'selected' : '' }}>Created By</option>
                                                     </select>
                                                 </div>
 
@@ -215,6 +216,7 @@
                                             <th>Estimated Salary</th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -295,6 +297,7 @@
                                                 </td>
                                                 <td>{{ $createdAt ? $createdAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $updatedAt ? $updatedAt->format('F j, Y g:iA') : '' }}</td>
+                                                <td>{{ $item->created_by }}</td>
                                                 <td>
                                                     <div class="d-flex">
                                                         <div class="action-button"><a href="{{ route('admin.trainer-management.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>
