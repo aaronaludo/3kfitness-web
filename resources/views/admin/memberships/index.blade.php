@@ -135,6 +135,7 @@
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
                                                         <option value="description" {{ request('search_column') == 'description' ? 'selected' : '' }}>Description</option>
                                                         <option value="month" {{ request('search_column') == 'month' ? 'selected' : '' }}>Month</option>
+                                                        <option value="class_limit_per_month" {{ request('search_column') == 'class_limit_per_month' ? 'selected' : '' }}>Classes / Month</option>
                                                         <option value="members_approved" {{ request('search_column') == 'members_approved' ? 'selected' : '' }}>Total Members Approved</option>
                                                         <option value="members_pending" {{ request('search_column') == 'members_pending' ? 'selected' : '' }}>Total Members Pending</option>
                                                         <option value="members_reject" {{ request('search_column') == 'members_reject' ? 'selected' : '' }}>Total Members Reject</option>
@@ -210,6 +211,7 @@
                                             <th class="sortable" data-column="description">Description <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="price">Price <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="month">Month <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="class_limit_per_month">Classes / Month <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="total_members_approved">Total Members Approved <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="total_members_pending">Total Members Pending <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="total_members_reject">Total Members Reject <i class="fa fa-sort"></i></th>
@@ -226,6 +228,7 @@
                                                 <td>{{ $item->description }}</td>
                                                 <td>{{ $item->price }}</td>
                                                 <td>{{ $item->month ?? '0' }}</td>
+                                                <td>{{ $item->class_limit_per_month !== null ? $item->class_limit_per_month : 'Unlimited' }}</td>
                                                 <td>{{ $item->members_approved }}</td>
                                                 <td>{{ $item->members_pending }}</td>
                                                 <td>{{ $item->members_reject }}</td>
@@ -315,6 +318,7 @@
                                             <th>Description</th>
                                             <th>Price</th>
                                             <th>Month</th>
+                                            <th>Classes / Month</th>
                                             <th>Members Approved</th>
                                             <th>Members Pending</th>
                                             <th>Members Rejected</th>
@@ -331,6 +335,7 @@
                                                 <td>{{ $archive->description }}</td>
                                                 <td>{{ $archive->price }}</td>
                                                 <td>{{ $archive->month ?? '0' }}</td>
+                                                <td>{{ $archive->class_limit_per_month !== null ? $archive->class_limit_per_month : 'Unlimited' }}</td>
                                                 <td>{{ $archive->members_approved }}</td>
                                                 <td>{{ $archive->members_pending }}</td>
                                                 <td>{{ $archive->members_reject }}</td>

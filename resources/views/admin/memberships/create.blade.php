@@ -60,9 +60,23 @@
                                 <div class="mb-3 row">
                                     <label for="month" class="col-sm-12 col-lg-2 col-form-label">Month: </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="number" class="form-control" id="month" name="month" value="0" required/>
+                                        <input type="number" class="form-control" id="month" name="month" value="{{ old('month', 0) }}" required/>
                                     </div>
                                 </div>       
+                                <div class="mb-3 row">
+                                    <label for="class_limit_per_month" class="col-sm-12 col-lg-2 col-form-label">Classes / Month:</label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input
+                                            type="number"
+                                            min="0"
+                                            class="form-control"
+                                            id="class_limit_per_month"
+                                            name="class_limit_per_month"
+                                            placeholder="Leave blank for unlimited"
+                                            value="{{ old('class_limit_per_month') }}"
+                                        />
+                                    </div>
+                                </div>
                                 <!--<div class="mb-3 row">-->
                                 <!--    <label for="week" class="col-sm-12 col-lg-2 col-form-label">Week: </label>-->
                                 <!--    <div class="col-lg-10 col-sm-12 d-flex align-items-center">-->

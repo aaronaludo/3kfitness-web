@@ -32,7 +32,7 @@ class MembershipController extends Controller
         }
     
         $allowed_columns = [
-            'id', 'name', 'description', 'month', 'members_approved', 'members_pending', 'members_reject',
+            'id', 'name', 'description', 'month', 'class_limit_per_month', 'members_approved', 'members_pending', 'members_reject',
             'created_at', 'updated_at',
         ];
     
@@ -144,6 +144,7 @@ class MembershipController extends Controller
             // 'currency' => 'required',
             'price' => 'required',
             'description' => 'nullable|string|max:2000',
+            'class_limit_per_month' => 'nullable|integer|min:0',
         ]);
 
         $data = new Membership;
@@ -154,6 +155,9 @@ class MembershipController extends Controller
         // $data->year = $request->year;
         $data->month = $request->month;
         // $data->week = $request->week;
+        $data->class_limit_per_month = $request->class_limit_per_month !== null && $request->class_limit_per_month !== '' 
+            ? $request->class_limit_per_month 
+            : null;
         $data->save();
 
         return redirect()->route('admin.staff-account-management.memberships')->with('success', 'Membership added successfully');
@@ -166,6 +170,7 @@ class MembershipController extends Controller
             // 'currency' => 'required',
             'price' => 'required',
             'description' => 'nullable|string|max:2000',
+            'class_limit_per_month' => 'nullable|integer|min:0',
         ]);
 
         $data = Membership::findOrFail($id);
@@ -176,6 +181,9 @@ class MembershipController extends Controller
         // $data->year = $request->year;
         $data->month = $request->month;
         // $data->week = $request->week;
+        $data->class_limit_per_month = $request->class_limit_per_month !== null && $request->class_limit_per_month !== '' 
+            ? $request->class_limit_per_month 
+            : null;
         $data->save();
 
         return redirect()->route('admin.staff-account-management.memberships')->with('success', 'Membership updated successfully');

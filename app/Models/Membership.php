@@ -17,6 +17,7 @@ class Membership extends Model
         'year',
         'month',
         'week',
+        'class_limit_per_month',
     ];
     
     public function membershipPayments()

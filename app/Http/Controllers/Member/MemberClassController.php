@@ -6,10 +6,13 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Schedule;
 use App\Models\UserSchedule;
+use App\Traits\ResolvesActiveMembership;
 use Carbon\Carbon;
 
 class MemberClassController extends Controller
 {
+    use ResolvesActiveMembership;
+
     public function index(Request $request)
     {
         $user = $request->user();
@@ -97,6 +100,25 @@ class MemberClassController extends Controller
 
         if ($userschedule_count >= $schedule->slots) {
             return response()->json(['message' => 'Class is already full. Please choose another class.'], 400);
+        }
+
+        $activeMembership = $this->resolveActiveMembershipForUser($user);
+
+        $classLimit = optional(optional($activeMembership)->membership)->class_limit_per_month;
+
+        if (!is_null($classLimit) && $classLimit > 0) {
+            $startOfMonth = now()->copy()->startOfMonth();
+            $endOfMonth = now()->copy()->endOfMonth();
+
+            $monthlyJoinCount = UserSchedule::where('user_id', $user->id)
+                ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+                ->count();
+
+            if ($monthlyJoinCount >= $classLimit) {
+                return response()->json([
+                    'message' => 'You have reached your membership class limit for this month.'
+                ], 400);
+            }
         }
 
         $data = new UserSchedule;

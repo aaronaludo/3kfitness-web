@@ -5,10 +5,14 @@ namespace App\Http\Controllers\Member;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
+use App\Models\UserSchedule;
+use App\Traits\ResolvesActiveMembership;
 use Illuminate\Support\Facades\Hash;
 
 class MemberAccountController extends Controller
 {
+    use ResolvesActiveMembership;
+
     public function editProfile(Request $request){
         $user = User::find(auth()->user()->id);
 
@@ -38,7 +42,10 @@ class MemberAccountController extends Controller
         }
         $user->save();
 
-        return response()->json(['user' => $user]);
+        return response()->json([
+            'user' => $user,
+            'membership_usage' => $this->summarizeMonthlyClassUsage($user),
+        ]);
     }
 
     public function changePassword(Request $request){
@@ -62,5 +69,25 @@ class MemberAccountController extends Controller
         $user->save();
     
         return response()->json(['message' => 'Password changed successfully']);
+    }
+
+    protected function summarizeMonthlyClassUsage(User $user): array
+    {
+        $activeMembership = $this->resolveActiveMembershipForUser($user);
+        $classLimit = optional(optional($activeMembership)->membership)->class_limit_per_month;
+
+        $now = now();
+        $startOfMonth = $now->copy()->startOfMonth();
+        $endOfMonth = $now->copy()->endOfMonth();
+
+        $joinedCount = UserSchedule::where('user_id', $user->id)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->count();
+
+        return [
+            'class_limit_per_month' => $classLimit,
+            'classes_joined_this_month' => $joinedCount,
+            'limit_reached' => !is_null($classLimit) && $classLimit > 0 && $joinedCount >= $classLimit,
+        ];
     }
 }
