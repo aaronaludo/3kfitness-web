@@ -206,7 +206,7 @@
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="email">Email <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="type">Type <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="contact_number">Contact Number <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="phone_number">Phone Number <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="rate_per_hour">Rate per hour <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="payrolls">Payrolls <i class="fa fa-sort"></i></th>
