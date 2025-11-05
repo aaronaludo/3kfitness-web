@@ -63,11 +63,12 @@
                             $user = auth()->guard('admin')->user();
                             $roleMap = [1 => 'Admin', 2 => 'Staff', 4 => 'Super Admin'];
                             $roleLabel = $roleMap[$user->role_id] ?? 'User';
+                            $profilePicture = $user->profile_picture ? asset($user->profile_picture) : asset('assets/images/profile-45x45.png');
                         @endphp
 
                         <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button"
                         data-bs-toggle="dropdown" aria-expanded="false">
-                            <img src="{{ asset('assets/images/profile-45x45.png') }}"
+                            <img src="{{ $profilePicture }}"
                                 alt="User" title="User"
                                 class="rounded-circle me-2" width="32" height="32" />
                             {{ $user->first_name }} {{ $user->last_name }}
