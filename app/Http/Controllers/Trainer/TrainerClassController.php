@@ -12,7 +12,15 @@ class TrainerClassController extends Controller
     public function index(Request $request) {
         $user = $request->user();
         
-        $availableclasses = Schedule::where('trainer_id', 0)->get()->map(function ($class) {
+        $now = Carbon::now();
+
+        $availableclasses = Schedule::where('trainer_id', 0)
+            ->where(function ($query) use ($now) {
+                $query->whereNull('class_start_date')
+                    ->orWhere('class_start_date', '>=', $now);
+            })
+            ->get()
+            ->map(function ($class) {
             $class->trainer = 'No Trainer';
             $class->type = 'availableclasses';
             return $class;
@@ -45,7 +53,14 @@ class TrainerClassController extends Controller
 
     public function availableclasses(){
         
-        $data = Schedule::where('trainer_id', 0)->get();
+        $now = Carbon::now();
+
+        $data = Schedule::where('trainer_id', 0)
+            ->where(function ($query) use ($now) {
+                $query->whereNull('class_start_date')
+                    ->orWhere('class_start_date', '>=', $now);
+            })
+            ->get();
         
         if (!$data) {
             return response()->json(['message' => 'Class is Empty']);
