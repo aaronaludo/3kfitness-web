@@ -237,13 +237,22 @@ class AttendanceController extends Controller
 
         $data = Attendance2::findOrFail($request->id);
 
+        $attendanceId = $data->id;
+        $attendanceUser = optional($data->user);
+        $attendanceUserName = trim(sprintf('%s %s', $attendanceUser->first_name ?? '', $attendanceUser->last_name ?? ''));
+        $attendanceLabel = $attendanceUserName !== ''
+            ? sprintf('#%d for %s', $attendanceId, $attendanceUserName)
+            : sprintf('#%d', $attendanceId);
+
         if ((int) $data->is_archive === 1) {
             $data->delete();
             $message = 'Attendance record deleted permanently';
+            $this->logAdminActivity("deleted attendance record {$attendanceLabel} permanently");
         } else {
             $data->is_archive = 1;
             $data->save();
             $message = 'Attendance record moved to archive';
+            $this->logAdminActivity("archived attendance record {$attendanceLabel}");
         }
 
         return redirect()->route('admin.staff-account-management.attendances')->with('success', $message);
@@ -267,6 +276,12 @@ class AttendanceController extends Controller
         }
 
         $data = Attendance2::findOrFail($request->id);
+        $attendanceId = $data->id;
+        $attendanceUser = optional($data->user);
+        $attendanceUserName = trim(sprintf('%s %s', $attendanceUser->first_name ?? '', $attendanceUser->last_name ?? ''));
+        $attendanceLabel = $attendanceUserName !== ''
+            ? sprintf('#%d for %s', $attendanceId, $attendanceUserName)
+            : sprintf('#%d', $attendanceId);
 
         if ((int) $data->is_archive === 0) {
             return redirect()->route('admin.staff-account-management.attendances')->with('success', 'Attendance record is already active');
@@ -274,6 +289,8 @@ class AttendanceController extends Controller
 
         $data->is_archive = 0;
         $data->save();
+
+        $this->logAdminActivity("restored attendance record {$attendanceLabel}");
 
         return redirect()->route('admin.staff-account-management.attendances')->with('success', 'Attendance record restored successfully');
     }

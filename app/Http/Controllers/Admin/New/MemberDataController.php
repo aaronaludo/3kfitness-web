@@ -301,6 +301,10 @@ class MemberDataController extends Controller
         }
         
         $data = User::where('role_id', 3)->findOrFail($request->id);
+        $memberName = trim(sprintf('%s %s', $data->first_name ?? '', $data->last_name ?? ''));
+        $memberLabel = $memberName !== ''
+            ? sprintf('#%d (%s)', $data->id, $memberName)
+            : sprintf('#%d (%s)', $data->id, $data->email ?? 'member');
 
         if ((int) $data->is_archive === 1) {
             DB::transaction(function () use ($data) {
@@ -313,10 +317,12 @@ class MemberDataController extends Controller
             });
 
             $message = 'Gym member deleted permanently';
+            $this->logAdminActivity("deleted gym member {$memberLabel} permanently");
         } else {
             $data->is_archive = 1;
             $data->save();
             $message = 'Gym member moved to archive';
+            $this->logAdminActivity("archived gym member {$memberLabel}");
         }
 
         return redirect()->route('admin.gym-management.members')->with('success', $message);
@@ -340,6 +346,10 @@ class MemberDataController extends Controller
         }
 
         $data = User::where('role_id', 3)->findOrFail($request->id);
+        $memberName = trim(sprintf('%s %s', $data->first_name ?? '', $data->last_name ?? ''));
+        $memberLabel = $memberName !== ''
+            ? sprintf('#%d (%s)', $data->id, $memberName)
+            : sprintf('#%d (%s)', $data->id, $data->email ?? 'member');
 
         if ((int) $data->is_archive === 0) {
             return redirect()->route('admin.gym-management.members')->with('success', 'Gym member is already active');
@@ -347,6 +357,8 @@ class MemberDataController extends Controller
 
         $data->is_archive = 0;
         $data->save();
+
+        $this->logAdminActivity("restored gym member {$memberLabel}");
 
         return redirect()->route('admin.gym-management.members')->with('success', 'Gym member restored successfully');
     }

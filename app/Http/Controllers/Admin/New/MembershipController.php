@@ -199,14 +199,17 @@ class MembershipController extends Controller
         }
         
         $data = Membership::findOrFail($request->id);
+        $membershipLabel = sprintf('#%d (%s)', $data->id, $data->name ?? 'membership');
 
         if ((int) $data->is_archive === 1) {
             $data->delete();
             $message = 'Membership deleted permanently';
+            $this->logAdminActivity("deleted membership {$membershipLabel} permanently");
         } else {
             $data->is_archive = 1;
             $data->save();
             $message = 'Membership moved to archive';
+            $this->logAdminActivity("archived membership {$membershipLabel}");
         }
 
         return redirect()->route('admin.staff-account-management.memberships')->with('success', $message);
@@ -230,6 +233,7 @@ class MembershipController extends Controller
         }
 
         $data = Membership::findOrFail($request->id);
+        $membershipLabel = sprintf('#%d (%s)', $data->id, $data->name ?? 'membership');
 
         if ((int) $data->is_archive === 0) {
             return redirect()->route('admin.staff-account-management.memberships')->with('success', 'Membership is already active');
@@ -237,6 +241,8 @@ class MembershipController extends Controller
 
         $data->is_archive = 0;
         $data->save();
+
+        $this->logAdminActivity("restored membership {$membershipLabel}");
 
         return redirect()->route('admin.staff-account-management.memberships')->with('success', 'Membership restored successfully');
     }

@@ -440,14 +440,18 @@ class ScheduleController extends Controller
         }
         
         $data = Schedule::findOrFail($request->id);
+        $scheduleName = $data->name ?? 'schedule';
+        $scheduleLabel = sprintf('#%d (%s)', $data->id, $scheduleName);
 
         if ((int) $data->is_archieve === 1) {
             $data->delete();
             $message = 'Schedule deleted permanently';
+            $this->logAdminActivity("deleted schedule {$scheduleLabel} permanently");
         } else {
             $data->is_archieve = 1;
             $data->save();
             $message = 'Schedule moved to archive';
+            $this->logAdminActivity("archived schedule {$scheduleLabel}");
         }
 
         return redirect()->route('admin.gym-management.schedules')->with('success', $message);
@@ -471,6 +475,8 @@ class ScheduleController extends Controller
         }
 
         $data = Schedule::findOrFail($request->id);
+        $scheduleName = $data->name ?? 'schedule';
+        $scheduleLabel = sprintf('#%d (%s)', $data->id, $scheduleName);
 
         if ((int) $data->is_archieve === 0) {
             return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule is already active');
@@ -478,6 +484,8 @@ class ScheduleController extends Controller
 
         $data->is_archieve = 0;
         $data->save();
+
+        $this->logAdminActivity("restored schedule {$scheduleLabel}");
 
         return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule restored successfully');
     }

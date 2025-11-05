@@ -229,14 +229,20 @@ class TrainerManagementController extends Controller
         }
         
         $data = User::where('role_id', 5)->findOrFail($request->id);
+        $trainerName = trim(sprintf('%s %s', $data->first_name ?? '', $data->last_name ?? ''));
+        $trainerLabel = $trainerName !== ''
+            ? sprintf('#%d (%s)', $data->id, $trainerName)
+            : sprintf('#%d (%s)', $data->id, $data->email ?? 'trainer');
 
         if ((int) $data->is_archive === 1) {
             $data->delete();
             $message = 'Trainer deleted permanently';
+            $this->logAdminActivity("deleted trainer {$trainerLabel} permanently");
         } else {
             $data->is_archive = 1;
             $data->save();
             $message = 'Trainer moved to archive';
+            $this->logAdminActivity("archived trainer {$trainerLabel}");
         }
 
         return redirect()->route('admin.trainer-management.index')->with('success', $message);
@@ -260,6 +266,10 @@ class TrainerManagementController extends Controller
         }
 
         $data = User::where('role_id', 5)->findOrFail($request->id);
+        $trainerName = trim(sprintf('%s %s', $data->first_name ?? '', $data->last_name ?? ''));
+        $trainerLabel = $trainerName !== ''
+            ? sprintf('#%d (%s)', $data->id, $trainerName)
+            : sprintf('#%d (%s)', $data->id, $data->email ?? 'trainer');
 
         if ((int) $data->is_archive === 0) {
             return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer is already active');
@@ -267,6 +277,8 @@ class TrainerManagementController extends Controller
 
         $data->is_archive = 0;
         $data->save();
+
+        $this->logAdminActivity("restored trainer {$trainerLabel}");
 
         return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer restored successfully');
     }

@@ -122,14 +122,24 @@ class MembershipPaymentController extends Controller
         }
 
         $data = MembershipPayment::findOrFail($request->id);
+        $data->loadMissing(['user', 'membership']);
+        $payer = optional($data->user);
+        $payerName = trim(sprintf('%s %s', $payer->first_name ?? '', $payer->last_name ?? ''));
+        $payerLabel = $payerName !== ''
+            ? $payerName
+            : ($payer->email ?? 'member');
+        $membershipName = optional($data->membership)->name ?? 'membership';
+        $paymentLabel = sprintf('#%d (%s - %s)', $data->id, $payerLabel, $membershipName);
 
         if ((int) $data->is_archive === 1) {
             $data->delete();
             $message = 'Membership payment deleted permanently';
+            $this->logAdminActivity("deleted membership payment {$paymentLabel} permanently");
         } else {
             $data->is_archive = 1;
             $data->save();
             $message = 'Membership payment moved to archive';
+            $this->logAdminActivity("archived membership payment {$paymentLabel}");
         }
 
         return redirect()->route('admin.staff-account-management.membership-payments')->with('success', $message);
@@ -153,6 +163,14 @@ class MembershipPaymentController extends Controller
         }
 
         $data = MembershipPayment::findOrFail($request->id);
+        $data->loadMissing(['user', 'membership']);
+        $payer = optional($data->user);
+        $payerName = trim(sprintf('%s %s', $payer->first_name ?? '', $payer->last_name ?? ''));
+        $payerLabel = $payerName !== ''
+            ? $payerName
+            : ($payer->email ?? 'member');
+        $membershipName = optional($data->membership)->name ?? 'membership';
+        $paymentLabel = sprintf('#%d (%s - %s)', $data->id, $payerLabel, $membershipName);
 
         if ((int) $data->is_archive === 0) {
             return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership payment is already active');
@@ -160,6 +178,8 @@ class MembershipPaymentController extends Controller
 
         $data->is_archive = 0;
         $data->save();
+
+        $this->logAdminActivity("restored membership payment {$paymentLabel}");
 
         return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership payment restored successfully');
     }

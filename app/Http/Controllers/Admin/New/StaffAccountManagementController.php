@@ -209,14 +209,20 @@ class StaffAccountManagementController extends Controller
         }
         
         $data = User::where('role_id', 2)->findOrFail($request->id);
+        $staffName = trim(sprintf('%s %s', $data->first_name ?? '', $data->last_name ?? ''));
+        $staffLabel = $staffName !== ''
+            ? sprintf('#%d (%s)', $data->id, $staffName)
+            : sprintf('#%d (%s)', $data->id, $data->email ?? 'staff');
 
         if ((int) $data->is_archive === 1) {
             $data->delete();
             $message = 'Staff deleted permanently';
+            $this->logAdminActivity("deleted staff account {$staffLabel} permanently");
         } else {
             $data->is_archive = 1;
             $data->save();
             $message = 'Staff moved to archive';
+            $this->logAdminActivity("archived staff account {$staffLabel}");
         }
 
         return redirect()->route('admin.staff-account-management.index')->with('success', $message);
@@ -240,6 +246,10 @@ class StaffAccountManagementController extends Controller
         }
 
         $data = User::where('role_id', 2)->findOrFail($request->id);
+        $staffName = trim(sprintf('%s %s', $data->first_name ?? '', $data->last_name ?? ''));
+        $staffLabel = $staffName !== ''
+            ? sprintf('#%d (%s)', $data->id, $staffName)
+            : sprintf('#%d (%s)', $data->id, $data->email ?? 'staff');
 
         if ((int) $data->is_archive === 0) {
             return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff is already active');
@@ -247,6 +257,8 @@ class StaffAccountManagementController extends Controller
 
         $data->is_archive = 0;
         $data->save();
+
+        $this->logAdminActivity("restored staff account {$staffLabel}");
 
         return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff restored successfully');
     }
