@@ -6,38 +6,55 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Membership;
 use App\Models\MembershipPayment;
+use App\Traits\FormatsMembershipReceipt;
+use Illuminate\Support\Facades\Schema;
 
 class MemberMembershipController extends Controller
 {
+    use FormatsMembershipReceipt;
+
     public function index(Request $request)
     {
         $user = $request->user();
-        $data = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week')->get();
-    
-        $membership_payment = MembershipPayment::where('user_id', $user->id)
-                                          ->where('expiration_at', '>', now())
-                                          ->orderBy('created_at', 'desc')
-                                          ->first();
-        
-        $membership_message = null;
-    
-        if ($membership_payment) {
-            if ($membership_payment->isapproved === 1) {
-                $expiry_date = \Carbon\Carbon::parse($membership_payment->expiration_at)->format('m/d/Y h:i A');
-                $membership_message = "Your Membership: {$membership_payment->membership->name} is approved until {$expiry_date}";
-            } else if ($membership_payment->isapproved === 0) {
-                $membership_message = "Your Membership: {$membership_payment->membership->name} is pending, please wait for the admin to approve it";
-            }
-        } else {
-            $membership_message = "You currently do not have an active membership.";
+        $data = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week')
+            ->when(Schema::hasColumn('memberships', 'is_archive'), fn ($query) => $query->where('is_archive', 0))
+            ->orderBy('price')
+            ->get();
+
+        $activeMembership = MembershipPayment::with('membership')
+            ->where('user_id', $user->id)
+            ->where('isapproved', 1)
+            ->where(function ($query) {
+                $query->whereNull('expiration_at')
+                      ->orWhere('expiration_at', '>', now());
+            })
+            ->when(Schema::hasColumn('membership_payments', 'is_archive'), fn ($query) => $query->where('is_archive', 0))
+            ->latest()
+            ->first();
+
+        $pendingMembership = MembershipPayment::with('membership')
+            ->where('user_id', $user->id)
+            ->where('isapproved', 0)
+            ->when(Schema::hasColumn('membership_payments', 'is_archive'), fn ($query) => $query->where('is_archive', 0))
+            ->latest()
+            ->first();
+
+        $membership_message = "You currently do not have an active membership.";
+
+        if ($activeMembership) {
+            $expiryDate = optional($activeMembership->expiration_at)->format('m/d/Y h:i A');
+            $membership_message = "Your Membership: {$activeMembership->membership->name} is approved" . ($expiryDate ? " until {$expiryDate}" : '');
+        } elseif ($pendingMembership) {
+            $membership_message = "Your Membership: {$pendingMembership->membership->name} is pending, please visit the gym to complete your payment.";
         }
-    
+
         return response()->json([
             'data' => $data,
-            'membership_payment' => $membership_payment,
+            'membership_payment' => $activeMembership,
             'membership_message' => $membership_message,
+            'pending_membership' => $pendingMembership ? $this->formatMembershipReceipt($pendingMembership) : null,
         ]);
-    }           
+    }
 
     public function checkout(Request $request)
     {
@@ -82,6 +99,13 @@ class MemberMembershipController extends Controller
             $currentDate->modify("+{$membership->week} weeks");
         }
         $data->expiration_at = $currentDate;
+        if (Schema::hasColumn('membership_payments', 'created_by')) {
+            $data->created_by = sprintf(
+                '%s %s (mobile checkout)',
+                $user->first_name,
+                $user->last_name
+            );
+        }
 
         $data->save();
     
@@ -89,5 +113,17 @@ class MemberMembershipController extends Controller
             'message' => 'Checkout successful. Your membership is pending approval.',
             'data' => $data
         ]);
-    }    
+    }
+
+    public function catalog()
+    {
+        $memberships = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week')
+            ->when(Schema::hasColumn('memberships', 'is_archive'), fn ($query) => $query->where('is_archive', 0))
+            ->orderBy('price')
+            ->get();
+
+        return response()->json([
+            'data' => $memberships,
+        ]);
+    }
 }

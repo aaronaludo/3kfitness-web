@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Member;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Log as Logger;
@@ -12,10 +13,16 @@ use Illuminate\Support\Str;
 use App\Models\User;
 use App\Models\Log;
 use App\Models\MembershipPayment;
+use App\Models\Membership;
 use App\Mail\MemberVerificationCode;
+use Carbon\Carbon;
+use App\Traits\FormatsMembershipReceipt;
+use Illuminate\Support\Facades\Schema;
 
 class MemberAuthController extends Controller
 {
+    use FormatsMembershipReceipt;
+
     public function test(){
         return response()->json(['message' => 'member test']);
     }
@@ -43,14 +50,30 @@ class MemberAuthController extends Controller
                         $query->whereNull('expiration_at')
                               ->orWhere('expiration_at', '>', now());
                     })
-                    ->where('is_archive', 0)
                     ->exists();
+
+                $pendingMembership = MembershipPayment::where('user_id', $user->id)
+                    ->where('isapproved', 0)
+                    ->latest()
+                    ->first();
+                if ($pendingMembership) {
+                    $pendingMembership->loadMissing('membership');
+                }
 
                 if (! $hasActiveMembership) {
                     Auth::logout();
 
+                    $pendingResponse = $pendingMembership
+                        ? $this->formatMembershipReceipt($pendingMembership)
+                        : null;
+
+                    $message = $pendingMembership
+                        ? 'Your membership payment is pending. Please visit the gym to complete your payment.'
+                        : 'You currently do not have an active membership. Please visit the gym to activate your account again.';
+
                     return response()->json([
-                        'message' => 'You currently do not have an active membership. Please visit the gym to activate your account again.'
+                        'message' => $message,
+                        'pending_membership' => $pendingResponse,
                     ], 403);
                 }
 
@@ -81,34 +104,64 @@ class MemberAuthController extends Controller
     }
 
     public function register(Request $request){
-        $request->validate([
+        $validated = $request->validate([
             'first_name' => 'required|string',
             'last_name' => 'required|string',
             'address' => 'required|string',
             'phone_number' => 'required|string',
             'email' => 'required|email|unique:users',
             'password' => ['required', 'confirmed'],
+            'membership_id' => 'required|exists:memberships,id',
         ]);
 
-        $user = new User();
-        $user->role_id = 3;
-        $user->status_id = 2;
-        $user->first_name = $request->first_name;
-        $user->last_name = $request->last_name;
-        $user->address = $request->address;
-        $user->phone_number = $request->phone_number;
-        $user->email = $request->email;
-        $user->password = Hash::make($request->password);
-        $user->save();
+        $membership = Membership::find($validated['membership_id']);
+
+        $user = DB::transaction(function () use ($validated, $membership) {
+            $user = new User();
+            $user->role_id = 3;
+            $user->status_id = 2;
+            $user->first_name = $validated['first_name'];
+            $user->last_name = $validated['last_name'];
+            $user->address = $validated['address'];
+            $user->phone_number = $validated['phone_number'];
+            $user->email = $validated['email'];
+            $user->password = Hash::make($validated['password']);
+            $user->save();
+
+            $membershipPayment = new MembershipPayment();
+            $membershipPayment->user_id = $user->id;
+            $membershipPayment->membership_id = $membership->id;
+            $membershipPayment->isapproved = 0;
+            $membershipPayment->proof_of_payment = 'pending';
+            $membershipPayment->expiration_at = $this->calculateExpiration($membership);
+            if (Schema::hasColumn('membership_payments', 'created_by')) {
+                $membershipPayment->created_by = sprintf(
+                    '%s %s (mobile signup)',
+                    $user->first_name,
+                    $user->last_name
+                );
+            }
+            $membershipPayment->save();
+
+            $user->setRelation('pending_membership', $membershipPayment);
+
+            return $user;
+        });
 
         $token = $user->createToken('member_fithub_token')->plainTextToken;
 
+        $pendingMembership = $user->pending_membership ?? null;
+
         $response = [
             'token' => $token,
-            'user' => $user
+            'user' => $user->withoutRelations(),
+            'receipt' => $pendingMembership ? $this->formatMembershipReceipt($pendingMembership) : null,
         ];
 
-        return response()->json(['response' => $response]);
+        return response()->json([
+            'message' => 'Registration successful. Please visit the gym to complete your payment.',
+            'response' => $response,
+        ]);
     }
 
     public function logout(Request $request){
@@ -125,6 +178,28 @@ class MemberAuthController extends Controller
         $log->save();
         
         return response()->json(['message' => 'Member account only'], 401);
+    }
+
+    private function calculateExpiration(Membership $membership): ?Carbon
+    {
+        $expiry = Carbon::now();
+
+        $hasDuration = false;
+
+        if (!empty($membership->year)) {
+            $expiry->addYears((int) $membership->year);
+            $hasDuration = true;
+        }
+        if (!empty($membership->month)) {
+            $expiry->addMonths((int) $membership->month);
+            $hasDuration = true;
+        }
+        if (!empty($membership->week)) {
+            $expiry->addWeeks((int) $membership->week);
+            $hasDuration = true;
+        }
+
+        return $hasDuration ? $expiry : null;
     }
 
     public function sendEmailVerificationCode(Request $request)

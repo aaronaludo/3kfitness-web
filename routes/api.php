@@ -79,6 +79,8 @@ use App\Http\Controllers\Mobile\AttendanceController;
 
 Route::get('/banners', [BannerController::class, 'index'])->name('banners.index');
 
+Route::get('/memberships/catalog', [MemberMembershipController::class, 'catalog'])->name('memberships.catalog');
+
 Route::prefix('members')->group(function () {
     Route::get('/test', [MemberAuthController::class, 'test'])->name('members.test');
     Route::post('/login', [MemberAuthController::class, 'login'])->name('members.login');
