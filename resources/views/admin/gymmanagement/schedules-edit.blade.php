@@ -86,14 +86,38 @@
                                         Trainer: <span class="required">*</span>
                                     </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        @php
+                                            $selectedTrainerId = old('trainer_id', $data->trainer_id);
+                                        @endphp
                                         <select class="form-control" id="trainer_id" name="trainer_id" required>
-                                            <option value="0" {{ $data->trainer_id == 0 ? 'selected' : '' }}>No Trainer for Now</option>
+                                            <option value="0" {{ (string) $selectedTrainerId === '0' ? 'selected' : '' }}>No Trainer for Now</option>
                                             @foreach($trainers as $trainer)
-                                                <option value="{{ $trainer->id }}" {{ $data->trainer_id == $trainer->id ? 'selected' : '' }}>
+                                                <option value="{{ $trainer->id }}" {{ (string) $selectedTrainerId === (string) $trainer->id ? 'selected' : '' }}>
                                                     {{ $trainer->first_name . ' ' . $trainer->last_name }}
                                                 </option>
                                             @endforeach
                                         </select>
+                                    </div>
+                                </div>
+                                <div class="mb-3 row">
+                                    <label for="trainer_rate_per_hour" class="col-sm-12 col-lg-2 col-form-label">
+                                        Trainer Rate per Hour:
+                                    </label>
+                                    <div class="col-lg-10 col-sm-12">
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min="0"
+                                            class="form-control"
+                                            id="trainer_rate_per_hour"
+                                            name="trainer_rate_per_hour"
+                                            value="{{ old('trainer_rate_per_hour', $data->trainer_rate_per_hour) }}"
+                                            placeholder="Enter rate in pesos"
+                                        />
+                                        <small class="text-muted">Required when a trainer is assigned.</small>
+                                        @error('trainer_rate_per_hour')
+                                            <span class="text-danger small d-block mt-1">{{ $message }}</span>
+                                        @enderror
                                     </div>
                                 </div>
                                 <div class="d-flex justify-content-center mt-5 mb-4">
@@ -116,6 +140,8 @@
         const loader = document.getElementById('loader');
         const startInput = document.getElementById('class_start_date');
         const endInput = document.getElementById('class_end_date');
+        const trainerSelect = document.getElementById('trainer_id');
+        const rateInput = document.getElementById('trainer_rate_per_hour');
 
         const toLocalIsoString = (date) => {
             return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -133,6 +159,22 @@
         };
 
         enforceMinDate();
+
+        const toggleRateInput = () => {
+            if (!trainerSelect || !rateInput) {
+                return;
+            }
+
+            const noTrainer = trainerSelect.value === '0';
+            rateInput.disabled = noTrainer;
+
+            if (noTrainer) {
+                rateInput.value = '';
+            }
+        };
+
+        trainerSelect?.addEventListener('change', toggleRateInput);
+        toggleRateInput();
 
         form.addEventListener('submit', function(e) {
             const errors = [];

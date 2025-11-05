@@ -209,12 +209,44 @@
                                             <th class="sortable" data-column="phone_number">Phone Number <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="rate_per_hour">Rate per hour <i class="fa fa-sort"></i></th>
+                                            <th>Net Pay (This Month)</th>
                                             <th class="sortable" data-column="payrolls">Payrolls <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody id="table-body">
                                         @foreach ($data as $item)
+                                            @php
+                                                $currentMonth = \Carbon\Carbon::now()->month;
+                                                $payrollsThisMonth = $item->payrolls
+                                                    ->filter(function ($payroll) use ($currentMonth) {
+                                                        if (empty($payroll->clockin_at) || empty($payroll->clockout_at)) {
+                                                            return false;
+                                                        }
+
+                                                        return \Carbon\Carbon::parse($payroll->clockin_at)->month === $currentMonth;
+                                                    })
+                                                    ->values();
+
+                                                $totalHours = $payrollsThisMonth->sum(function ($payroll) {
+                                                    $clockIn = \Carbon\Carbon::parse($payroll->clockin_at);
+                                                    $clockOut = \Carbon\Carbon::parse($payroll->clockout_at);
+
+                                                    if ($clockOut->lessThanOrEqualTo($clockIn)) {
+                                                        return 0;
+                                                    }
+
+                                                    return $clockOut->diffInMinutes($clockIn) / 60;
+                                                });
+
+                                                $grossPay = (float) $item->rate_per_hour * $totalHours;
+                                                $sssEmployee = round($grossPay * 0.045, 2);
+                                                $philhealthEmployee = round($grossPay * 0.025, 2);
+                                                $pagibigEmployee = round(min($grossPay, 5000) * 0.02, 2);
+                                                $netPay = $grossPay - ($sssEmployee + $philhealthEmployee + $pagibigEmployee);
+                                                $netPay = max($netPay, 0);
+                                                $totalAmount = $grossPay;
+                                            @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
                                                 <td>{{ $item->first_name }} {{ $item->last_name }}</td>
@@ -222,7 +254,14 @@
                                                 <td>{{ $item->role->name }}</td>
                                                 <td>{{ $item->phone_number }}</td>
                                                 <td>{{ $item->created_at }}</td>
-                                                <td>₱{{ $item->rate_per_hour }}</td>
+                                                <td>₱{{ number_format((float) $item->rate_per_hour, 2) }}</td>
+                                                <td>
+                                                    @if($totalHours > 0)
+                                                        ₱{{ number_format($netPay, 2) }}
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
                                                 <td><button class="btn btn-primary see-more" data-bs-toggle="modal" data-bs-target="#detailsModal-{{ $item->id }}">See More</button></td>
                                                 <td>
                                                     <div class="d-flex">
@@ -273,28 +312,13 @@
                                                 <div class="modal-dialog">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
-                                                            @php
-                                                                $currentMonth = \Carbon\Carbon::now()->month;
-                                                                $totalAmount = $item->payrolls
-                                                                    ->filter(fn($payroll) => \Carbon\Carbon::parse($payroll->clockin_at)->month === $currentMonth && $payroll->clockout_at)
-                                                                    ->sum(fn($payroll) => \Carbon\Carbon::parse($payroll->clockin_at)->diffInHours(\Carbon\Carbon::parse($payroll->clockout_at)) * $item->rate_per_hour);
-                                                                
-                                                                $sssEmployee = round($totalAmount * 0.045, 2);
-                                                                $philhealthEmployee = round($totalAmount * 0.025, 2);
-                                                                $pagibigEmployee = round(min($totalAmount, 5000) * 0.02, 2);
-                                                                
-                                                                $netPay = $totalAmount - ($sssEmployee + $philhealthEmployee + $pagibigEmployee);
-                                                            @endphp
                                                             <h5 class="modal-title" id="modalTitle">Payrolls: (Gross Pay: ₱{{ number_format($totalAmount, 2) }})</h5>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
                                                         <div class="modal-body">
                                                             <div id="modalContent">
-                                                                @php
-                                                                    $currentMonth = \Carbon\Carbon::now()->month;
-                                                                @endphp
-                                                                
-                                                                @foreach($item->payrolls->filter(fn($payroll) => \Carbon\Carbon::parse($payroll->clockin_at)->month === $currentMonth) as $payroll)
+                                                                @if($payrollsThisMonth->isNotEmpty())
+                                                                    @foreach($payrollsThisMonth as $payroll)
                                                                     <div class="mb-3 border-bottom pb-2">
                                                                         <div class="d-flex gap-2">
                                                                             <strong>ID:</strong> <span>{{ $payroll->id }}</span>
@@ -309,8 +333,8 @@
                                                                             <strong>Total Hours:</strong> 
                                                                             <span>
                                                                             {{ $payroll->clockout_at 
-                                                                            ? \Carbon\Carbon::parse($payroll->clockin_at)->diffInHours(\Carbon\Carbon::parse($payroll->clockout_at)) 
-                                                                            : 'Wait for clockout' }}
+                                                                                ? number_format(\Carbon\Carbon::parse($payroll->clockin_at)->diffInMinutes(\Carbon\Carbon::parse($payroll->clockout_at)) / 60, 2)
+                                                                                : 'Wait for clockout' }}
                                                                             </span>
                                                                         </div>
                                                                         <div class="d-none gap-2">
@@ -336,13 +360,16 @@
                                                                             <span>
                                                                             {{
                                                                             $payroll->clockout_at 
-                                                                            ? "₱" . \Carbon\Carbon::parse($payroll->clockin_at)->diffInHours(\Carbon\Carbon::parse($payroll->clockout_at)) * $item->rate_per_hour
+                                                                            ? "₱" . number_format((\Carbon\Carbon::parse($payroll->clockin_at)->diffInMinutes(\Carbon\Carbon::parse($payroll->clockout_at)) / 60) * (float) $item->rate_per_hour, 2)
                                                                             : 'Wait for clockout'
                                                                             }}
                                                                             </span>
                                                                         </div>
                                                                     </div>
-                                                                @endforeach
+                                                                    @endforeach
+                                                                @else
+                                                                    <p class="text-muted mb-0">No payroll records for the current month.</p>
+                                                                @endif
                                                             </div>
                                                         </div>
                                                         <div class="modal-footer">
@@ -350,15 +377,14 @@
 
                                                             {{-- UPDATED START: Replaced inline onclick with data-attributes --}}
                                                             @php
-                                                                $filteredPayrolls = $item->payrolls
-                                                                    ->filter(fn($p) => \Carbon\Carbon::parse($p->clockin_at)->month === \Carbon\Carbon::now()->month)
+                                                                $filteredPayrolls = $payrollsThisMonth
                                                                     ->map(function ($p) {
                                                                         return [
                                                                             'id' => $p->id,
                                                                             'clockin' => $p->clockin_at,
                                                                             'clockout' => $p->clockout_at,
                                                                             'hours' => $p->clockout_at 
-                                                                                ? \Carbon\Carbon::parse($p->clockin_at)->diffInHours(\Carbon\Carbon::parse($p->clockout_at)) 
+                                                                                ? \Carbon\Carbon::parse($p->clockin_at)->diffInMinutes(\Carbon\Carbon::parse($p->clockout_at)) / 60 
                                                                                 : 'Pending',
                                                                         ];
                                                                     })
@@ -421,12 +447,43 @@
                                             <th>Contact Number</th>
                                             <th>Created Date</th>
                                             <th>Rate per hour</th>
+                                            <th>Net Pay (This Month)</th>
                                             <th>Payrolls</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
                                         @forelse ($archivedData as $archive)
+                                            @php
+                                                $archiveCurrentMonth = \Carbon\Carbon::now()->month;
+                                                $archivePayrollsThisMonth = $archive->payrolls
+                                                    ->filter(function ($payroll) use ($archiveCurrentMonth) {
+                                                        if (empty($payroll->clockin_at) || empty($payroll->clockout_at)) {
+                                                            return false;
+                                                        }
+
+                                                        return \Carbon\Carbon::parse($payroll->clockin_at)->month === $archiveCurrentMonth;
+                                                    })
+                                                    ->values();
+
+                                                $archiveTotalHours = $archivePayrollsThisMonth->sum(function ($payroll) {
+                                                    $clockIn = \Carbon\Carbon::parse($payroll->clockin_at);
+                                                    $clockOut = \Carbon\Carbon::parse($payroll->clockout_at);
+
+                                                    if ($clockOut->lessThanOrEqualTo($clockIn)) {
+                                                        return 0;
+                                                    }
+
+                                                    return $clockOut->diffInMinutes($clockIn) / 60;
+                                                });
+
+                                                $archiveGrossPay = (float) ($archive->rate_per_hour ?? 0) * $archiveTotalHours;
+                                                $archiveSssEmployee = round($archiveGrossPay * 0.045, 2);
+                                                $archivePhilhealthEmployee = round($archiveGrossPay * 0.025, 2);
+                                                $archivePagibigEmployee = round(min($archiveGrossPay, 5000) * 0.02, 2);
+                                                $archiveNetPay = $archiveGrossPay - ($archiveSssEmployee + $archivePhilhealthEmployee + $archivePagibigEmployee);
+                                                $archiveNetPay = max($archiveNetPay, 0);
+                                            @endphp
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
                                                 <td>{{ $archive->first_name }} {{ $archive->last_name }}</td>
@@ -434,7 +491,14 @@
                                                 <td>{{ optional($archive->role)->name }}</td>
                                                 <td>{{ $archive->phone_number }}</td>
                                                 <td>{{ $archive->created_at }}</td>
-                                                <td>₱{{ $archive->rate_per_hour }}</td>
+                                                <td>₱{{ number_format((float) $archive->rate_per_hour, 2) }}</td>
+                                                <td>
+                                                    @if($archiveTotalHours > 0)
+                                                        ₱{{ number_format($archiveNetPay, 2) }}
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
                                                 <td>{{ $archive->payrolls_count ?? $archive->payrolls->count() }}</td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
@@ -536,7 +600,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="9" class="text-center text-muted">No archived staff found.</td>
+                                                <td colspan="10" class="text-center text-muted">No archived staff found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>

@@ -269,6 +269,7 @@ class ScheduleController extends Controller
             'class_start_date' => 'required|date',
             'class_end_date' => 'required|date|after:class_start_date',
             'trainer_id' => 'required',
+            'trainer_rate_per_hour' => 'nullable|numeric|min:0',
         ]);
         
         $startRange = Carbon::parse($request->class_start_date)->subHour();
@@ -288,7 +289,17 @@ class ScheduleController extends Controller
         if ($existingSchedule) {
             return back()->withErrors(['schedule' => 'The trainer is already booked within this time range.']);
         }
-        
+
+        if ((int) $request->trainer_id !== 0 && !$request->filled('trainer_rate_per_hour')) {
+            return back()
+                ->withErrors(['trainer_rate_per_hour' => 'Please provide a rate per hour for the assigned trainer.'])
+                ->withInput();
+        }
+
+        $trainerRate = (int) $request->trainer_id === 0
+            ? null
+            : $request->input('trainer_rate_per_hour');
+
         $data = new Schedule;
         $data->name = $request->name;
         $nameParts = explode(' ', $request->name);
@@ -305,6 +316,7 @@ class ScheduleController extends Controller
         $data->class_end_date = $request->class_end_date;
         $data->isenabled = 1;
         $data->trainer_id = $request->trainer_id;
+        $data->trainer_rate_per_hour = $trainerRate;
         $data->isadminapproved = $request->trainer_id == 0 ? 0 : 1; 
         $data->created_role = $request->user()->role_id == 1 || $request->user()->role_id == 4 ? 'Admin' : 'Staff';
         $data->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
@@ -344,7 +356,8 @@ class ScheduleController extends Controller
             'class_start_date' => 'required',
             'class_end_date' => 'required',
             'trainer_id' => 'required',
-            'class_code' => 'required'
+            'class_code' => 'required',
+            'trainer_rate_per_hour' => 'nullable|numeric|min:0',
         ]);
 
         $startRange = Carbon::parse($request->class_start_date)->subHour();
@@ -365,6 +378,16 @@ class ScheduleController extends Controller
         if ($existingSchedule) {
             return back()->withErrors(['schedule' => 'The trainer is already booked within this time range.']);
         }
+
+        if ((int) $request->trainer_id !== 0 && !$request->filled('trainer_rate_per_hour')) {
+            return back()
+                ->withErrors(['trainer_rate_per_hour' => 'Please provide a rate per hour for the assigned trainer.'])
+                ->withInput();
+        }
+
+        $trainerRate = (int) $request->trainer_id === 0
+            ? null
+            : $request->input('trainer_rate_per_hour');
         
         $data->name = $request->name;
         $data->slots = $request->slots;
@@ -373,6 +396,7 @@ class ScheduleController extends Controller
         $data->isenabled = 1;
         $data->trainer_id = $request->trainer_id;
         $data->class_code = $request->class_code;
+        $data->trainer_rate_per_hour = $trainerRate;
         $data->isadminapproved = $request->trainer_id == 0 ? 0 : 1;
     
         if ($request->hasFile('image')) {
@@ -744,7 +768,7 @@ class ScheduleController extends Controller
 
         // Headers
         $headers = [
-            'ID', 'Class Name', 'Class Code', 'Trainer', 'Slots', 'Total Members Enrolled',
+            'ID', 'Class Name', 'Class Code', 'Trainer', 'Trainer Rate Per Hour', 'Slots', 'Total Members Enrolled',
             'Class Start Date and Time', 'Class End Date and Time',
             'Status', 'Categorization', 'Admin Acceptance', 'Reject Reason',
             'Created Date', 'Updated Date',
@@ -780,6 +804,9 @@ class ScheduleController extends Controller
                 $item->trainer_id == 0
                     ? 'No Trainer for now'
                     : trim((optional($item->user)->first_name ?? '') . ' ' . (optional($item->user)->last_name ?? '')),
+                $item->trainer_rate_per_hour !== null
+                    ? number_format((float) $item->trainer_rate_per_hour, 2)
+                    : '',
                 (string) $item->slots,
                 (string) $item->user_schedules_count,
                 $item->class_start_date,

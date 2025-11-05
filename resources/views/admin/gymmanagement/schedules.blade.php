@@ -157,6 +157,7 @@
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Class Name</option>
                                                         <option value="class_code" {{ request('search_column') == 'class_code' ? 'selected' : '' }}>Class Code</option>
                                                         <option value="trainer_name" {{ request('search_column') == 'trainer_name' ? 'selected' : '' }}>Trainer</option>
+                                                        <option value="trainer_rate_per_hour" {{ request('search_column') == 'trainer_rate_per_hour' ? 'selected' : '' }}>Trainer Rate Per Hour</option>
                                                         <option value="slots" {{ request('search_column') == 'slots' ? 'selected' : '' }}>Slots</option>
                         	                            <option value="class_start_date" {{ request('search_column') == 'class_start_date' ? 'selected' : '' }}>Class Start Date</option>
                                                         <option value="class_end_date" {{ request('search_column') == 'class_end_date' ? 'selected' : '' }}>Class End Date</option>
@@ -316,6 +317,7 @@
                                             <th class="sortable" data-column="class_name">Class Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="class_code">Class Code <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="trainer">Trainer <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="trainer_rate_per_hour">Trainer Rate / Hour <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="slots">Slots <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="total_members_enrolled">Total Members Enrolled <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="start_date">Start Date <i class="fa fa-sort"></i></th>
@@ -341,6 +343,13 @@
                                                 <td>{{ $item->class_code }}</td>
                                                 <td>
                                                     {{ $item->trainer_id == 0 ? 'No Trainer for now' : optional($item->user)->first_name .' '. optional($item->user)->last_name }}
+                                                </td>
+                                                <td>
+                                                    @if($item->trainer_id == 0 || is_null($item->trainer_rate_per_hour))
+                                                        —
+                                                    @else
+                                                        ₱{{ number_format((float) $item->trainer_rate_per_hour, 2) }}
+                                                    @endif
                                                 </td>
                                                 <td>{{ $item->slots }}</td>
                                                 <td>
@@ -642,6 +651,7 @@
                                             <th>Class Name</th>
                                             <th>Class Code</th>
                                             <th>Trainer</th>
+                                            <th>Trainer Rate / Hour</th>
                                             <th>Slots</th>
                                             <th>Members</th>
                                             <th>Start Date</th>
@@ -662,6 +672,13 @@
                                                 <td>{{ $archive->name }}</td>
                                                 <td>{{ $archive->class_code }}</td>
                                                 <td>{{ $archive->trainer_id == 0 ? 'No Trainer for now' : optional($archive->user)->first_name .' '. optional($archive->user)->last_name }}</td>
+                                                <td>
+                                                    @if($archive->trainer_id == 0 || is_null($archive->trainer_rate_per_hour))
+                                                        —
+                                                    @else
+                                                        ₱{{ number_format((float) $archive->trainer_rate_per_hour, 2) }}
+                                                    @endif
+                                                </td>
                                                 <td>{{ $archive->slots }}</td>
                                                 <td>{{ $archive->user_schedules_count }}</td>
                                                 <td>{{ $archiveStart ? $archiveStart->format('F j, Y g:iA') : '' }}</td>
@@ -767,7 +784,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="11" class="text-center text-muted">No archived classes found.</td>
+                                                <td colspan="12" class="text-center text-muted">No archived classes found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>

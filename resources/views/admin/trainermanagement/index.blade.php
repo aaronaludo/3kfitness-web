@@ -212,6 +212,7 @@
                                             <th class="sortable" data-column="phone_number">Phone Number <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="email">Email <i class="fa fa-sort"></i></th>
                                             <th>Assignments</th>
+                                            <th>Estimated Salary</th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
@@ -250,6 +251,30 @@
                                                 <td>{{ $item->email }}</td>
                                                 @php
                                                     $trainerSchedules = collect($item->trainerSchedules ?? []);
+                                                    $salaryEligibleSchedules = $trainerSchedules->filter(function ($schedule) {
+                                                        if (is_null($schedule->trainer_rate_per_hour)) {
+                                                            return false;
+                                                        }
+
+                                                        if (isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1) {
+                                                            return false;
+                                                        }
+
+                                                        return !empty($schedule->class_start_date) && !empty($schedule->class_end_date);
+                                                    });
+
+                                                    $totalSalary = $salaryEligibleSchedules->sum(function ($schedule) {
+                                                        $start = $schedule->class_start_date ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                                                        $end = $schedule->class_end_date ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+
+                                                        if (!$start || !$end || !$end->greaterThan($start)) {
+                                                            return 0;
+                                                        }
+
+                                                        $hours = $end->diffInMinutes($start) / 60;
+
+                                                        return (float) $schedule->trainer_rate_per_hour * $hours;
+                                                    });
                                                 @endphp
                                                 <td>
                                                     <button
@@ -260,6 +285,13 @@
                                                     >
                                                         View Assignments
                                                     </button>
+                                                </td>
+                                                <td>
+                                                    @if($salaryEligibleSchedules->isNotEmpty())
+                                                        ₱{{ number_format($totalSalary, 2) }}
+                                                    @else
+                                                        —
+                                                    @endif
                                                 </td>
                                                 <td>{{ $createdAt ? $createdAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $updatedAt ? $updatedAt->format('F j, Y g:iA') : '' }}</td>
@@ -292,6 +324,15 @@
                                                         </div>
                                                         <div class="modal-body">
                                                             @if($trainerSchedules->isNotEmpty())
+                                                                @if($salaryEligibleSchedules->isNotEmpty())
+                                                                    <div class="alert alert-light border rounded-3 d-flex justify-content-between align-items-center mb-4">
+                                                                        <div>
+                                                                            <span class="fw-semibold text-muted text-uppercase small d-block">Total estimated salary</span>
+                                                                            <span class="text-muted small">Class duration × rate</span>
+                                                                        </div>
+                                                                        <span class="fw-semibold">₱{{ number_format($totalSalary, 2) }}</span>
+                                                                    </div>
+                                                                @endif
                                                                 @foreach($trainerSchedules as $schedule)
                                                                     <div class="mb-4">
                                                                         <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
@@ -307,6 +348,14 @@
                                                                             </span>
                                                                         @endif
                                                                         @php
+                                                                            $scheduleStart = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                                                                            $scheduleEnd = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+                                                                            $scheduleHours = ($scheduleStart && $scheduleEnd && $scheduleEnd->greaterThan($scheduleStart))
+                                                                                ? $scheduleEnd->diffInMinutes($scheduleStart) / 60
+                                                                                : 0;
+                                                                            $scheduleSalary = !is_null($schedule->trainer_rate_per_hour)
+                                                                                ? (float) $schedule->trainer_rate_per_hour * $scheduleHours
+                                                                                : 0;
                                                                             $scheduleStudents = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
                                                                                 $user = $userSchedule->user ?? null;
                                                                                 if (!$user) {
@@ -316,6 +365,12 @@
                                                                                 return $fullName !== '' ? $fullName : ($user->email ?? null);
                                                                             })->filter()->unique()->values();
                                                                         @endphp
+                                                                        @if(!is_null($schedule->trainer_rate_per_hour))
+                                                                            <div class="mt-2">
+                                                                                <span class="text-muted small d-block">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} per hour</span>
+                                                                                <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($scheduleSalary, 2) }}</span>
+                                                                            </div>
+                                                                        @endif
                                                                         <div class="mt-2">
                                                                             <span class="text-muted small text-uppercase fw-semibold">Students</span>
                                                                             @if($scheduleStudents->isNotEmpty())
@@ -380,7 +435,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="8" class="text-center text-muted">No trainers found.</td>
+                                                <td colspan="9" class="text-center text-muted">No trainers found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -407,6 +462,7 @@
                                             <th>Phone Number</th>
                                             <th>Email</th>
                                             <th>Assignments</th>
+                                            <th>Estimated Salary</th>
                                             <th>Created Date</th>
                                             <th>Updated Date</th>
                                             <th>Actions</th>
@@ -425,6 +481,29 @@
                                                 <td>{{ $archive->email }}</td>
                                                 @php
                                                     $archivedSchedules = collect($archive->trainerSchedules ?? []);
+                                                    $archivedSalaryEligible = $archivedSchedules->filter(function ($schedule) {
+                                                        if (is_null($schedule->trainer_rate_per_hour)) {
+                                                            return false;
+                                                        }
+
+                                                        if (isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1) {
+                                                            return false;
+                                                        }
+
+                                                        return !empty($schedule->class_start_date) && !empty($schedule->class_end_date);
+                                                    });
+                                                    $archivedTotalSalary = $archivedSalaryEligible->sum(function ($schedule) {
+                                                        $start = $schedule->class_start_date ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                                                        $end = $schedule->class_end_date ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+
+                                                        if (!$start || !$end || !$end->greaterThan($start)) {
+                                                            return 0;
+                                                        }
+
+                                                        $hours = $end->diffInMinutes($start) / 60;
+
+                                                        return (float) $schedule->trainer_rate_per_hour * $hours;
+                                                    });
                                                 @endphp
                                                 <td>
                                                     <button
@@ -435,6 +514,13 @@
                                                     >
                                                         View Assignments
                                                     </button>
+                                                </td>
+                                                <td>
+                                                    @if($archivedSalaryEligible->isNotEmpty())
+                                                        ₱{{ number_format($archivedTotalSalary, 2) }}
+                                                    @else
+                                                        —
+                                                    @endif
                                                 </td>
                                                 <td>{{ $archiveCreated ? $archiveCreated->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $archiveUpdated ? $archiveUpdated->format('F j, Y g:iA') : '' }}</td>
@@ -458,6 +544,15 @@
                                                         </div>
                                                         <div class="modal-body">
                                                             @if($archivedSchedules->isNotEmpty())
+                                                                @if($archivedSalaryEligible->isNotEmpty())
+                                                                    <div class="alert alert-light border rounded-3 d-flex justify-content-between align-items-center mb-4">
+                                                                        <div>
+                                                                            <span class="fw-semibold text-muted text-uppercase small d-block">Total estimated salary</span>
+                                                                            <span class="text-muted small">Class duration × rate</span>
+                                                                        </div>
+                                                                        <span class="fw-semibold">₱{{ number_format($archivedTotalSalary, 2) }}</span>
+                                                                    </div>
+                                                                @endif
                                                                 @foreach($archivedSchedules as $schedule)
                                                                     <div class="mb-4">
                                                                         <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
@@ -473,6 +568,14 @@
                                                                             </span>
                                                                         @endif
                                                                         @php
+                                                                            $scheduleStart = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                                                                            $scheduleEnd = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+                                                                            $scheduleHours = ($scheduleStart && $scheduleEnd && $scheduleEnd->greaterThan($scheduleStart))
+                                                                                ? $scheduleEnd->diffInMinutes($scheduleStart) / 60
+                                                                                : 0;
+                                                                            $scheduleSalary = !is_null($schedule->trainer_rate_per_hour)
+                                                                                ? (float) $schedule->trainer_rate_per_hour * $scheduleHours
+                                                                                : 0;
                                                                             $scheduleStudents = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
                                                                                 $user = $userSchedule->user ?? null;
                                                                                 if (!$user) {
@@ -482,6 +585,12 @@
                                                                                 return $fullName !== '' ? $fullName : ($user->email ?? 'Unknown');
                                                                             })->filter();
                                                                         @endphp
+                                                                        @if(!is_null($schedule->trainer_rate_per_hour))
+                                                                            <div class="mt-2">
+                                                                                <span class="text-muted small d-block">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} per hour</span>
+                                                                                <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($scheduleSalary, 2) }}</span>
+                                                                            </div>
+                                                                        @endif
                                                                         @if($scheduleStudents->isNotEmpty())
                                                                             <div class="mt-2">
                                                                                 <span class="text-muted small d-block">Enrolled members:</span>
@@ -577,7 +686,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="8" class="text-center text-muted">No archived trainers found.</td>
+                                                <td colspan="9" class="text-center text-muted">No archived trainers found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
