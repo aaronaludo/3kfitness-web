@@ -253,6 +253,7 @@
                                                 <td>{{ $item->email }}</td>
                                                 @php
                                                     $trainerSchedules = collect($item->trainerSchedules ?? []);
+
                                                     $salaryEligibleSchedules = $trainerSchedules->filter(function ($schedule) {
                                                         if (is_null($schedule->trainer_rate_per_hour)) {
                                                             return false;
@@ -277,6 +278,86 @@
 
                                                         return (float) $schedule->trainer_rate_per_hour * $hours;
                                                     });
+
+                                                    $now = \Carbon\Carbon::now();
+
+                                                    $scheduleDetails = $trainerSchedules->map(function ($schedule) use ($now) {
+                                                        $start = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                                                        $end = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+
+                                                        $hasValidWindow = $start && $end && $end->greaterThan($start);
+                                                        $hasRate = !is_null($schedule->trainer_rate_per_hour);
+                                                        $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
+                                                        $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
+
+                                                        $hours = $hasValidWindow
+                                                            ? $end->diffInMinutes($start) / 60
+                                                            : 0;
+
+                                                        $displaySalary = $hasRate
+                                                            ? (float) $schedule->trainer_rate_per_hour * $hours
+                                                            : 0;
+
+                                                        $summarySalary = $isSalaryEligible
+                                                            ? (float) $schedule->trainer_rate_per_hour * $hours
+                                                            : 0;
+
+                                                        $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
+                                                            $user = $userSchedule->user ?? null;
+                                                            if (!$user) {
+                                                                return null;
+                                                            }
+
+                                                            $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+
+                                                            return $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                        })->filter()->unique()->values();
+
+                                                        $isPast = false;
+                                                        if ($end) {
+                                                            $isPast = $end->lt($now);
+                                                        } elseif ($start) {
+                                                            $isPast = $start->lt($now);
+                                                        }
+
+                                                        $category = $isPast ? 'past' : 'future';
+
+                                                        return [
+                                                            'schedule' => $schedule,
+                                                            'start' => $start,
+                                                            'end' => $end,
+                                                            'start_date' => $start ? $start->toDateString() : null,
+                                                            'end_date' => $end ? $end->toDateString() : null,
+                                                            'hours' => $hours,
+                                                            'display_salary' => $displaySalary,
+                                                            'summary_salary' => $summarySalary,
+                                                            'salary_eligible' => $isSalaryEligible,
+                                                            'students' => $students,
+                                                            'category' => $category,
+                                                        ];
+                                                    });
+
+                                                    $futureScheduleDetails = $scheduleDetails->filter(function ($detail) {
+                                                        return $detail['category'] === 'future';
+                                                    });
+
+                                                    $pastScheduleDetails = $scheduleDetails->filter(function ($detail) {
+                                                        return $detail['category'] === 'past';
+                                                    });
+
+                                                    $futureScheduleCount = $futureScheduleDetails->count();
+                                                    $pastScheduleCount = $pastScheduleDetails->count();
+
+                                                    $futureSalaryTotal = $futureScheduleDetails->sum('summary_salary');
+                                                    $pastSalaryTotal = $pastScheduleDetails->sum('summary_salary');
+
+                                                    $futureSalaryAssignments = $futureScheduleDetails->filter(function ($detail) {
+                                                        return $detail['salary_eligible'];
+                                                    })->count();
+
+                                                    $pastSalaryAssignments = $pastScheduleDetails->filter(function ($detail) {
+                                                        return $detail['salary_eligible'];
+                                                    })->count();
                                                 @endphp
                                                 <td>
                                                     <button
@@ -318,7 +399,7 @@
                                                     </div>
                                                 </td>
                                             </tr>
-                                            <div class="modal fade" id="assignmentsModal-{{ $item->id }}" tabindex="-1" aria-labelledby="assignmentsModalLabel-{{ $item->id }}" aria-hidden="true">
+                                            <div class="modal fade assignment-modal" data-assignment-modal id="assignmentsModal-{{ $item->id }}" tabindex="-1" aria-labelledby="assignmentsModalLabel-{{ $item->id }}" aria-hidden="true">
                                                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
@@ -326,68 +407,131 @@
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
                                                         <div class="modal-body">
-                                                            @if($trainerSchedules->isNotEmpty())
-                                                                @if($salaryEligibleSchedules->isNotEmpty())
-                                                                    <div class="alert alert-light border rounded-3 d-flex justify-content-between align-items-center mb-4">
-                                                                        <div>
-                                                                            <span class="fw-semibold text-muted text-uppercase small d-block">Total estimated salary</span>
-                                                                            <span class="text-muted small">Class duration × rate</span>
-                                                                        </div>
-                                                                        <span class="fw-semibold">₱{{ number_format($totalSalary, 2) }}</span>
-                                                                    </div>
-                                                                @endif
-                                                                @foreach($trainerSchedules as $schedule)
-                                                                    <div class="mb-4">
-                                                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                                                        @if(!empty($schedule->class_code))
-                                                                            <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
-                                                                        @endif
-                                                                        @if(!empty($schedule->class_start_date) || !empty($schedule->class_end_date))
-                                                                            <span class="text-muted small d-block">
-                                                                                {{ $schedule->class_start_date ?? 'N/A' }}
-                                                                                @if(!empty($schedule->class_end_date))
-                                                                                    &ndash; {{ $schedule->class_end_date }}
-                                                                                @endif
-                                                                            </span>
-                                                                        @endif
-                                                                        @php
-                                                                            $scheduleStart = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
-                                                                            $scheduleEnd = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
-                                                                            $scheduleHours = ($scheduleStart && $scheduleEnd && $scheduleEnd->greaterThan($scheduleStart))
-                                                                                ? $scheduleEnd->diffInMinutes($scheduleStart) / 60
-                                                                                : 0;
-                                                                            $scheduleSalary = !is_null($schedule->trainer_rate_per_hour)
-                                                                                ? (float) $schedule->trainer_rate_per_hour * $scheduleHours
-                                                                                : 0;
-                                                                            $scheduleStudents = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
-                                                                                $user = $userSchedule->user ?? null;
-                                                                                if (!$user) {
-                                                                                    return null;
-                                                                                }
-                                                                                $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
-                                                                                return $fullName !== '' ? $fullName : ($user->email ?? null);
-                                                                            })->filter()->unique()->values();
-                                                                        @endphp
-                                                                        @if(!is_null($schedule->trainer_rate_per_hour))
-                                                                            <div class="mt-2">
-                                                                                <span class="text-muted small d-block">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} per hour</span>
-                                                                                <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($scheduleSalary, 2) }}</span>
+                                                            @if($scheduleDetails->isNotEmpty())
+                                                                <div class="row g-3 mb-4">
+                                                                    <div class="col-sm-6">
+                                                                        <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
+                                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Upcoming assignments</span>
+                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                                                <span class="fs-5 fw-semibold" data-role="future-total">₱{{ number_format($futureSalaryTotal, 2) }}</span>
+                                                                                <span class="text-muted small" data-role="future-count">
+                                                                                    {{ $futureScheduleCount }} {{ $futureScheduleCount === 1 ? 'assignment' : 'assignments' }}
+                                                                                </span>
                                                                             </div>
-                                                                        @endif
-                                                                        <div class="mt-2">
-                                                                            <span class="text-muted small text-uppercase fw-semibold">Students</span>
-                                                                            @if($scheduleStudents->isNotEmpty())
-                                                                                <ul class="list-unstyled mb-0 small mt-1">
-                                                                                    @foreach($scheduleStudents as $student)
-                                                                                        <li>{{ $student }}</li>
-                                                                                    @endforeach
-                                                                                </ul>
-                                                                            @else
-                                                                                <p class="text-muted small mb-0">No students assigned.</p>
-                                                                            @endif
+                                                                            <span class="text-muted small d-block mt-1" data-role="future-payroll-count">
+                                                                                {{ $futureSalaryAssignments }} payroll {{ $futureSalaryAssignments === 1 ? 'class' : 'classes' }}
+                                                                            </span>
+                                                                            <span class="text-muted small d-block">Class duration × rate for eligible entries</span>
                                                                         </div>
                                                                     </div>
-                                                                @endforeach
+                                                                    <div class="col-sm-6">
+                                                                        <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
+                                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Past assignments</span>
+                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                                                <span class="fs-5 fw-semibold" data-role="past-total">₱{{ number_format($pastSalaryTotal, 2) }}</span>
+                                                                                <span class="text-muted small" data-role="past-count">
+                                                                                    {{ $pastScheduleCount }} {{ $pastScheduleCount === 1 ? 'assignment' : 'assignments' }}
+                                                                                </span>
+                                                                            </div>
+                                                                            <span class="text-muted small d-block mt-1" data-role="past-payroll-count">
+                                                                                {{ $pastSalaryAssignments }} payroll {{ $pastSalaryAssignments === 1 ? 'class' : 'classes' }}
+                                                                            </span>
+                                                                            <span class="text-muted small d-block">Totals exclude archived or incomplete data</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="assignment-filters border rounded-3 p-3 mb-4 bg-light">
+                                                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                                                        <div class="btn-group btn-group-sm" role="group" aria-label="Assignment category filter">
+                                                                            <button type="button" class="btn btn-outline-secondary active" data-category-filter="all">All</button>
+                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="future">Upcoming</button>
+                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="past">Past</button>
+                                                                        </div>
+                                                                        <button type="button" class="btn btn-link btn-sm ms-auto text-decoration-none px-0" data-filter-reset>Reset filters</button>
+                                                                    </div>
+                                                                    <div class="row g-2 mt-3">
+                                                                        <div class="col-sm-6">
+                                                                            <label class="form-label small text-muted mb-1">Start date from</label>
+                                                                            <input type="date" class="form-control form-control-sm" data-filter-start>
+                                                                        </div>
+                                                                        <div class="col-sm-6">
+                                                                            <label class="form-label small text-muted mb-1">End date until</label>
+                                                                            <input type="date" class="form-control form-control-sm" data-filter-end>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="assignment-list">
+                                                                    @foreach($scheduleDetails as $detail)
+                                                                        @php
+                                                                            $schedule = $detail['schedule'];
+                                                                            $start = $detail['start'];
+                                                                            $end = $detail['end'];
+                                                                            $students = $detail['students'];
+                                                                            $category = $detail['category'];
+                                                                            $categoryLabel = $category === 'future' ? 'Upcoming' : 'Past';
+                                                                            $badgeClass = $category === 'future' ? 'bg-success text-white' : 'bg-secondary';
+                                                                            $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
+                                                                            $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
+                                                                            $hours = $detail['hours'];
+                                                                            $displaySalary = $detail['display_salary'];
+                                                                            $summarySalary = $detail['summary_salary'];
+                                                                            $isSalaryEligible = $detail['salary_eligible'];
+                                                                        @endphp
+                                                                        <div
+                                                                            class="border rounded-3 p-3 mb-3 assignment-card"
+                                                                            data-assignment-card
+                                                                            data-category="{{ $category }}"
+                                                                            data-start="{{ $detail['start_date'] ?? '' }}"
+                                                                            data-end="{{ $detail['end_date'] ?? '' }}"
+                                                                            data-salary="{{ $displaySalary }}"
+                                                                            data-summary-salary="{{ $summarySalary }}"
+                                                                            data-salary-eligible="{{ $isSalaryEligible ? 1 : 0 }}"
+                                                                        >
+                                                                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                                                                <div>
+                                                                                    <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
+                                                                                    @if(!empty($schedule->class_code))
+                                                                                        <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
+                                                                                    @endif
+                                                                                    @if($start || $end)
+                                                                                        <span class="text-muted small d-block">
+                                                                                            {{ $rangeStart }}
+                                                                                            @if($rangeEnd)
+                                                                                                &ndash; {{ $rangeEnd }}
+                                                                                            @endif
+                                                                                        </span>
+                                                                                    @endif
+                                                                                </div>
+                                                                                <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
+                                                                            </div>
+                                                                            @if(!is_null($schedule->trainer_rate_per_hour))
+                                                                                <div class="mt-3">
+                                                                                    <span class="text-muted small d-block">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} per hour</span>
+                                                                                    @if($displaySalary > 0)
+                                                                                        <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($displaySalary, 2) }}</span>
+                                                                                    @endif
+                                                                                </div>
+                                                                            @endif
+                                                                            @if($hours > 0)
+                                                                                <span class="text-muted small d-block mt-2">Duration: {{ number_format($hours, 2) }} {{ $hours === 1.0 ? 'hour' : 'hours' }}</span>
+                                                                            @endif
+                                                                            <div class="mt-3">
+                                                                                <span class="text-muted small text-uppercase fw-semibold">Students</span>
+                                                                                @if($students->isNotEmpty())
+                                                                                    <ul class="list-unstyled mb-0 small mt-1">
+                                                                                        @foreach($students as $student)
+                                                                                            <li>{{ $student }}</li>
+                                                                                        @endforeach
+                                                                                    </ul>
+                                                                                @else
+                                                                                    <p class="text-muted small mb-0">No students assigned.</p>
+                                                                                @endif
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
                                                             @else
                                                                 <p class="text-muted mb-0">No schedules assigned.</p>
                                                             @endif
@@ -507,6 +651,86 @@
 
                                                         return (float) $schedule->trainer_rate_per_hour * $hours;
                                                     });
+
+                                                    $archivedNow = \Carbon\Carbon::now();
+
+                                                    $archivedScheduleDetails = $archivedSchedules->map(function ($schedule) use ($archivedNow) {
+                                                        $start = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                                                        $end = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+
+                                                        $hasValidWindow = $start && $end && $end->greaterThan($start);
+                                                        $hasRate = !is_null($schedule->trainer_rate_per_hour);
+                                                        $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
+                                                        $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
+
+                                                        $hours = $hasValidWindow
+                                                            ? $end->diffInMinutes($start) / 60
+                                                            : 0;
+
+                                                        $displaySalary = $hasRate
+                                                            ? (float) $schedule->trainer_rate_per_hour * $hours
+                                                            : 0;
+
+                                                        $summarySalary = $isSalaryEligible
+                                                            ? (float) $schedule->trainer_rate_per_hour * $hours
+                                                            : 0;
+
+                                                        $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
+                                                            $user = $userSchedule->user ?? null;
+                                                            if (!$user) {
+                                                                return null;
+                                                            }
+
+                                                            $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+
+                                                            return $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                        })->filter()->unique()->values();
+
+                                                        $isPast = false;
+                                                        if ($end) {
+                                                            $isPast = $end->lt($archivedNow);
+                                                        } elseif ($start) {
+                                                            $isPast = $start->lt($archivedNow);
+                                                        }
+
+                                                        $category = $isPast ? 'past' : 'future';
+
+                                                        return [
+                                                            'schedule' => $schedule,
+                                                            'start' => $start,
+                                                            'end' => $end,
+                                                            'start_date' => $start ? $start->toDateString() : null,
+                                                            'end_date' => $end ? $end->toDateString() : null,
+                                                            'hours' => $hours,
+                                                            'display_salary' => $displaySalary,
+                                                            'summary_salary' => $summarySalary,
+                                                            'salary_eligible' => $isSalaryEligible,
+                                                            'students' => $students,
+                                                            'category' => $category,
+                                                        ];
+                                                    });
+
+                                                    $archivedFutureDetails = $archivedScheduleDetails->filter(function ($detail) {
+                                                        return $detail['category'] === 'future';
+                                                    });
+
+                                                    $archivedPastDetails = $archivedScheduleDetails->filter(function ($detail) {
+                                                        return $detail['category'] === 'past';
+                                                    });
+
+                                                    $archivedFutureCount = $archivedFutureDetails->count();
+                                                    $archivedPastCount = $archivedPastDetails->count();
+
+                                                    $archivedFutureSalaryTotal = $archivedFutureDetails->sum('summary_salary');
+                                                    $archivedPastSalaryTotal = $archivedPastDetails->sum('summary_salary');
+
+                                                    $archivedFuturePayrollCount = $archivedFutureDetails->filter(function ($detail) {
+                                                        return $detail['salary_eligible'];
+                                                    })->count();
+
+                                                    $archivedPastPayrollCount = $archivedPastDetails->filter(function ($detail) {
+                                                        return $detail['salary_eligible'];
+                                                    })->count();
                                                 @endphp
                                                 <td>
                                                     <button
@@ -538,7 +762,7 @@
                                                     </div>
                                                 </td>
                                             </tr>
-                                            <div class="modal fade" id="archiveAssignmentsModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveAssignmentsModalLabel-{{ $archive->id }}" aria-hidden="true">
+                                            <div class="modal fade assignment-modal" data-assignment-modal id="archiveAssignmentsModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveAssignmentsModalLabel-{{ $archive->id }}" aria-hidden="true">
                                                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
                                                     <div class="modal-content">
                                                         <div class="modal-header">
@@ -546,68 +770,131 @@
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
                                                         <div class="modal-body">
-                                                            @if($archivedSchedules->isNotEmpty())
-                                                                @if($archivedSalaryEligible->isNotEmpty())
-                                                                    <div class="alert alert-light border rounded-3 d-flex justify-content-between align-items-center mb-4">
-                                                                        <div>
-                                                                            <span class="fw-semibold text-muted text-uppercase small d-block">Total estimated salary</span>
-                                                                            <span class="text-muted small">Class duration × rate</span>
-                                                                        </div>
-                                                                        <span class="fw-semibold">₱{{ number_format($archivedTotalSalary, 2) }}</span>
-                                                                    </div>
-                                                                @endif
-                                                                @foreach($archivedSchedules as $schedule)
-                                                                    <div class="mb-4">
-                                                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                                                        @if(!empty($schedule->class_code))
-                                                                            <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
-                                                                        @endif
-                                                                        @if(!empty($schedule->class_start_date) || !empty($schedule->class_end_date))
-                                                                            <span class="text-muted small d-block">
-                                                                                {{ $schedule->class_start_date ?? 'N/A' }}
-                                                                                @if(!empty($schedule->class_end_date))
-                                                                                    &ndash; {{ $schedule->class_end_date }}
-                                                                                @endif
+                                                            @if($archivedScheduleDetails->isNotEmpty())
+                                                                <div class="row g-3 mb-4">
+                                                                    <div class="col-sm-6">
+                                                                        <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
+                                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Upcoming assignments</span>
+                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                                                <span class="fs-5 fw-semibold" data-role="future-total">₱{{ number_format($archivedFutureSalaryTotal, 2) }}</span>
+                                                                                <span class="text-muted small" data-role="future-count">
+                                                                                    {{ $archivedFutureCount }} {{ $archivedFutureCount === 1 ? 'assignment' : 'assignments' }}
+                                                                                </span>
+                                                                            </div>
+                                                                            <span class="text-muted small d-block mt-1" data-role="future-payroll-count">
+                                                                                {{ $archivedFuturePayrollCount }} payroll {{ $archivedFuturePayrollCount === 1 ? 'class' : 'classes' }}
                                                                             </span>
-                                                                        @endif
-                                                                        @php
-                                                                            $scheduleStart = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
-                                                                            $scheduleEnd = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
-                                                                            $scheduleHours = ($scheduleStart && $scheduleEnd && $scheduleEnd->greaterThan($scheduleStart))
-                                                                                ? $scheduleEnd->diffInMinutes($scheduleStart) / 60
-                                                                                : 0;
-                                                                            $scheduleSalary = !is_null($schedule->trainer_rate_per_hour)
-                                                                                ? (float) $schedule->trainer_rate_per_hour * $scheduleHours
-                                                                                : 0;
-                                                                            $scheduleStudents = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
-                                                                                $user = $userSchedule->user ?? null;
-                                                                                if (!$user) {
-                                                                                    return null;
-                                                                                }
-                                                                                $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
-                                                                                return $fullName !== '' ? $fullName : ($user->email ?? 'Unknown');
-                                                                            })->filter();
-                                                                        @endphp
-                                                                        @if(!is_null($schedule->trainer_rate_per_hour))
-                                                                            <div class="mt-2">
-                                                                                <span class="text-muted small d-block">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} per hour</span>
-                                                                                <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($scheduleSalary, 2) }}</span>
-                                                                            </div>
-                                                                        @endif
-                                                                        @if($scheduleStudents->isNotEmpty())
-                                                                            <div class="mt-2">
-                                                                                <span class="text-muted small d-block">Enrolled members:</span>
-                                                                                <ul class="mb-0 small ms-3">
-                                                                                    @foreach($scheduleStudents as $student)
-                                                                                        <li>{{ $student }}</li>
-                                                                                    @endforeach
-                                                                                </ul>
-                                                                            </div>
-                                                                        @else
-                                                                            <span class="text-muted small">No members enrolled.</span>
-                                                                        @endif
+                                                                            <span class="text-muted small d-block">Class duration × rate for eligible entries</span>
+                                                                        </div>
                                                                     </div>
-                                                                @endforeach
+                                                                    <div class="col-sm-6">
+                                                                        <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
+                                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Past assignments</span>
+                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                                                <span class="fs-5 fw-semibold" data-role="past-total">₱{{ number_format($archivedPastSalaryTotal, 2) }}</span>
+                                                                                <span class="text-muted small" data-role="past-count">
+                                                                                    {{ $archivedPastCount }} {{ $archivedPastCount === 1 ? 'assignment' : 'assignments' }}
+                                                                                </span>
+                                                                            </div>
+                                                                            <span class="text-muted small d-block mt-1" data-role="past-payroll-count">
+                                                                                {{ $archivedPastPayrollCount }} payroll {{ $archivedPastPayrollCount === 1 ? 'class' : 'classes' }}
+                                                                            </span>
+                                                                            <span class="text-muted small d-block">Totals exclude archived or incomplete data</span>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="assignment-filters border rounded-3 p-3 mb-4 bg-light">
+                                                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                                                        <div class="btn-group btn-group-sm" role="group" aria-label="Assignment category filter">
+                                                                            <button type="button" class="btn btn-outline-secondary active" data-category-filter="all">All</button>
+                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="future">Upcoming</button>
+                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="past">Past</button>
+                                                                        </div>
+                                                                        <button type="button" class="btn btn-link btn-sm ms-auto text-decoration-none px-0" data-filter-reset>Reset filters</button>
+                                                                    </div>
+                                                                    <div class="row g-2 mt-3">
+                                                                        <div class="col-sm-6">
+                                                                            <label class="form-label small text-muted mb-1">Start date from</label>
+                                                                            <input type="date" class="form-control form-control-sm" data-filter-start>
+                                                                        </div>
+                                                                        <div class="col-sm-6">
+                                                                            <label class="form-label small text-muted mb-1">End date until</label>
+                                                                            <input type="date" class="form-control form-control-sm" data-filter-end>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div class="assignment-list">
+                                                                    @foreach($archivedScheduleDetails as $detail)
+                                                                        @php
+                                                                            $schedule = $detail['schedule'];
+                                                                            $start = $detail['start'];
+                                                                            $end = $detail['end'];
+                                                                            $students = $detail['students'];
+                                                                            $category = $detail['category'];
+                                                                            $categoryLabel = $category === 'future' ? 'Upcoming' : 'Past';
+                                                                            $badgeClass = $category === 'future' ? 'bg-success text-white' : 'bg-secondary';
+                                                                            $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
+                                                                            $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
+                                                                            $hours = $detail['hours'];
+                                                                            $displaySalary = $detail['display_salary'];
+                                                                            $summarySalary = $detail['summary_salary'];
+                                                                            $isSalaryEligible = $detail['salary_eligible'];
+                                                                        @endphp
+                                                                        <div
+                                                                            class="border rounded-3 p-3 mb-3 assignment-card"
+                                                                            data-assignment-card
+                                                                            data-category="{{ $category }}"
+                                                                            data-start="{{ $detail['start_date'] ?? '' }}"
+                                                                            data-end="{{ $detail['end_date'] ?? '' }}"
+                                                                            data-salary="{{ $displaySalary }}"
+                                                                            data-summary-salary="{{ $summarySalary }}"
+                                                                            data-salary-eligible="{{ $isSalaryEligible ? 1 : 0 }}"
+                                                                        >
+                                                                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                                                                <div>
+                                                                                    <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
+                                                                                    @if(!empty($schedule->class_code))
+                                                                                        <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
+                                                                                    @endif
+                                                                                    @if($start || $end)
+                                                                                        <span class="text-muted small d-block">
+                                                                                            {{ $rangeStart }}
+                                                                                            @if($rangeEnd)
+                                                                                                &ndash; {{ $rangeEnd }}
+                                                                                            @endif
+                                                                                        </span>
+                                                                                    @endif
+                                                                                </div>
+                                                                                <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
+                                                                            </div>
+                                                                            @if(!is_null($schedule->trainer_rate_per_hour))
+                                                                                <div class="mt-3">
+                                                                                    <span class="text-muted small d-block">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} per hour</span>
+                                                                                    @if($displaySalary > 0)
+                                                                                        <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($displaySalary, 2) }}</span>
+                                                                                    @endif
+                                                                                </div>
+                                                                            @endif
+                                                                            @if($hours > 0)
+                                                                                <span class="text-muted small d-block mt-2">Duration: {{ number_format($hours, 2) }} {{ $hours === 1.0 ? 'hour' : 'hours' }}</span>
+                                                                            @endif
+                                                                            <div class="mt-3">
+                                                                                <span class="text-muted small text-uppercase fw-semibold">Students</span>
+                                                                                @if($students->isNotEmpty())
+                                                                                    <ul class="list-unstyled mb-0 small mt-1">
+                                                                                        @foreach($students as $student)
+                                                                                            <li>{{ $student }}</li>
+                                                                                        @endforeach
+                                                                                    </ul>
+                                                                                @else
+                                                                                    <p class="text-muted small mb-0">No students assigned.</p>
+                                                                                @endif
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
                                                             @else
                                                                 <p class="text-muted mb-0">No schedules assigned.</p>
                                                             @endif
@@ -706,77 +993,280 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const form = document.getElementById('trainer-filter-form');
-            if (!form) {
-                return;
-            }
 
-            const statusInput = document.getElementById('trainer-status-filter');
-            const chipButtons = form.querySelectorAll('.status-chip');
-            const rangeButtons = form.querySelectorAll('.range-chip');
-            const startInput = document.getElementById('start-date');
-            const endInput = document.getElementById('end-date');
-            const printForm = document.getElementById('print-form');
-            const printButton = document.getElementById('print-submit-button');
-            const printLoader = document.getElementById('print-loader');
+            if (form) {
+                const statusInput = document.getElementById('trainer-status-filter');
+                const chipButtons = form.querySelectorAll('.status-chip');
+                const rangeButtons = form.querySelectorAll('.range-chip');
+                const startInput = document.getElementById('start-date');
+                const endInput = document.getElementById('end-date');
+                const printForm = document.getElementById('print-form');
+                const printButton = document.getElementById('print-submit-button');
+                const printLoader = document.getElementById('print-loader');
 
-            function formatDate(date) {
-                const year = date.getFullYear();
-                const month = String(date.getMonth() + 1).padStart(2, '0');
-                const day = String(date.getDate()).padStart(2, '0');
-                return `${year}-${month}-${day}`;
-            }
-
-            function applyRange(range) {
-                const today = new Date();
-                const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-                const start = new Date(end);
-
-                if (range === 'last-week') {
-                    start.setDate(start.getDate() - 7);
-                } else if (range === 'last-month') {
-                    start.setMonth(start.getMonth() - 1);
-                } else if (range === 'last-year') {
-                    start.setFullYear(start.getFullYear() - 1);
+                function formatDate(date) {
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    return `${year}-${month}-${day}`;
                 }
 
-                if (startInput) startInput.value = formatDate(start);
-                if (endInput) endInput.value = formatDate(end);
-                form.submit();
-            }
+                function applyRange(range) {
+                    const today = new Date();
+                    const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                    const start = new Date(end);
 
-            chipButtons.forEach(function (chip) {
-                chip.addEventListener('click', function () {
-                    const selectedStatus = this.dataset.status;
-                    if (statusInput) {
-                        statusInput.value = selectedStatus;
+                    if (range === 'last-week') {
+                        start.setDate(start.getDate() - 7);
+                    } else if (range === 'last-month') {
+                        start.setMonth(start.getMonth() - 1);
+                    } else if (range === 'last-year') {
+                        start.setFullYear(start.getFullYear() - 1);
                     }
 
-                    chipButtons.forEach(function (btn) {
-                        btn.classList.remove('btn-dark', 'text-white', 'shadow-sm');
+                    if (startInput) startInput.value = formatDate(start);
+                    if (endInput) endInput.value = formatDate(end);
+                    form.submit();
+                }
+
+                chipButtons.forEach(function (chip) {
+                    chip.addEventListener('click', function () {
+                        const selectedStatus = this.dataset.status;
+                        if (statusInput) {
+                            statusInput.value = selectedStatus;
+                        }
+
+                        chipButtons.forEach(function (btn) {
+                            btn.classList.remove('btn-dark', 'text-white', 'shadow-sm');
+                            if (!btn.classList.contains('btn-outline-secondary')) {
+                                btn.classList.add('btn-outline-secondary');
+                            }
+                        });
+
+                        this.classList.remove('btn-outline-secondary');
+                        this.classList.add('btn-dark', 'text-white', 'shadow-sm');
+
+                        form.submit();
+                    });
+                });
+
+                rangeButtons.forEach(function (btn) {
+                    btn.addEventListener('click', function () {
+                        applyRange(this.dataset.range);
+                    });
+                });
+
+                if (printForm && printButton && printLoader) {
+                    printForm.addEventListener('submit', function () {
+                        printButton.disabled = true;
+                        printLoader.classList.remove('d-none');
+                    });
+                }
+            }
+
+            const assignmentModals = document.querySelectorAll('[data-assignment-modal]');
+
+            const formatCurrency = function (amount) {
+                const value = Number(amount) || 0;
+                return '₱' + value.toLocaleString('en-PH', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                });
+            };
+
+            const pluralize = function (count, singular, plural) {
+                return `${count} ${count === 1 ? singular : plural}`;
+            };
+
+            const toDate = function (value) {
+                if (!value) {
+                    return null;
+                }
+                const parts = value.split('-').map(Number);
+                if (parts.length !== 3 || parts.some(Number.isNaN)) {
+                    return null;
+                }
+                return new Date(parts[0], parts[1] - 1, parts[2]);
+            };
+
+            assignmentModals.forEach(function (modalEl) {
+                const categoryButtons = modalEl.querySelectorAll('[data-category-filter]');
+                const startInput = modalEl.querySelector('[data-filter-start]');
+                const endInput = modalEl.querySelector('[data-filter-end]');
+                const resetButton = modalEl.querySelector('[data-filter-reset]');
+                const cards = Array.from(modalEl.querySelectorAll('[data-assignment-card]'));
+                const summaryEls = {
+                    futureTotal: modalEl.querySelector('[data-role="future-total"]'),
+                    futureCount: modalEl.querySelector('[data-role="future-count"]'),
+                    futurePayroll: modalEl.querySelector('[data-role="future-payroll-count"]'),
+                    pastTotal: modalEl.querySelector('[data-role="past-total"]'),
+                    pastCount: modalEl.querySelector('[data-role="past-count"]'),
+                    pastPayroll: modalEl.querySelector('[data-role="past-payroll-count"]'),
+                };
+
+                if (!cards.length) {
+                    return;
+                }
+
+                let activeCategory = 'all';
+
+                function setActiveCategoryButton(targetCategory) {
+                    categoryButtons.forEach(function (btn) {
+                        const btnCategory = btn.dataset.categoryFilter || 'all';
+                        btn.classList.remove('btn-dark', 'text-white');
                         if (!btn.classList.contains('btn-outline-secondary')) {
                             btn.classList.add('btn-outline-secondary');
                         }
+                        if (btnCategory === targetCategory) {
+                            btn.classList.remove('btn-outline-secondary');
+                            btn.classList.add('btn-dark', 'text-white');
+                        }
+                    });
+                }
+
+                function updateSummary(visibleCards) {
+                    let futureTotal = 0;
+                    let pastTotal = 0;
+                    let futureCount = 0;
+                    let pastCount = 0;
+                    let futurePayroll = 0;
+                    let pastPayroll = 0;
+
+                    visibleCards.forEach(function (card) {
+                        const category = card.dataset.category === 'past' ? 'past' : 'future';
+                        const summarySalary = Number(card.dataset.summarySalary || 0);
+                        const salaryEligible = card.dataset.salaryEligible === '1' && summarySalary > 0;
+
+                        if (category === 'future') {
+                            futureCount += 1;
+                            futureTotal += summarySalary;
+                            if (salaryEligible) {
+                                futurePayroll += 1;
+                            }
+                        } else {
+                            pastCount += 1;
+                            pastTotal += summarySalary;
+                            if (salaryEligible) {
+                                pastPayroll += 1;
+                            }
+                        }
                     });
 
-                    this.classList.remove('btn-outline-secondary');
-                    this.classList.add('btn-dark', 'text-white', 'shadow-sm');
+                    if (summaryEls.futureTotal) {
+                        summaryEls.futureTotal.textContent = formatCurrency(futureTotal);
+                    }
+                    if (summaryEls.pastTotal) {
+                        summaryEls.pastTotal.textContent = formatCurrency(pastTotal);
+                    }
+                    if (summaryEls.futureCount) {
+                        summaryEls.futureCount.textContent = pluralize(futureCount, 'assignment', 'assignments');
+                    }
+                    if (summaryEls.pastCount) {
+                        summaryEls.pastCount.textContent = pluralize(pastCount, 'assignment', 'assignments');
+                    }
+                    if (summaryEls.futurePayroll) {
+                        summaryEls.futurePayroll.textContent = pluralize(futurePayroll, 'payroll class', 'payroll classes');
+                    }
+                    if (summaryEls.pastPayroll) {
+                        summaryEls.pastPayroll.textContent = pluralize(pastPayroll, 'payroll class', 'payroll classes');
+                    }
+                }
 
-                    form.submit();
+                function matchesDateRange(card) {
+                    const filterStart = startInput ? toDate(startInput.value) : null;
+                    const filterEnd = endInput ? toDate(endInput.value) : null;
+
+                    if (!filterStart && !filterEnd) {
+                        return true;
+                    }
+
+                    const startDate = toDate(card.dataset.start);
+                    const endDate = toDate(card.dataset.end);
+
+                    const scheduleStart = startDate || endDate;
+                    const scheduleEnd = endDate || startDate;
+
+                    if (filterStart && scheduleEnd && scheduleEnd < filterStart) {
+                        return false;
+                    }
+
+                    if (filterEnd && scheduleStart && scheduleStart > filterEnd) {
+                        return false;
+                    }
+
+                    if ((filterStart && !scheduleEnd) || (filterEnd && !scheduleStart)) {
+                        return false;
+                    }
+
+                    return true;
+                }
+
+                function applyFilters() {
+                    const visibleCards = [];
+
+                    cards.forEach(function (card) {
+                        const category = card.dataset.category || 'future';
+                        let isVisible = true;
+
+                        if (activeCategory !== 'all' && category !== activeCategory) {
+                            isVisible = false;
+                        }
+
+                        if (isVisible && !matchesDateRange(card)) {
+                            isVisible = false;
+                        }
+
+                        if (isVisible) {
+                            card.classList.remove('d-none');
+                            visibleCards.push(card);
+                        } else {
+                            card.classList.add('d-none');
+                        }
+                    });
+
+                    updateSummary(visibleCards);
+                }
+
+                categoryButtons.forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        const selected = this.dataset.categoryFilter || 'all';
+                        if (selected === activeCategory) {
+                            return;
+                        }
+                        activeCategory = selected;
+
+                        setActiveCategoryButton(activeCategory);
+                        applyFilters();
+                    });
                 });
+
+                if (startInput) {
+                    startInput.addEventListener('change', applyFilters);
+                }
+
+                if (endInput) {
+                    endInput.addEventListener('change', applyFilters);
+                }
+
+                if (resetButton) {
+                    resetButton.addEventListener('click', function () {
+                        activeCategory = 'all';
+                        if (startInput) {
+                            startInput.value = '';
+                        }
+                        if (endInput) {
+                            endInput.value = '';
+                        }
+
+                        setActiveCategoryButton(activeCategory);
+                        applyFilters();
+                    });
+                }
+
+                modalEl.addEventListener('shown.bs.modal', applyFilters);
+                setActiveCategoryButton(activeCategory);
+                applyFilters();
             });
-
-            rangeButtons.forEach(function (btn) {
-                btn.addEventListener('click', function () {
-                    applyRange(this.dataset.range);
-                });
-            });
-
-            if (printForm && printButton && printLoader) {
-                printForm.addEventListener('submit', function () {
-                    printButton.disabled = true;
-                    printLoader.classList.remove('d-none');
-                });
-            }
         });
     </script>
 @endsection

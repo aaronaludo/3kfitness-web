@@ -13,18 +13,76 @@
             cursor: pointer;
             user-select: none;
         }
+
+        #header.admin-header {
+            background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 45%, #ffe066 100%);
+            box-shadow: 0 12px 30px rgba(255, 118, 118, 0.25);
+            border-bottom: none;
+        }
+
+        #header-logo-img {
+            max-height: 52px;
+            width: auto;
+            border-radius: 12px;
+            box-shadow: 0 12px 25px rgba(0, 0, 0, 0.2);
+        }
+
+        #header-logo .logo-fallback-text {
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+        }
+
+        #header-logo .logo-tagline {
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 1px;
+            color: rgba(255, 255, 255, 0.85);
+            text-transform: uppercase;
+        }
+
+        #header .nav-link,
+        #header .btn,
+        #header .badge {
+            z-index: 1;
+        }
+
+        #header::after {
+            content: "";
+            position: absolute;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.08);
+            pointer-events: none;
+            mix-blend-mode: soft-light;
+        }
+
+        #header > .container-fluid {
+            position: relative;
+            z-index: 1;
+        }
     </style>
     <title>@yield('title')</title>
     @yield('styles')
 </head>
 <body>
     <div id="wrapper">
-        <header id="header" class="navbar navbar-expand-lg navbar-light bg-light">
+        <header id="header" class="navbar navbar-expand-lg navbar-light admin-header position-relative">
             <div class="container-fluid p-0">
-                <div id="header-logo">
-                    <div class="d-flex justify-content-center align-items-center h-100 w-100">
-                        {{-- <img src="assets/images/logo-with-text.png" alt="Mobvex"/> --}}
-                        <h5 class="m-0" style="color: #3f1214 !important;font-weight: 1000;">3KFITNESS</h5>
+                <div id="header-logo" class="pe-3">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="position-relative">
+                            <img
+                                id="header-logo-img"
+                                src="{{ asset('assets/images/icon.png') }}"
+                                alt="3K Fitness logo"
+                                class="img-fluid"
+                            />
+                        </div>
+                        <div class="d-none d-md-flex flex-column">
+                            <span class="logo-fallback-text">3K FITNESS</span>
+                            <span class="logo-tagline">Stronger every session</span>
+                        </div>
                     </div>
                 </div>
                 
