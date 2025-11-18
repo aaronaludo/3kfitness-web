@@ -29,6 +29,7 @@ use App\Http\Controllers\Admin\New\BannerController as Banner;
 use App\Http\Controllers\Admin\New\GoalController as Goal;
 use App\Http\Controllers\Admin\New\PopularWorkoutController as PopularWorkout;
 use App\Http\Controllers\Admin\New\PayrollController as Payroll;
+use App\Http\Controllers\Admin\New\GymManagementController as GymManagement;
 
 use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagement;
 // use App\Http\Controllers\Admin\New\WalkInPaymentController as WalkInPayments;

@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Attendance2;
 
-class TrainerClassController extends Controller
+class TrainerAttendanceController extends Controller
 {
     public function index(Request $request){
         $user = $request->user();
