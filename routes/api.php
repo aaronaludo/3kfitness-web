@@ -87,6 +87,7 @@ Route::prefix('members')->group(function () {
     Route::get('/test', [MemberAuthController::class, 'test'])->name('members.test');
     Route::post('/login', [MemberAuthController::class, 'login'])->name('members.login');
     Route::post('/register', [MemberAuthController::class, 'register'])->name('members.register');
+    Route::post('/memberships/checkout-direct', [MemberMembershipController::class, 'checkoutFromLogin'])->name('members.membership.checkout-direct');
 });
 
 Route::prefix('trainers')->group(function () {
