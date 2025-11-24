@@ -99,6 +99,7 @@ Route::prefix('trainers')->group(function () {
 
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('/attendance-histories', [AttendanceController::class, 'index'])->name('attendance-histories.index');
+    Route::get('/memberships/status', [MembershipController::class, 'status'])->name('memberships.status');
     
     Route::prefix('members')->group(function () {
         Route::get('/memberships', [MemberMembershipController::class, 'index'])->name('members.membership.index');
