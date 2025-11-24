@@ -250,7 +250,7 @@
                                                 $totalAmount = $grossPay;
                                             @endphp
                                             <tr>
-                                                <td>{{ $item->id }}</td>
+                                                <td>{{ $item->user_code }}</td>
                                                 <td>{{ $item->first_name }} {{ $item->last_name }}</td>
                                                 <td>{{ $item->email }}</td>
                                                 <td>{{ $item->role->name }}</td>

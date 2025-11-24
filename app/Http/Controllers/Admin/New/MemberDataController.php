@@ -186,6 +186,17 @@ class MemberDataController extends Controller
         
         $users->save();
 
+        $prefix = match ((int) $users->role_id) {
+            1 => 'A',
+            2 => 'S',
+            3 => 'M',
+            4 => 'SA',
+            5 => 'T',
+            default => '',
+        };
+        $users->user_code = $prefix . $users->id;
+        $users->save();
+
         $membership = Membership::find($validatedData['membership_id']);
         $data = new MembershipPayment;
         $data->user_id = $users->id;

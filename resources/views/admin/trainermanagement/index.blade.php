@@ -227,7 +227,7 @@
                                                 $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
                                             @endphp
                                             <tr>
-                                                <td>{{ $item->id }}</td>
+                                                <td>{{ $item->user_code }}</td>
                                                 {{-- <td>
                                                     {{ 
                                                         optional($item->membershipPayments()
@@ -402,9 +402,14 @@
                                             <div class="modal fade assignment-modal" data-assignment-modal id="assignmentsModal-{{ $item->id }}" tabindex="-1" aria-labelledby="assignmentsModalLabel-{{ $item->id }}" aria-hidden="true">
                                                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
                                                     <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="assignmentsModalLabel-{{ $item->id }}">Assignments for {{ $item->first_name }} {{ $item->last_name }}</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        <div class="modal-header align-items-center">
+                                                            <h5 class="modal-title mb-0" id="assignmentsModalLabel-{{ $item->id }}">Assignments for {{ $item->first_name }} {{ $item->last_name }}</h5>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <button type="button" class="btn btn-outline-secondary btn-sm" data-print-modal="assignmentsModal-{{ $item->id }}">
+                                                                    <i class="fa-solid fa-print me-1"></i>Print
+                                                                </button>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
                                                         </div>
                                                         <div class="modal-body">
                                                             @if($scheduleDetails->isNotEmpty())
@@ -765,9 +770,14 @@
                                             <div class="modal fade assignment-modal" data-assignment-modal id="archiveAssignmentsModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveAssignmentsModalLabel-{{ $archive->id }}" aria-hidden="true">
                                                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
                                                     <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="archiveAssignmentsModalLabel-{{ $archive->id }}">Assignments for {{ $archive->first_name }} {{ $archive->last_name }}</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        <div class="modal-header align-items-center">
+                                                            <h5 class="modal-title mb-0" id="archiveAssignmentsModalLabel-{{ $archive->id }}">Assignments for {{ $archive->first_name }} {{ $archive->last_name }}</h5>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <button type="button" class="btn btn-outline-secondary btn-sm" data-print-modal="archiveAssignmentsModal-{{ $archive->id }}">
+                                                                    <i class="fa-solid fa-print me-1"></i>Print
+                                                                </button>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            </div>
                                                         </div>
                                                         <div class="modal-body">
                                                             @if($archivedScheduleDetails->isNotEmpty())
@@ -1088,6 +1098,192 @@
                 }
                 return new Date(parts[0], parts[1] - 1, parts[2]);
             };
+
+            const gatherHeadMarkup = function () {
+                return Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
+                    .map(function (el) {
+                        return el.outerHTML;
+                    })
+                    .join('');
+            };
+
+            const printStyles = `
+                @page { size: A4; margin: 16mm; }
+                body.print-body {
+                    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+                    background: #f5f6fa;
+                    color: #1f2937;
+                }
+                .print-shell {
+                    max-width: 980px;
+                    margin: 0 auto;
+                    padding: 12px 12px 32px;
+                }
+                .print-heading {
+                    font-size: 20px;
+                    font-weight: 700;
+                    margin-bottom: 4px;
+                    color: #0f172a;
+                }
+                .print-subtitle {
+                    color: #6b7280;
+                    font-size: 12px;
+                    margin-bottom: 16px;
+                }
+                .print-card {
+                    background: #ffffff;
+                    border-radius: 14px;
+                    border: 1px solid #e5e7eb;
+                    box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
+                    padding: 28px;
+                }
+                .modal-header {
+                    border: none;
+                    padding: 0 0 12px;
+                    align-items: flex-start;
+                }
+                .modal-title {
+                    font-size: 18px;
+                    font-weight: 700;
+                    color: #111827;
+                }
+                .modal-body {
+                    padding: 0;
+                }
+                .modal-footer,
+                .modal-header .btn-close,
+                .modal-header [data-print-modal] {
+                    display: none !important;
+                }
+                .assignment-summary-card {
+                    background: linear-gradient(135deg, #f9fafb, #eef2f7);
+                    border: 1px solid #e5e7eb;
+                    border-radius: 12px;
+                    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+                }
+                .assignment-summary-card .fs-5 {
+                    font-size: 1.25rem;
+                    color: #0f172a;
+                }
+                .assignment-summary-card .text-muted {
+                    color: #6b7280 !important;
+                }
+                .assignment-filters {
+                    background: #f9fafb;
+                    border: 1px dashed #d1d5db;
+                    border-radius: 12px;
+                }
+                .assignment-filters .btn-group .btn {
+                    border-color: #d1d5db;
+                    color: #111827;
+                }
+                .assignment-filters .btn-group .btn.btn-dark {
+                    background: #1f2937;
+                    color: #ffffff;
+                    border-color: #1f2937;
+                }
+                .assignment-filters input[type="date"] {
+                    border: 1px solid #d1d5db;
+                    border-radius: 8px;
+                    padding: 8px 10px;
+                    font-size: 0.9rem;
+                }
+                .assignment-card {
+                    border: 1px solid #e5e7eb;
+                    border-radius: 12px;
+                    background: #ffffff;
+                    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+                }
+                .assignment-card h6 {
+                    font-size: 15px;
+                    font-weight: 700;
+                    color: #0f172a;
+                }
+                .assignment-card .text-muted {
+                    color: #6b7280 !important;
+                }
+                .badge.bg-success {
+                    background: #16a34a !important;
+                    color: #ffffff !important;
+                }
+                .badge.bg-secondary {
+                    background: #94a3b8 !important;
+                    color: #ffffff !important;
+                }
+                .assignment-list {
+                    display: grid;
+                    gap: 12px;
+                }
+                ul {
+                    margin-bottom: 0;
+                    padding-left: 18px;
+                }
+                .assignment-summary-card span,
+                .assignment-card span,
+                .assignment-card p,
+                .assignment-card li {
+                    font-size: 0.95rem;
+                }
+            `;
+
+            const printModalContent = function (modalId) {
+                if (!modalId) {
+                    return;
+                }
+
+                const modalEl = document.getElementById(modalId);
+                const content = modalEl ? modalEl.querySelector('.modal-content') : null;
+
+                if (!content) {
+                    return;
+                }
+
+                const clone = content.cloneNode(true);
+                clone.querySelectorAll('.modal-header .btn-close, .modal-header [data-print-modal], .modal-footer').forEach(function (el) {
+                    el.remove();
+                });
+
+                const titleText = modalEl.querySelector('.modal-title')?.textContent?.trim() || 'Assignments';
+
+                const printWindow = window.open('', '', 'width=900,height=700');
+                if (!printWindow) {
+                    return;
+                }
+
+                printWindow.document.open();
+                printWindow.document.write(`
+                    <!DOCTYPE html>
+                    <html>
+                        <head>
+                            <title>${titleText}</title>
+                            ${gatherHeadMarkup()}
+                            <style>${printStyles}</style>
+                        </head>
+                        <body class="print-body">
+                            <div class="print-shell">
+                                <div class="print-heading">${titleText}</div>
+                                <div class="print-subtitle">Generated ${new Date().toLocaleString()}</div>
+                                <div class="print-card">
+                                    ${clone.innerHTML}
+                                </div>
+                            </div>
+                        </body>
+                    </html>
+                `);
+                printWindow.document.close();
+                printWindow.focus();
+                printWindow.print();
+
+                setTimeout(function () {
+                    printWindow.close();
+                }, 300);
+            };
+
+            document.querySelectorAll('[data-print-modal]').forEach(function (button) {
+                button.addEventListener('click', function () {
+                    printModalContent(this.dataset.printModal);
+                });
+            });
 
             assignmentModals.forEach(function (modalEl) {
                 const categoryButtons = modalEl.querySelectorAll('[data-category-filter]');

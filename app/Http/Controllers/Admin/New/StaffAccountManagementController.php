@@ -129,6 +129,17 @@ class StaffAccountManagementController extends Controller
         $users->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
         $users->save();
 
+        $prefix = match ((int) $users->role_id) {
+            1 => 'A',
+            2 => 'S',
+            3 => 'M',
+            4 => 'SA',
+            5 => 'T',
+            default => '',
+        };
+        $users->user_code = $prefix . $users->id;
+        $users->save();
+
         return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff created successfully');
     }
     

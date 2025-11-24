@@ -59,6 +59,17 @@ class AdminAdminController extends Controller
         $users->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
         $users->save();
 
+        $prefix = match ((int) $users->role_id) {
+            1 => 'A',
+            2 => 'S',
+            3 => 'M',
+            4 => 'SA',
+            5 => 'T',
+            default => '',
+        };
+        $users->user_code = $prefix . $users->id;
+        $users->save();
+
         $this->logAdminActivity("created a new admin account for {$request->first_name} {$request->last_name}.");
 
         return redirect()->route('admin.admins.add')->with('success', 'Admin created successfully');

@@ -128,6 +128,17 @@ class MemberAuthController extends Controller
             $user->password = Hash::make($validated['password']);
             $user->save();
 
+            $prefix = match ((int) $user->role_id) {
+                1 => 'A',
+                2 => 'S',
+                3 => 'M',
+                4 => 'SA',
+                5 => 'T',
+                default => '',
+            };
+            $user->user_code = $prefix . $user->id;
+            $user->save();
+
             $membershipPayment = new MembershipPayment();
             $membershipPayment->user_id = $user->id;
             $membershipPayment->membership_id = $membership->id;

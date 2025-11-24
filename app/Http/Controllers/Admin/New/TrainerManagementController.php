@@ -173,6 +173,17 @@ class TrainerManagementController extends Controller
         }
         
         $users->save();
+
+        $prefix = match ((int) $users->role_id) {
+            1 => 'A',
+            2 => 'S',
+            3 => 'M',
+            4 => 'SA',
+            5 => 'T',
+            default => '',
+        };
+        $users->user_code = $prefix . $users->id;
+        $users->save();
         
         return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer added successfully');
     }

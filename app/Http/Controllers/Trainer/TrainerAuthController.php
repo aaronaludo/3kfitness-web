@@ -79,6 +79,17 @@ class TrainerAuthController extends Controller
         $user->password = Hash::make($request->password);
         $user->save();
 
+        $prefix = match ((int) $user->role_id) {
+            1 => 'A',
+            2 => 'S',
+            3 => 'M',
+            4 => 'SA',
+            5 => 'T',
+            default => '',
+        };
+        $user->user_code = $prefix . $user->id;
+        $user->save();
+
         $token = $user->createToken('trainer_fithub_token')->plainTextToken;
 
         $response = [

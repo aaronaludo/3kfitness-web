@@ -268,7 +268,7 @@
                                         <tr data-has-membership="{{ $hasMembership ? '1' : '0' }}">
                                         {{-- UPDATED END --}}
 
-                                            <td>{{ $item->id }}</td>
+                                            <td>{{ $item->user_code }}</td>
 
                                             {{-- UPDATED START: show badge + consistent "No Membership" label --}}
                                             <td>
