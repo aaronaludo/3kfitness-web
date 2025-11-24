@@ -106,7 +106,7 @@
                                             required
                                         />
                                         <div class="invalid-feedback">
-                                            Please enter a valid Philippine mobile number (e.g., +639557735516).
+                                            Please enter a valid Philippine mobile number (e.g., +639123456789).
                                         </div>
                                     </div>
                                 </div>
