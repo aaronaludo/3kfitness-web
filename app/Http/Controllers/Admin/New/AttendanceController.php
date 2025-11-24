@@ -158,7 +158,7 @@ class AttendanceController extends Controller
             $data->save();
     
             return response()->json([
-                'data' => $user->email . ' has ' . ($type == 'clockin' ? 'clocked in' : 'clocked out') . ' successfully'
+                'data' => $user->first_name .' '. $user->last_name . ' has ' . ($type == 'clockin' ? 'clocked in' : 'clocked out') . ' successfully'
             ]);
         } else {
             return response()->json(['data' => 'No data found']);
@@ -204,7 +204,7 @@ class AttendanceController extends Controller
             $attendance->clockin_at = now();
             $attendance->save();
     
-            return response()->json(['data' => $user->email . ' has clocked in successfully.']);
+            return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' has clocked in successfully.']);
         }
     
         if ($attendance && !$attendance->clockout_at) {
@@ -212,7 +212,7 @@ class AttendanceController extends Controller
             $attendance->clockout_at = now();
             $attendance->save();
     
-            return response()->json(['data' => $user->email . ' has clocked out successfully.']);
+            return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' has clocked out successfully.']);
         }
     
         return response()->json(['data' => 'An unexpected error occurred.']);
