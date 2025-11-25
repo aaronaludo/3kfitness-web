@@ -23,10 +23,26 @@
                             Print
                         </button>
                     </form>
+                    @if ($showArchived ?? request()->boolean('show_archived'))
+                        <a
+                            class="btn btn-outline-secondary ms-2"
+                            href="{{ route('admin.trainer-management.index', request()->except(['show_archived', 'page', 'archive_page'])) }}"
+                        >
+                            <i class="fa-solid fa-rotate-left"></i>&nbsp;&nbsp;Back to active
+                        </a>
+                    @else
+                        <a
+                            class="btn btn-outline-secondary ms-2"
+                            href="{{ route('admin.trainer-management.index', array_merge(request()->except(['page', 'archive_page']), ['show_archived' => 1])) }}"
+                        >
+                            <i class="fa-solid fa-box-archive"></i>&nbsp;&nbsp;View archived
+                        </a>
+                    @endif
                 </div>
             </div>
 
             @php
+                $showArchived = request()->boolean('show_archived');
                 $trainerStatus = $statusFilter ?? request('status', 'all');
                 $statusTallies = $statusTallies ?? [];
                 $statusOptions = [
@@ -56,12 +72,21 @@
                                 <p class="text-muted mb-0">Identify trainers with active class assignments or narrow results by specific criteria.</p>
                             </div>
                             <div class="text-end">
-                                <span class="d-block text-muted small">Showing {{ $trainers->total() }} results</span>
+                                <span class="d-block text-muted small">
+                                    @if ($showArchived)
+                                        Showing {{ $archivedData->total() }} archived trainers
+                                    @else
+                                        Showing {{ $trainers->total() }} results
+                                    @endif
+                                </span>
                             </div>
                         </div>
 
                         <form action="{{ route('admin.trainer-management.index') }}" method="GET" id="trainer-filter-form" class="mt-4">
                             <input type="hidden" name="status" id="trainer-status-filter" value="{{ $trainerStatus }}">
+                            @if ($showArchived)
+                                <input type="hidden" name="show_archived" value="1">
+                            @endif
 
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                                 <div class="d-flex flex-wrap align-items-center gap-2">
@@ -94,7 +119,12 @@
                                         </div>
                                     </div>
 
-                                    <a href="{{ route('admin.trainer-management.index') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+                                    <a
+                                        href="{{ $showArchived ? route('admin.trainer-management.index', ['show_archived' => 1]) : route('admin.trainer-management.index') }}"
+                                        class="btn btn-link text-decoration-none text-muted px-0"
+                                    >
+                                        Reset
+                                    </a>
 
                                     <button
                                         class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
@@ -199,6 +229,7 @@
                         </ul>
                     </div>
                 @endif
+                @if (!$showArchived)
                 <div class="box">
                     <div class="row">
                         <div class="col-lg-12">
@@ -597,7 +628,9 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
+                @if ($showArchived)
                 <div class="box mt-5">
                     <div class="row">
                         <div class="col-lg-12">
@@ -996,6 +1029,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
         </div>
     </div>

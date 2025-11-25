@@ -10,6 +10,9 @@
 @section('content')
     <div class="container-fluid">
         <div class="row">
+            @php
+                $showArchived = request()->boolean('show_archived');
+            @endphp
             <div class="col-lg-12 d-flex justify-content-between">
                 <div><h2 class="title">Attendances</h2></div>
                 <div class="d-flex align-items-center">
@@ -27,6 +30,21 @@
                             Print
                         </button>
                     </form>
+                    @if ($showArchived)
+                        <a
+                            class="btn btn-outline-secondary ms-2"
+                            href="{{ route('admin.staff-account-management.attendances', request()->except(['show_archived', 'page', 'archive_page'])) }}"
+                        >
+                            <i class="fa-solid fa-rotate-left"></i>&nbsp;&nbsp;Back to active
+                        </a>
+                    @else
+                        <a
+                            class="btn btn-outline-secondary ms-2"
+                            href="{{ route('admin.staff-account-management.attendances', array_merge(request()->except(['page', 'archive_page']), ['show_archived' => 1])) }}"
+                        >
+                            <i class="fa-solid fa-box-archive"></i>&nbsp;&nbsp;View archived
+                        </a>
+                    @endif
                 </div>
             </div>
 
@@ -88,12 +106,21 @@
                                 <p class="text-muted mb-0">Highlight open sessions or drill into specific days with the filters below.</p>
                             </div>
                             <div class="text-end">
-                                <span class="d-block text-muted small">Showing {{ $data->total() }} results</span>
+                                <span class="d-block text-muted small">
+                                    @if ($showArchived)
+                                        Showing {{ $archivedData->total() }} archived attendances
+                                    @else
+                                        Showing {{ $data->total() }} results
+                                    @endif
+                                </span>
                             </div>
                         </div>
 
                         <form action="{{ route('admin.staff-account-management.attendances') }}" method="GET" id="attendance-filter-form" class="mt-4">
                             <input type="hidden" name="status" id="attendance-status-filter" value="{{ $statusFilter }}">
+                            @if ($showArchived)
+                                <input type="hidden" name="show_archived" value="1">
+                            @endif
 
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                                 <div class="d-flex flex-wrap align-items-center gap-2">
@@ -126,7 +153,12 @@
                                         </div>
                                     </div>
 
-                                    <a href="{{ route('admin.staff-account-management.attendances') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+                                    <a
+                                        href="{{ $showArchived ? route('admin.staff-account-management.attendances', ['show_archived' => 1]) : route('admin.staff-account-management.attendances') }}"
+                                        class="btn btn-link text-decoration-none text-muted px-0"
+                                    >
+                                        Reset
+                                    </a>
 
                                     <button
                                         class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
@@ -221,6 +253,7 @@
                         {{ session('success') }}
                     </div>
                 @endif
+                @if (!$showArchived)
                 <div class="box">
                     <div class="row">
                         <div class="col-lg-12">
@@ -307,10 +340,12 @@
                         </div>
                     </div>
                 </div>
+                @endif
             </div>
         </div>
     </div>
 
+    @if ($showArchived)
     <div class="box mt-5">
         <div class="row">
             <div class="col-lg-12">
@@ -448,6 +483,7 @@
             </div>
         </div>
     </div>
+    @endif
 
     <div class="modal fade" id="scannerModal" tabindex="-1" aria-labelledby="scannerModalLabel" aria-hidden="true">
         <div class="modal-dialog">

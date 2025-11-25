@@ -4,6 +4,9 @@
 @section('content')
     <div class="container-fluid">
         <div class="row">
+            @php
+                $showArchived = request()->boolean('show_archived');
+            @endphp
             <div class="col-lg-12 d-flex justify-content-between">
                 <div><h2 class="title">Memberships</h2></div>
                 <div class="d-flex align-items-center">
@@ -21,6 +24,21 @@
                             Print
                         </button>
                     </form>
+                    @if ($showArchived)
+                        <a
+                            class="btn btn-outline-secondary ms-2"
+                            href="{{ route('admin.staff-account-management.memberships', request()->except(['show_archived', 'page', 'archive_page'])) }}"
+                        >
+                            <i class="fa-solid fa-rotate-left"></i>&nbsp;&nbsp;Back to active
+                        </a>
+                    @else
+                        <a
+                            class="btn btn-outline-secondary ms-2"
+                            href="{{ route('admin.staff-account-management.memberships', array_merge(request()->except(['page', 'archive_page']), ['show_archived' => 1])) }}"
+                        >
+                            <i class="fa-solid fa-box-archive"></i>&nbsp;&nbsp;View archived
+                        </a>
+                    @endif
                 </div>
             </div>
             @php
@@ -53,12 +71,21 @@
                                 <p class="text-muted mb-0">Review engagements at a glance or drill down with advanced filters.</p>
                             </div>
                             <div class="text-end">
-                                <span class="d-block text-muted small">Showing {{ $data->total() }} results</span>
+                                <span class="d-block text-muted small">
+                                    @if ($showArchived)
+                                        Showing {{ $archivedData->total() }} archived memberships
+                                    @else
+                                        Showing {{ $data->total() }} results
+                                    @endif
+                                </span>
                             </div>
                         </div>
 
                         <form action="{{ route('admin.staff-account-management.memberships') }}" method="GET" id="membership-filter-form" class="mt-4">
                             <input type="hidden" name="membership_status" id="membership-status-filter" value="{{ $statusFilter }}">
+                            @if ($showArchived)
+                                <input type="hidden" name="show_archived" value="1">
+                            @endif
 
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                                 <div class="d-flex flex-wrap align-items-center gap-2">
@@ -83,15 +110,20 @@
                                             <input
                                                 type="search"
                                                 class="form-control rounded-pill ps-5"
-                                                name="name"
-                                                placeholder="Search memberships"
-                                                value="{{ request('name') }}"
-                                                aria-label="Search memberships"
-                                            />
-                                        </div>
+                                            name="name"
+                                            placeholder="Search memberships"
+                                            value="{{ request('name') }}"
+                                            aria-label="Search memberships"
+                                        />
                                     </div>
+                                </div>
 
-                                    <a href="{{ route('admin.staff-account-management.memberships') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+                                <a
+                                    href="{{ $showArchived ? route('admin.staff-account-management.memberships', ['show_archived' => 1]) : route('admin.staff-account-management.memberships') }}"
+                                    class="btn btn-link text-decoration-none text-muted px-0"
+                                >
+                                    Reset
+                                </a>
 
                                     <button
                                         class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
@@ -199,6 +231,7 @@
                         </ul>
                     </div>
                 @endif
+                @if (!$showArchived)
                 <div class="box">
                     <div class="row">
                         <div class="col-lg-12">
@@ -301,7 +334,9 @@
                         </div>
                     </div>
                 </div>
+                @endif
 
+                @if ($showArchived)
                 <div class="box mt-5">
                     <div class="row">
                         <div class="col-lg-12">
@@ -451,6 +486,7 @@
                         </div>
                     </div>
                 </div>
+                @endif
                 </div>
             </div>
     <script>
