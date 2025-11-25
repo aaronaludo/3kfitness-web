@@ -69,7 +69,7 @@
                                                 <td>{{ $item->id  }}</td>
                                                 <td>{{ $item->message }}</td>
                                                 <td>{{ $item->role_name }}</td>
-                                                <td>{{ $item->created_at }}</td>
+                                                <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
                                             </tr>
                                         @endforeach
                                     </tbody>

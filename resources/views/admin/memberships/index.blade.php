@@ -289,8 +289,8 @@
                                                 <td>{{ $item->members_approved }}</td>
                                                 <td>{{ $item->members_pending }}</td>
                                                 <td>{{ $item->members_reject }}</td>
-                                                <td>{{ $item->created_at }}</td>
-                                                <td>{{ $item->updated_at }}</td>
+                                                <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
+                                                <td>{{ optional($item->updated_at)->format('F j, Y g:iA') }}</td>
                                                 <td>
                                                     <div class="d-flex">
                                                         <div class="action-button"><a href="{{ route('admin.staff-account-management.memberships.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>
@@ -398,8 +398,8 @@
                                                 <td>{{ $archive->members_approved }}</td>
                                                 <td>{{ $archive->members_pending }}</td>
                                                 <td>{{ $archive->members_reject }}</td>
-                                                <td>{{ $archive->created_at }}</td>
-                                                <td>{{ $archive->updated_at }}</td>
+                                                <td>{{ optional($archive->created_at)->format('F j, Y g:iA') }}</td>
+                                                <td>{{ optional($archive->updated_at)->format('F j, Y g:iA') }}</td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
                                                         <button

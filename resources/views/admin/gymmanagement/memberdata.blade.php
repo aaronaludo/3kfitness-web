@@ -339,7 +339,7 @@
 
                                             <td>
                                                 @if ($latestMembershipPayment && $latestMembershipPayment->expiration_at)
-                                                    {{ \Carbon\Carbon::parse($latestMembershipPayment->expiration_at)->format('Y-m-d H:i') }}
+                                                    {{ \Carbon\Carbon::parse($latestMembershipPayment->expiration_at)->format('F j, Y g:iA') }}
                                                 @else
                                                     {{ $expirationAt }}
                                                 @endif
@@ -348,8 +348,8 @@
                                             <td>{{ $item->first_name }} {{ $item->last_name }}</td>
                                             <td>{{ $item->phone_number }}</td>
                                             <td>{{ $item->email }}</td>
-                                            <td>{{ $item->created_at }}</td>
-                                            <td>{{ $item->updated_at }}</td>
+                                            <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
+                                            <td>{{ optional($item->updated_at)->format('F j, Y g:iA') }}</td>
                                             <td>{{ $item->created_by }}</td>
                                             <td>
                                                 <div class="d-flex">
@@ -481,7 +481,7 @@
                                                 </td>
                                                 <td>
                                                     @if ($latestMembershipPayment && $latestMembershipPayment->expiration_at)
-                                                        {{ \Carbon\Carbon::parse($latestMembershipPayment->expiration_at)->format('Y-m-d H:i') }}
+                                                        {{ \Carbon\Carbon::parse($latestMembershipPayment->expiration_at)->format('F j, Y g:iA') }}
                                                     @else
                                                         {{ $expirationAt }}
                                                     @endif
@@ -489,8 +489,8 @@
                                                 <td>{{ $archive->first_name }} {{ $archive->last_name }}</td>
                                                 <td>{{ $archive->phone_number }}</td>
                                                 <td>{{ $archive->email }}</td>
-                                                <td>{{ $archive->created_at }}</td>
-                                                <td>{{ $archive->updated_at }}</td>
+                                                <td>{{ optional($archive->created_at)->format('F j, Y g:iA') }}</td>
+                                                <td>{{ optional($archive->updated_at)->format('F j, Y g:iA') }}</td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
                                                         <button

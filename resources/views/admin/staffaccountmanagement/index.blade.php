@@ -311,7 +311,7 @@
                                                 <td>{{ $item->email }}</td>
                                                 <td>{{ $item->role->name }}</td>
                                                 <td>{{ $item->phone_number }}</td>
-                                                <td>{{ $item->created_at }}</td>
+                                                <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
                                                 <td>₱{{ number_format((float) $item->rate_per_hour, 2) }}</td>
                                                 <td>
                                                     @if($totalHours > 0)
@@ -446,7 +446,7 @@
                                                 <td>{{ $archive->email }}</td>
                                                 <td>{{ optional($archive->role)->name }}</td>
                                                 <td>{{ $archive->phone_number }}</td>
-                                                <td>{{ $archive->created_at }}</td>
+                                                <td>{{ optional($archive->created_at)->format('F j, Y g:iA') }}</td>
                                                 <td>₱{{ number_format((float) $archive->rate_per_hour, 2) }}</td>
                                                 <td>
                                                     @if($archiveTotalHours > 0)

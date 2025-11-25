@@ -308,8 +308,20 @@
                                                 <td>{{ $item->id }}</td>
                                                 <td>{{ $item->user->role->name }}</td>
                                                 <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
-                                                <td>{{ $item->clockin_at }}</td>
-                                                <td>{{ $item->clockout_at }}</td>
+                                                <td>
+                                                    @if ($item->clockin_at)
+                                                        {{ \Carbon\Carbon::parse($item->clockin_at)->format('F j, Y g:iA') }}
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
+                                                <td>
+                                                    @if ($item->clockout_at)
+                                                        {{ \Carbon\Carbon::parse($item->clockout_at)->format('F j, Y g:iA') }}
+                                                    @else
+                                                        —
+                                                    @endif
+                                                </td>
                                                 <td>
                                                     <div class="d-flex">
                                                         <div class="action-button"><a href="#" title="View"><i class="fa-solid fa-eye"></i></a></div>
@@ -404,8 +416,20 @@
                                     <td>{{ $archive->id }}</td>
                                     <td>{{ optional(optional($archive->user)->role)->name }}</td>
                                     <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
-                                    <td>{{ $archive->clockin_at }}</td>
-                                    <td>{{ $archive->clockout_at }}</td>
+                                    <td>
+                                        @if ($archive->clockin_at)
+                                            {{ \Carbon\Carbon::parse($archive->clockin_at)->format('F j, Y g:iA') }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
+                                    <td>
+                                        @if ($archive->clockout_at)
+                                            {{ \Carbon\Carbon::parse($archive->clockout_at)->format('F j, Y g:iA') }}
+                                        @else
+                                            —
+                                        @endif
+                                    </td>
                                     <td class="action-button">
                                         <div class="d-flex gap-2">
                                             <button
