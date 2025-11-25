@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Payroll;
+use App\Models\Schedule;
 use Carbon\Carbon;
 
 class PayrollController extends Controller
@@ -114,12 +115,101 @@ class PayrollController extends Controller
             'projected_net' => $summaries->sum(fn ($summary) => $summary['net_pay']),
         ];
 
+        $trainerAssignments = User::where('role_id', 5)
+            ->where('is_archive', 0)
+            ->with(['trainerSchedules.user_schedules.user'])
+            ->get()
+            ->map(function ($trainer) use ($targetMonth) {
+                $now = Carbon::now();
+                $scheduleDetails = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now) {
+                    $start = !empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date) : null;
+                    $end = !empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date) : null;
+
+                    $hasValidWindow = $start && $end && $end->greaterThan($start);
+                    $hasRate = !is_null($schedule->trainer_rate_per_hour);
+                    $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
+                    $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
+
+                    $hours = $hasValidWindow
+                        ? $end->diffInMinutes($start) / 60
+                        : 0;
+
+                    $displaySalary = $hasRate
+                        ? (float) $schedule->trainer_rate_per_hour * $hours
+                        : 0;
+
+                    $summarySalary = $isSalaryEligible
+                        ? (float) $schedule->trainer_rate_per_hour * $hours
+                        : 0;
+
+                    $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
+                        $user = $userSchedule->user ?? null;
+                        if (!$user) {
+                            return null;
+                        }
+
+                        $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+
+                        return $fullName !== '' ? $fullName : ($user->email ?? null);
+                    })->filter()->unique()->values();
+
+                    $isPast = false;
+                    if ($end) {
+                        $isPast = $end->lt($now);
+                    } elseif ($start) {
+                        $isPast = $start->lt($now);
+                    }
+
+                    $category = $isPast ? 'past' : 'future';
+
+                    return [
+                        'schedule' => $schedule,
+                        'start' => $start,
+                        'end' => $end,
+                        'start_date' => $start ? $start->toDateString() : null,
+                        'end_date' => $end ? $end->toDateString() : null,
+                        'hours' => $hours,
+                        'display_salary' => $displaySalary,
+                        'summary_salary' => $summarySalary,
+                        'salary_eligible' => $isSalaryEligible,
+                        'students' => $students,
+                        'category' => $category,
+                    ];
+                });
+
+                $futureDetails = $scheduleDetails->where('category', 'future');
+                $pastDetails = $scheduleDetails->where('category', 'past');
+
+                $salaryEligibleSchedules = $scheduleDetails->where('salary_eligible', true);
+
+                $totals = [
+                    'future_total' => $futureDetails->sum('summary_salary'),
+                    'past_total' => $pastDetails->sum('summary_salary'),
+                    'future_count' => $futureDetails->count(),
+                    'past_count' => $pastDetails->count(),
+                    'future_payroll_count' => $futureDetails->where('salary_eligible', true)->count(),
+                    'past_payroll_count' => $pastDetails->where('salary_eligible', true)->count(),
+                ];
+
+                return [
+                    'trainer' => $trainer,
+                    'details' => $scheduleDetails,
+                    'total_salary' => $salaryEligibleSchedules->sum('summary_salary'),
+                    'assignments_count' => $scheduleDetails->count(),
+                    'salary_assignments_count' => $salaryEligibleSchedules->count(),
+                    'totals' => $totals,
+                ];
+            })
+            ->filter(fn ($assignment) => $assignment['assignments_count'] > 0)
+            ->values();
+
         return view('admin.payrolls.process', [
             'summaries' => $summaries,
             'stats' => $stats,
             'search' => $search,
             'month' => $month,
             'monthLabel' => $targetMonth->format('F Y'),
+            'trainerAssignments' => $trainerAssignments,
         ]);
     }
     
