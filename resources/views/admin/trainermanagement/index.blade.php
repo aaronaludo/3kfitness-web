@@ -243,7 +243,6 @@
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="phone_number">Phone Number <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="email">Email <i class="fa fa-sort"></i></th>
-                                            <th>Assignments</th>
                                             <th>Estimated Salary</th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
@@ -390,16 +389,6 @@
                                                         return $detail['salary_eligible'];
                                                     })->count();
                                                 @endphp
-                                                <td>
-                                                    <button
-                                                        type="button"
-                                                        class="btn btn-outline-secondary btn-sm"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#assignmentsModal-{{ $item->id }}"
-                                                    >
-                                                        View Assignments
-                                                    </button>
-                                                </td>
                                                 <td>
                                                     @if($salaryEligibleSchedules->isNotEmpty())
                                                         ₱{{ number_format($totalSalary, 2) }}
@@ -646,7 +635,6 @@
                                             <th>Name</th>
                                             <th>Phone Number</th>
                                             <th>Email</th>
-                                            <th>Assignments</th>
                                             <th>Estimated Salary</th>
                                             <th>Created Date</th>
                                             <th>Updated Date</th>
@@ -770,16 +758,6 @@
                                                         return $detail['salary_eligible'];
                                                     })->count();
                                                 @endphp
-                                                <td>
-                                                    <button
-                                                        type="button"
-                                                        class="btn btn-outline-secondary btn-sm"
-                                                        data-bs-toggle="modal"
-                                                        data-bs-target="#archiveAssignmentsModal-{{ $archive->id }}"
-                                                    >
-                                                        View Assignments
-                                                    </button>
-                                                </td>
                                                 <td>
                                                     @if($archivedSalaryEligible->isNotEmpty())
                                                         ₱{{ number_format($archivedTotalSalary, 2) }}
