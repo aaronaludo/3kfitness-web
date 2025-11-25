@@ -104,6 +104,85 @@
                     </div>
                 </div>
             </div>
+            <div class="col-lg-12 my-3">
+                <div class="row">
+                    <div class="col-lg-4 col-md-6 col-12 my-2">
+                        <div class="box h-100">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Upcoming Classes</h5>
+                                <a href="{{ route('admin.gym-management.schedules') }}">see more</a>
+                            </div>
+                            <div class="list-group list-group-flush mt-2">
+                                @forelse($upcomingClasses as $class)
+                                    @php
+                                        $start = $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
+                                        $trainerName = $class->trainer_id == 0
+                                            ? 'No Trainer'
+                                            : trim(optional($class->user)->first_name . ' ' . optional($class->user)->last_name);
+                                        $trainerName = $trainerName !== '' ? $trainerName : 'Unknown';
+                                    @endphp
+                                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <div class="fw-semibold">{{ $class->name }}</div>
+                                            <div class="small text-muted">
+                                                {{ $start ? $start->format('F j, Y g:iA') : 'No start date set' }}
+                                            </div>
+                                            <div class="small text-muted">Trainer: {{ $trainerName }}</div>
+                                        </div>
+                                        @if($start && $start->isFuture())
+                                            <span class="badge bg-success">Upcoming</span>
+                                        @endif
+                                    </div>
+                                @empty
+                                    <div class="list-group-item px-0 text-muted">No upcoming classes scheduled.</div>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 col-12 my-2">
+                        <div class="box h-100">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Latest Staff</h5>
+                                <a href="{{ route('admin.staff-account-management.index') }}">see more</a>
+                            </div>
+                            <div class="list-group list-group-flush mt-2">
+                                @forelse($latestStaff as $staff)
+                                    <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div class="fw-semibold">{{ $staff->first_name }} {{ $staff->last_name }}</div>
+                                            <div class="small text-muted">{{ optional($staff->created_at)->format('F j, Y g:iA') }}</div>
+                                        </div>
+                                        <span class="badge bg-primary">Staff</span>
+                                    </div>
+                                @empty
+                                    <div class="list-group-item px-0 text-muted">No staff records found.</div>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-lg-4 col-md-6 col-12 my-2">
+                        <div class="box h-100">
+                            <div class="d-flex justify-content-between align-items-center">
+                                <h5 class="mb-0">Latest Admins</h5>
+                                <a href="{{ route('admin.admins.index') }}">see more</a>
+                            </div>
+                            <div class="list-group list-group-flush mt-2">
+                                @forelse($latestAdmins as $admin)
+                                    <div class="list-group-item px-0 d-flex justify-content-between align-items-center">
+                                        <div>
+                                            <div class="fw-semibold">{{ $admin->first_name }} {{ $admin->last_name }}</div>
+                                            <div class="small text-muted">{{ optional($admin->created_at)->format('F j, Y g:iA') }}</div>
+                                        </div>
+                                        <span class="badge bg-dark">Admin</span>
+                                    </div>
+                                @empty
+                                    <div class="list-group-item px-0 text-muted">No admin records found.</div>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
             <div class="col-lg-6 col-12 my-3">
                 <div class="box">
                     <div style="height:300px"><canvas id="gymChart"></canvas></div>

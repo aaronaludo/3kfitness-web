@@ -191,36 +191,22 @@ class TrainerManagementController extends Controller
     public function update(Request $request, $id)
     {
         $validator = Validator::make($request->all(), [
-            'first_name' => 'required',
-            'last_name' => 'required',
-            'address' => 'required',
-            'phone_number' => 'required',
-            'email' => 'required|email|unique:users,email,' . $id,
-            'password' => 'nullable|confirmed',
+            'address' => ['required', 'string', 'max:255'],
+            'phone_number' => ['required', 'regex:/^\\+639\\d{9}$/'],
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('admin.trainer-management.index')
+            return redirect()->route('admin.trainer-management.edit', $id)
                 ->withErrors($validator)
                 ->withInput();
         }
         
-        $data = User::findOrFail($id);
-        $data->role_id = 5;
-        $data->status_id = 2;
-        $data->first_name = $request->first_name;
-        $data->last_name = $request->last_name;
+        $data = User::where('role_id', 5)->findOrFail($id);
         $data->address = $request->address;
         $data->phone_number = $request->phone_number;
-        $data->email = $request->email;
-        
-        if ($request->filled('password')) {
-            $data->password = bcrypt($request['password']);
-        }
-        
         $data->save();
 
-        return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer updated successfully');
+        return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer contact updated successfully');
     }
     
     public function delete(Request $request)

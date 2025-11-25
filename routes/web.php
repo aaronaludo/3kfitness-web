@@ -61,6 +61,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/popular-workouts', [PopularWorkout::class, 'index'])->name('admin.popular-workouts.index');
 
     Route::get('/admin/payrolls', [Payroll::class, 'index'])->name('admin.payrolls.index');
+    Route::get('/admin/payrolls/process', [Payroll::class, 'process'])->name('admin.payrolls.process');
     Route::get('/admin/payrolls/{id}', [Payroll::class, 'view'])->name('admin.payrolls.view');
     Route::post('/admin/payrolls/clockin', [Payroll::class, 'clockin'])->name('admin.payrolls.clockin');
     Route::post('/admin/payrolls/clockout', [Payroll::class, 'clockout'])->name('admin.payrolls.clockout');

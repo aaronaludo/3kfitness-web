@@ -9,6 +9,13 @@
                     <h2 class="title mb-0">Payrolls</h2>
                 </div>
                 <div class="d-flex align-items-center">
+                    <a
+                        href="{{ route('admin.payrolls.process') }}"
+                        class="btn btn-primary d-flex align-items-center gap-2 me-2"
+                    >
+                        <i class="fa-solid fa-gears"></i>
+                        Process payroll
+                    </a>
                     <button type="button" class="btn btn-danger d-flex align-items-center gap-2">
                         <i class="fa-solid fa-print"></i>
                         Print

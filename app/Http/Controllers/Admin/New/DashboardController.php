@@ -18,19 +18,36 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        $now = Carbon::now();
+
         $gym_members_count = User::where('role_id', 3)->count();
         $staffs_count = User::where('role_id', 2)->count();
         $feedbacks_count = Feedback::count();
         $memberships_count = Membership::count();
         $classes_count = Schedule::count();
         $membership_payment_count = MembershipPayment::where('isapproved', 0)->count();
+        $upcomingClasses = Schedule::where('is_archieve', 0)
+            ->whereNotNull('class_start_date')
+            ->where('class_start_date', '>=', $now)
+            ->orderByDesc('class_start_date')
+            ->with('user')
+            ->limit(5)
+            ->get();
+        $latestStaff = User::where('role_id', 2)
+            ->latest()
+            ->limit(5)
+            ->get();
+        $latestAdmins = User::where('role_id', 1)
+            ->latest()
+            ->limit(5)
+            ->get();
         
         $gym_members = User::where('role_id', 3)->limit(10)->get();
         $logs = Log::orderBy('id', 'desc')->limit(10)->get();
 
         // Build last 6 month labels (oldest -> newest)
-        $months = collect(range(5, 0))->map(function ($i) {
-            return Carbon::now()->subMonths($i);
+        $months = collect(range(5, 0))->map(function ($i) use ($now) {
+            return $now->copy()->subMonths($i);
         });
         $chartLabels = $months->map(fn ($d) => $d->format('M Y'));
 
@@ -71,7 +88,10 @@ class DashboardController extends Controller
                 'memberships_count',
                 'classes_count',
                 'membership_payment_count',
-                'logs'
+                'logs',
+                'upcomingClasses',
+                'latestStaff',
+                'latestAdmins'
             ) + [
                 'chartLabels' => $chartLabels,
                 'membersPerMonth' => $membersPerMonth,

@@ -145,50 +145,23 @@ class StaffAccountManagementController extends Controller
     
     public function update(Request $request, $id)
     {
-        $user = $request->user();
-        $userId = $user->id;
-        // dd($userId);
-
         $validator = Validator::make($request->all(), [
-            'first_name' => 'required',
-            'last_name' => 'required',
-            'address' => 'required',
-            'phone_number' => 'required',
-            // 'email' => 'required|email|unique:users,email,' . $id,
-            'email' => [
-                'required',
-                'email',
-                Rule::unique('users', 'email')
-                    ->ignore($user->id, 'id')
-                    ->where(fn ($q) => $q->where('role_id', 2)),
-            ],
-            'password' => 'nullable|confirmed',
-            'rate_per_hour' => 'required'
+            'address' => ['required', 'string', 'max:255'],
+            'phone_number' => ['required', 'regex:/^\\+639\\d{9}$/'],
         ]);
 
         if ($validator->fails()) {
-            return redirect()->route('admin.staff-account-management.index')
+            return redirect()->route('admin.staff-account-management.edit', $id)
                 ->withErrors($validator)
                 ->withInput();
         }
         
-        $data = User::findOrFail($id);
-        $data->role_id = 2;
-        $data->status_id = 2;
-        $data->first_name = $request->first_name;
-        $data->last_name = $request->last_name;
+        $data = User::where('role_id', 2)->findOrFail($id);
         $data->address = $request->address;
         $data->phone_number = $request->phone_number;
-        $data->email = $request->email;
-        $data->rate_per_hour = $request->rate_per_hour;
-        
-        if ($request->filled('password')) {
-            $data->password = bcrypt($request['password']);
-        }
-        
         $data->save();
 
-        return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff updated successfully');
+        return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff contact updated successfully');
     }
     
     /*public function delete(Request $request)

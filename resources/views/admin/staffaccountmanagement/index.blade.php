@@ -244,7 +244,6 @@
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="rate_per_hour">Rate per hour <i class="fa fa-sort"></i></th>
                                             <th>Net Pay (This Month)</th>
-                                            <th class="sortable" data-column="payrolls">Payrolls <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
                                         </tr>
@@ -297,7 +296,6 @@
                                                         —
                                                     @endif
                                                 </td>
-                                                <td><button class="btn btn-primary see-more" data-bs-toggle="modal" data-bs-target="#detailsModal-{{ $item->id }}">See More</button></td>
                                                 <td>{{ $item->created_by }}</td>
                                                 <td>
                                                     <div class="d-flex">
@@ -339,112 +337,9 @@
                                                                 </button>
                                                             </div>
                                                         </form>
-                                                    </div>
-                                                </div>
                                             </div>
-
-                                            {{-- Details / Payroll Modal --}}
-                                            <div class="modal fade" id="detailsModal-{{ $item->id }}" tabindex="-1" aria-labelledby="modalTitle" aria-hidden="true">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="modalTitle">Payrolls: (Gross Pay: ₱{{ number_format($totalAmount, 2) }})</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            <div id="modalContent">
-                                                                @if($payrollsThisMonth->isNotEmpty())
-                                                                    @foreach($payrollsThisMonth as $payroll)
-                                                                    <div class="mb-3 border-bottom pb-2">
-                                                                        <div class="d-flex gap-2">
-                                                                            <strong>ID:</strong> <span>{{ $payroll->id }}</span>
-                                                                        </div>
-                                                                        <div class="d-flex gap-2">
-                                                                            <strong>Clock In Date:</strong> <span>{{ $payroll->clockin_at }}</span>
-                                                                        </div>
-                                                                        <div class="d-flex gap-2">
-                                                                            <strong>Clock Out Date:</strong> <span>{{ $payroll->clockout_at }}</span>
-                                                                        </div>
-                                                                        <div class="d-flex gap-2">
-                                                                            <strong>Total Hours:</strong> 
-                                                                            <span>
-                                                                            {{ $payroll->clockout_at 
-                                                                                ? number_format(\Carbon\Carbon::parse($payroll->clockin_at)->diffInMinutes(\Carbon\Carbon::parse($payroll->clockout_at)) / 60, 2)
-                                                                                : 'Wait for clockout' }}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div class="d-none gap-2">
-                                                                            <strong>SSS:</strong> 
-                                                                            <span>
-                                                                                {{ $sssEmployee }}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div class="d-none gap-2">
-                                                                            <strong>PhilHealth:</strong> 
-                                                                            <span>
-                                                                                {{ $philhealthEmployee }}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div class="d-none gap-2">
-                                                                            <strong>Pag-IBIG:</strong> 
-                                                                            <span>
-                                                                                {{ $pagibigEmployee }}
-                                                                            </span>
-                                                                        </div>
-                                                                        <div class="d-flex gap-2">
-                                                                            <strong>Net Pay:</strong> 
-                                                                            <span>
-                                                                            {{
-                                                                            $payroll->clockout_at 
-                                                                            ? "₱" . number_format((\Carbon\Carbon::parse($payroll->clockin_at)->diffInMinutes(\Carbon\Carbon::parse($payroll->clockout_at)) / 60) * (float) $item->rate_per_hour, 2)
-                                                                            : 'Wait for clockout'
-                                                                            }}
-                                                                            </span>
-                                                                        </div>
-                                                                    </div>
-                                                                    @endforeach
-                                                                @else
-                                                                    <p class="text-muted mb-0">No payroll records for the current month.</p>
-                                                                @endif
-                                                            </div>
-                                                        </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-
-                                                            {{-- UPDATED START: Replaced inline onclick with data-attributes --}}
-                                                            @php
-                                                                $filteredPayrolls = $payrollsThisMonth
-                                                                    ->map(function ($p) {
-                                                                        return [
-                                                                            'id' => $p->id,
-                                                                            'clockin' => $p->clockin_at,
-                                                                            'clockout' => $p->clockout_at,
-                                                                            'hours' => $p->clockout_at 
-                                                                                ? \Carbon\Carbon::parse($p->clockin_at)->diffInMinutes(\Carbon\Carbon::parse($p->clockout_at)) / 60 
-                                                                                : 'Pending',
-                                                                        ];
-                                                                    })
-                                                                    ->values();
-                                                            @endphp
-
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-primary download-payslip"
-                                                                data-name="{{ $item->first_name . ' ' . $item->last_name }}"
-                                                                data-rate="{{ number_format((float) $item->rate_per_hour, 2, '.', '') }}"
-                                                                data-total="{{ number_format((float) $netPay, 2, '.', '') }}"
-                                                                data-sss="{{ number_format((float) $sssEmployee, 2, '.', '') }}"
-                                                                data-philhealth="{{ number_format((float) $philhealthEmployee, 2, '.', '') }}"
-                                                                data-pagibig="{{ number_format((float) $pagibigEmployee, 2, '.', '') }}"
-                                                                data-payrolls='@json($filteredPayrolls)'
-                                                            >
-                                                                Download Payslip
-                                                            </button>
-                                                            {{-- UPDATED END --}}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                                        </div>
+                                    </div>
 
                                             {{-- Keep the per-item delete submit blocker --}}
                                             <script>
@@ -486,7 +381,6 @@
                                             <th>Created Date</th>
                                             <th>Rate per hour</th>
                                             <th>Net Pay (This Month)</th>
-                                            <th>Payrolls</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -537,7 +431,6 @@
                                                         —
                                                     @endif
                                                 </td>
-                                                <td>{{ $archive->payrolls_count ?? $archive->payrolls->count() }}</td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
                                                         <button
@@ -719,139 +612,4 @@
             });
         });
     </script>
-
-    {{-- UPDATED START: Single canvas on page (moved outside the loop, removed duplicates) --}}
-    <canvas id="payslipCanvas" width="800" height="1200" style="display: none;"></canvas>
-    {{-- UPDATED END --}}
-
-    {{-- UPDATED START: Robust JS that reads data-attributes and generates the payslip --}}
-    <script>
-    (function () {
-        // Attach click handlers to all "Download Payslip" buttons
-        document.querySelectorAll('.download-payslip').forEach(btn => {
-            btn.addEventListener('click', () => {
-                const d = btn.dataset;
-
-                const total      = parseFloat(d.total || 0);
-                const rate       = parseFloat(d.rate || 0);
-                const sss        = parseFloat(d.sss || 0);
-                const philhealth = parseFloat(d.philhealth || 0);
-                const pagibig    = parseFloat(d.pagibig || 0);
-                const name       = d.name || '';
-
-                let payrolls = [];
-                try {
-                    payrolls = JSON.parse(d.payrolls || '[]');
-                } catch (e) {
-                    payrolls = [];
-                }
-
-                downloadPayslip(total, name, rate, sss, philhealth, pagibig, payrolls);
-            });
-        });
-
-        function downloadPayslip(totalAmount, name, rate, sss, philhealth, pagibig, payrolls) {
-            const canvas = document.getElementById("payslipCanvas");
-            const ctx = canvas.getContext("2d");
-
-            // Setup
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "#ffffff";
-            ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-            // Border
-            ctx.strokeStyle = "#000000";
-            ctx.lineWidth = 2;
-            ctx.strokeRect(40, 40, canvas.width - 80, canvas.height - 80);
-
-            // Header
-            ctx.fillStyle = "#000000";
-            ctx.font = "bold 28px Arial";
-            ctx.textAlign = "center";
-            ctx.fillText("OFFICIAL PAYSLIP", canvas.width / 2, 90);
-
-            ctx.font = "16px Arial";
-            ctx.fillText("3kfitnes GYM", canvas.width / 2, 120);
-            ctx.fillText("--------", canvas.width / 2, 145);
-            ctx.fillText("--------", canvas.width / 2, 170);
-
-            ctx.textAlign = "left";
-            let y = 210;
-
-            const monthStr = "{{ \Carbon\Carbon::now()->format('F d, Y') }}";
-
-            // Employee and Date Info
-            ctx.font = "bold 18px Arial";
-            ctx.fillText(`Employee Name:`, 60, y);
-            ctx.font = "18px Arial";
-            ctx.fillText(`${name}`, 220, y);
-
-            y += 30;
-            ctx.font = "bold 18px Arial";
-            ctx.fillText(`Payroll Period:`, 60, y);
-            ctx.font = "18px Arial";
-            ctx.fillText(`${monthStr}`, 220, y);
-
-            y += 30;
-            ctx.font = "bold 18px Arial";
-            ctx.fillText(`Hourly Rate:`, 60, y);
-            ctx.font = "18px Arial";
-            ctx.fillText(`₱${Number.isFinite(rate) ? rate.toFixed(2) : '0.00'}`, 220, y);
-
-            y += 40;
-            ctx.beginPath();
-            ctx.moveTo(60, y);
-            ctx.lineTo(canvas.width - 60, y);
-            ctx.stroke();
-
-            // Payroll Entries
-            y += 30;
-            ctx.font = "bold 18px Arial";
-            ctx.fillText("Payroll Details", 60, y);
-
-            ctx.font = "16px Arial";
-            (payrolls || []).forEach((p, index) => {
-                y += 30;
-                ctx.fillText(`Entry ${index + 1}`, 60, y);
-                ctx.fillText(`Payroll ID: ${p.id}`, 80, y += 25);
-                ctx.fillText(`Clock In: ${p.clockin}`, 80, y += 20);
-                ctx.fillText(`Clock Out: ${p.clockout}`, 80, y += 20);
-                ctx.fillText(`Hours Worked: ${p.hours}`, 80, y += 20);
-            });
-
-            y += 30;
-            ctx.beginPath();
-            ctx.moveTo(60, y);
-            ctx.lineTo(canvas.width - 60, y);
-            ctx.stroke();
-
-            // Deductions
-            y += 30;
-            ctx.font = "bold 18px Arial";
-            ctx.fillText("Deductions", 60, y);
-
-            ctx.font = "16px Arial";
-            ctx.fillText(`SSS: ₱${Number.isFinite(sss) ? sss.toFixed(2) : '0.00'}`, 80, y += 30);
-            ctx.fillText(`PhilHealth: ₱${Number.isFinite(philhealth) ? philhealth.toFixed(2) : '0.00'}`, 80, y += 25);
-            ctx.fillText(`Pag-IBIG: ₱${Number.isFinite(pagibig) ? pagibig.toFixed(2) : '0.00'}`, 80, y += 25);
-
-            // Total
-            y += 40;
-            ctx.font = "bold 18px Arial";
-            ctx.fillText(`Net Pay: ₱${Number.isFinite(totalAmount) ? totalAmount.toFixed(2) : '0.00'}`, 60, y);
-
-            // Footer / Note
-            y += 60;
-            ctx.font = "italic 14px Arial";
-            ctx.fillText("This is a system-generated payslip. No signature required.", 60, y);
-
-            // Download as image
-            const link = document.createElement("a");
-            link.download = "payslip.png";
-            link.href = canvas.toDataURL("image/png");
-            link.click();
-        }
-    })();
-    </script>
-    {{-- UPDATED END --}}
 @endsection
