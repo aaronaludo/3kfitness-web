@@ -168,6 +168,11 @@ class AttendanceController extends Controller
     public function fetchScanner2(Request $request)
     {
         $email = $request->result;
+        $action = $request->input('action');
+
+        if ($action && !in_array($action, ['clockin', 'clockout'], true)) {
+            return response()->json(['data' => 'Invalid action provided.']);
+        }
     
         if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
             return response()->json(['data' => 'Invalid email format.']);
@@ -191,12 +196,40 @@ class AttendanceController extends Controller
             }
         }
     
-        // Check if the user has already clocked in or out for today
+        // Check if the user has already clocked in or out for today (active records only)
         $attendance = Attendance2::where('user_id', $user->id)
+            ->where('is_archive', 0)
             ->whereDate('created_at', now()->toDateString())
             ->orderBy('created_at', 'desc') // Get the latest record
             ->first();
-    
+
+        // Explicit manual action: clock in only
+        if ($action === 'clockin') {
+            if ($attendance && !$attendance->clockout_at) {
+                return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' already clocked in today.']);
+            }
+
+            $attendance = new Attendance2();
+            $attendance->user_id = $user->id;
+            $attendance->clockin_at = now();
+            $attendance->save();
+
+            return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' has clocked in successfully.']);
+        }
+
+        // Explicit manual action: clock out only
+        if ($action === 'clockout') {
+            if (!$attendance || $attendance->clockout_at) {
+                return response()->json(['data' => 'No active clock-in found for today.']);
+            }
+
+            $attendance->clockout_at = now();
+            $attendance->save();
+
+            return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' has clocked out successfully.']);
+        }
+
+        // Default behavior: toggle clock-in/clock-out
         if (!$attendance || $attendance->clockout_at) {
             // If no attendance record exists, or if the user has clocked out, clock in
             $attendance = new Attendance2();

@@ -1,4 +1,7 @@
 @extends('layouts.admin')
+@section('styles')
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+@endsection
 @section('title', 'Members Data')
 
 @section('content')
@@ -352,33 +355,56 @@
                                             <td>{{ optional($item->updated_at)->format('F j, Y g:iA') }}</td>
                                             <td>{{ $item->created_by }}</td>
                                             <td>
-                                                <div class="d-flex">
-                                                    <div class="action-button">
-                                                        <a href="{{ route('admin.gym-management.members.view', $item->id) }}" title="View">
-                                                            <i class="fa-solid fa-eye"></i>
-                                                        </a>
-                                                    </div>
-                                                    <div class="action-button">
-                                                        <a href="{{ route('admin.gym-management.members.edit', $item->id) }}" title="Edit">
-                                                            <i class="fa-solid fa-pencil text-primary"></i>
-                                                        </a>
+                                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                                    <div class="btn-group btn-group-sm" role="group" aria-label="Manual attendance actions">
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-outline-success manual-clock-button"
+                                                            data-email="{{ $item->email }}"
+                                                            data-name="{{ $item->first_name }} {{ $item->last_name }}"
+                                                            data-action="clockin"
+                                                        >
+                                                            <i class="fa-regular fa-clock me-1"></i>Clock In
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-outline-secondary manual-clock-button"
+                                                            data-email="{{ $item->email }}"
+                                                            data-name="{{ $item->first_name }} {{ $item->last_name }}"
+                                                            data-action="clockout"
+                                                        >
+                                                            <i class="fa-solid fa-right-from-bracket me-1"></i>Clock Out
+                                                        </button>
                                                     </div>
 
-                                                    <div class="action-button">
-                                                        {{-- UPDATED START: keep delete only for "No Membership" --}}
-                                                        @if (!$hasMembership)
-                                                            <button
-                                                                type="button"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#deleteModal-{{ $item->id }}"
-                                                                data-id="{{ $item->id }}"
-                                                                title="Delete"
-                                                                style="background: none; border: none; padding: 0; cursor: pointer;"
-                                                            >
-                                                                <i class="fa-solid fa-trash text-danger"></i>
-                                                            </button>
-                                                        @endif
-                                                        {{-- UPDATED END --}}
+                                                    <div class="d-flex align-items-center gap-2">
+                                                        <div class="action-button">
+                                                            <a href="{{ route('admin.gym-management.members.view', $item->id) }}" title="View">
+                                                                <i class="fa-solid fa-eye"></i>
+                                                            </a>
+                                                        </div>
+                                                        <div class="action-button">
+                                                            <a href="{{ route('admin.gym-management.members.edit', $item->id) }}" title="Edit">
+                                                                <i class="fa-solid fa-pencil text-primary"></i>
+                                                            </a>
+                                                        </div>
+    
+                                                        <div class="action-button">
+                                                            {{-- UPDATED START: keep delete only for "No Membership" --}}
+                                                            @if (!$hasMembership)
+                                                                <button
+                                                                    type="button"
+                                                                    data-bs-toggle="modal"
+                                                                    data-bs-target="#deleteModal-{{ $item->id }}"
+                                                                    data-id="{{ $item->id }}"
+                                                                    title="Delete"
+                                                                    style="background: none; border: none; padding: 0; cursor: pointer;"
+                                                                >
+                                                                    <i class="fa-solid fa-trash text-danger"></i>
+                                                                </button>
+                                                            @endif
+                                                            {{-- UPDATED END --}}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </td>
@@ -607,18 +633,99 @@
         </div>
     </div>
 
+    <div class="modal fade" id="manualClockModal" tabindex="-1" aria-labelledby="manualClockModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="manualClockModalLabel">Manual attendance</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p id="manualClockModalMessage" class="mb-0"></p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const form = document.getElementById('member-filter-form');
-            if (!form) {
-                return;
-            }
+            const manualClockButtons = document.querySelectorAll('.manual-clock-button');
+            const manualClockModalEl = document.getElementById('manualClockModal');
+            const manualClockModalMessageEl = document.getElementById('manualClockModalMessage');
+            const csrfMeta = document.querySelector("meta[name='csrf-token']");
+            const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+
             const feedbackModalEl = document.getElementById('actionFeedbackModal');
             if (feedbackModalEl && typeof bootstrap !== 'undefined') {
                 const feedbackModal = new bootstrap.Modal(feedbackModalEl);
                 feedbackModal.show();
             }
 
+            function showManualClockMessage(message) {
+                if (manualClockModalMessageEl) {
+                    manualClockModalMessageEl.textContent = message;
+                }
+
+                if (manualClockModalEl && typeof bootstrap !== 'undefined') {
+                    const manualClockModal = new bootstrap.Modal(manualClockModalEl);
+                    manualClockModal.show();
+                } else {
+                    alert(message);
+                }
+            }
+
+            manualClockButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    const targetButton = this;
+                    const email = targetButton.dataset.email;
+                    const action = targetButton.dataset.action;
+                    const name = targetButton.dataset.name || 'Member';
+
+                    if (!csrfToken || !email || !action) {
+                        showManualClockMessage('Unable to process attendance right now.');
+                        return;
+                    }
+
+                    const originalHtml = targetButton.innerHTML;
+                    const loadingText = action === 'clockout' ? 'Clocking out...' : 'Clocking in...';
+                    targetButton.disabled = true;
+                    targetButton.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>${loadingText}`;
+
+                    fetch("{{ route('admin.staff-account-management.attendances.scanner2.fetch') }}", {
+                        method: 'POST',
+                        headers: {
+                            'X-CSRF-TOKEN': csrfToken,
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json'
+                        },
+                        body: JSON.stringify({ result: email, action: action })
+                    })
+                        .then(function (response) {
+                            return response.json().catch(function () {
+                                return { data: 'Unable to process attendance right now.' };
+                            });
+                        })
+                        .then(function (data) {
+                            const message = data && data.data ? data.data : `${name}'s attendance was updated.`;
+                            showManualClockMessage(message);
+                        })
+                        .catch(function () {
+                            showManualClockMessage('Unable to process attendance right now.');
+                        })
+                        .finally(function () {
+                            targetButton.disabled = false;
+                            targetButton.innerHTML = originalHtml;
+                        });
+                });
+            });
+
+            if (!form) {
+                return;
+            }
             const statusInput = document.getElementById('member-status-filter');
             const chipButtons = form.querySelectorAll('.membership-chip');
             const rangeButtons = form.querySelectorAll('.range-chip');
