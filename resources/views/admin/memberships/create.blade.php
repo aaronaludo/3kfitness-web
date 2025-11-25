@@ -96,15 +96,106 @@
             </div>
         </div>
     </div>
-    
+    <div class="modal fade" id="formConfirmModal" tabindex="-1" aria-labelledby="formConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-semibold" id="formConfirmModalLabel">Create membership?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Review the summary before creating this plan.</p>
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Name</span>
+                            <span class="fw-semibold" id="confirmName">—</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Price</span>
+                            <span class="fw-semibold" id="confirmPrice">—</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Month(s)</span>
+                            <span class="fw-semibold" id="confirmMonth">—</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Classes / Month</span>
+                            <span class="fw-semibold" id="confirmClassLimit">—</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Review again</button>
+                    <button type="button" class="btn btn-danger" id="confirmActionButton">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="confirmActionLoader" role="status" aria-hidden="true"></span>
+                        Yes, create it
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
-        document.getElementById('main-form').addEventListener('submit', function(e) {
-            const submitButton = document.getElementById('submitButton');
-            const loader = document.getElementById('loader');
+        const form = document.getElementById('main-form');
+        const submitButton = document.getElementById('submitButton');
+        const loader = document.getElementById('loader');
+        const nameInput = document.getElementById('name');
+        const priceInput = document.getElementById('price');
+        const monthInput = document.getElementById('month');
+        const classLimitInput = document.getElementById('class_limit_per_month');
+        const confirmName = document.getElementById('confirmName');
+        const confirmPrice = document.getElementById('confirmPrice');
+        const confirmMonth = document.getElementById('confirmMonth');
+        const confirmClassLimit = document.getElementById('confirmClassLimit');
+        const confirmModalEl = document.getElementById('formConfirmModal');
+        const confirmModal = confirmModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(confirmModalEl) : null;
+        const confirmActionButton = document.getElementById('confirmActionButton');
+        const confirmActionLoader = document.getElementById('confirmActionLoader');
+        let allowSubmit = false;
 
-            // Disable the button and show loader
+        const formatCurrency = (value) => {
+            if (!value) return '—';
+            const num = Number(value);
+            if (Number.isNaN(num)) return value;
+            return `₱${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        };
+
+        const populateConfirmation = () => {
+            confirmName.textContent = nameInput?.value?.trim() || '—';
+            confirmPrice.textContent = formatCurrency(priceInput?.value);
+            confirmMonth.textContent = monthInput?.value !== '' && monthInput?.value !== null ? monthInput.value : '0';
+            const classLimit = classLimitInput?.value?.trim();
+            confirmClassLimit.textContent = classLimit === '' ? 'Unlimited' : classLimit;
+        };
+
+        form?.addEventListener('submit', function(e) {
+            if (!form.checkValidity()) {
+                return;
+            }
+            if (!allowSubmit) {
+                e.preventDefault();
+                populateConfirmation();
+                if (confirmModal) {
+                    confirmModal.show();
+                } else {
+                    allowSubmit = true;
+                    submitButton.disabled = true;
+                    loader.classList.remove('d-none');
+                    form.submit();
+                }
+            } else {
+                submitButton.disabled = true;
+                loader.classList.remove('d-none');
+            }
+        });
+
+        confirmActionButton?.addEventListener('click', function () {
+            allowSubmit = true;
             submitButton.disabled = true;
+            confirmActionButton.disabled = true;
+            confirmActionLoader.classList.remove('d-none');
             loader.classList.remove('d-none');
+            confirmModal?.hide();
+            form.submit();
         });
     </script>
 @endsection

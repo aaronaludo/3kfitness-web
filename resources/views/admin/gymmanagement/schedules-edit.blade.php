@@ -133,7 +133,48 @@
             </div>
         </div>
     </div>
-    
+    <div class="modal fade" id="formConfirmModal" tabindex="-1" aria-labelledby="formConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <h5 class="modal-title fw-semibold" id="formConfirmModalLabel">Update class?</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted mb-3">Review the summary before saving your changes.</p>
+                    <div class="list-group list-group-flush">
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Name</span>
+                            <span class="fw-semibold" id="confirmName">—</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Trainer</span>
+                            <span class="fw-semibold" id="confirmTrainer">—</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Slots</span>
+                            <span class="fw-semibold" id="confirmSlots">—</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Start</span>
+                            <span class="fw-semibold" id="confirmStart">—</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">End</span>
+                            <span class="fw-semibold" id="confirmEnd">—</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer border-0">
+                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Review again</button>
+                    <button type="button" class="btn btn-danger" id="confirmActionButton">
+                        <span class="spinner-border spinner-border-sm me-2 d-none" id="confirmActionLoader" role="status" aria-hidden="true"></span>
+                        Yes, save changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
     <script>
         const form = document.getElementById('main-form');
         const submitButton = document.getElementById('submitButton');
@@ -142,6 +183,18 @@
         const endInput = document.getElementById('class_end_date');
         const trainerSelect = document.getElementById('trainer_id');
         const rateInput = document.getElementById('trainer_rate_per_hour');
+        const nameInput = document.getElementById('name');
+        const slotsInput = document.getElementById('slots');
+        const confirmName = document.getElementById('confirmName');
+        const confirmTrainer = document.getElementById('confirmTrainer');
+        const confirmSlots = document.getElementById('confirmSlots');
+        const confirmStart = document.getElementById('confirmStart');
+        const confirmEnd = document.getElementById('confirmEnd');
+        const confirmModalEl = document.getElementById('formConfirmModal');
+        const confirmModal = confirmModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(confirmModalEl) : null;
+        const confirmActionButton = document.getElementById('confirmActionButton');
+        const confirmActionLoader = document.getElementById('confirmActionLoader');
+        let allowSubmit = false;
 
         const toLocalIsoString = (date) => {
             return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
@@ -176,6 +229,20 @@
         trainerSelect?.addEventListener('change', toggleRateInput);
         toggleRateInput();
 
+        const formatDateTime = (value) => {
+            if (!value) return '—';
+            const parsed = new Date(value);
+            return isNaN(parsed.getTime()) ? value : parsed.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' });
+        };
+
+        const populateConfirmation = () => {
+            confirmName.textContent = nameInput?.value?.trim() || '—';
+            confirmTrainer.textContent = trainerSelect?.options[trainerSelect.selectedIndex]?.text || '—';
+            confirmSlots.textContent = slotsInput?.value || '—';
+            confirmStart.textContent = formatDateTime(startInput?.value);
+            confirmEnd.textContent = formatDateTime(endInput?.value);
+        };
+
         form.addEventListener('submit', function(e) {
             const errors = [];
             const now = new Date();
@@ -200,8 +267,31 @@
                 return;
             }
 
+            if (!allowSubmit) {
+                e.preventDefault();
+                populateConfirmation();
+                if (confirmModal) {
+                    confirmModal.show();
+                } else {
+                    allowSubmit = true;
+                    submitButton.disabled = true;
+                    loader.classList.remove('d-none');
+                    form.submit();
+                }
+            } else {
+                submitButton.disabled = true;
+                loader.classList.remove('d-none');
+            }
+        });
+
+        confirmActionButton?.addEventListener('click', function () {
+            allowSubmit = true;
             submitButton.disabled = true;
+            confirmActionButton.disabled = true;
+            confirmActionLoader.classList.remove('d-none');
             loader.classList.remove('d-none');
+            confirmModal?.hide();
+            form.submit();
         });
     </script>
 @endsection
