@@ -110,6 +110,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('/classes', [MemberClassController::class, 'index'])->name('members.classes');
         Route::post('/join-class', [MemberClassController::class, 'joinclass'])->name('members.join-class');
         Route::post('/leave-class', [MemberClassController::class, 'leaveclass'])->name('members.leave-class');
+        Route::get('/enrollments/history', [MemberClassController::class, 'enrollmentHistory'])->name('members.enrollments.history');
 
         Route::post('/edit-profile', [MemberAccountController::class, 'editProfile'])->name('members.edit-profile');
         Route::post('/change-password', [MemberAccountController::class, 'changePassword'])->name('members.change-password');

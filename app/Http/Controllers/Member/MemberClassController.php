@@ -148,6 +148,63 @@ class MemberClassController extends Controller
         return response()->json(['message' => 'Leave Class successfully.']);
     }
 
+    public function enrollmentHistory(Request $request)
+    {
+        $user = $request->user();
+        $now = Carbon::now();
+
+        $enrollments = UserSchedule::with(['schedule.user'])
+            ->where('user_id', $user->id)
+            ->whereHas('schedule', function ($query) use ($now) {
+                $query->whereNotNull('class_end_date')
+                    ->where('class_end_date', '<', $now);
+            })
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($enrollment) use ($now) {
+                $schedule = $enrollment->schedule;
+
+                if (!$schedule) {
+                    return null;
+                }
+
+                $start = $schedule->class_start_date ? Carbon::parse($schedule->class_start_date) : null;
+                $end = $schedule->class_end_date ? Carbon::parse($schedule->class_end_date) : null;
+
+                $status = 'upcoming';
+
+                if ($end && $now->gt($end)) {
+                    $status = 'completed';
+                } elseif ($start && $now->gte($start)) {
+                    $status = 'active';
+                }
+
+                $trainerName = 'Not assigned';
+
+                if ((int) $schedule->trainer_id === 0) {
+                    $trainerName = 'No trainer assigned yet';
+                } elseif ($schedule->user) {
+                    $trainerName = trim(collect([$schedule->user->first_name, $schedule->user->last_name])->filter()->implode(' '));
+                }
+
+                return [
+                    'id' => $enrollment->id,
+                    'schedule_id' => $schedule->id,
+                    'class_name' => $schedule->name,
+                    'class_code' => $schedule->class_code,
+                    'trainer_name' => $trainerName,
+                    'class_start_date' => $start ? $start->toIso8601String() : null,
+                    'class_end_date' => $end ? $end->toIso8601String() : null,
+                    'joined_at' => $enrollment->created_at ? $enrollment->created_at->toIso8601String() : null,
+                    'status' => $status,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        return response()->json(['data' => $enrollments]);
+    }
+
     protected function transformSchedule(Schedule $schedule, string $type, bool $isJoined, Carbon $now): array
     {
         $startDate = $schedule->class_start_date ? Carbon::parse($schedule->class_start_date) : null;

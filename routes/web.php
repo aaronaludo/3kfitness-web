@@ -30,6 +30,7 @@ use App\Http\Controllers\Admin\New\GoalController as Goal;
 use App\Http\Controllers\Admin\New\PopularWorkoutController as PopularWorkout;
 use App\Http\Controllers\Admin\New\PayrollController as Payroll;
 use App\Http\Controllers\Admin\New\GymManagementController as GymManagement;
+use App\Http\Controllers\Admin\New\ClassEnrollmentHistoryController as ClassEnrollmentHistory;
 
 use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagement;
 // use App\Http\Controllers\Admin\New\WalkInPaymentController as WalkInPayments;
@@ -102,6 +103,8 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::match(['put', 'post'], '/admin/classes/restore', [Schedule::class, 'restore'])->name('admin.gym-management.schedules.restore');
     Route::put('/admin/admin-acceptance-classes', [Schedule::class, 'adminacceptance'])->name('admin.gym-management.schedules.adminacceptance');
     Route::post('/admin/reject-message-classes', [Schedule::class, 'rejectmessage'])->name('admin.gym-management.schedules.rejectmessage');
+
+    Route::get('/admin/history/class-enrollments', [ClassEnrollmentHistory::class, 'index'])->name('admin.history.class-enrollments');
     
     Route::get('/admin/members', [MemberData::class, 'index'])->name('admin.gym-management.members');
     Route::get('/admin/members/create', [MemberData::class, 'create'])->name('admin.gym-management.members.create');

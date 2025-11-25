@@ -158,6 +158,7 @@
                         Request::route()->getName() === 'admin.gym-management.index' || 
                         Request::route()->getName() === 'admin.gym-management.schedules' || 
                         Request::route()->getName() === 'admin.gym-management.members' || 
+                        Request::route()->getName() === 'admin.history.class-enrollments' || 
                         Request::route()->getName() === 'admin.staff-account-management.memberships' || 
                         Request::route()->getName() === 'admin.staff-account-management.membership-payments'
                         ? 'active' : '' 
@@ -168,6 +169,7 @@
                         Request::route()->getName() === 'admin.gym-management.index' || 
                         Request::route()->getName() === 'admin.gym-management.schedules' || 
                         Request::route()->getName() === 'admin.gym-management.members' || 
+                        Request::route()->getName() === 'admin.history.class-enrollments' || 
                         Request::route()->getName() === 'admin.staff-account-management.memberships' || 
                         Request::route()->getName() === 'admin.staff-account-management.membership-payments'
                         ? 'true' : 'false' 
@@ -179,6 +181,7 @@
                     <ul id="gym-management-menu" class="collapse {{ 
                         Request::route()->getName() === 'admin.gym-management.schedules' || 
                         Request::route()->getName() === 'admin.gym-management.members' || 
+                        Request::route()->getName() === 'admin.history.class-enrollments' || 
                         Request::route()->getName() === 'admin.staff-account-management.memberships' || 
                         Request::route()->getName() === 'admin.staff-account-management.membership-payments'
                         ? 'show' : '' 
@@ -205,6 +208,12 @@
                             <a href="{{ route('admin.staff-account-management.membership-payments') }}" 
                                class="{{ Request::route()->getName() === 'admin.staff-account-management.membership-payments' ? 'active' : '' }}">
                                Membership Payments
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.history.class-enrollments') }}" 
+                               class="{{ Request::route()->getName() === 'admin.history.class-enrollments' ? 'active' : '' }}">
+                               Enrollment History
                             </a>
                         </li>
                     </ul>
