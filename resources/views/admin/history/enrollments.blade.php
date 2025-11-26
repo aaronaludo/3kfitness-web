@@ -203,9 +203,11 @@
                     </div>
                     <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
                         <div class="text-muted small">
-                            Showing {{ $enrollments->count() }} of {{ $enrollments->total() }} enrollments
+                            Showing {{ $enrollments->firstItem() ?? 0 }} to {{ $enrollments->lastItem() ?? 0 }} of {{ $enrollments->total() }} enrollments
                         </div>
-                        {{ $enrollments->links() }}
+                        <div class="ms-auto">
+                            {{ $enrollments->links('pagination::bootstrap-5') }}
+                        </div>
                     </div>
                 </div>
             </div>

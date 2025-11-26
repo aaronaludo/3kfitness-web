@@ -158,7 +158,6 @@
                         Request::route()->getName() === 'admin.gym-management.index' || 
                         Request::route()->getName() === 'admin.gym-management.schedules' || 
                         Request::route()->getName() === 'admin.gym-management.members' || 
-                        Request::route()->getName() === 'admin.history.class-enrollments' || 
                         Request::route()->getName() === 'admin.staff-account-management.memberships' || 
                         Request::route()->getName() === 'admin.staff-account-management.membership-payments'
                         ? 'active' : '' 
@@ -169,7 +168,6 @@
                         Request::route()->getName() === 'admin.gym-management.index' || 
                         Request::route()->getName() === 'admin.gym-management.schedules' || 
                         Request::route()->getName() === 'admin.gym-management.members' || 
-                        Request::route()->getName() === 'admin.history.class-enrollments' || 
                         Request::route()->getName() === 'admin.staff-account-management.memberships' || 
                         Request::route()->getName() === 'admin.staff-account-management.membership-payments'
                         ? 'true' : 'false' 
@@ -181,7 +179,6 @@
                     <ul id="gym-management-menu" class="collapse {{ 
                         Request::route()->getName() === 'admin.gym-management.schedules' || 
                         Request::route()->getName() === 'admin.gym-management.members' || 
-                        Request::route()->getName() === 'admin.history.class-enrollments' || 
                         Request::route()->getName() === 'admin.staff-account-management.memberships' || 
                         Request::route()->getName() === 'admin.staff-account-management.membership-payments'
                         ? 'show' : '' 
@@ -210,14 +207,35 @@
                                Membership Payments
                             </a>
                         </li>
+                    </ul>
+                </li>                
+                @php
+                    $historyRoutes = ['admin.history.class-enrollments', 'admin.history.memberships'];
+                @endphp
+                <li>
+                    <a class="collapsed {{ in_array(Request::route()->getName(), $historyRoutes) ? 'active' : '' }}"
+                       data-bs-toggle="collapse"
+                       href="#history-menu"
+                       role="button"
+                       aria-expanded="{{ in_array(Request::route()->getName(), $historyRoutes) ? 'true' : 'false' }}"
+                       aria-controls="history-menu">
+                        <i class="fa-solid fa-clock-rotate-left"></i> History
+                    </a>
+                    <ul id="history-menu" class="collapse {{ in_array(Request::route()->getName(), $historyRoutes) ? 'show' : '' }}">
                         <li>
-                            <a href="{{ route('admin.history.class-enrollments') }}" 
+                            <a href="{{ route('admin.history.class-enrollments') }}"
                                class="{{ Request::route()->getName() === 'admin.history.class-enrollments' ? 'active' : '' }}">
                                Enrollment History
                             </a>
                         </li>
+                        <li>
+                            <a href="{{ route('admin.history.memberships') }}"
+                               class="{{ Request::route()->getName() === 'admin.history.memberships' ? 'active' : '' }}">
+                               Membership History
+                            </a>
+                        </li>
                     </ul>
-                </li>                
+                </li>
                 <li>
                     <a class="collapsed {{ 
                         in_array(Request::route()->getName(), [
