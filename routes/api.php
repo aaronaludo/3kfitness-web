@@ -104,6 +104,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     
     Route::prefix('members')->group(function () {
         Route::get('/memberships', [MemberMembershipController::class, 'index'])->name('members.membership.index');
+        Route::get('/memberships/history', [MemberMembershipController::class, 'history'])->name('members.membership.history');
         Route::post('/memberships/checkout', [MemberMembershipController::class, 'checkout'])->name('members.membership.checkout');
         Route::get('/logout', [MemberAuthController::class, 'logout'])->name('members.logout');
         

@@ -202,7 +202,18 @@ class MemberClassController extends Controller
             ->filter()
             ->values();
 
-        return response()->json(['data' => $enrollments]);
+        $statusCounts = [
+            'total'     => $enrollments->count(),
+            'completed' => $enrollments->where('status', 'completed')->count(),
+            'active'    => $enrollments->where('status', 'active')->count(),
+            'upcoming'  => $enrollments->where('status', 'upcoming')->count(),
+            'unknown'   => $enrollments->where('status', 'unknown')->count(),
+        ];
+
+        return response()->json([
+            'data'   => $enrollments,
+            'counts' => $statusCounts,
+        ]);
     }
 
     protected function transformSchedule(Schedule $schedule, string $type, bool $isJoined, Carbon $now): array

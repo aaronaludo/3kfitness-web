@@ -169,6 +169,68 @@ class MemberMembershipController extends Controller
         ]);
     }
 
+    public function history(Request $request)
+    {
+        $user = $request->user();
+
+        if (!$user) {
+            return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        $payments = MembershipPayment::with('membership')
+            ->where('user_id', $user->id)
+            ->when(
+                Schema::hasColumn('membership_payments', 'is_archive'),
+                fn ($query) => $query->where('is_archive', 0)
+            )
+            ->orderByDesc('created_at')
+            ->get()
+            ->map(function ($payment) {
+                $membership = $payment->membership;
+                $expiresAt = $payment->expiration_at ? Carbon::parse($payment->expiration_at) : null;
+
+                $status = match ((int) $payment->isapproved) {
+                    1       => 'approved',
+                    2       => 'rejected',
+                    default => 'pending',
+                };
+
+                return [
+                    'id'           => $payment->id,
+                    'status'       => $status,
+                    'status_code'  => (int) $payment->isapproved,
+                    'purchased_at' => optional($payment->created_at)->toIso8601String(),
+                    'expires_at'   => $expiresAt ? $expiresAt->toIso8601String() : null,
+                    'membership'   => $membership ? [
+                        'id'                    => $membership->id,
+                        'name'                  => $membership->name,
+                        'currency'              => $membership->currency ?? 'PHP',
+                        'description'           => $membership->description,
+                        'price'                 => $membership->price,
+                        'year'                  => $membership->year,
+                        'month'                 => $membership->month,
+                        'week'                  => $membership->week,
+                        'class_limit_per_month' => $membership->class_limit_per_month,
+                    ] : null,
+                ];
+            })
+            ->filter()
+            ->values();
+
+        $statusCounts = [
+            'total'    => $payments->count(),
+            'approved' => $payments->where('status', 'approved')->count(),
+            'pending'  => $payments->where('status', 'pending')->count(),
+            'rejected' => $payments->where('status', 'rejected')->count(),
+            'unknown'  => $payments->where('status', 'unknown')->count(),
+        ];
+
+        return response()->json([
+            'data'   => $payments,
+            'counts' => $statusCounts,
+        ]);
+    }
+
     protected function calculateExpiration(Membership $membership): ?Carbon
     {
         $expiry = Carbon::now();
