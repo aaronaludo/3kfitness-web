@@ -210,7 +210,7 @@
                     </ul>
                 </li>                
                 @php
-                    $historyRoutes = ['admin.history.class-enrollments', 'admin.history.trainer-classes', 'admin.history.memberships'];
+                    $historyRoutes = ['admin.history.class-enrollments', 'admin.history.attendances', 'admin.history.classes', 'admin.history.payments', 'admin.history.trainer-classes', 'admin.history.memberships'];
                 @endphp
                 <li>
                     <a class="collapsed {{ in_array(Request::route()->getName(), $historyRoutes) ? 'active' : '' }}"
@@ -226,6 +226,24 @@
                             <a href="{{ route('admin.history.class-enrollments') }}"
                                class="{{ Request::route()->getName() === 'admin.history.class-enrollments' ? 'active' : '' }}">
                                Enrollment History
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.history.attendances') }}"
+                               class="{{ Request::route()->getName() === 'admin.history.attendances' ? 'active' : '' }}">
+                               Attendances History
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.history.classes') }}"
+                               class="{{ Request::route()->getName() === 'admin.history.classes' ? 'active' : '' }}">
+                               Classes History
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.history.payments') }}"
+                               class="{{ Request::route()->getName() === 'admin.history.payments' ? 'active' : '' }}">
+                               Payments History
                             </a>
                         </li>
                         <li>

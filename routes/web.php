@@ -31,6 +31,9 @@ use App\Http\Controllers\Admin\New\PopularWorkoutController as PopularWorkout;
 use App\Http\Controllers\Admin\New\PayrollController as Payroll;
 use App\Http\Controllers\Admin\New\GymManagementController as GymManagement;
 use App\Http\Controllers\Admin\New\ClassEnrollmentHistoryController as ClassEnrollmentHistory;
+use App\Http\Controllers\Admin\New\AttendanceHistoryController as AttendanceHistory;
+use App\Http\Controllers\Admin\New\ClassHistoryController as ClassHistory;
+use App\Http\Controllers\Admin\New\PaymentHistoryController as PaymentHistory;
 use App\Http\Controllers\Admin\New\MembershipHistoryController as MembershipHistory;
 use App\Http\Controllers\Admin\New\TrainerClassHistoryController as TrainerClassHistory;
 
@@ -107,6 +110,9 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/reject-message-classes', [Schedule::class, 'rejectmessage'])->name('admin.gym-management.schedules.rejectmessage');
 
     Route::get('/admin/history/class-enrollments', [ClassEnrollmentHistory::class, 'index'])->name('admin.history.class-enrollments');
+    Route::get('/admin/history/attendances', [AttendanceHistory::class, 'index'])->name('admin.history.attendances');
+    Route::get('/admin/history/classes', [ClassHistory::class, 'index'])->name('admin.history.classes');
+    Route::get('/admin/history/payments', [PaymentHistory::class, 'index'])->name('admin.history.payments');
     Route::get('/admin/history/memberships', [MembershipHistory::class, 'index'])->name('admin.history.memberships');
     Route::get('/admin/history/trainer-classes', [TrainerClassHistory::class, 'index'])->name('admin.history.trainer-classes');
     
