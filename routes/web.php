@@ -32,6 +32,7 @@ use App\Http\Controllers\Admin\New\PayrollController as Payroll;
 use App\Http\Controllers\Admin\New\GymManagementController as GymManagement;
 use App\Http\Controllers\Admin\New\ClassEnrollmentHistoryController as ClassEnrollmentHistory;
 use App\Http\Controllers\Admin\New\MembershipHistoryController as MembershipHistory;
+use App\Http\Controllers\Admin\New\TrainerClassHistoryController as TrainerClassHistory;
 
 use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagement;
 // use App\Http\Controllers\Admin\New\WalkInPaymentController as WalkInPayments;
@@ -107,6 +108,7 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/admin/history/class-enrollments', [ClassEnrollmentHistory::class, 'index'])->name('admin.history.class-enrollments');
     Route::get('/admin/history/memberships', [MembershipHistory::class, 'index'])->name('admin.history.memberships');
+    Route::get('/admin/history/trainer-classes', [TrainerClassHistory::class, 'index'])->name('admin.history.trainer-classes');
     
     Route::get('/admin/members', [MemberData::class, 'index'])->name('admin.gym-management.members');
     Route::get('/admin/members/create', [MemberData::class, 'create'])->name('admin.gym-management.members.create');
