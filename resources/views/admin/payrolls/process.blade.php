@@ -76,6 +76,16 @@
             </div>
 
             <div class="col-12 mb-3">
+                @if(session('success'))
+                    <div class="alert alert-success rounded-4 shadow-sm border-0">
+                        {{ session('success') }}
+                    </div>
+                @endif
+                @if(session('error'))
+                    <div class="alert alert-danger rounded-4 shadow-sm border-0">
+                        {{ session('error') }}
+                    </div>
+                @endif
                 <div class="row g-3">
                     <div class="col-12 col-md-3">
                         <div class="card border-0 shadow-sm rounded-4 h-100">
@@ -161,20 +171,47 @@
                                     <div class="text-start">
                                         <div class="text-muted small text-uppercase">Hours</div>
                                         <div class="fw-bold fs-5">{{ number_format($summary['total_hours'], 2) }}</div>
+                                        @if(!empty($summary['processed_run']))
+                                            <div class="text-muted small">Processed: {{ number_format($summary['processed_run']->total_hours, 2) }} hrs</div>
+                                        @endif
                                     </div>
                                     <div class="text-start">
                                         <div class="text-muted small text-uppercase">Gross</div>
                                         <div class="fw-bold fs-5">₱{{ number_format($summary['gross_pay'], 2) }}</div>
+                                        @if(!empty($summary['processed_run']))
+                                            <div class="text-muted small">Processed: ₱{{ number_format($summary['processed_run']->gross_pay, 2) }}</div>
+                                        @endif
                                     </div>
                                     <div class="text-start">
                                         <div class="text-muted small text-uppercase">Net</div>
                                         <div class="fw-bold fs-5 text-success" data-net>₱{{ number_format($summary['net_pay'], 2) }}</div>
+                                        @if(!empty($summary['processed_run']))
+                                            <div class="text-muted small">Processed: ₱{{ number_format($summary['processed_run']->net_pay, 2) }}</div>
+                                        @endif
                                     </div>
                                     <div>
-                                        <span class="badge {{ $summary['pending_entries'] ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
-                                            {{ $summary['pending_entries'] ? $summary['pending_entries'] . ' pending entries' : 'Ready to finalize' }}
-                                        </span>
+                                        @if(!empty($summary['processed_run']))
+                                            <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
+                                        @else
+                                            <span class="badge {{ $summary['pending_entries'] ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
+                                                {{ $summary['pending_entries'] ? $summary['pending_entries'] . ' pending entries' : 'Ready to finalize' }}
+                                            </span>
+                                        @endif
                                     </div>
+                                    <form action="{{ route('admin.payrolls.process-staff') }}" method="POST" class="d-inline">
+                                        @csrf
+                                        <input type="hidden" name="staff_id" value="{{ $staff->id }}">
+                                        <input type="hidden" name="month" value="{{ $month }}">
+                                        <button
+                                            type="submit"
+                                            class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2"
+                                            {{ $summary['pending_entries'] || !empty($summary['processed_run']) ? 'disabled' : '' }}
+                                            title="{{ $summary['pending_entries'] ? 'Clock-out pending entries before processing' : (!empty($summary['processed_run']) ? 'Already processed for this period' : 'Process and save payroll') }}"
+                                        >
+                                            <i class="fa-solid fa-circle-check"></i>
+                                            {{ !empty($summary['processed_run']) ? 'Processed' : 'Process payroll' }}
+                                        </button>
+                                    </form>
                                     @php
                                         $printEntries = $summary['entries']->map(function ($entry) {
                                             return [
@@ -200,14 +237,16 @@
 
                                         $payslipJson = json_encode($payslipData);
                                     @endphp
-                                    <button
-                                        type="button"
-                                        class="btn btn-danger rounded-pill px-3 d-flex align-items-center gap-2 payslip-btn"
-                                        data-payslip='{{ $payslipJson }}'
-                                    >
-                                        <i class="fa-solid fa-file-pdf"></i>
-                                        Print payslip
-                                    </button>
+                                    @if(empty($summary['processed_run']))
+                                        <button
+                                            type="button"
+                                            class="btn btn-danger rounded-pill px-3 d-flex align-items-center gap-2 payslip-btn"
+                                            data-payslip='{{ $payslipJson }}'
+                                        >
+                                            <i class="fa-solid fa-file-pdf"></i>
+                                            Print payslip
+                                        </button>
+                                    @endif
                                     <button
                                         class="btn btn-outline-primary rounded-pill px-3"
                                         type="button"

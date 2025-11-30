@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\New;
 use App\Http\Controllers\Controller;
 use App\Models\Membership;
 use App\Models\MembershipPayment;
+use App\Models\PayrollRun;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -105,6 +106,11 @@ class PaymentHistoryController extends Controller
         ];
 
         $membershipOptions = Membership::orderBy('name')->get(['id', 'name', 'price', 'month']);
+        $payrollRuns = PayrollRun::with('user')
+            ->orderByDesc('processed_at')
+            ->orderByDesc('created_at')
+            ->limit(10)
+            ->get();
 
         return view('admin.history.payments', [
             'payments'          => $payments,
@@ -112,6 +118,7 @@ class PaymentHistoryController extends Controller
             'filters'           => $filters,
             'stats'             => $stats,
             'statusTallies'     => $statusTallies,
+            'payrollRuns'       => $payrollRuns,
         ]);
     }
 }

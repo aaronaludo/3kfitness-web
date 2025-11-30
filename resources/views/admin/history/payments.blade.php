@@ -263,6 +263,56 @@
                     </div>
                 </div>
             </div>
+
+            @if(isset($payrollRuns) && $payrollRuns->isNotEmpty())
+                <div class="col-12 mt-4">
+                    <div class="card shadow-sm border-0 rounded-4">
+                        <div class="card-body p-4">
+                            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+                                <div>
+                                    <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Staff Payrolls</span>
+                                    <h4 class="fw-semibold mb-1">Processed payroll runs</h4>
+                                    <p class="text-muted mb-0">Recent payrolls saved per staff and period.</p>
+                                </div>
+                                <div class="text-end">
+                                    <span class="d-block text-muted small">Showing {{ $payrollRuns->count() }} recent runs</span>
+                                </div>
+                            </div>
+                            <div class="table-responsive">
+                                <table class="table table-hover align-middle mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Staff</th>
+                                            <th>Period</th>
+                                            <th>Hours</th>
+                                            <th>Gross</th>
+                                            <th>Net</th>
+                                            <th>Processed</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach($payrollRuns as $run)
+                                            @php
+                                                $staff = $run->user;
+                                                $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
+                                                $processedAt = $run->processed_at ? $run->processed_at->format('M d, Y g:i A') : ($run->created_at ? $run->created_at->format('M d, Y g:i A') : '—');
+                                            @endphp
+                                            <tr>
+                                                <td>{{ $name }}</td>
+                                                <td>{{ $run->period_month }}</td>
+                                                <td>{{ number_format($run->total_hours, 2) }} hrs</td>
+                                                <td>₱{{ number_format($run->gross_pay, 2) }}</td>
+                                                <td class="text-success fw-semibold">₱{{ number_format($run->net_pay, 2) }}</td>
+                                                <td>{{ $processedAt }}</td>
+                                            </tr>
+                                        @endforeach
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 @endsection

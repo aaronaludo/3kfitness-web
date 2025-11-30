@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\MembershipPayment;
 use App\Models\Membership;
 use App\Models\User;
+use App\Models\PayrollRun;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
@@ -69,7 +70,12 @@ class MembershipPaymentController extends Controller
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
 
-        return view('admin.membership-payments.index', compact('data', 'archivedData', 'statusTallies'));
+        $payrollHistory = PayrollRun::with('user')
+            ->latest('processed_at')
+            ->limit(10)
+            ->get();
+
+        return view('admin.membership-payments.index', compact('data', 'archivedData', 'statusTallies', 'payrollHistory'));
     }
 
     public function view($id)
