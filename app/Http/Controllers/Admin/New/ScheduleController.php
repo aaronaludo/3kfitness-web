@@ -264,13 +264,24 @@ class ScheduleController extends Controller
         $request->validate([
             'name' => 'required',
             'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
-            // 'isenabled' => 'required',
             'slots' => 'required|integer|min:1',
             'class_start_date' => 'required|date',
             'class_end_date' => 'required|date|after:class_start_date',
+            'series_start_date' => 'required|date',
+            'series_end_date' => 'required|date|after_or_equal:series_start_date',
+            'class_start_time' => 'required|date_format:H:i',
+            'class_end_time' => 'required|date_format:H:i|after:class_start_time',
+            'recurring_days' => 'required',
             'trainer_id' => 'required',
             'trainer_rate_per_hour' => 'nullable|numeric|min:0',
         ]);
+
+        $recurringDays = $this->sanitizeRecurringDays($request->input('recurring_days'));
+        if (empty($recurringDays)) {
+            return back()
+                ->withErrors(['recurring_days' => 'Please choose at least one recurring day.'])
+                ->withInput();
+        }
         
         $startRange = Carbon::parse($request->class_start_date)->subHour();
         $endRange = Carbon::parse($request->class_end_date)->addHour();
@@ -314,6 +325,11 @@ class ScheduleController extends Controller
         $data->slots = $request->slots;
         $data->class_start_date = $request->class_start_date;
         $data->class_end_date = $request->class_end_date;
+        $data->series_start_date = $request->series_start_date;
+        $data->series_end_date = $request->series_end_date;
+        $data->class_start_time = $request->class_start_time;
+        $data->class_end_time = $request->class_end_time;
+        $data->recurring_days = json_encode($recurringDays);
         $data->isenabled = 1;
         $data->trainer_id = $request->trainer_id;
         $data->trainer_rate_per_hour = $trainerRate;
@@ -351,14 +367,25 @@ class ScheduleController extends Controller
         $request->validate([
             'name' => 'required',
             'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            // 'isenabled' => 'required',
             'slots' => 'required|integer|min:1',
-            'class_start_date' => 'required',
-            'class_end_date' => 'required',
+            'class_start_date' => 'required|date',
+            'class_end_date' => 'required|date|after:class_start_date',
+            'series_start_date' => 'required|date',
+            'series_end_date' => 'required|date|after_or_equal:series_start_date',
+            'class_start_time' => 'required|date_format:H:i',
+            'class_end_time' => 'required|date_format:H:i|after:class_start_time',
+            'recurring_days' => 'required',
             'trainer_id' => 'required',
             'class_code' => 'required',
             'trainer_rate_per_hour' => 'nullable|numeric|min:0',
         ]);
+
+        $recurringDays = $this->sanitizeRecurringDays($request->input('recurring_days'));
+        if (empty($recurringDays)) {
+            return back()
+                ->withErrors(['recurring_days' => 'Please choose at least one recurring day.'])
+                ->withInput();
+        }
 
         $startRange = Carbon::parse($request->class_start_date)->subHour();
         $endRange = Carbon::parse($request->class_end_date)->addHour();
@@ -393,6 +420,11 @@ class ScheduleController extends Controller
         $data->slots = $request->slots;
         $data->class_start_date = $request->class_start_date;
         $data->class_end_date = $request->class_end_date;
+        $data->series_start_date = $request->series_start_date;
+        $data->series_end_date = $request->series_end_date;
+        $data->class_start_time = $request->class_start_time;
+        $data->class_end_time = $request->class_end_time;
+        $data->recurring_days = json_encode($recurringDays);
         $data->isenabled = 1;
         $data->trainer_id = $request->trainer_id;
         $data->class_code = $request->class_code;
@@ -538,6 +570,27 @@ class ScheduleController extends Controller
         $data->save();
 
         return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule changed successfully');
+    }
+
+    /**
+     * Normalize recurring_days payload into an array of weekday keys.
+     */
+    private function sanitizeRecurringDays($raw): array
+    {
+        $daysMeta = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = json_last_error() === JSON_ERROR_NONE ? $decoded : $raw;
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $filtered = array_values(array_intersect($daysMeta, $raw));
+
+        return array_values(array_unique($filtered));
     }
     
     // public function print(Request $request)
