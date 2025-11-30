@@ -73,6 +73,7 @@ use App\Http\Controllers\Member\MemberClassController;
 use App\Http\Controllers\Trainer\TrainerAuthController;
 use App\Http\Controllers\Trainer\TrainerAccountController;
 use App\Http\Controllers\Trainer\TrainerClassController;
+use App\Http\Controllers\Trainer\TrainerPayrollController;
 
 use App\Http\Controllers\Mobile\BannerController;
 use App\Http\Controllers\Mobile\AttendanceController;
@@ -131,6 +132,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('/trainer-approve-class', [TrainerClassController::class, 'trainerapproveclass'])->name('trainers.trainer-approve-class');
         Route::post('/trainer-reject-class', [TrainerClassController::class, 'trainerrejectclass'])->name('trainers.trainer-reject-class');
         Route::post('/classes/{classId}/quit', [TrainerClassController::class, 'quitClass'])->name('trainers.classes.quit');
+        Route::get('/payroll-runs', [TrainerPayrollController::class, 'index'])->name('trainers.payroll-runs');
          
         Route::post('/edit-profile', [TrainerAccountController::class, 'editProfile'])->name('trainers.edit-profile');
         Route::post('/change-password', [TrainerAccountController::class, 'changePassword'])->name('trainers.change-password');

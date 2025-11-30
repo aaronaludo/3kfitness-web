@@ -144,13 +144,20 @@ class PayrollController extends Controller
             'projected_net' => $summaries->sum(fn ($summary) => $summary['net_pay']),
         ];
 
-        $trainerAssignments = User::where('role_id', 5)
+        $trainers = User::where('role_id', 5)
             ->where('is_archive', 0)
             ->with(['trainerSchedules.user_schedules.user'])
+            ->get();
+
+        $trainerProcessedRuns = PayrollRun::whereIn('user_id', $trainers->pluck('id'))
+            ->where('period_month', $month)
             ->get()
-            ->map(function ($trainer) use ($targetMonth) {
+            ->keyBy('user_id');
+
+        $trainerAssignments = $trainers
+            ->map(function ($trainer) use ($startOfMonth, $endOfMonth, $trainerProcessedRuns) {
                 $now = Carbon::now();
-                $scheduleDetails = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now) {
+                $scheduleDetails = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth) {
                     $start = !empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date) : null;
                     $end = !empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date) : null;
 
@@ -190,6 +197,14 @@ class PayrollController extends Controller
                     }
 
                     $category = $isPast ? 'past' : 'future';
+                    $inMonth = false;
+                    if ($start && $end) {
+                        $inMonth = $start->lte($endOfMonth) && $end->gte($startOfMonth);
+                    } elseif ($start) {
+                        $inMonth = $start->between($startOfMonth, $endOfMonth, true);
+                    } elseif ($end) {
+                        $inMonth = $end->between($startOfMonth, $endOfMonth, true);
+                    }
 
                     return [
                         'schedule' => $schedule,
@@ -203,13 +218,14 @@ class PayrollController extends Controller
                         'salary_eligible' => $isSalaryEligible,
                         'students' => $students,
                         'category' => $category,
+                        'in_month' => $inMonth,
                     ];
                 });
 
-                $futureDetails = $scheduleDetails->where('category', 'future');
-                $pastDetails = $scheduleDetails->where('category', 'past');
+                $futureDetails = $scheduleDetails->where('category', 'future')->where('in_month', true);
+                $pastDetails = $scheduleDetails->where('category', 'past')->where('in_month', true);
 
-                $salaryEligibleSchedules = $scheduleDetails->where('salary_eligible', true);
+                $salaryEligibleSchedules = $scheduleDetails->where('salary_eligible', true)->where('in_month', true);
 
                 $totals = [
                     'future_total' => $futureDetails->sum('summary_salary'),
@@ -220,13 +236,36 @@ class PayrollController extends Controller
                     'past_payroll_count' => $pastDetails->where('salary_eligible', true)->count(),
                 ];
 
+                $gross = $salaryEligibleSchedules->sum('summary_salary');
+                $deductions = [
+                    'sss' => round($gross * 0.045, 2),
+                    'philhealth' => round($gross * 0.025, 2),
+                    'pagibig' => round(min($gross, 5000) * 0.02, 2),
+                ];
+                $net = max($gross - array_sum($deductions), 0);
+
+                $processedRun = $trainerProcessedRuns->get($trainer->id);
+
+                if ($processedRun) {
+                    // Once processed, display zeroed values to mirror staff behavior and prevent reprocessing.
+                    $gross = 0;
+                    $net = 0;
+                    $deductions = ['sss' => 0, 'philhealth' => 0, 'pagibig' => 0];
+                    $salaryEligibleSchedules = collect();
+                }
+
                 return [
                     'trainer' => $trainer,
                     'details' => $scheduleDetails,
-                    'total_salary' => $salaryEligibleSchedules->sum('summary_salary'),
+                    'entries_for_month' => $salaryEligibleSchedules->values(),
+                    'total_salary' => $gross,
+                    'total_hours' => $salaryEligibleSchedules->sum('hours'),
                     'assignments_count' => $scheduleDetails->count(),
                     'salary_assignments_count' => $salaryEligibleSchedules->count(),
                     'totals' => $totals,
+                    'deductions' => $deductions,
+                    'net_pay' => $net,
+                    'processed_run' => $processedRun,
                 ];
             })
             ->filter(fn ($assignment) => $assignment['assignments_count'] > 0)
@@ -321,6 +360,99 @@ class PayrollController extends Controller
         );
 
         return redirect()->back()->with('success', 'Payroll processed and saved for ' . trim($staff->first_name . ' ' . $staff->last_name));
+    }
+
+    public function processTrainer(Request $request)
+    {
+        $request->validate([
+            'trainer_id' => 'required|exists:users,id',
+            'month'      => 'required|date_format:Y-m',
+        ]);
+
+        $trainer = User::where('id', $request->trainer_id)
+            ->where('role_id', 5)
+            ->where('is_archive', 0)
+            ->with(['trainerSchedules.user_schedules.user'])
+            ->firstOrFail();
+
+        try {
+            $targetMonth = Carbon::createFromFormat('Y-m', $request->month);
+        } catch (\Throwable $th) {
+            return redirect()->back()->with('error', 'Invalid payroll month provided.');
+        }
+
+        $startOfMonth = $targetMonth->copy()->startOfMonth();
+        $endOfMonth = $targetMonth->copy()->endOfMonth();
+
+        $eligibleSchedules = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($startOfMonth, $endOfMonth) {
+            $start = !empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date) : null;
+            $end = !empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date) : null;
+
+            $hasValidWindow = $start && $end && $end->greaterThan($start);
+            $hasRate = !is_null($schedule->trainer_rate_per_hour);
+            $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
+            $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
+
+            $inMonth = false;
+            if ($start && $end) {
+                $inMonth = $start->lte($endOfMonth) && $end->gte($startOfMonth);
+            } elseif ($start) {
+                $inMonth = $start->between($startOfMonth, $endOfMonth, true);
+            } elseif ($end) {
+                $inMonth = $end->between($startOfMonth, $endOfMonth, true);
+            }
+
+            $hours = $hasValidWindow
+                ? $end->diffInMinutes($start) / 60
+                : 0;
+
+            $summarySalary = $isSalaryEligible
+                ? (float) $schedule->trainer_rate_per_hour * $hours
+                : 0;
+
+            return [
+                'hours' => $hours,
+                'summary_salary' => $summarySalary,
+                'salary_eligible' => $isSalaryEligible,
+                'in_month' => $inMonth,
+            ];
+        })->filter(fn ($detail) => $detail['salary_eligible'] && $detail['in_month']);
+
+        if ($eligibleSchedules->isEmpty()) {
+            return redirect()->back()->with('error', 'No payroll-eligible trainer assignments found for this month.');
+        }
+
+        $totalHours = $eligibleSchedules->sum('hours');
+        $gross = round($eligibleSchedules->sum('summary_salary'), 2);
+
+        $deductions = [
+            'sss' => round($gross * 0.045, 2),
+            'philhealth' => round($gross * 0.025, 2),
+            'pagibig' => round(min($gross, 5000) * 0.02, 2),
+        ];
+
+        $net = max($gross - array_sum($deductions), 0);
+
+        PayrollRun::updateOrCreate(
+            [
+                'user_id' => $trainer->id,
+                'period_month' => $request->month,
+            ],
+            [
+                'total_hours' => $totalHours,
+                'gross_pay' => $gross,
+                'net_pay' => $net,
+                'deduction_sss' => $deductions['sss'],
+                'deduction_philhealth' => $deductions['philhealth'],
+                'deduction_pagibig' => $deductions['pagibig'],
+                'processed_by' => Auth::id(),
+                'processed_at' => Carbon::now(),
+            ]
+        );
+
+        $trainerName = trim($trainer->first_name . ' ' . $trainer->last_name);
+
+        return redirect()->back()->with('success', 'Trainer payroll processed and saved for ' . ($trainerName !== '' ? $trainerName : 'trainer'));
     }
     
     public function view($id)

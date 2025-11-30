@@ -369,12 +369,13 @@
                                 $trainer = $assignment['trainer'];
                                 $modalId = 'trainer-assignments-' . $trainer->id;
                                 $totals = $assignment['totals'];
-                                $trainerGross = $assignment['total_salary'];
-                                $trainerSss = round($trainerGross * 0.045, 2);
-                                $trainerPhilhealth = round($trainerGross * 0.025, 2);
-                                $trainerPagibig = round(min($trainerGross, 5000) * 0.02, 2);
-                                $trainerNet = max($trainerGross - ($trainerSss + $trainerPhilhealth + $trainerPagibig), 0);
-                                $assignmentEntries = $assignment['details']->map(function ($detail) {
+                                $processedRun = $assignment['processed_run'] ?? null;
+                                $trainerGross = $processedRun->gross_pay ?? $assignment['total_salary'];
+                                $trainerSss = $processedRun->deduction_sss ?? ($assignment['deductions']['sss'] ?? round($trainerGross * 0.045, 2));
+                                $trainerPhilhealth = $processedRun->deduction_philhealth ?? ($assignment['deductions']['philhealth'] ?? round($trainerGross * 0.025, 2));
+                                $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
+                                $trainerNet = $processedRun->net_pay ?? $assignment['net_pay'];
+                                $assignmentEntries = ($assignment['entries_for_month'] ?? collect())->map(function ($detail) {
                                     $schedule = $detail['schedule'];
                                     return [
                                         'id' => $schedule->class_code ?? ($schedule->id ?? 'N/A'),
@@ -396,6 +397,7 @@
                                     'entries' => $assignmentEntries,
                                 ];
                                 $trainerPayslipJson = json_encode($trainerPayslipData);
+                                $canProcessTrainer = ($assignment['salary_assignments_count'] ?? 0) > 0 && empty($processedRun);
                             @endphp
                             <div
                                 class="card border-0 shadow-sm rounded-4 mb-3"
@@ -428,14 +430,30 @@
                                                 <div class="text-muted small text-uppercase">Net (after deductions)</div>
                                                 <div class="fw-bold fs-6 text-success" data-net>₱{{ number_format($trainerNet, 2) }}</div>
                                             </div>
-                                            <button
-                                                type="button"
-                                                class="btn btn-danger rounded-pill px-3 d-flex align-items-center gap-2 payslip-btn"
-                                                data-payslip='{{ $trainerPayslipJson }}'
-                                            >
-                                                <i class="fa-solid fa-file-pdf"></i>
-                                                Print payslip
-                                            </button>
+                                            <form action="{{ route('admin.payrolls.process-trainer') }}" method="POST" class="d-inline">
+                                                @csrf
+                                                <input type="hidden" name="trainer_id" value="{{ $trainer->id }}">
+                                                <input type="hidden" name="month" value="{{ $month }}">
+                                                <button
+                                                    type="submit"
+                                                    class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2"
+                                                    {{ $canProcessTrainer ? '' : 'disabled' }}
+                                                    title="{{ $canProcessTrainer ? 'Process and save payroll' : (!empty($processedRun) ? 'Already processed for this period' : 'No eligible assignments this month') }}"
+                                                >
+                                                    <i class="fa-solid fa-circle-check"></i>
+                                                    {{ !empty($processedRun) ? 'Processed' : 'Process payroll' }}
+                                                </button>
+                                            </form>
+                                            @if(empty($processedRun))
+                                                <button
+                                                    type="button"
+                                                    class="btn btn-danger rounded-pill px-3 d-flex align-items-center gap-2 payslip-btn"
+                                                    data-payslip='{{ $trainerPayslipJson }}'
+                                                >
+                                                    <i class="fa-solid fa-file-pdf"></i>
+                                                    Print payslip
+                                                </button>
+                                            @endif
                                             <button
                                                 class="btn btn-outline-primary rounded-pill px-3"
                                                 type="button"
@@ -444,6 +462,11 @@
                                             >
                                                 View assignments
                                             </button>
+                                            @if(!empty($processedRun))
+                                                <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
+                                            @elseif(($assignment['salary_assignments_count'] ?? 0) === 0)
+                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No eligible assignments</span>
+                                            @endif
                                         </div>
                                     </div>
                                 </div>
