@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Trainer;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Schedule;
+use App\Models\ScheduleRescheduleRequest;
 use Carbon\Carbon;
 
 class TrainerClassController extends Controller
@@ -206,6 +207,84 @@ class TrainerClassController extends Controller
         ]);
     }
 
+    public function requestReschedule(Request $request, $classId)
+    {
+        $trainer = $request->user();
+
+        $schedule = Schedule::find($classId);
+
+        if (!$schedule) {
+            return response()->json(['message' => 'Class not found.'], 404);
+        }
+
+        if ((int) $schedule->trainer_id !== (int) $trainer->id) {
+            return response()->json(['message' => 'You are not assigned to this class.'], 403);
+        }
+
+        $validated = $request->validate([
+            'recurring_days' => 'required',
+            'proposed_start_time' => 'required|date_format:H:i',
+            'proposed_end_time' => 'required|date_format:H:i|after:proposed_start_time',
+            'proposed_series_start_date' => 'nullable|date',
+            'proposed_series_end_date' => 'nullable|date|after_or_equal:proposed_series_start_date',
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $recurringDays = $this->sanitizeRecurringDays($validated['recurring_days'] ?? []);
+        if (empty($recurringDays)) {
+            return response()->json(['message' => 'Please provide at least one day to reschedule.'], 422);
+        }
+
+        $pending = ScheduleRescheduleRequest::where('schedule_id', $schedule->id)
+            ->where('trainer_id', $trainer->id)
+            ->where('status', 0)
+            ->first();
+
+        if ($pending) {
+            return response()->json(['message' => 'You already have a pending reschedule request for this class.'], 409);
+        }
+
+        $reschedule = ScheduleRescheduleRequest::create([
+            'schedule_id' => $schedule->id,
+            'trainer_id' => $trainer->id,
+            'recurring_days' => $recurringDays,
+            'proposed_start_time' => $validated['proposed_start_time'],
+            'proposed_end_time' => $validated['proposed_end_time'],
+            'proposed_series_start_date' => $validated['proposed_series_start_date'] ?? null,
+            'proposed_series_end_date' => $validated['proposed_series_end_date'] ?? null,
+            'notes' => $validated['notes'] ?? null,
+            'status' => 0,
+        ]);
+
+        return response()->json([
+            'message' => 'Reschedule request sent for admin approval.',
+            'data' => $this->serializeRescheduleRequest($reschedule),
+        ], 201);
+    }
+
+    public function rescheduleRequests(Request $request, $classId)
+    {
+        $trainer = $request->user();
+
+        $schedule = Schedule::find($classId);
+
+        if (!$schedule || (int) $schedule->trainer_id !== (int) $trainer->id) {
+            return response()->json(['message' => 'Class not found or you are not assigned to this class.'], 404);
+        }
+
+        $requests = ScheduleRescheduleRequest::where('schedule_id', $schedule->id)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map(function ($item) {
+                return $this->serializeRescheduleRequest($item);
+            });
+
+        return response()->json([
+            'class_id' => $schedule->id,
+            'requests' => $requests,
+        ]);
+    }
+
     public function participants(Request $request, $classId)
     {
         $trainer = $request->user();
@@ -295,5 +374,55 @@ class TrainerClassController extends Controller
         $class->save();
 
         return $class;
+    }
+
+    private function serializeRescheduleRequest(ScheduleRescheduleRequest $request): array
+    {
+        $statusLabels = [
+            0 => 'Pending',
+            1 => 'Approved',
+            2 => 'Rejected',
+        ];
+
+        return [
+            'id' => $request->id,
+            'schedule_id' => $request->schedule_id,
+            'recurring_days' => $request->recurring_days ?? [],
+            'proposed_start_time' => $request->proposed_start_time,
+            'proposed_end_time' => $request->proposed_end_time,
+            'proposed_series_start_date' => $request->proposed_series_start_date
+                ? $request->proposed_series_start_date->toDateString()
+                : null,
+            'proposed_series_end_date' => $request->proposed_series_end_date
+                ? $request->proposed_series_end_date->toDateString()
+                : null,
+            'notes' => $request->notes,
+            'status' => (int) $request->status,
+            'status_label' => $statusLabels[(int) $request->status] ?? 'Pending',
+            'responded_at' => $request->responded_at ? Carbon::parse($request->responded_at)->toIso8601String() : null,
+            'created_at' => $request->created_at ? $request->created_at->toIso8601String() : null,
+        ];
+    }
+
+    private function sanitizeRecurringDays($raw): array
+    {
+        $daysMeta = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = json_last_error() === JSON_ERROR_NONE ? $decoded : explode(',', $raw);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        $raw = array_map(function ($day) {
+            return strtolower(trim($day));
+        }, $raw);
+
+        $filtered = array_values(array_intersect($daysMeta, $raw));
+
+        return array_values(array_unique($filtered));
     }
 }

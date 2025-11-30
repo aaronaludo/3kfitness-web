@@ -132,6 +132,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('/trainer-approve-class', [TrainerClassController::class, 'trainerapproveclass'])->name('trainers.trainer-approve-class');
         Route::post('/trainer-reject-class', [TrainerClassController::class, 'trainerrejectclass'])->name('trainers.trainer-reject-class');
         Route::post('/classes/{classId}/quit', [TrainerClassController::class, 'quitClass'])->name('trainers.classes.quit');
+        Route::post('/classes/{classId}/reschedule-requests', [TrainerClassController::class, 'requestReschedule'])->name('trainers.classes.reschedule-request');
+        Route::get('/classes/{classId}/reschedule-requests', [TrainerClassController::class, 'rescheduleRequests'])->name('trainers.classes.reschedule-requests');
         Route::get('/payroll-runs', [TrainerPayrollController::class, 'index'])->name('trainers.payroll-runs');
          
         Route::post('/edit-profile', [TrainerAccountController::class, 'editProfile'])->name('trainers.edit-profile');

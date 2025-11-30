@@ -276,6 +276,41 @@
                         form.submit();
                     }
 
+                    const inlineRows = document.querySelectorAll('.resched-inline');
+                    const inlineCancelButtons = document.querySelectorAll('.resched-inline-cancel');
+                    const actionButtons = document.querySelectorAll('[data-resched-action]');
+
+                    function hideAllInline() {
+                        inlineRows.forEach(function (row) {
+                            row.classList.add('d-none');
+                        });
+                    }
+
+                    function updateInline(row, mode) {
+                        if (!row) return;
+                        const statusInput = row.querySelector('.resched-status-input');
+                        const title = row.querySelector('.resched-inline-title');
+                        const submitText = row.querySelector('.resched-submit-text');
+                        const submitBtn = row.querySelector('.resched-submit-btn');
+
+                        if (statusInput) {
+                            statusInput.value = mode === 'reject' ? 2 : 1;
+                        }
+
+                        if (title) {
+                            title.textContent = mode === 'reject' ? 'Reject reschedule' : 'Approve reschedule';
+                        }
+
+                        if (submitText) {
+                            submitText.textContent = mode === 'reject' ? 'Reject request' : 'Approve request';
+                        }
+
+                        if (submitBtn) {
+                            submitBtn.classList.remove('btn-success', 'btn-danger');
+                            submitBtn.classList.add(mode === 'reject' ? 'btn-danger' : 'btn-success');
+                        }
+                    }
+
                     chipButtons.forEach(function (chip) {
                         chip.addEventListener('click', function () {
                             const selectedStatus = this.dataset.status;
@@ -300,8 +335,232 @@
                             applyRange(this.dataset.range);
                         });
                     });
+
+                    actionButtons.forEach(function (btn) {
+                        btn.addEventListener('click', function () {
+                            const id = this.dataset.id;
+                            const mode = this.dataset.mode || 'approve';
+                            if (!id) return;
+                            const row = document.getElementById(`reschedule-inline-${id}`);
+                            if (!row) return;
+
+                            hideAllInline();
+                            updateInline(row, mode);
+                            row.classList.remove('d-none');
+                            row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        });
+                    });
+
+                    inlineCancelButtons.forEach(function (btn) {
+                        btn.addEventListener('click', function () {
+                            hideAllInline();
+                        });
+                    });
                 });
             </script>
+
+            @php
+                $weekdayLookup = [
+                    'sun' => 'Sunday',
+                    'mon' => 'Monday',
+                    'tue' => 'Tuesday',
+                    'wed' => 'Wednesday',
+                    'thu' => 'Thursday',
+                    'fri' => 'Friday',
+                    'sat' => 'Saturday',
+                ];
+                $pendingRescheduleCount = $pendingRescheduleRequests->where('status', 0)->count();
+                $resolvedRescheduleCount = $pendingRescheduleRequests->where('status', '!=', 0)->count();
+                $formatRequestTime = function ($time) {
+                    try {
+                        return \Carbon\Carbon::parse($time)->format('g:i A');
+                    } catch (\Exception $e) {
+                        return $time;
+                    }
+                };
+            @endphp
+
+            <div class="col-12 mb-4">
+                <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap justify-content-between gap-3 align-items-start">
+                            <div>
+                                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Trainer cadence</span>
+                                <h5 class="fw-semibold mb-1">Reschedule requests</h5>
+                                <p class="text-muted mb-0">Trainers can propose a new cadence and time. Approving will update the class schedule automatically.</p>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">Pending: {{ $pendingRescheduleCount }}</span>
+                                <span class="badge bg-secondary text-white px-3 py-2 rounded-pill ms-2">Resolved: {{ $resolvedRescheduleCount }}</span>
+                            </div>
+                        </div>
+
+                        <div class="table-responsive mt-3">
+                            <table class="table align-middle">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Class</th>
+                                        <th>Trainer</th>
+                                        <th>Requested cadence</th>
+                                        <th>Series window</th>
+                                        <th>Notes</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($pendingRescheduleRequests as $requestItem)
+                                        @php
+                                            $statusMap = [
+                                                0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
+                                                1 => ['label' => 'Approved', 'class' => 'bg-success'],
+                                                2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
+                                            ];
+                                            $statusMeta = $statusMap[$requestItem->status] ?? $statusMap[0];
+                                            $classItem = $requestItem->schedule;
+                                            $trainer = $requestItem->trainer;
+                                            $dayList = collect($requestItem->recurring_days ?? [])->map(function ($d) use ($weekdayLookup) {
+                                                return $weekdayLookup[$d] ?? ucfirst($d);
+                                            })->implode(', ');
+                                            $seriesRange = $requestItem->proposed_series_start_date && $requestItem->proposed_series_end_date
+                                                ? $requestItem->proposed_series_start_date->format('M j, Y') . ' → ' . $requestItem->proposed_series_end_date->format('M j, Y')
+                                                : 'Keep existing';
+                                        @endphp
+                                        <tr>
+                                            <td>
+                                                <div class="fw-semibold">{{ $classItem->name ?? 'Class #' . $requestItem->schedule_id }}</div>
+                                                <div class="text-muted small">{{ $classItem->class_code ?? '' }}</div>
+                                            </td>
+                                            <td>
+                                                {{ $trainer ? ($trainer->first_name . ' ' . $trainer->last_name) : 'Trainer' }}
+                                                @if($trainer && $trainer->email)
+                                                    <div class="text-muted small">{{ $trainer->email }}</div>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">{{ $dayList ?: '—' }}</div>
+                                                <div class="text-muted small">{{ $formatRequestTime($requestItem->proposed_start_time) }} - {{ $formatRequestTime($requestItem->proposed_end_time) }}</div>
+                                            </td>
+                                            <td>
+                                                <div>{{ $seriesRange }}</div>
+                                                <div class="text-muted small">Requested {{ $requestItem->created_at ? $requestItem->created_at->format('M j, Y g:i A') : '' }}</div>
+                                            </td>
+                                            <td class="text-muted">
+                                                {{ $requestItem->notes ?: '—' }}
+                                            </td>
+                                            <td>
+                                                <span class="badge {{ $statusMeta['class'] }} px-3 py-2">{{ $statusMeta['label'] }}</span>
+                                                @if($requestItem->responded_at)
+                                                    <div class="text-muted small mt-1">Handled {{ $requestItem->responded_at->format('M j, Y') }}</div>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if((int) $requestItem->status === 0)
+                                                    <div class="d-flex flex-wrap gap-2">
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-success"
+                                                            data-resched-action
+                                                            data-mode="approve"
+                                                            data-id="{{ $requestItem->id }}"
+                                                        >
+                                                            Approve
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-sm btn-outline-danger"
+                                                            data-resched-action
+                                                            data-mode="reject"
+                                                            data-id="{{ $requestItem->id }}"
+                                                        >
+                                                            Reject
+                                                        </button>
+                                                    </div>
+                                                @else
+                                                    <span class="text-muted small">No action needed</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr id="reschedule-inline-{{ $requestItem->id }}" class="resched-inline d-none">
+                                            <td colspan="7">
+                                                <div class="border rounded-4 p-3 bg-light-subtle">
+                                                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <div class="badge bg-success bg-opacity-10 text-success rounded-circle p-3">
+                                                                <i class="fa-solid fa-calendar-check"></i>
+                                                            </div>
+                                                            <div>
+                                                                <p class="text-uppercase text-muted small mb-1 resched-inline-title">Approve reschedule</p>
+                                                                <h6 class="mb-0 fw-semibold">{{ $classItem->name ?? 'Class' }} ({{ $classItem->class_code ?? '—' }})</h6>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" class="btn btn-sm btn-outline-secondary resched-inline-cancel" data-id="{{ $requestItem->id }}">Close</button>
+                                                    </div>
+                                                    <div class="row g-3 align-items-stretch mt-3">
+                                                        <div class="col-12 col-md-5">
+                                                            <div class="border rounded-4 p-3 h-100 bg-white">
+                                                                <div class="d-flex align-items-start gap-3 mb-3">
+                                                                    <div class="text-success fs-5">
+                                                                        <i class="fa-solid fa-calendar-check"></i>
+                                                                    </div>
+                                                                    <div class="flex-grow-1">
+                                                                        <div class="fw-semibold">Requested cadence</div>
+                                                                        <div class="text-muted small">{{ $dayList ?: 'The requested cadence' }}</div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="d-flex align-items-start gap-3 mb-3">
+                                                                    <div class="text-success fs-5">
+                                                                        <i class="fa-solid fa-clock"></i>
+                                                                    </div>
+                                                                    <div class="flex-grow-1">
+                                                                        <div class="fw-semibold">Time</div>
+                                                                        <div class="text-muted small">{{ $formatRequestTime($requestItem->proposed_start_time) }} – {{ $formatRequestTime($requestItem->proposed_end_time) }}</div>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="d-flex align-items-start gap-3">
+                                                                    <div class="text-success fs-5">
+                                                                        <i class="fa-solid fa-repeat"></i>
+                                                                    </div>
+                                                                    <div class="flex-grow-1">
+                                                                        <div class="fw-semibold">Series window</div>
+                                                                        <div class="text-muted small">{{ $seriesRange }}</div>
+                                                                    </div>
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12 col-md-7 d-flex flex-column">
+                                                            <form method="POST" action="{{ route('admin.gym-management.schedules.reschedules.update', $requestItem->id) }}" class="d-flex flex-column h-100">
+                                                                @csrf
+                                                                @method('PUT')
+                                                                <input type="hidden" name="status" class="resched-status-input" value="1">
+                                                                <label class="form-label fw-semibold resched-label">Internal comment (optional)</label>
+                                                                <textarea class="form-control flex-grow-1" name="admin_comment" rows="6" placeholder="Add a note for the trainer or staff">{{ old('admin_comment') }}</textarea>
+                                                                <div class="d-flex gap-2 justify-content-end mt-3">
+                                                                    <button type="button" class="btn btn-light resched-inline-cancel" data-id="{{ $requestItem->id }}">Cancel</button>
+                                                                    <button type="submit" class="btn btn-success resched-submit-btn">
+                                                                        <i class="fa-solid fa-circle-check me-2"></i><span class="resched-submit-text">Approve request</span>
+                                                                    </button>
+                                                                </div>
+                                                            </form>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="7" class="text-center text-muted py-4">
+                                                No reschedule requests yet. Trainers can request changes from the class detail screen.
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-lg-12">
                 @if (session('success'))
                     <div class="alert alert-success">
@@ -370,24 +629,16 @@
                     <div class="row">
                         <div class="col-lg-12">
                             <div class="table-responsive mb-3">
-                                <table class="table table-hover">
+                                <table class="table table-hover align-middle">
                                     <thead class="table-light">
                                     <tr>
                                             <th class="sortable" data-column="id">ID <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="class_name">Class Name <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="class_code">Class Code <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="trainer">Trainer <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="trainer_rate_per_hour">Trainer Rate / Hour <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="slots">Slots <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="total_members_enrolled">Total Members Enrolled <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="start_date">Start Date <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="end_date">End Date <i class="fa fa-sort"></i></th>
-                                            {{-- <th class="sortable" data-column="status">Status <i class="fa fa-sort"></i></th> --}}
-                                            <th class="sortable" data-column="categorization">Categorization <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="admin_acceptance">Admin Acceptance <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="reject_reason">Reject Reason <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="class_name">Class</th>
+                                            <th class="sortable" data-column="trainer">Trainer</th>
+                                            <th class="sortable" data-column="start_date">Schedule</th>
+                                            <th class="sortable" data-column="slots">Enrollment</th>
+                                            <th class="sortable" data-column="admin_acceptance">Admin Acceptance</th>
+                                            <th>Reschedule</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -396,48 +647,56 @@
                                             @php
                                                 $start_date = $item->class_start_date ? \Carbon\Carbon::parse($item->class_start_date) : null;
                                                 $end_date = $item->class_end_date ? \Carbon\Carbon::parse($item->class_end_date) : null;
+                                                $dayKeys = is_array($item->recurring_days) ? $item->recurring_days : json_decode($item->recurring_days ?? '[]', true);
+                                                $dayLabel = collect($dayKeys ?? [])->map(function ($d) use ($weekdayLookup) {
+                                                    return $weekdayLookup[$d] ?? ucfirst($d);
+                                                })->implode(', ');
+                                                $pendingReschedules = $pendingRescheduleRequests->where('schedule_id', $item->id);
+                                                $pendingCount = $pendingReschedules->where('status', 0)->count();
+                                                $latestReschedule = $pendingReschedules->first();
                                             @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
-                                                <td>{{ $item->name }}</td>
-                                                <td>{{ $item->class_code }}</td>
+                                                <td>
+                                                    <div class="fw-semibold">{{ $item->name }}</div>
+                                                    <div class="text-muted small">{{ $item->class_code }}</div>
+                                                </td>
                                                 <td>
                                                     {{ $item->trainer_id == 0 ? 'No Trainer for now' : optional($item->user)->first_name .' '. optional($item->user)->last_name }}
                                                 </td>
-                                                <td>
-                                                    @if($item->trainer_id == 0 || is_null($item->trainer_rate_per_hour))
-                                                        —
-                                                    @else
-                                                        ₱{{ number_format((float) $item->trainer_rate_per_hour, 2) }}
-                                                    @endif
+                                                <td class="small">
+                                                    <div class="fw-semibold">
+                                                        {{ $start_date ? $start_date->format('M j, Y g:iA') : 'Not set' }}
+                                                    </div>
+                                                    <div class="text-muted">
+                                                        {{ $end_date ? $end_date->format('M j, Y g:iA') : '—' }}
+                                                    </div>
+                                                    <div class="text-muted">Time: {{ $item->class_start_time && $item->class_end_time ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A') : '—' }}</div>
+                                                    <div class="text-muted">Cadence: {{ $dayLabel ?: 'One-time' }}</div>
+                                                    <div class="mt-1">
+                                                        @php $now = now(); @endphp
+                                                        @if ($start_date && $now->lt($start_date))
+                                                            <span class="badge rounded-pill bg-warning">Future</span>
+                                                        @elseif ($start_date && $end_date && $now->between($start_date, $end_date))
+                                                            <span class="badge rounded-pill bg-success">Present</span>
+                                                        @elseif ($end_date && $now->gt($end_date))
+                                                            <span class="badge rounded-pill bg-primary">Past</span>
+                                                        @else
+                                                            <span class="badge rounded-pill bg-primary">Past</span>
+                                                        @endif
+                                                    </div>
                                                 </td>
-                                                <td>{{ $item->slots }}</td>
-                                                <td>
-                                                    <a 
-                                                        href="{{ route('admin.gym-management.schedules.users', $item->id) }}"
-                                                        class="text-primary"
-                                                        title="View enrolled users"
-                                                    >
-                                                        {{ $item->user_schedules_count }}
-                                                    </a>
-                                                </td>
-                                                <td>{{ $start_date ? $start_date->format('F j, Y g:iA') : '' }}</td>
-                                                <td>{{ $end_date ? $end_date->format('F j, Y g:iA') : '' }}</td>
-                                                {{-- <td>{{ $item->isenabled ? 'Enabled' : 'Disabled' }}</td> --}}
-                                                <td>
-                                                    @php
-                                                        $now = now();
-                                                    @endphp
-                                                
-                                                    @if ($start_date && $now->lt($start_date))
-                                                        <span class="badge rounded-pill bg-warning">Future</span>
-                                                    @elseif ($start_date && $end_date && $now->between($start_date, $end_date))
-                                                        <span class="badge rounded-pill bg-success">Present</span>
-                                                    @elseif ($end_date && $now->gt($end_date))
-                                                        <span class="badge rounded-pill bg-primary">Past</span>
-                                                    @else
-                                                        <span class="badge rounded-pill bg-primary">Past</span>
-                                                    @endif
+                                                <td class="small">
+                                                    <div class="fw-semibold">{{ $item->slots }} slots</div>
+                                                    <div>
+                                                        <a 
+                                                            href="{{ route('admin.gym-management.schedules.users', $item->id) }}"
+                                                            class="text-primary"
+                                                            title="View enrolled users"
+                                                        >
+                                                            {{ $item->user_schedules_count }} enrolled
+                                                        </a>
+                                                    </div>
                                                 </td>
                                                 <td>
                                                     @php
@@ -454,15 +713,17 @@
                                                             {{ $s['label'] }}
                                                         </span>
 
-                                                        <button
-                                                            type="button"
-                                                            class="btn btn-outline-primary btn-sm"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#statusModal-{{ $item->id }}"
-                                                            aria-label="Change Status"
-                                                        >
-                                                            Change
-                                                        </button>
+                                                        @if((int)$item->isadminapproved !== 1)
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-outline-primary btn-sm"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#statusModal-{{ $item->id }}"
+                                                                aria-label="Change Status"
+                                                            >
+                                                                Change
+                                                            </button>
+                                                        @endif
                                                     </div>
                                                     <div class="modal fade" id="statusModal-{{ $item->id }}" tabindex="-1" aria-labelledby="statusModalLabel-{{ $item->id }}" aria-hidden="true">
                                                         <div class="modal-dialog">
@@ -583,28 +844,19 @@
                                                     })();
                                                     </script>
                                                 </td>
-                                                <td>
-                                                    {{ $item->rejection_reason }}
-                                                </td>
-                                                <td>
-                                                    {{ $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('F j, Y g:iA') : '' }}
-                                                </td>
-                                                <td>
-                                                    {{ $item->created_by }}
+                                                <td class="small">
+                                                    <div class="fw-semibold">
+                                                        {{ $pendingCount ? $pendingCount . ' pending' : 'No pending' }}
+                                                    </div>
+                                                    @if($latestReschedule)
+                                                        <div class="text-muted">Requested {{ $latestReschedule->created_at? $latestReschedule->created_at->format('M j, Y') : '' }}</div>
+                                                        <div class="text-muted">Notes: {{ $latestReschedule->notes ?: '—' }}</div>
+                                                    @endif
                                                 </td>
                                                 <td>
                                                     <div class="d-flex">
-                                                        <!--<div class="action-button"><a href="{{ route('admin.gym-management.schedules.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>-->
                                                         <div class="action-button"><a href="{{ route('admin.gym-management.schedules.edit', $item->id) }}" title="Edit"><i class="fa-solid fa-pencil text-primary"></i></a></div>
                                                         <div class="action-button">
-                                                            <!--<form action="{{ route('admin.gym-management.schedules.delete') }}" method="POST" style="display: inline;">-->
-                                                            <!--    @csrf-->
-                                                            <!--    @method('DELETE')-->
-                                                            <!--    <input type="hidden" name="id" value="{{ $item->id }}">-->
-                                                            <!--    <button type="submit" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">-->
-                                                            <!--        <i class="fa-solid fa-trash text-danger"></i>-->
-                                                            <!--    </button>-->
-                                                            <!--</form>-->
                                                             <button type="button" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
                                                                 <i class="fa-solid fa-trash text-danger"></i>
                                                             </button>
@@ -612,73 +864,48 @@
                                                     </div>
                                                 </td>
                                             </tr>
-                                            <div class="modal fade" id="rejectModal-{{ $item->id }}" tabindex="-1" aria-labelledby="rejectModalLabel" aria-hidden="true">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="rejectModalLabel">Reject Reason ({{ $item->class_code }})</h5>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                        </div>
-                                                        <form action="{{ route('admin.gym-management.schedules.rejectmessage') }}" method="POST" id="reject-modal-form-{{ $item->id }}">
-                                                            @csrf
-                                                            <input type="hidden" name="id" value="{{ $item->id }}">
-                                                            <div class="modal-body">
-                                                                <textarea class="form-control" name="rejection_reason" id="rejectReason" rows="4" placeholder="Enter reason for rejection"></textarea>
-                                                                <div class="input-group mt-3">
-                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
-                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                            <div class="modal fade" id="deleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ $item->id }}" aria-hidden="true">
+                                                <div class="modal-dialog modal-dialog-centered">
+                                                    <div class="modal-content border-0 shadow rounded-4">
+                                                        <div class="modal-header border-0 pb-0">
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="badge bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                                                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                                                </div>
+                                                                <div>
+                                                                    <p class="text-uppercase text-muted small mb-1">Delete class</p>
+                                                                    <h5 class="fw-semibold mb-0" id="deleteModalLabel-{{ $item->id }}">
+                                                                        {{ $item->name ?? 'Class' }} ({{ $item->class_code ?? '—' }})
+                                                                    </h5>
                                                                 </div>
                                                             </div>
-                                                            <div class="modal-footer">
-                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                                <!--<button type="submit" class="btn btn-danger">Submit</button>-->
-                                                                <button class="btn btn-danger" type="submit" id="reject-modal-submit-button-{{ $item->id }}">
-                                                                    <span id="reject-modal-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                                                                    Submit
-                                                                </button>
-                                                            </div>
-                                                        </form>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div class="modal fade" id="deleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="rejectModalLabel">Are you sure you want to delete this class ({{ $item->class_code }})?</h5>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
                                                         <form action="{{ route('admin.gym-management.schedules.delete') }}" method="POST" id="delete-modal-form-{{ $item->id }}">
                                                             @csrf
                                                             @method('DELETE')
                                                             <input type="hidden" name="id" value="{{ $item->id }}">
-                                                            <div class="modal-body">
-                                                                <div class="input-group mt-3">
+                                                            <div class="modal-body pt-3">
+                                                                <div class="alert alert-danger bg-opacity-10 text-danger border-0 rounded-3">
+                                                                    Deleting will remove this class{{ $item->user_schedules_count ? ' and its enrollments' : '' }}. This action cannot be undone.
+                                                                </div>
+                                                                <label class="form-label fw-semibold mt-2">Confirm with your password</label>
+                                                                <div class="input-group">
                                                                     <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
                                                                     <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
                                                                 </div>
                                                             </div>
-                                                            <div class="modal-footer">
-                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                                                                <!--<button type="submit" class="btn btn-danger">Submit</button>-->
+                                                            <div class="modal-footer border-0 pt-0">
+                                                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                                                                 <button class="btn btn-danger" type="submit" id="delete-modal-submit-button-{{ $item->id }}">
                                                                     <span id="delete-modal-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                                                                    Submit
+                                                                    Delete class
                                                                 </button>
                                                             </div>
                                                         </form>
                                                     </div>
                                                 </div>
                                             </div>
-                                            <script>
-                                                document.getElementById('reject-modal-form-{{ $item->id }}').addEventListener('submit', function(e) {
-                                                    const submitButton = document.getElementById('reject-modal-submit-button-{{ $item->id }}');
-                                                    const loader = document.getElementById('reject-modal-loader-{{ $item->id }}');
-                                        
-                                                    submitButton.disabled = true;
-                                                    loader.classList.remove('d-none');
-                                                });
-                                            </script>
                                             <script>
                                                 document.getElementById('delete-modal-form-{{ $item->id }}').addEventListener('submit', function(e) {
                                                     const submitButton = document.getElementById('delete-modal-submit-button-{{ $item->id }}');

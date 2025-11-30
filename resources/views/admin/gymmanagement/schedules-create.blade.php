@@ -241,6 +241,35 @@
                                         </div>
                                     </div>
                                 </div>
+                                @php
+                                    $reschedStatusMap = [
+                                        0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
+                                        1 => ['label' => 'Approved', 'class' => 'bg-success'],
+                                        2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
+                                    ];
+                                    $formatRequestTime = function ($time) {
+                                        try {
+                                            return \Carbon\Carbon::parse($time)->format('g:i A');
+                                        } catch (\Exception $e) {
+                                            return $time;
+                                        }
+                                    };
+                                @endphp
+                                <div class="card shadow-sm border-0 rounded-4 mb-4">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                            <div>
+                                                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Reschedule requests</span>
+                                                <h5 class="fw-semibold mb-1">Trainer cadence change requests</h5>
+                                                <p class="text-muted mb-0">Once created, trainers can request cadence/time changes. You will manage them from the schedules list.</p>
+                                            </div>
+                                            <span class="badge bg-secondary text-white px-3 py-2 rounded-pill">{{ $rescheduleRequests->where('status', 0)->count() }} pending</span>
+                                        </div>
+                                        <div class="text-muted small mt-3">
+                                            No reschedule requests yet. After this class exists, any requests will appear in the schedules page for approval.
+                                        </div>
+                                    </div>
+                                </div>
                                 {{-- <div class="mb-3 row">
                                     <label for="isenabled" class="col-sm-12 col-lg-2 col-form-label">Status: <span class="required">*</span></label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">

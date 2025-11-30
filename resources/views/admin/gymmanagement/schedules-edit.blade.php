@@ -256,6 +256,106 @@
                                         </div>
                                     </div>
                                 </div>
+                                @php
+                                    $reschedStatusMap = [
+                                        0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
+                                        1 => ['label' => 'Approved', 'class' => 'bg-success'],
+                                        2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
+                                    ];
+                                    $formatRequestTime = function ($time) {
+                                        try {
+                                            return \Carbon\Carbon::parse($time)->format('g:i A');
+                                        } catch (\Exception $e) {
+                                            return $time;
+                                        }
+                                    };
+                                    $weekdayLookup = [
+                                        'sun' => 'Sunday',
+                                        'mon' => 'Monday',
+                                        'tue' => 'Tuesday',
+                                        'wed' => 'Wednesday',
+                                        'thu' => 'Thursday',
+                                        'fri' => 'Friday',
+                                        'sat' => 'Saturday',
+                                    ];
+                                @endphp
+                                <div class="card shadow-sm border-0 rounded-4 mb-4">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                            <div>
+                                                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Reschedule requests</span>
+                                                <h5 class="fw-semibold mb-1">Trainer cadence change requests</h5>
+                                                <p class="text-muted mb-0">Review pending cadence/time changes submitted by the trainer.</p>
+                                            </div>
+                                            <span class="badge bg-secondary text-white px-3 py-2 rounded-pill">{{ $rescheduleRequests->where('status', 0)->count() }} pending</span>
+                                        </div>
+                                        <div class="mt-3">
+                                            @if($rescheduleRequests->isEmpty())
+                                                <div class="text-muted small">No reschedule requests yet.</div>
+                                            @else
+                                                <div class="row g-3">
+                                                    @foreach($rescheduleRequests as $req)
+                                                        @php
+                                                            $statusMeta = $reschedStatusMap[$req->status] ?? $reschedStatusMap[0];
+                                                            $days = is_array($req->recurring_days) ? $req->recurring_days : json_decode($req->recurring_days ?? '[]', true);
+                                                            $dayLabel = collect($days ?? [])->map(function ($d) use ($weekdayLookup) {
+                                                                return $weekdayLookup[$d] ?? ucfirst($d);
+                                                            })->implode(', ');
+                                                            $seriesRange = $req->proposed_series_start_date && $req->proposed_series_end_date
+                                                                ? $req->proposed_series_start_date->format('M j, Y') . ' → ' . $req->proposed_series_end_date->format('M j, Y')
+                                                                : 'Keep existing';
+                                                        @endphp
+                                                        <div class="col-12">
+                                                            <div class="border rounded-4 p-3 h-100">
+                                                                <div class="d-flex justify-content-between align-items-start flex-wrap gap-2">
+                                                                    <div>
+                                                                        <div class="fw-semibold mb-1">{{ $dayLabel ?: 'One-time' }}</div>
+                                                                        <div class="text-muted small">
+                                                                            {{ $formatRequestTime($req->proposed_start_time) }} – {{ $formatRequestTime($req->proposed_end_time) }}
+                                                                        </div>
+                                                                        <div class="text-muted small">Series: {{ $seriesRange }}</div>
+                                                                        @if($req->notes)
+                                                                            <div class="text-muted small mt-1">Note: {{ $req->notes }}</div>
+                                                                        @endif
+                                                                        <div class="text-muted small">Requested {{ $req->created_at? $req->created_at->format('M j, Y') : '' }}</div>
+                                                                    </div>
+                                                                    <span class="badge {{ $statusMeta['class'] }} px-3 py-2">{{ $statusMeta['label'] }}</span>
+                                                                </div>
+                                                                @if((int)$req->status === 0)
+                                                                    <div class="mt-3">
+                                                                        <form method="POST" action="{{ route('admin.gym-management.schedules.reschedules.update', $req->id) }}" class="mb-2">
+                                                                            @csrf
+                                                                            @method('PUT')
+                                                                            <input type="hidden" name="status" value="1">
+                                                                            <label class="form-label fw-semibold">Admin comment (optional)</label>
+                                                                            <div class="d-flex flex-column flex-md-row gap-2">
+                                                                                <textarea class="form-control" name="admin_comment" rows="2" placeholder="Add a note for the trainer">{{ old('admin_comment') }}</textarea>
+                                                                                <button type="submit" class="btn btn-success px-4">
+                                                                                    <i class="fa-solid fa-circle-check me-2"></i>Approve
+                                                                                </button>
+                                                                            </div>
+                                                                        </form>
+                                                                        <form method="POST" action="{{ route('admin.gym-management.schedules.reschedules.update', $req->id) }}">
+                                                                            @csrf
+                                                                            @method('PUT')
+                                                                            <input type="hidden" name="status" value="2">
+                                                                            <div class="d-flex flex-column flex-md-row gap-2">
+                                                                                <textarea class="form-control" name="admin_comment" rows="2" placeholder="Reason for rejection">{{ old('admin_comment') }}</textarea>
+                                                                                <button type="submit" class="btn btn-outline-danger px-4">
+                                                                                    <i class="fa-solid fa-xmark me-2"></i>Reject
+                                                                                </button>
+                                                                            </div>
+                                                                        </form>
+                                                                    </div>
+                                                                @endif
+                                                            </div>
+                                                        </div>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </div>
+                                </div>
                                 {{-- <div class="mb-3 row">
                                     <label for="isenabled" class="col-sm-12 col-lg-2 col-form-label">Status: <span class="required">*</span></label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">

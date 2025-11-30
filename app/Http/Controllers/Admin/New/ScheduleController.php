@@ -7,8 +7,9 @@ use Illuminate\Http\Request;
 use App\Models\Schedule;
 use App\Models\User;
 use App\Models\Log;
+use App\Models\ScheduleRescheduleRequest;
 use Illuminate\Support\Facades\Validator;
-    use Illuminate\Validation\Rule;
+use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
@@ -194,10 +195,14 @@ class ScheduleController extends Controller
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage)
             ->through($mapSchedule);
-        
+
+        $pendingRescheduleRequests = ScheduleRescheduleRequest::with(['schedule', 'trainer'])
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         return view(
             'admin.gymmanagement.schedules',
-            compact('data', 'archivedData', 'classescreatedbyadmin', 'classescreatedbystaff', 'statusTallies')
+            compact('data', 'archivedData', 'classescreatedbyadmin', 'classescreatedbystaff', 'statusTallies', 'pendingRescheduleRequests')
         );
     }
 
@@ -247,16 +252,21 @@ class ScheduleController extends Controller
     public function create()
     {
         $trainers = User::where('role_id', 5)->get();
+        $rescheduleRequests = collect();
         
-        return view('admin.gymmanagement.schedules-create', compact('trainers'));
+        return view('admin.gymmanagement.schedules-create', compact('trainers', 'rescheduleRequests'));
     }
 
     public function edit($id)
     {
         $data = Schedule::findOrFail($id);
         $trainers = User::where('role_id', 5)->get();
+        $rescheduleRequests = ScheduleRescheduleRequest::with(['trainer'])
+            ->where('schedule_id', $id)
+            ->orderBy('created_at', 'desc')
+            ->get();
         
-        return view('admin.gymmanagement.schedules-edit', compact('data', 'trainers'));
+        return view('admin.gymmanagement.schedules-edit', compact('data', 'trainers', 'rescheduleRequests'));
     }
 
     public function store(Request $request)
@@ -476,6 +486,45 @@ class ScheduleController extends Controller
         $data->save();
 
         return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule changed successfully');
+    }
+
+    public function handleRescheduleRequest(Request $request, $rescheduleId)
+    {
+        $validated = $request->validate([
+            'status' => ['required', Rule::in([1, 2])],
+            'admin_comment' => ['nullable', 'string', 'max:1000'],
+        ]);
+
+        $reschedule = ScheduleRescheduleRequest::with('schedule')->findOrFail($rescheduleId);
+
+        if ((int) $reschedule->status !== 0) {
+            return redirect()->route('admin.gym-management.schedules')->with('error', 'This request has already been processed.');
+        }
+
+        $reschedule->status = (int) $validated['status'];
+        $reschedule->admin_comment = $validated['admin_comment'] ?? null;
+        $reschedule->responded_at = now();
+        $reschedule->responded_by = $request->user()->id;
+        $reschedule->save();
+
+        if ($reschedule->status === 1 && $reschedule->schedule) {
+            $schedule = $reschedule->schedule;
+            $schedule->recurring_days = $reschedule->recurring_days ?? [];
+            $schedule->class_start_time = $reschedule->proposed_start_time;
+            $schedule->class_end_time = $reschedule->proposed_end_time;
+
+            if ($reschedule->proposed_series_start_date) {
+                $schedule->series_start_date = $reschedule->proposed_series_start_date;
+            }
+
+            if ($reschedule->proposed_series_end_date) {
+                $schedule->series_end_date = $reschedule->proposed_series_end_date;
+            }
+
+            $schedule->save();
+        }
+
+        return redirect()->route('admin.gym-management.schedules')->with('success', 'Reschedule request updated.');
     }
     
     public function delete(Request $request)

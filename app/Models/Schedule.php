@@ -9,6 +9,10 @@ class Schedule extends Model
 {
     use HasFactory;
     
+    protected $casts = [
+        'recurring_days' => 'array',
+    ];
+    
     public function user()
     {
         return $this->belongsTo(User::class, 'trainer_id');
@@ -17,5 +21,10 @@ class Schedule extends Model
     public function user_schedules()
     {
         return $this->hasMany(UserSchedule::class, 'schedule_id');
+    }
+
+    public function rescheduleRequests()
+    {
+        return $this->hasMany(ScheduleRescheduleRequest::class, 'schedule_id');
     }
 }
