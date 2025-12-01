@@ -21,6 +21,7 @@ class MemberClassController extends Controller
         $availableClasses = Schedule::with(['user'])
             ->withCount('user_schedules')
             ->where('isadminapproved', 1)
+            ->where('is_archieve', 0)
             ->where(function ($query) use ($now) {
                 $query->whereNull('class_start_date')->orWhere('class_start_date', '>=', $now);
             })
@@ -49,6 +50,10 @@ class MemberClassController extends Controller
             ->filter(function ($class) use ($now) {
                 $schedule = $class->schedule;
                 if (!$schedule) {
+                    return false;
+                }
+
+                if ((int) ($schedule->is_archieve ?? 0) === 1) {
                     return false;
                 }
 
@@ -148,6 +153,80 @@ class MemberClassController extends Controller
         return response()->json(['message' => 'Leave Class successfully.']);
     }
 
+    public function participants(Request $request, $classId)
+    {
+        $user = $request->user();
+
+        $schedule = Schedule::with(['user_schedules' => function ($query) {
+                $query->with(['user' => function ($userQuery) {
+                    $userQuery->select([
+                        'id',
+                        'first_name',
+                        'last_name',
+                        'email',
+                        'phone_number',
+                        'profile_picture',
+                    ]);
+                }]);
+            }])
+            ->find($classId);
+
+        if (!$schedule || (int) ($schedule->is_archieve ?? 0) === 1 || (int) ($schedule->isadminapproved ?? 0) !== 1) {
+            return response()->json(['message' => 'Class not found.'], 404);
+        }
+
+        $isEnrolled = $schedule->user_schedules->contains(function ($enrollment) use ($user) {
+            return (int) $enrollment->user_id === (int) $user->id;
+        });
+
+        if (!$isEnrolled) {
+            return response()->json(['message' => 'Join the class to view its participants.'], 403);
+        }
+
+        $schedule->loadCount('user_schedules');
+
+        $participants = $schedule->user_schedules->map(function ($enrollment) {
+            $member = $enrollment->user;
+            $fullName = $member
+                ? trim(collect([optional($member)->first_name, optional($member)->last_name])->filter()->implode(' '))
+                : null;
+
+            return [
+                'enrollment_id' => $enrollment->id,
+                'member_id' => $enrollment->user_id,
+                'full_name' => $fullName ?: 'Member',
+                'first_name' => optional($member)->first_name,
+                'last_name' => optional($member)->last_name,
+                'email' => optional($member)->email,
+                'phone_number' => optional($member)->phone_number,
+                'joined_at' => $enrollment->created_at ? $enrollment->created_at->toIso8601String() : null,
+            ];
+        })->values();
+
+        $slots = $schedule->slots;
+        $enrolledCount = $participants->count();
+        $availableSlots = is_null($slots) ? null : max($slots - $enrolledCount, 0);
+
+        $startDate = $this->normalizeDateTime($schedule->class_start_date);
+        $endDate = $this->normalizeDateTime($schedule->class_end_date);
+
+        return response()->json([
+            'class' => [
+                'id' => $schedule->id,
+                'name' => $schedule->name,
+                'class_code' => $schedule->class_code,
+                'class_start_date' => $startDate,
+                'class_end_date' => $endDate,
+                'slots' => $slots,
+                'enrolled_count' => $enrolledCount,
+                'available_slots' => $availableSlots,
+                'isadminapproved' => (int) $schedule->isadminapproved,
+                'istrainerapproved' => (int) $schedule->istrainerapproved,
+            ],
+            'participants' => $participants,
+        ]);
+    }
+
     public function enrollmentHistory(Request $request)
     {
         $user = $request->user();
@@ -214,6 +293,19 @@ class MemberClassController extends Controller
             'data'   => $enrollments,
             'counts' => $statusCounts,
         ]);
+    }
+
+    private function normalizeDateTime($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->toIso8601String();
+        } catch (\Throwable $th) {
+            return null;
+        }
     }
 
     protected function transformSchedule(Schedule $schedule, string $type, bool $isJoined, Carbon $now): array
