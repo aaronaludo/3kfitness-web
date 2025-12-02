@@ -119,13 +119,13 @@
                                     @endphp
                                     <button
                                         type="button"
-                                        class="btn btn-sm rounded-pill px-3 membership-history-status-chip {{ $activeStatus === $key ? 'btn-danger' : 'btn-outline-secondary' }}"
+                                        class="btn btn-sm rounded-pill px-3 membership-history-status-chip {{ $activeStatus === $key ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary text-dark' }}"
                                         data-status="{{ $key }}"
                                         aria-label="Filter memberships by {{ strtolower($label['label']) }}"
                                     >
                                         {{ $label['label'] }}
                                         @if(!is_null($count))
-                                            <span class="badge bg-transparent text-muted fw-semibold ms-2">{{ $count }}</span>
+                                            <span class="badge bg-transparent {{ $activeStatus === $key ? 'text-white' : 'text-dark' }} fw-semibold ms-2">{{ $count }}</span>
                                         @endif
                                     </button>
                                 @endforeach
@@ -552,7 +552,7 @@
 
                 statusButtons.forEach((btn) => {
                     const isActive = btn.dataset.status === status;
-                    btn.classList.toggle('btn-danger', isActive);
+                    btn.classList.toggle('btn-dark', isActive);
                     btn.classList.toggle('btn-outline-secondary', !isActive);
                 });
             }
