@@ -12,7 +12,7 @@ trait ResolvesActiveMembership
     {
         return MembershipPayment::with('membership')
             ->where('user_id', $user->id)
-            ->where('isapproved', 1)
+            ->whereIn('isapproved', [1, 2]) // treat both approved status codes as valid
             ->when(
                 Schema::hasColumn('membership_payments', 'is_archive'),
                 fn ($query) => $query->where('is_archive', 0)

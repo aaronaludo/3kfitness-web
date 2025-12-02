@@ -66,18 +66,28 @@ class MembershipController extends Controller
         $payment->loadMissing('membership');
 
         $expiresAt = $payment->expiration_at ? Carbon::parse($payment->expiration_at) : null;
-        $startedAt = $payment->created_at ? Carbon::parse($payment->created_at) : null;
+        $startedAt = $this->resolveMembershipStartDate($payment);
         $now = Carbon::now();
 
         $remainingSeconds = $expiresAt ? max($now->diffInSeconds($expiresAt, false), 0) : null;
-        $totalSeconds = ($expiresAt && $startedAt) ? max($expiresAt->diffInSeconds($startedAt, false), 0) : null;
+        $totalSeconds = ($expiresAt && $startedAt) ? max($startedAt->diffInSeconds($expiresAt, false), 0) : null;
+        $elapsedSeconds = ($startedAt && $totalSeconds !== null) ? max($startedAt->diffInSeconds($now, false), 0) : null;
 
-        $progress = null;
-        if ($totalSeconds && $totalSeconds > 0) {
-            $progress = min(max(($totalSeconds - $remainingSeconds) / $totalSeconds, 0), 1);
+        $progressElapsed = null;
+        $progressRemaining = null;
+
+        if ($totalSeconds && $elapsedSeconds !== null) {
+            $progressElapsed = min(max($elapsedSeconds / $totalSeconds, 0), 1);
+            $progressRemaining = min(max($remainingSeconds / $totalSeconds, 0), 1);
         } elseif (!$expiresAt) {
-            $progress = 1;
+            $progressRemaining = 1; // no expiry -> treat as fully remaining
+            $progressElapsed = 0;
+        } elseif ($totalSeconds === 0 && $expiresAt) {
+            $progressRemaining = $remainingSeconds > 0 ? 1 : 0;
+            $progressElapsed = $remainingSeconds > 0 ? 0 : 1;
         }
+
+        $progress = $progressRemaining ?? 0;
 
         return [
             'id' => $payment->id,
@@ -88,7 +98,20 @@ class MembershipController extends Controller
             'remaining_seconds' => $remainingSeconds,
             'remaining_days' => $remainingSeconds !== null ? (int) ceil($remainingSeconds / 86400) : null,
             'total_seconds' => $totalSeconds,
-            'progress' => $progress ?? ($totalSeconds === 0 ? 1 : $progress),
+            'progress' => $progress,
+            'progress_elapsed' => $progressElapsed,
+            'progress_remaining' => $progressRemaining,
         ];
+    }
+
+    private function resolveMembershipStartDate(MembershipPayment $payment): ?Carbon
+    {
+        $approvedStatuses = [1, 2];
+
+        $timestamp = in_array((int) $payment->isapproved, $approvedStatuses, true)
+            ? $payment->updated_at
+            : $payment->created_at;
+
+        return $timestamp ? Carbon::parse($timestamp) : null;
     }
 }
