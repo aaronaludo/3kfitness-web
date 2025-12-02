@@ -34,7 +34,7 @@ class StaffAccountManagementController extends Controller
         }
 
         $allowedColumns = [
-            'id', 'name', 'email', 'role_id', 'phone_number', 'created_at', 'updated_at',
+            'id', 'user_code', 'name', 'email', 'role_id', 'phone_number', 'created_at', 'updated_at',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
@@ -278,7 +278,7 @@ class StaffAccountManagementController extends Controller
         }
 
         $allowedColumns = [
-            'id', 'name', 'email', 'role_id', 'phone_number', 'created_at', 'updated_at',
+            'id', 'user_code', 'name', 'email', 'role_id', 'phone_number', 'created_at', 'updated_at',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
@@ -327,7 +327,8 @@ class StaffAccountManagementController extends Controller
         $table = $section->addTable('StaffAccountsTable');
 
         $headers = [
-            'ID',
+            '#',
+            'User Code',
             'Name',
             'Email',
             'Type',
@@ -345,6 +346,7 @@ class StaffAccountManagementController extends Controller
         foreach ($data as $item) {
             $row = $table->addRow();
             $row->addCell()->addText((string) $item->id);
+            $row->addCell()->addText((string) ($item->user_code ?? ''));
             $row->addCell()->addText(trim(($item->first_name ?? '') . ' ' . ($item->last_name ?? '')));
             $row->addCell()->addText((string) ($item->email ?? ''));
             $row->addCell()->addText(optional($item->role)->name ?? '');

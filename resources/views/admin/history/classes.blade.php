@@ -60,7 +60,7 @@
                     <h2 class="title mb-1">Classes History</h2>
                     <p class="text-muted mb-0 small">Finished classes with enrollment counts and admin status.</p>
                 </div>
-                <div class="d-flex gap-2 flex-wrap align-items-center">
+                <div class="d-flex gap-2 flex-wrap align-items-center h-100">
                     <form action="{{ route('admin.history.classes.print') }}" method="POST" id="class-history-print-form">
                         @csrf
                         <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">

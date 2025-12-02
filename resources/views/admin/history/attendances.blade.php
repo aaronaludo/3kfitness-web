@@ -59,7 +59,7 @@
                     <h2 class="title mb-1">Attendances History</h2>
                     <p class="text-muted mb-0 small">Completed attendance logs for members, trainers, and staff.</p>
                 </div>
-                <div class="d-flex gap-2 flex-wrap align-items-center">
+                <div class="d-flex gap-2 flex-wrap align-items-center h-100">
                     <form action="{{ route('admin.history.attendances.print') }}" method="POST" id="attendance-print-form">
                         @csrf
                         <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">

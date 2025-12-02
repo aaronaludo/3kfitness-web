@@ -60,7 +60,7 @@
                     <h2 class="title mb-1">Membership History</h2>
                     <p class="text-muted mb-0 small">Track past membership purchases, approvals, and expirations for members.</p>
                 </div>
-                <div class="d-flex gap-2 flex-wrap align-items-center">
+                <div class="d-flex gap-2 flex-wrap align-items-center h-100">
                     <form action="{{ route('admin.history.memberships.print') }}" method="POST" id="membership-history-print-form">
                         @csrf
                         <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">

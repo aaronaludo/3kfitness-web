@@ -96,7 +96,7 @@
                 $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
             @endphp
 
-            <div class="col-12 mb-20">
+            <div class="col-12 mb-20 mt-3">
                 <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-body p-4">
                         <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">

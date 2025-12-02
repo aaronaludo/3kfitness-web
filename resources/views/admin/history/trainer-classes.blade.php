@@ -59,7 +59,7 @@
                     <h2 class="title mb-1">Trainer Class History</h2>
                     <p class="text-muted mb-0 small">Review completed classes, who led them, and how many members joined.</p>
                 </div>
-                <div class="d-flex gap-2 flex-wrap align-items-center">
+                <div class="d-flex gap-2 flex-wrap align-items-center h-100">
                     <form action="{{ route('admin.history.trainer-classes.print') }}" method="POST" id="trainer-class-print-form">
                         @csrf
                         <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
