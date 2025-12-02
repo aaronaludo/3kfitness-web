@@ -117,9 +117,13 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/history/attendances', [AttendanceHistory::class, 'index'])->name('admin.history.attendances');
     Route::post('/admin/history/attendances/print', [AttendanceHistory::class, 'print'])->name('admin.history.attendances.print');
     Route::get('/admin/history/classes', [ClassHistory::class, 'index'])->name('admin.history.classes');
+    Route::post('/admin/history/classes/print', [ClassHistory::class, 'print'])->name('admin.history.classes.print');
     Route::get('/admin/history/payments', [PaymentHistory::class, 'index'])->name('admin.history.payments');
+    Route::post('/admin/history/payments/print', [PaymentHistory::class, 'print'])->name('admin.history.payments.print');
     Route::get('/admin/history/memberships', [MembershipHistory::class, 'index'])->name('admin.history.memberships');
+    Route::post('/admin/history/memberships/print', [MembershipHistory::class, 'print'])->name('admin.history.memberships.print');
     Route::get('/admin/history/trainer-classes', [TrainerClassHistory::class, 'index'])->name('admin.history.trainer-classes');
+    Route::post('/admin/history/trainer-classes/print', [TrainerClassHistory::class, 'print'])->name('admin.history.trainer-classes.print');
     
     Route::get('/admin/members', [MemberData::class, 'index'])->name('admin.gym-management.members');
     Route::get('/admin/members/create', [MemberData::class, 'create'])->name('admin.gym-management.members.create');

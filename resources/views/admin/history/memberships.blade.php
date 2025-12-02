@@ -12,6 +12,46 @@
                 'rejected' => ['label' => 'Rejected', 'class' => 'bg-danger'],
             ];
             $activeStatus = $filters['status'] ?? 'all';
+            $advancedFiltersOpen = ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
+
+            $printItems = collect($payments->items())->map(function ($payment) {
+                $member = $payment->user;
+                $membership = $payment->membership;
+                $purchasedAt = $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : null;
+                $expiresAt = $payment->expiration_at ? \Carbon\Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : null;
+                $statusMeta = [
+                    0 => 'Pending',
+                    1 => 'Approved',
+                    2 => 'Rejected',
+                ];
+
+                return [
+                    'id' => $payment->id,
+                    'member' => $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member',
+                    'role' => $member && $member->role ? ($member->role->name ?? null) : null,
+                    'email' => $member ? ($member->email ?? null) : null,
+                    'phone' => $member ? ($member->phone_number ?? null) : null,
+                    'membership' => $membership ? $membership->name : 'Membership unavailable',
+                    'price' => $membership && isset($membership->price) ? number_format((float) $membership->price, 2) : null,
+                    'status' => $statusMeta[$payment->isapproved] ?? 'Pending',
+                    'purchased' => $purchasedAt,
+                    'expires' => $expiresAt,
+                ];
+            })->values();
+
+            $printPayload = [
+                'title' => 'Membership history',
+                'generated_at' => now()->format('M d, Y g:i A'),
+                'filters' => [
+                    'search' => $filters['search'] ?? '',
+                    'membership_id' => $filters['membership_id'] ?? null,
+                    'status' => $filters['status'] ?? null,
+                    'start' => $filters['start_date'] ?? null,
+                    'end' => $filters['end_date'] ?? null,
+                ],
+                'count' => $printItems->count(),
+                'items' => $printItems,
+            ];
         @endphp
 
         <div class="row">
@@ -20,7 +60,25 @@
                     <h2 class="title mb-1">Membership History</h2>
                     <p class="text-muted mb-0 small">Track past membership purchases, approvals, and expirations for members.</p>
                 </div>
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 flex-wrap align-items-center">
+                    <form action="{{ route('admin.history.memberships.print') }}" method="POST" id="membership-history-print-form">
+                        @csrf
+                        <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
+                        <input type="hidden" name="membership_id" value="{{ $filters['membership_id'] ?? '' }}">
+                        <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
+                        <input type="hidden" name="start_date" value="{{ $filters['start_date'] ?? '' }}">
+                        <input type="hidden" name="end_date" value="{{ $filters['end_date'] ?? '' }}">
+                        <button
+                            type="submit"
+                            class="btn btn-danger"
+                            id="membership-history-print-submit"
+                            data-print='@json($printPayload)'
+                            aria-label="Open printable/PDF view of filtered membership history"
+                        >
+                            <i class="fa-solid fa-print me-2"></i>Print
+                            <span id="membership-history-print-loader" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                        </button>
+                    </form>
                     <a href="{{ route('admin.staff-account-management.membership-payments') }}" class="btn btn-outline-secondary">
                         <i class="fa-solid fa-wallet me-2"></i>View payments
                     </a>
@@ -52,85 +110,142 @@
                             </div>
                         </div>
 
-                        <div class="d-flex flex-wrap gap-2 align-items-center mt-3">
-                            @foreach ($statusLabels as $key => $label)
-                                <span class="badge {{ $activeStatus === $key ? $label['class'] : 'bg-light text-dark' }} px-3 py-2">
-                                    {{ $label['label'] }}
+                        <form action="{{ route('admin.history.memberships') }}" method="GET" id="membership-history-filter-form" class="mt-3">
+                            <input type="hidden" name="status" id="membership-history-status-filter" value="{{ $activeStatus }}">
+                            <div class="d-flex flex-wrap gap-2 align-items-center mb-3">
+                                @foreach ($statusLabels as $key => $label)
                                     @php
                                         $count = $statusTallies[$key] ?? null;
                                     @endphp
-                                    @if(!is_null($count))
-                                        <span class="ms-2 fw-semibold">{{ $count }}</span>
-                                    @endif
-                                </span>
-                            @endforeach
-                        </div>
-
-                        <form action="{{ route('admin.history.memberships') }}" method="GET" class="row g-3 align-items-end mt-3">
-                            <div class="col-12 col-lg-3">
-                                <label for="search" class="form-label text-muted small fw-semibold">Search member or membership</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass"></i></span>
-                                    <input
-                                        type="search"
-                                        id="search"
-                                        name="search"
-                                        class="form-control"
-                                        value="{{ $filters['search'] ?? '' }}"
-                                        placeholder="e.g. Jane Doe, Premium"
+                                    <button
+                                        type="button"
+                                        class="btn btn-sm rounded-pill px-3 membership-history-status-chip {{ $activeStatus === $key ? 'btn-danger' : 'btn-outline-secondary' }}"
+                                        data-status="{{ $key }}"
+                                        aria-label="Filter memberships by {{ strtolower($label['label']) }}"
                                     >
+                                        {{ $label['label'] }}
+                                        @if(!is_null($count))
+                                            <span class="badge bg-transparent text-muted fw-semibold ms-2">{{ $count }}</span>
+                                        @endif
+                                    </button>
+                                @endforeach
+                            </div>
+
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
+                                    <div class="position-relative">
+                                        <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                        <input
+                                            type="search"
+                                            id="search"
+                                            name="search"
+                                            class="form-control rounded-pill ps-5"
+                                            value="{{ $filters['search'] ?? '' }}"
+                                            placeholder="Search member, membership, or ID"
+                                            aria-label="Search membership history"
+                                        >
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    @if ($hasFilters)
+                                        <a href="{{ route('admin.history.memberships') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+                                    @endif
+
+                                    <button
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#membershipHistoryFiltersModal"
+                                    >
+                                        <i class="fa-solid fa-sliders"></i> Filters
+                                    </button>
+
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        Apply
+                                    </button>
                                 </div>
                             </div>
-                            <div class="col-12 col-sm-6 col-lg-3">
-                                <label for="membership_id" class="form-label text-muted small fw-semibold">Membership</label>
-                                <select id="membership_id" name="membership_id" class="form-select">
-                                    <option value="">All memberships</option>
-                                    @foreach ($membershipOptions as $membership)
-                                        <option
-                                            value="{{ $membership->id }}"
-                                            {{ (string) ($filters['membership_id'] ?? '') === (string) $membership->id ? 'selected' : '' }}
-                                        >
-                                            {{ $membership->name }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-12 col-sm-6 col-lg-2">
-                                <label for="status" class="form-label text-muted small fw-semibold">Status</label>
-                                <select id="status" name="status" class="form-select">
-                                    <option value="all" {{ ($filters['status'] ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
-                                    <option value="approved" {{ ($filters['status'] ?? 'all') === 'approved' ? 'selected' : '' }}>Approved</option>
-                                    <option value="pending" {{ ($filters['status'] ?? 'all') === 'pending' ? 'selected' : '' }}>Pending</option>
-                                    <option value="rejected" {{ ($filters['status'] ?? 'all') === 'rejected' ? 'selected' : '' }}>Rejected</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-sm-6 col-lg-2">
-                                <label for="start_date" class="form-label text-muted small fw-semibold">Purchased from</label>
-                                <input
-                                    type="date"
-                                    id="start_date"
-                                    name="start_date"
-                                    class="form-control"
-                                    value="{{ $filters['start_date'] ?? '' }}"
-                                >
-                            </div>
-                            <div class="col-12 col-sm-6 col-lg-2">
-                                <label for="end_date" class="form-label text-muted small fw-semibold">Purchased to</label>
-                                <input
-                                    type="date"
-                                    id="end_date"
-                                    name="end_date"
-                                    class="form-control"
-                                    value="{{ $filters['end_date'] ?? '' }}"
-                                >
-                            </div>
-                            <div class="col-12 d-flex align-items-center gap-2 flex-wrap justify-content-end">
-                                @if ($hasFilters)
-                                    <a href="{{ route('admin.history.memberships') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
-                                @endif
-                                <button type="submit" class="btn btn-danger">
-                                    Apply
-                                </button>
+
+                            <div class="modal fade" id="membershipHistoryFiltersModal" tabindex="-1" aria-labelledby="membershipHistoryFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-md">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="membershipHistoryFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-column gap-4">
+                                                <div>
+                                                    <span class="text-muted text-uppercase small fw-semibold d-block">Quick ranges</span>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill membership-history-range-chip" data-range="last-week">Last week</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill membership-history-range-chip" data-range="last-month">Last month</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill membership-history-range-chip" data-range="last-year">Last year</button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label for="membership_id" class="form-label text-muted text-uppercase small mb-1">Membership</label>
+                                                    <select id="membership_id" name="membership_id" class="form-select rounded-3">
+                                                        <option value="">All memberships</option>
+                                                        @foreach ($membershipOptions as $membership)
+                                                            <option
+                                                                value="{{ $membership->id }}"
+                                                                {{ (string) ($filters['membership_id'] ?? '') === (string) $membership->id ? 'selected' : '' }}
+                                                            >
+                                                                {{ $membership->name }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label for="status" class="form-label text-muted text-uppercase small mb-1">Status</label>
+                                                    <select id="status" name="status_display" class="form-select rounded-3">
+                                                        <option value="all" {{ ($filters['status'] ?? 'all') === 'all' ? 'selected' : '' }}>All</option>
+                                                        <option value="approved" {{ ($filters['status'] ?? 'all') === 'approved' ? 'selected' : '' }}>Approved</option>
+                                                        <option value="pending" {{ ($filters['status'] ?? 'all') === 'pending' ? 'selected' : '' }}>Pending</option>
+                                                        <option value="rejected" {{ ($filters['status'] ?? 'all') === 'rejected' ? 'selected' : '' }}>Rejected</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <span class="form-label text-muted text-uppercase small d-block mb-2">Purchased range</span>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="membership-history-start-date" class="form-label small text-muted mb-1">From</label>
+                                                            <input
+                                                                type="date"
+                                                                id="membership-history-start-date"
+                                                                name="start_date"
+                                                                class="form-control rounded-3"
+                                                                value="{{ $filters['start_date'] ?? '' }}"
+                                                            />
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="membership-history-end-date" class="form-label small text-muted mb-1">To</label>
+                                                            <input
+                                                                type="date"
+                                                                id="membership-history-end-date"
+                                                                class="form-control rounded-3"
+                                                                name="end_date"
+                                                                value="{{ $filters['end_date'] ?? '' }}"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-magnifying-glass me-2"></i>Apply filters
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -170,7 +285,7 @@
                                             ][$statusValue] ?? ['label' => 'Pending', 'class' => 'bg-warning text-dark'];
                                         @endphp
                                         <tr>
-                                            <td>{{ ($payments->firstItem() ?? 0) + $index }}</td>
+                                            <td>{{ $payment->id ?? '—' }}</td>
                                             <td>
                                                 <div class="fw-semibold">{{ $fullName !== '' ? $fullName : 'Unknown member' }}</div>
                                                 @if($member && $member->role)
@@ -252,4 +367,220 @@
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const printButton = document.getElementById('membership-history-print-submit');
+            const printForm = document.getElementById('membership-history-print-form');
+            const printLoader = document.getElementById('membership-history-print-loader');
+
+            function buildFilters(filters) {
+                const chips = [];
+                if (filters.search) chips.push(`Search: ${filters.search}`);
+                if (filters.membership_id) chips.push(`Membership ID: ${filters.membership_id}`);
+                if (filters.status && filters.status !== 'all') chips.push(`Status: ${filters.status}`);
+                if (filters.start || filters.end) chips.push(`Purchased: ${filters.start || '—'} → ${filters.end || '—'}`);
+                return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+            }
+
+            function buildRows(items) {
+                return (items || []).map((item) => {
+                    const role = item.role ? `<div class="muted">${item.role}</div>` : '';
+                    const phone = item.phone ? `<div class="muted">${item.phone}</div>` : '';
+                    const price = item.price ? `PHP ${item.price}` : '—';
+
+                    return `
+                        <tr>
+                            <td>${item.id ?? '—'}</td>
+                            <td>
+                                <div class="fw">${item.member || '—'}</div>
+                                ${role}
+                            </td>
+                            <td>
+                                <div>${item.email || '—'}</div>
+                                ${phone}
+                            </td>
+                            <td>${item.membership || '—'}</td>
+                            <td>${price}</td>
+                            <td>${item.status || '—'}</td>
+                            <td>${item.purchased || '—'}</td>
+                            <td>${item.expires || '—'}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            function renderPrintWindow(payload) {
+                const items = payload.items || [];
+                const filters = payload.filters || {};
+                const rows = buildRows(items);
+                const html = `
+                    <!doctype html>
+                    <html>
+                        <head>
+                            <title>${payload.title || 'Membership history'}</title>
+                            <style>
+                                :root { color-scheme: light; }
+                                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
+                                .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
+                                .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+                                .title { margin: 0; font-size: 22px; }
+                                .muted { color: #6b7280; font-size: 12px; }
+                                .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+                                th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
+                                th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+                                .fw { font-weight: 700; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="sheet">
+                                <div class="header">
+                                    <div>
+                                        <h1 class="title">${payload.title || 'Membership history'}</h1>
+                                        <div class="muted">Generated ${payload.generated_at || ''}</div>
+                                        <div class="muted">Showing ${payload.count || 0} record(s)</div>
+                                    </div>
+                                </div>
+                                <div class="pill-row">${buildFilters(filters)}</div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Member</th>
+                                            <th>Contact</th>
+                                            <th>Membership</th>
+                                            <th>Price</th>
+                                            <th>Status</th>
+                                            <th>Purchased</th>
+                                            <th>Expires</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows || '<tr><td colspan="8" style="text-align:center; padding:16px;">No memberships available for this view.</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <script>window.print();<\/script>
+                        </body>
+                    </html>
+                `;
+
+                const printWindow = window.open('', '_blank', 'width=1200,height=900');
+                if (!printWindow) return false;
+                printWindow.document.open();
+                printWindow.document.write(html);
+                printWindow.document.close();
+                return true;
+            }
+
+            if (printButton && printForm) {
+                printButton.addEventListener('click', function (e) {
+                    const rawPayload = printButton.dataset.print;
+                    if (!rawPayload) {
+                        return;
+                    }
+
+                    e.preventDefault();
+                    if (printLoader) printLoader.classList.remove('d-none');
+                    printButton.disabled = true;
+
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(rawPayload);
+                    } catch (err) {
+                        payload = null;
+                    }
+
+                    const opened = payload ? renderPrintWindow(payload) : false;
+                    if (!opened) {
+                        printButton.disabled = false;
+                        if (printLoader) printLoader.classList.add('d-none');
+                        printForm.submit();
+                        return;
+                    }
+
+                    setTimeout(() => {
+                        printButton.disabled = false;
+                        if (printLoader) printLoader.classList.add('d-none');
+                    }, 300);
+                });
+            }
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('membership-history-filter-form');
+            if (!form) {
+                return;
+            }
+
+            const rangeButtons = form.querySelectorAll('.membership-history-range-chip');
+            const startInput = document.getElementById('membership-history-start-date');
+            const endInput = document.getElementById('membership-history-end-date');
+            const statusInput = document.getElementById('membership-history-status-filter');
+            const statusSelect = document.getElementById('status');
+            const statusButtons = form.querySelectorAll('.membership-history-status-chip');
+
+            function formatDate(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function applyRange(range) {
+                const today = new Date();
+                const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const start = new Date(end);
+
+                if (range === 'last-week') {
+                    start.setDate(start.getDate() - 7);
+                } else if (range === 'last-month') {
+                    start.setMonth(start.getMonth() - 1);
+                } else if (range === 'last-year') {
+                    start.setFullYear(start.getFullYear() - 1);
+                }
+
+                if (startInput) startInput.value = formatDate(start);
+                if (endInput) endInput.value = formatDate(end);
+            }
+
+            function setActiveStatus(status) {
+                if (statusInput) statusInput.value = status;
+                if (statusSelect) statusSelect.value = status;
+
+                statusButtons.forEach((btn) => {
+                    const isActive = btn.dataset.status === status;
+                    btn.classList.toggle('btn-danger', isActive);
+                    btn.classList.toggle('btn-outline-secondary', !isActive);
+                });
+            }
+
+            statusButtons.forEach((button) => {
+                button.addEventListener('click', function () {
+                    const selectedStatus = this.dataset.status || '';
+                    setActiveStatus(selectedStatus);
+                    form.submit();
+                });
+            });
+
+            if (statusSelect) {
+                statusSelect.addEventListener('change', function () {
+                    setActiveStatus(this.value || '');
+                });
+            }
+
+            if (statusInput && statusInput.value) {
+                setActiveStatus(statusInput.value);
+            }
+
+            rangeButtons.forEach((button) => {
+                button.addEventListener('click', function () {
+                    const range = this.dataset.range;
+                    applyRange(range);
+                });
+            });
+        });
+    </script>
 @endsection
