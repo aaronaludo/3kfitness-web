@@ -6,6 +6,76 @@
         <div class="row">
             @php
                 $showArchived = request()->boolean('show_archived');
+                $activeMemberships = isset($data) && method_exists($data, 'getCollection')
+                    ? $data->setCollection($data->getCollection()->sortByDesc('id'))
+                    : $data;
+                $archivedMemberships = isset($archivedData) && method_exists($archivedData, 'getCollection')
+                    ? $archivedData->setCollection($archivedData->getCollection()->sortByDesc('id'))
+                    : $archivedData;
+                $sortedPayrollHistory = isset($payrollHistory)
+                    ? (method_exists($payrollHistory, 'getCollection')
+                        ? $payrollHistory->getCollection()->sortByDesc('id')
+                        : (method_exists($payrollHistory, 'sortByDesc') ? $payrollHistory->sortByDesc('id') : collect()))
+                    : collect();
+                $printSource = $showArchived ? $archivedMemberships : $activeMemberships;
+                $printStartIndex = method_exists($printSource, 'firstItem') ? ($printSource->firstItem() ?? 1) : 1;
+                $printMemberships = collect($printSource->items())->values()->map(function ($item, $idx) use ($printStartIndex) {
+                    $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
+                    $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
+                    $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
+
+                    $statusMap = [
+                        0 => 'Pending',
+                        1 => 'Approved',
+                        2 => 'Rejected',
+                    ];
+                    $member = $item->user;
+                    $memberName = trim((optional($member)->first_name ?? '') . ' ' . (optional($member)->last_name ?? ''));
+                    $membership = $item->membership;
+                    $currency = optional($membership)->currency ?: 'PHP';
+                    $price = optional($membership)->price;
+
+                    $classes = collect(optional($item->user)->userSchedules)->map(function ($userSchedule) {
+                        $schedule = $userSchedule->schedule;
+                        if (!$schedule) {
+                            return null;
+                        }
+                        return [
+                            'id' => $schedule->id,
+                            'name' => $schedule->name,
+                        ];
+                    })->filter()->unique('id')->values();
+
+                    return [
+                        'number' => $printStartIndex + $idx,
+                        'id' => $item->id,
+                        'member' => $memberName ?: '—',
+                        'member_email' => optional($member)->email ?? '',
+                        'membership' => optional($membership)->name ?: '—',
+                        'expiration' => $expirationAt ? $expirationAt->format('M j, Y g:i A') : '—',
+                        'created' => $createdAt ? $createdAt->format('M j, Y g:i A') : '—',
+                        'updated' => $updatedAt ? $updatedAt->format('M j, Y g:i A') : '—',
+                        'status' => $statusMap[$item->isapproved] ?? 'Pending',
+                        'amount' => trim(($currency ? $currency . ' ' : '') . number_format((float) $price, 2)),
+                        'classes' => $classes->pluck('name')->all(),
+                        'created_by' => $item->created_by ?: '',
+                    ];
+                });
+
+                $printPayload = [
+                    'title' => $showArchived ? 'Archived membership payments' : 'Membership payments',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name', request('member_name')),
+                        'search_column' => request('search_column'),
+                        'status' => request('status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                    ],
+                    'count' => $printMemberships->count(),
+                    'items' => $printMemberships,
+                ];
             @endphp
             <div class="col-lg-12 d-flex justify-content-between">
                 <div><h2 class="title">Membership Payments</h2></div>
@@ -20,10 +90,16 @@
                         <input type="hidden" name="name" value="{{ request('name', request('member_name')) }}">
                         <input type="hidden" name="search_column" value="{{ request('search_column') }}">
                         <input type="hidden" name="status" value="{{ request('status', 'all') }}">
-                        <button class="btn btn-danger ms-2" type="submit" id="print-submit-button">
-                            <i class="fa-solid fa-print"></i>&nbsp;&nbsp;&nbsp;
-                            <span id="print-loader" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                            Print
+                        <button
+                            class="btn btn-danger ms-2"
+                            type="submit"
+                            id="print-submit-button"
+                            data-print='@json($printPayload)'
+                            aria-label="Open printable/PDF view of filtered membership payments"
+                        >
+                            <i class="fa-solid fa-print"></i>
+                            <span id="print-loader" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                            <span class="ms-1">Print</span>
                         </button>
                     </form>
                     @if ($showArchived)
@@ -79,9 +155,9 @@
                             <div class="text-end">
                                 <span class="d-block text-muted small">
                                     @if ($showArchived)
-                                        Showing {{ $archivedData->total() }} archived payments
+                                        Showing {{ $archivedMemberships->total() }} archived payments
                                     @else
-                                        Showing {{ $data->total() }} results
+                                        Showing {{ $activeMemberships->total() }} results
                                     @endif
                                 </span>
                             </div>
@@ -266,7 +342,7 @@
                                 <table class="table table-hover">
                                     <thead class="table-light">
                                         <tr>
-                                            <th class="sortable" data-column="id">ID <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="member_name">Member Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="membership">Membership <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="expiration_date">Expiration Date <i class="fa fa-sort"></i></th>
@@ -280,14 +356,15 @@
                                         </tr>
                                     </thead>
                                     <tbody id="table-body">
-                                        @foreach($data as $item)
+                                        @foreach($activeMemberships as $item)
                                             @php
+                                                $rowNumber = ($activeMemberships->firstItem() ?? 0) + $loop->index;
                                                 $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
                                                 $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
                                                 $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
                                             @endphp
                                             <tr>
-                                                <td>{{ $item->id }}</td>
+                                                <td>{{ $rowNumber ?: $loop->iteration }}</td>
                                                 <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
                                                 <td>{{ $item->membership->name }}</td>
                                                 <td>{{ $expirationAt ? $expirationAt->format('F j, Y g:iA') : '' }}</td>
@@ -518,7 +595,7 @@
                                         @endforeach
                                     </tbody>
                                 </table>
-                                {{ $data->links() }}
+                                {{ $activeMemberships->links() }}
                             </div>
                         </div>
                     </div>
@@ -530,13 +607,13 @@
                         <div class="col-lg-12">
                             <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
                                 <h4 class="fw-semibold mb-0">Archived Memberships</h4>
-                                <span class="text-muted small">Showing {{ $archivedData->total() }} archived</span>
+                                <span class="text-muted small">Showing {{ $archivedMemberships->total() }} archived</span>
                             </div>
                             <div class="table-responsive mb-3">
                                 <table class="table table-hover">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>ID</th>
+                                            <th>#</th>
                                             <th>Member Name</th>
                                             <th>Membership</th>
                                             <th>Status</th>
@@ -546,13 +623,14 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @forelse ($archivedData as $archive)
+                                        @forelse ($archivedMemberships as $archive)
                                             @php
+                                                $archiveRowNumber = ($archivedMemberships->firstItem() ?? 0) + $loop->index;
                                                 $archiveExpiration = $archive->expiration_at ? \Carbon\Carbon::parse($archive->expiration_at) : null;
                                                 $archiveUpdated = $archive->updated_at ? \Carbon\Carbon::parse($archive->updated_at) : null;
                                             @endphp
                                             <tr>
-                                                <td>{{ $archive->id }}</td>
+                                                <td>{{ $archiveRowNumber ?: $loop->iteration }}</td>
                                                 <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
                                                 <td>{{ optional($archive->membership)->name }}</td>
                                                 <td>
@@ -662,13 +740,13 @@
                                         @endforelse
                                     </tbody>
                                 </table>
-                                {{ $archivedData->links() }}
+                                {{ $archivedMemberships->links() }}
                             </div>
                         </div>
                     </div>
                 </div>
                 @endif
-                @if(isset($payrollHistory) && $payrollHistory->isNotEmpty())
+                @if($sortedPayrollHistory->isNotEmpty())
                 <div class="box mt-4">
                     <div class="row">
                         <div class="col-lg-12">
@@ -680,6 +758,7 @@
                                 <table class="table table-hover">
                                     <thead class="table-light">
                                         <tr>
+                                            <th>#</th>
                                             <th>Staff</th>
                                             <th>Period</th>
                                             <th>Hours</th>
@@ -689,13 +768,14 @@
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        @foreach($payrollHistory as $run)
+                                        @foreach($sortedPayrollHistory as $run)
                                             @php
                                                 $staff = $run->user;
                                                 $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
                                                 $processedAt = $run->processed_at ? $run->processed_at->format('M d, Y g:i A') : '—';
                                             @endphp
                                             <tr>
+                                                <td>{{ $loop->iteration }}</td>
                                                 <td>{{ $name }}</td>
                                                 <td>{{ $run->period_month }}</td>
                                                 <td>{{ number_format($run->total_hours, 2) }} hrs</td>
@@ -714,6 +794,164 @@
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const printButton = document.getElementById('print-submit-button');
+            const printForm = document.getElementById('print-form');
+            const printLoader = document.getElementById('print-loader');
+
+            function getBadgeClass(status) {
+                if (status === 'Approved') return 'badge-soft-success';
+                if (status === 'Pending') return 'badge-soft-warning';
+                if (status === 'Rejected') return 'badge-soft-danger';
+                return 'badge-soft-muted';
+            }
+
+            function buildFilters(filters) {
+                const chips = [];
+                if (filters.show_archived) chips.push('Archived view');
+                if (filters.status && filters.status !== 'all') chips.push(`Status: ${filters.status}`);
+                if (filters.search) {
+                    chips.push(
+                        `Search: ${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`
+                    );
+                }
+                if (filters.start || filters.end) {
+                    chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
+                }
+                return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+            }
+
+            function buildRows(items) {
+                return items.map((item) => {
+                    const classes = (item.classes || []).filter(Boolean).join(', ') || 'None';
+                    return `
+                        <tr>
+                            <td>${item.number ?? '—'}</td>
+                            <td>
+                                <div class="fw">${item.member || '—'}</div>
+                                <div class="muted">${item.member_email || ''}</div>
+                            </td>
+                            <td>
+                                <div>${item.membership || '—'}</div>
+                                <div class="muted">Expires: ${item.expiration || '—'}</div>
+                            </td>
+                            <td>
+                                <div class="fw">${item.amount || 'PHP 0.00'}</div>
+                                <div class="muted">Created: ${item.created || '—'}</div>
+                                <div class="muted">Updated: ${item.updated || '—'}</div>
+                            </td>
+                            <td><span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span></td>
+                            <td>${classes}</td>
+                            <td>${item.created_by || '—'}</td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            function renderPrintWindow(payload) {
+                const items = payload.items || [];
+                const filters = payload.filters || {};
+                const rows = buildRows(items);
+                const html = `
+                    <!doctype html>
+                    <html>
+                        <head>
+                            <title>${payload.title || 'Membership payments'}</title>
+                            <style>
+                                :root { color-scheme: light; }
+                                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
+                                .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
+                                .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+                                .title { margin: 0; font-size: 22px; }
+                                .muted { color: #6b7280; font-size: 12px; }
+                                .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+                                th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
+                                th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+                                .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+                                .badge-soft-success { background: #dcfce7; color: #166534; }
+                                .badge-soft-warning { background: #fef3c7; color: #92400e; }
+                                .badge-soft-danger { background: #fee2e2; color: #b91c1c; }
+                                .badge-soft-muted { background: #f3f4f6; color: #6b7280; }
+                                .fw { font-weight: 700; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="sheet">
+                                <div class="header">
+                                    <div>
+                                        <h1 class="title">${payload.title || 'Membership payments'}</h1>
+                                        <div class="muted">Generated ${payload.generated_at || ''}</div>
+                                        <div class="muted">Showing ${payload.count || 0} record(s)</div>
+                                    </div>
+                                </div>
+                                <div class="pill-row">${buildFilters(filters)}</div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Member</th>
+                                            <th>Membership</th>
+                                            <th>Billing</th>
+                                            <th>Status</th>
+                                            <th>Classes</th>
+                                            <th>Created By</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows || '<tr><td colspan="7" style="text-align:center; padding:16px;">No membership payments found for this view.</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <script>window.print();<\/script>
+                        </body>
+                    </html>
+                `;
+
+                const printWindow = window.open('', '_blank', 'width=1200,height=900');
+                if (!printWindow) return false;
+                printWindow.document.open();
+                printWindow.document.write(html);
+                printWindow.document.close();
+                return true;
+            }
+
+            if (printButton && printForm) {
+                printButton.addEventListener('click', function (e) {
+                    const rawPayload = printButton.dataset.print;
+                    if (!rawPayload) {
+                        return;
+                    }
+
+                    e.preventDefault();
+                    if (printLoader) printLoader.classList.remove('d-none');
+                    printButton.disabled = true;
+
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(rawPayload);
+                    } catch (err) {
+                        payload = null;
+                    }
+
+                    const opened = payload ? renderPrintWindow(payload) : false;
+                    if (!opened) {
+                        printButton.disabled = false;
+                        if (printLoader) printLoader.classList.add('d-none');
+                        printForm.submit();
+                        return;
+                    }
+
+                    setTimeout(() => {
+                        printButton.disabled = false;
+                        if (printLoader) printLoader.classList.add('d-none');
+                    }, 300);
+                });
+            }
+        });
+    </script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const form = document.getElementById('membership-payment-filter-form');

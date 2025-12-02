@@ -266,7 +266,7 @@
                                                     <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
                                                     <select id="search-column" name="search_column" class="form-select rounded-3">
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
+                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Class Name</option>
                                                         <option value="class_code" {{ request('search_column') == 'class_code' ? 'selected' : '' }}>Class Code</option>
                                                         <option value="trainer_name" {{ request('search_column') == 'trainer_name' ? 'selected' : '' }}>Trainer</option>
@@ -429,7 +429,7 @@
                                         <table>
                                             <thead>
                                                 <tr>
-                                                    <th>ID</th>
+                                                    <th>#</th>
                                                     <th>Class</th>
                                                     <th>Trainer</th>
                                                     <th>Schedule</th>
@@ -643,6 +643,7 @@
                             <table class="table align-middle">
                                 <thead class="table-light">
                                     <tr>
+                                        <th>#</th>
                                         <th>Class</th>
                                         <th>Trainer</th>
                                         <th>Requested cadence</th>
@@ -671,6 +672,7 @@
                                                 : 'Keep existing';
                                         @endphp
                                         <tr>
+                                            <td>{{ $requestItem->id }}</td>
                                             <td>
                                                 <div class="fw-semibold">{{ $classItem->name ?? 'Class #' . $requestItem->schedule_id }}</div>
                                                 <div class="text-muted small">{{ $classItem->class_code ?? '' }}</div>
@@ -726,7 +728,7 @@
                                             </td>
                                         </tr>
                                         <tr id="reschedule-inline-{{ $requestItem->id }}" class="resched-inline d-none">
-                                            <td colspan="7">
+                                            <td colspan="8">
                                                 <div class="border rounded-4 p-3 bg-light-subtle">
                                                     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
                                                         <div class="d-flex align-items-center gap-2">
@@ -793,7 +795,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center text-muted py-4">
+                                            <td colspan="8" class="text-center text-muted py-4">
                                                 No reschedule requests yet. Trainers can request changes from the class detail screen.
                                             </td>
                                         </tr>
@@ -876,7 +878,7 @@
                                 <table class="table table-hover align-middle">
                                     <thead class="table-light">
                                     <tr>
-                                            <th class="sortable" data-column="id">ID <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="class_name">Class</th>
                                             <th class="sortable" data-column="trainer">Trainer</th>
                                             <th class="sortable" data-column="start_date">Schedule</th>
@@ -1183,7 +1185,7 @@
                                     <table class="table table-hover">
                                         <thead class="table-light">
                                             <tr>
-                                                <th>ID</th>
+                                                <th>#</th>
                                                 <th>Class Name</th>
                                                 <th>Class Code</th>
                                                 <th>Trainer</th>
