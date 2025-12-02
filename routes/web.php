@@ -113,6 +113,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/reject-message-classes', [Schedule::class, 'rejectmessage'])->name('admin.gym-management.schedules.rejectmessage');
 
     Route::get('/admin/history/class-enrollments', [ClassEnrollmentHistory::class, 'index'])->name('admin.history.class-enrollments');
+    Route::post('/admin/history/class-enrollments/print', [ClassEnrollmentHistory::class, 'print'])->name('admin.history.class-enrollments.print');
     Route::get('/admin/history/attendances', [AttendanceHistory::class, 'index'])->name('admin.history.attendances');
     Route::get('/admin/history/classes', [ClassHistory::class, 'index'])->name('admin.history.classes');
     Route::get('/admin/history/payments', [PaymentHistory::class, 'index'])->name('admin.history.payments');
