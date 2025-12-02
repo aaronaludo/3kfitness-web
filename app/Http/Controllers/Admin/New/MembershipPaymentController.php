@@ -71,8 +71,11 @@ class MembershipPaymentController extends Controller
             ->appends($queryParamsWithoutMainPage);
 
         $payrollHistory = PayrollRun::with('user')
+            ->orderByDesc('id')
             ->limit(10)
             ->get();
+
+        // dd($data);
 
         return view('admin.membership-payments.index', compact('data', 'archivedData', 'statusTallies', 'payrollHistory'));
     }
@@ -418,6 +421,6 @@ class MembershipPaymentController extends Controller
             }
         }
 
-        return $query;
+        return $query->orderByDesc('id');
     }
 }

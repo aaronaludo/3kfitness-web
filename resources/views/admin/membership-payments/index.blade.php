@@ -39,7 +39,7 @@
                     })->filter()->unique('id')->values();
 
                     return [
-                        'number' => $printStartIndex + $idx,
+                        'number' => $item->id,
                         'id' => $item->id,
                         'member' => $memberName ?: '—',
                         'member_email' => optional($member)->email ?? '',
@@ -356,7 +356,7 @@
                                                 $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
                                             @endphp
                                             <tr>
-                                                <td>{{ $rowNumber ?: $loop->iteration }}</td>
+                                                <td>{{ $item->id }}</td>
                                                 <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
                                                 <td>{{ $item->membership->name }}</td>
                                                 <td>{{ $expirationAt ? $expirationAt->format('F j, Y g:iA') : '' }}</td>
@@ -767,7 +767,7 @@
                                                 $processedAt = $run->processed_at ? $run->processed_at->format('M d, Y g:i A') : '—';
                                             @endphp
                                             <tr>
-                                                <td>{{ $loop->iteration }}</td>
+                                                <td>{{ $run->id }}</td>
                                                 <td>{{ $name }}</td>
                                                 <td>{{ $run->period_month }}</td>
                                                 <td>{{ number_format($run->total_hours, 2) }} hrs</td>
