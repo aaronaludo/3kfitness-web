@@ -5,6 +5,7 @@
     <div class="container-fluid">
         @php
             $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['class_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null);
+            $advancedFiltersOpen = ($filters['class_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null);
 
             $printItems = collect($enrollments->items())->map(function ($enrollment) {
                 $member = $enrollment->user;
@@ -97,63 +98,115 @@
                                     <div class="text-muted small text-uppercase fw-semibold">Classes</div>
                                     <div class="fs-5 fw-semibold">{{ number_format($stats['classes'] ?? 0) }}</div>
                                 </div>
-                            </div>
-                        </div>
-
-                        <form action="{{ route('admin.history.class-enrollments') }}" method="GET" class="row g-3 align-items-end mt-3">
-                            <div class="col-12 col-lg-4">
-                                <label for="search" class="form-label text-muted small fw-semibold">Search member, class, or code</label>
-                                <div class="input-group">
-                                    <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass"></i></span>
-                                    <input
-                                        type="search"
-                                        id="search"
-                                        name="search"
-                                        class="form-control"
-                                        value="{{ $filters['search'] ?? '' }}"
-                                        placeholder="e.g. Jane Doe, Yoga, YG-01"
-                                    >
                                 </div>
                             </div>
-                            <div class="col-12 col-sm-6 col-lg-3">
-                                <label for="class_id" class="form-label text-muted small fw-semibold">Class</label>
-                                <select id="class_id" name="class_id" class="form-select">
-                                    <option value="">All completed classes</option>
-                                    @foreach ($classOptions as $class)
-                                        <option
-                                            value="{{ $class->id }}"
-                                            {{ (string) ($filters['class_id'] ?? '') === (string) $class->id ? 'selected' : '' }}
+
+                        <form action="{{ route('admin.history.class-enrollments') }}" method="GET" id="enrollment-filter-form" class="mt-3">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
+                                    <div class="position-relative">
+                                        <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                        <input
+                                            type="search"
+                                            id="search"
+                                            name="search"
+                                            class="form-control rounded-pill ps-5"
+                                            value="{{ $filters['search'] ?? '' }}"
+                                            placeholder="Search member, class, or code"
+                                            aria-label="Search member, class, or code"
                                         >
-                                            {{ $class->name }} ({{ $class->class_code }})
-                                        </option>
-                                    @endforeach
-                                </select>
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    @if ($hasFilters)
+                                        <a href="{{ route('admin.history.class-enrollments') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+                                    @endif
+
+                                    <button
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#enrollmentFiltersModal"
+                                    >
+                                        <i class="fa-solid fa-sliders"></i> Filters
+                                    </button>
+
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        Apply
+                                    </button>
+                                </div>
                             </div>
-                            <div class="col-12 col-sm-6 col-lg-2">
-                                <label for="start_date" class="form-label text-muted small fw-semibold">Joined from</label>
-                                <input
-                                    type="date"
-                                    id="start_date"
-                                    name="start_date"
-                                    class="form-control"
-                                    value="{{ $filters['start_date'] ?? '' }}"
-                                >
-                            </div>
-                            <div class="col-12 col-sm-6 col-lg-2">
-                                <label for="end_date" class="form-label text-muted small fw-semibold">Joined to</label>
-                                <input
-                                    type="date"
-                                    id="end_date"
-                                    name="end_date"
-                                    class="form-control"
-                                    value="{{ $filters['end_date'] ?? '' }}"
-                                >
-                            </div>
-                            <div class="col-12 col-sm-6 col-lg-1 d-flex align-items-end gap-2 flex-wrap">
-                                <button type="submit" class="btn btn-danger flex-fill">Apply</button>
-                                @if ($hasFilters)
-                                    <a href="{{ route('admin.history.class-enrollments') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
-                                @endif
+
+                            <div class="modal fade" id="enrollmentFiltersModal" tabindex="-1" aria-labelledby="enrollmentFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-md">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="enrollmentFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-column gap-4">
+                                                <div>
+                                                    <span class="text-muted text-uppercase small fw-semibold d-block">Quick ranges</span>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill enrollment-range-chip" data-range="last-week">Last week</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill enrollment-range-chip" data-range="last-month">Last month</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill enrollment-range-chip" data-range="last-year">Last year</button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <label for="class_id" class="form-label text-muted text-uppercase small mb-1">Class</label>
+                                                    <select id="class_id" name="class_id" class="form-select rounded-3">
+                                                        <option value="">All completed classes</option>
+                                                        @foreach ($classOptions as $class)
+                                                            <option
+                                                                value="{{ $class->id }}"
+                                                                {{ (string) ($filters['class_id'] ?? '') === (string) $class->id ? 'selected' : '' }}
+                                                            >
+                                                                {{ $class->name }} ({{ $class->class_code }})
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <span class="form-label text-muted text-uppercase small d-block mb-2">Joined range</span>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="enroll-start-date" class="form-label small text-muted mb-1">From</label>
+                                                            <input
+                                                                type="date"
+                                                                id="enroll-start-date"
+                                                                name="start_date"
+                                                                class="form-control rounded-3"
+                                                                value="{{ $filters['start_date'] ?? '' }}"
+                                                            />
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="enroll-end-date" class="form-label small text-muted mb-1">To</label>
+                                                            <input
+                                                                type="date"
+                                                                id="enroll-end-date"
+                                                                class="form-control rounded-3"
+                                                                name="end_date"
+                                                                value="{{ $filters['end_date'] ?? '' }}"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-magnifying-glass me-2"></i>Apply filters
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -411,6 +464,49 @@
                     }, 300);
                 });
             }
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const form = document.getElementById('enrollment-filter-form');
+            if (!form) {
+                return;
+            }
+
+            const rangeButtons = form.querySelectorAll('.enrollment-range-chip');
+            const startInput = document.getElementById('enroll-start-date');
+            const endInput = document.getElementById('enroll-end-date');
+
+            function formatDate(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function applyRange(range) {
+                const today = new Date();
+                const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const start = new Date(end);
+
+                if (range === 'last-week') {
+                    start.setDate(start.getDate() - 7);
+                } else if (range === 'last-month') {
+                    start.setMonth(start.getMonth() - 1);
+                } else if (range === 'last-year') {
+                    start.setFullYear(start.getFullYear() - 1);
+                }
+
+                if (startInput) startInput.value = formatDate(start);
+                if (endInput) endInput.value = formatDate(end);
+            }
+
+            rangeButtons.forEach((button) => {
+                button.addEventListener('click', function () {
+                    const range = this.dataset.range;
+                    applyRange(range);
+                });
+            });
         });
     </script>
 @endsection
