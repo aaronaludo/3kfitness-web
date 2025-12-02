@@ -71,8 +71,6 @@ class MembershipPaymentController extends Controller
             ->appends($queryParamsWithoutMainPage);
 
         $payrollHistory = PayrollRun::with('user')
-            ->orderByDesc('processed_at')
-            ->orderByDesc('id')
             ->limit(10)
             ->get();
 
@@ -337,9 +335,7 @@ class MembershipPaymentController extends Controller
                         ]);
                 },
                 'membership:id,name,currency,price',
-            ])
-            ->orderByDesc('id')
-            ->orderByDesc('created_at');
+            ]);
 
         if ($keyword && !$searchColumn) {
             $searchColumn = 'member_name';

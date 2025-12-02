@@ -6,17 +6,9 @@
         <div class="row">
             @php
                 $showArchived = request()->boolean('show_archived');
-                $activeMemberships = isset($data) && method_exists($data, 'getCollection')
-                    ? $data->setCollection($data->getCollection()->sortByDesc('id'))
-                    : $data;
-                $archivedMemberships = isset($archivedData) && method_exists($archivedData, 'getCollection')
-                    ? $archivedData->setCollection($archivedData->getCollection()->sortByDesc('id'))
-                    : $archivedData;
-                $sortedPayrollHistory = isset($payrollHistory)
-                    ? (method_exists($payrollHistory, 'getCollection')
-                        ? $payrollHistory->getCollection()->sortByDesc('id')
-                        : (method_exists($payrollHistory, 'sortByDesc') ? $payrollHistory->sortByDesc('id') : collect()))
-                    : collect();
+                $activeMemberships = $data;
+                $archivedMemberships = $archivedData;
+                $sortedPayrollHistory = $payrollHistory ?? collect();
                 $printSource = $showArchived ? $archivedMemberships : $activeMemberships;
                 $printStartIndex = method_exists($printSource, 'firstItem') ? ($printSource->firstItem() ?? 1) : 1;
                 $printMemberships = collect($printSource->items())->values()->map(function ($item, $idx) use ($printStartIndex) {
