@@ -353,12 +353,12 @@
                                     @foreach ($statusOptions as $key => $option)
                                         <button
                                             type="button"
-                                            class="membership-chip btn btn-sm rounded-pill px-3 {{ $membershipStatus === $key ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary' }}"
+                                            class="membership-chip btn btn-sm rounded-pill px-3 {{ $membershipStatus === $key ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary text-dark' }}"
                                             data-status="{{ $key }}"
                                         >
                                             {{ $option['label'] }}
                                             @if(!is_null($option['count']))
-                                                <span class="badge bg-transparent text-muted fw-semibold ms-2">{{ $option['count'] }}</span>
+                                                <span class="badge bg-transparent {{ $membershipStatus === $key ? 'text-white' : 'text-dark' }} fw-semibold ms-2">{{ $option['count'] }}</span>
                                             @endif
                                         </button>
                                     @endforeach
