@@ -6,6 +6,81 @@
         <div class="row">
             @php
                 $showArchived = request()->boolean('show_archived');
+                $weekdayLookup = [
+                    'sun' => 'Sunday',
+                    'mon' => 'Monday',
+                    'tue' => 'Tuesday',
+                    'wed' => 'Wednesday',
+                    'thu' => 'Thursday',
+                    'fri' => 'Friday',
+                    'sat' => 'Saturday',
+                ];
+
+                $printSource = $showArchived ? $archivedData : $data;
+                $nowForPrint = now();
+                $printSchedules = collect($printSource->items())->map(function ($item) use ($weekdayLookup, $nowForPrint) {
+                    $startDate = $item->class_start_date ? \Carbon\Carbon::parse($item->class_start_date) : null;
+                    $endDate   = $item->class_end_date ? \Carbon\Carbon::parse($item->class_end_date) : null;
+                    $dayKeys   = is_array($item->recurring_days) ? $item->recurring_days : json_decode($item->recurring_days ?? '[]', true);
+                    $cadence   = collect($dayKeys ?? [])->map(function ($d) use ($weekdayLookup) {
+                        return $weekdayLookup[$d] ?? ucfirst($d);
+                    })->filter()->implode(', ');
+
+                    $statusLabel = 'Past';
+                    if ($startDate && $nowForPrint->lt($startDate)) {
+                        $statusLabel = 'Upcoming';
+                    } elseif ($startDate && $endDate && $nowForPrint->between($startDate, $endDate)) {
+                        $statusLabel = 'Present';
+                    }
+
+                    $adminAcceptance = $item->isadminapproved == 0 ? 'Pending' :
+                        ($item->isadminapproved == 1 ? 'Approve' :
+                        ($item->isadminapproved == 2 ? 'Reject' : ''));
+
+                    $trainerName = $item->trainer_id == 0
+                        ? 'No Trainer for now'
+                        : trim((optional($item->user)->first_name ?? '') . ' ' . (optional($item->user)->last_name ?? ''));
+
+                    $timeRange = $item->class_start_time && $item->class_end_time
+                        ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
+                        : null;
+
+                    return [
+                        'id' => $item->id,
+                        'name' => $item->name,
+                        'class_code' => $item->class_code,
+                        'trainer' => $trainerName ?: '—',
+                        'trainer_rate' => $item->trainer_rate_per_hour !== null
+                            ? number_format((float) $item->trainer_rate_per_hour, 2)
+                            : null,
+                        'slots' => $item->slots,
+                        'enrolled' => $item->user_schedules_count ?? 0,
+                        'start' => $startDate ? $startDate->format('M j, Y g:i A') : 'Not set',
+                        'end' => $endDate ? $endDate->format('M j, Y g:i A') : '—',
+                        'time_range' => $timeRange,
+                        'cadence' => $cadence ?: 'One-time',
+                        'status' => $statusLabel,
+                        'admin_status' => $adminAcceptance,
+                        'rejection_reason' => $item->rejection_reason ?: '',
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                    ];
+                })->values();
+
+                $printPayload = [
+                    'title' => $showArchived ? 'Archived classes' : 'Class schedules',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name'),
+                        'search_column' => request('search_column'),
+                        'status' => request('status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                    ],
+                    'count' => $printSchedules->count(),
+                    'items' => $printSchedules,
+                ];
             @endphp
             <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
                 <div>
@@ -35,7 +110,13 @@
                             value="{{ request('end_date') }}"
                             aria-label="End date"
                           />
-                          <button class="btn btn-md btn-danger ms-2" type="submit" id="print-submit-button">
+                          <button
+                            class="btn btn-md btn-danger ms-2"
+                            type="submit"
+                            id="print-submit-button"
+                            data-print='@json($printPayload)'
+                            aria-label="Open printable/PDF view of filtered classes"
+                          >
                             <i class="fa-solid fa-print"></i>
                             <span id="print-loader" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
                             Print
@@ -240,6 +321,178 @@
             </div>
             <script>
                 document.addEventListener('DOMContentLoaded', function () {
+                    const printButton = document.getElementById('print-submit-button');
+                    const printForm = document.getElementById('print-form');
+                    const printLoader = document.getElementById('print-loader');
+
+                    function getBadgeClass(status) {
+                        if (status === 'Upcoming') return 'badge-soft-info';
+                        if (status === 'Present') return 'badge-soft-success';
+                        if (status === 'Past') return 'badge-soft-secondary';
+                        return 'badge-soft-muted';
+                    }
+
+                    function buildFilters(filters) {
+                        const chips = [];
+                        if (filters.show_archived) chips.push('Archived view');
+                        if (filters.status && filters.status !== 'all') chips.push(`Status: ${filters.status}`);
+                        if (filters.search) {
+                            chips.push(
+                                `Search: ${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`
+                            );
+                        }
+                        if (filters.start || filters.end) {
+                            chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
+                        }
+                        return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                    }
+
+                    function buildRows(items) {
+                        return items.map((item) => {
+                            const rejection = item.rejection_reason ? `<div class="muted">Reason: ${item.rejection_reason}</div>` : '';
+                            const timeRange = item.time_range ? `<div class="muted">Time: ${item.time_range}</div>` : '';
+                            const trainerRate = item.trainer_rate ? `<div class="muted">₱${item.trainer_rate} / hr</div>` : '';
+                            return `
+                                <tr>
+                                    <td>${item.id ?? '—'}</td>
+                                    <td>
+                                        <div class="fw">${item.name || '—'}</div>
+                                        <div class="muted">${item.class_code || ''}</div>
+                                    </td>
+                                    <td>
+                                        <div>${item.trainer || '—'}</div>
+                                        ${trainerRate}
+                                    </td>
+                                    <td>
+                                        <div>${item.start || 'Not set'}</div>
+                                        <div class="muted">${item.end || '—'}</div>
+                                        ${timeRange}
+                                        <div class="muted">Cadence: ${item.cadence || '—'}</div>
+                                    </td>
+                                    <td>
+                                        <div class="fw">${item.slots ?? 0} slots</div>
+                                        <div class="muted">${item.enrolled ?? 0} enrolled</div>
+                                    </td>
+                                    <td><span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span></td>
+                                    <td>
+                                        <div>${item.admin_status || '—'}</div>
+                                        ${rejection}
+                                    </td>
+                                    <td>
+                                        <div>${item.created_at || ''}</div>
+                                        <div class="muted">${item.updated_at || ''}</div>
+                                    </td>
+                                </tr>
+                            `;
+                        }).join('');
+                    }
+
+                    function renderPrintWindow(payload) {
+                        const items = payload.items || [];
+                        const filters = payload.filters || {};
+                        const rows = buildRows(items);
+                        const html = `
+                            <!doctype html>
+                            <html>
+                                <head>
+                                    <title>${payload.title || 'Class schedules'}</title>
+                                    <style>
+                                        :root { color-scheme: light; }
+                                        body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
+                                        .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
+                                        .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+                                        .title { margin: 0; font-size: 22px; }
+                                        .muted { color: #6b7280; font-size: 12px; }
+                                        .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+                                        .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
+                                        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+                                        th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
+                                        th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+                                        .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+                                        .badge-soft-info { background: #e0f2fe; color: #075985; }
+                                        .badge-soft-success { background: #dcfce7; color: #166534; }
+                                        .badge-soft-secondary { background: #e5e7eb; color: #374151; }
+                                        .badge-soft-muted { background: #f3f4f6; color: #6b7280; }
+                                        .fw { font-weight: 700; }
+                                    </style>
+                                </head>
+                                <body>
+                                    <div class="sheet">
+                                        <div class="header">
+                                            <div>
+                                                <h1 class="title">${payload.title || 'Class schedules'}</h1>
+                                                <div class="muted">Generated ${payload.generated_at || ''}</div>
+                                                <div class="muted">Showing ${payload.count || 0} record(s)</div>
+                                            </div>
+                                        </div>
+                                        <div class="pill-row">${buildFilters(filters)}</div>
+                                        <table>
+                                            <thead>
+                                                <tr>
+                                                    <th>ID</th>
+                                                    <th>Class</th>
+                                                    <th>Trainer</th>
+                                                    <th>Schedule</th>
+                                                    <th>Enrollment</th>
+                                                    <th>Status</th>
+                                                    <th>Admin</th>
+                                                    <th>Audit</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                ${rows || '<tr><td colspan="8" style="text-align:center; padding:16px;">No classes available for this view.</td></tr>'}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                    <script>window.print();<\/script>
+                                </body>
+                            </html>
+                        `;
+
+                        const printWindow = window.open('', '_blank', 'width=1200,height=900');
+                        if (!printWindow) return false;
+                        printWindow.document.open();
+                        printWindow.document.write(html);
+                        printWindow.document.close();
+                        return true;
+                    }
+
+                    if (printButton && printForm) {
+                        printButton.addEventListener('click', function (e) {
+                            const rawPayload = printButton.dataset.print;
+                            if (!rawPayload) {
+                                return;
+                            }
+
+                            e.preventDefault();
+                            if (printLoader) printLoader.classList.remove('d-none');
+                            printButton.disabled = true;
+
+                            let payload = null;
+                            try {
+                                payload = JSON.parse(rawPayload);
+                            } catch (err) {
+                                payload = null;
+                            }
+
+                            const opened = payload ? renderPrintWindow(payload) : false;
+                            if (!opened) {
+                                printButton.disabled = false;
+                                if (printLoader) printLoader.classList.add('d-none');
+                                printForm.submit();
+                                return;
+                            }
+
+                            setTimeout(() => {
+                                printButton.disabled = false;
+                                if (printLoader) printLoader.classList.add('d-none');
+                            }, 300);
+                        });
+                    }
+                });
+            </script>
+            <script>
+                document.addEventListener('DOMContentLoaded', function () {
                     const form = document.getElementById('schedule-filter-form');
                     if (!form) {
                         return;
@@ -360,15 +613,6 @@
             </script>
 
             @php
-                $weekdayLookup = [
-                    'sun' => 'Sunday',
-                    'mon' => 'Monday',
-                    'tue' => 'Tuesday',
-                    'wed' => 'Wednesday',
-                    'thu' => 'Thursday',
-                    'fri' => 'Friday',
-                    'sat' => 'Saturday',
-                ];
                 $pendingRescheduleCount = $pendingRescheduleRequests->where('status', 0)->count();
                 $resolvedRescheduleCount = $pendingRescheduleRequests->where('status', '!=', 0)->count();
                 $formatRequestTime = function ($time) {
@@ -676,7 +920,7 @@
                                                     <div class="mt-1">
                                                         @php $now = now(); @endphp
                                                         @if ($start_date && $now->lt($start_date))
-                                                            <span class="badge rounded-pill bg-warning">Future</span>
+                                                            <span class="badge rounded-pill bg-warning">Upcoming</span>
                                                         @elseif ($start_date && $end_date && $now->between($start_date, $end_date))
                                                             <span class="badge rounded-pill bg-success">Present</span>
                                                         @elseif ($end_date && $now->gt($end_date))
