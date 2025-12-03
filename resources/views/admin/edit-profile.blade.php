@@ -6,6 +6,7 @@
         $adminUser = auth()->guard('admin')->user();
         $currentProfilePicture = $adminUser->profile_picture ?? null;
         $currentProfilePictureUrl = $currentProfilePicture ? asset($currentProfilePicture) : asset('assets/images/profile-45x45.png');
+        $isStaff = $adminUser->role_id === 2;
     @endphp
 
     <div class="container-fluid">
@@ -29,59 +30,87 @@
                             </ul>
                         </div>
                     @endif
+                    @if ($isStaff)
+                        <div class="alert alert-info mb-4">
+                            As a staff member, you can update only your address and phone number. For other changes, please contact an administrator.
+                        </div>
+                    @endif
                     <div class="row">
                         <div class="col-lg-12">
                             <form action="{{ route('admin.account.update-profile') }}" method="post" enctype="multipart/form-data">
                                 @csrf
-                                <div class="mb-3 row">
-                                    <label for="profile_picture" class="col-sm-12 col-lg-2 col-form-label">Profile Picture:</label>
-                                    <div class="col-lg-10 col-sm-12">
-                                        <div class="d-flex align-items-center flex-wrap gap-3">
-                                            <img
-                                                id="profilePreview"
-                                                src="{{ $currentProfilePictureUrl }}"
-                                                alt="Profile preview"
-                                                class="rounded-circle border"
-                                                width="100"
-                                                height="100"
-                                                data-default="{{ asset('assets/images/profile-45x45.png') }}"
-                                                data-existing="{{ $currentProfilePicture ? asset($currentProfilePicture) : '' }}"
-                                                data-has-existing="{{ $currentProfilePicture ? '1' : '0' }}"
-                                            />
-                                            <div class="flex-grow-1" style="max-width: 320px;">
-                                                <input
-                                                    type="file"
-                                                    class="form-control mb-2"
-                                                    id="profile_picture"
-                                                    name="profile_picture"
-                                                    accept="image/*"
+                                @if (!$isStaff)
+                                    <div class="mb-3 row">
+                                        <label for="profile_picture" class="col-sm-12 col-lg-2 col-form-label">Profile Picture:</label>
+                                        <div class="col-lg-10 col-sm-12">
+                                            <div class="d-flex align-items-center flex-wrap gap-3">
+                                                <img
+                                                    id="profilePreview"
+                                                    src="{{ $currentProfilePictureUrl }}"
+                                                    alt="Profile preview"
+                                                    class="rounded-circle border"
+                                                    width="100"
+                                                    height="100"
+                                                    data-default="{{ asset('assets/images/profile-45x45.png') }}"
+                                                    data-existing="{{ $currentProfilePicture ? asset($currentProfilePicture) : '' }}"
+                                                    data-has-existing="{{ $currentProfilePicture ? '1' : '0' }}"
                                                 />
-                                                <input type="hidden" name="remove_profile_picture" id="remove_profile_picture" value="0">
-                                                <div class="d-flex gap-2">
-                                                    <button type="button" class="btn btn-outline-danger btn-sm" id="removeProfileButton">
-                                                        Remove Photo
-                                                    </button>
+                                                <div class="flex-grow-1" style="max-width: 320px;">
+                                                    <input
+                                                        type="file"
+                                                        class="form-control mb-2"
+                                                        id="profile_picture"
+                                                        name="profile_picture"
+                                                        accept="image/*"
+                                                    />
+                                                    <input type="hidden" name="remove_profile_picture" id="remove_profile_picture" value="0">
+                                                    <div class="d-flex gap-2">
+                                                        <button type="button" class="btn btn-outline-danger btn-sm" id="removeProfileButton">
+                                                            Remove Photo
+                                                        </button>
+                                                    </div>
+                                                    <small class="text-muted d-block mt-2">
+                                                        Accepted formats: JPG, PNG, GIF up to 2MB.
+                                                    </small>
                                                 </div>
-                                                <small class="text-muted d-block mt-2">
-                                                    Accepted formats: JPG, PNG, GIF up to 2MB.
-                                                </small>
                                             </div>
+                                            @error('profile_picture')
+                                                <div class="text-danger small mt-2">{{ $message }}</div>
+                                            @enderror
                                         </div>
-                                        @error('profile_picture')
-                                            <div class="text-danger small mt-2">{{ $message }}</div>
-                                        @enderror
                                     </div>
-                                </div>
+                                @else
+                                    <div class="mb-3 row">
+                                        <label class="col-sm-12 col-lg-2 col-form-label">Profile Picture:</label>
+                                        <div class="col-lg-10 col-sm-12">
+                                            <div class="d-flex align-items-center flex-wrap gap-3">
+                                                <img
+                                                    id="profilePreview"
+                                                    src="{{ $currentProfilePictureUrl }}"
+                                                    alt="Profile preview"
+                                                    class="rounded-circle border"
+                                                    width="100"
+                                                    height="100"
+                                                    data-default="{{ asset('assets/images/profile-45x45.png') }}"
+                                                    data-existing="{{ $currentProfilePicture ? asset($currentProfilePicture) : '' }}"
+                                                    data-has-existing="{{ $currentProfilePicture ? '1' : '0' }}"
+                                                />
+                                                <p class="mb-0 text-muted small">Profile photo updates are restricted to administrators.</p>
+                                            </div>
+                                            <input type="hidden" name="remove_profile_picture" id="remove_profile_picture" value="0">
+                                        </div>
+                                    </div>
+                                @endif
                                 <div class="mb-3 row">
                                     <label for="first_name" class="col-sm-12 col-lg-2 col-form-label">First name: <span class="required">*</span></label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="text" class="form-control" id="first_name" name="first_name" value="{{ old('first_name', $adminUser->first_name) }}"/>
+                                        <input type="text" class="form-control" id="first_name" name="first_name" value="{{ old('first_name', $adminUser->first_name) }}" @if($isStaff) disabled aria-disabled="true" @endif/>
                                     </div>
                                 </div>
                                 <div class="mb-3 row">
                                     <label for="last_name" class="col-sm-12 col-lg-2 col-form-label">Last name: <span class="required">*</span></label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="text" class="form-control" id="last_name" name="last_name" value="{{ old('last_name', $adminUser->last_name) }}"/>
+                                        <input type="text" class="form-control" id="last_name" name="last_name" value="{{ old('last_name', $adminUser->last_name) }}" @if($isStaff) disabled aria-disabled="true" @endif/>
                                     </div>
                                 </div>
                                 <div class="mb-3 row">
@@ -113,7 +142,7 @@
                                 <div class="mb-3 row">
                                     <label for="email" class="col-sm-12 col-lg-2 col-form-label">Email: <span class="required">*</span></label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="email" class="form-control" id="email" name="email" value="{{ old('email', $adminUser->email) }}"/>
+                                        <input type="email" class="form-control" id="email" name="email" value="{{ old('email', $adminUser->email) }}" @if($isStaff) disabled aria-disabled="true" @endif/>
                                     </div>
                                 </div>
                                 <div class="d-flex justify-content-center mt-5 mb-4">
