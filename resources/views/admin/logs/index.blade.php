@@ -211,12 +211,12 @@
             function buildFilters(filters) {
                 const chips = [];
                 if (filters.search) {
-                    chips.push(`Search: ${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`);
+                    chips.push({ label: 'Search', value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}` });
                 }
                 if (filters.sort) {
-                    chips.push(`Sort: ${filters.sort === 'ASC' ? 'Ascending' : 'Descending'}`);
+                    chips.push({ label: 'Sort', value: filters.sort === 'ASC' ? 'Ascending' : 'Descending' });
                 }
-                return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                return chips;
             }
 
             function buildRows(items) {
@@ -232,62 +232,24 @@
 
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
-                const filters = payload.filters || {};
-                const rows = buildRows(items);
-                const html = `
-                    <!doctype html>
-                    <html>
-                        <head>
-                            <title>${payload.title || 'Logs'}</title>
-                            <style>
-                                :root { color-scheme: light; }
-                                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
-                                .sheet { max-width: 1000px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
-                                .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-                                .title { margin: 0; font-size: 22px; }
-                                .muted { color: #6b7280; font-size: 12px; }
-                                .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
-                                table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-                                th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
-                                th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="sheet">
-                                <div class="header">
-                                    <div>
-                                        <h1 class="title">${payload.title || 'Logs'}</h1>
-                                        <div class="muted">Generated ${payload.generated_at || ''}</div>
-                                        <div class="muted">Showing ${payload.count || 0} record(s)</div>
-                                    </div>
-                                </div>
-                                <div class="pill-row">${buildFilters(filters)}</div>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Message</th>
-                                            <th>Role</th>
-                                            <th>Created</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${rows || '<tr><td colspan="4" style="text-align:center; padding:16px;">No logs for this view.</td></tr>'}
-                                    </tbody>
-                                </table>
-                            </div>
-                            <script>window.print();<\/script>
-                        </body>
-                    </html>
-                `;
+                const filters = buildFilters(payload.filters || {});
+                const headers = ['#', 'Message', 'Role', 'Created'];
+                const rowsHtml = buildRows(items);
 
-                const printWindow = window.open('', '_blank', 'width=1100,height=900');
-                if (!printWindow) return false;
-                printWindow.document.open();
-                printWindow.document.write(html);
-                printWindow.document.close();
-                return true;
+                const finalPayload = {
+                    title: payload.title || 'Logs',
+                    generated_at: payload.generated_at || '',
+                    count: payload.count ?? items.length,
+                    filters,
+                    table: {
+                        headers,
+                        rows_html: rowsHtml,
+                    },
+                };
+
+                return window.PrintPreview
+                    ? PrintPreview.open(finalPayload)
+                    : false;
             }
 
             if (printButton && printForm) {

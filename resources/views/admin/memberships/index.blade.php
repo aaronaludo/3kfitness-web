@@ -589,109 +589,39 @@
 
                     function buildFilters(filters) {
                         const chips = [];
-                        if (filters.show_archived) chips.push('Archived view');
-                        if (filters.membership_status && filters.membership_status !== 'all') chips.push(`Status: ${filters.membership_status}`);
+                        if (filters.show_archived) chips.push({ value: 'Archived view' });
+                        if (filters.membership_status && filters.membership_status !== 'all') chips.push({ label: 'Status', value: filters.membership_status });
                         if (filters.search) {
-                            chips.push(
-                                `Search: ${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`
-                            );
+                            chips.push({
+                                label: 'Search',
+                                value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                            });
                         }
                         if (filters.start || filters.end) {
-                            chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
+                            chips.push({ label: 'Date', value: `${filters.start || '—'} → ${filters.end || '—'}` });
                         }
-                        return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                        return chips;
                     }
 
                     function buildRows(items) {
-                        return items.map((item) => {
-                            return `
-                                <tr>
-                                    <td>${item.id || '—'}</td>
-                                    <td>
-                                        <div class="fw">${item.name || '—'}</div>
-                                        <div class="muted">${item.description || ''}</div>
-                                    </td>
-                                    <td>
-                                        <div>₱${item.price || '0'}</div>
-                                        <div class="muted">Plan length: ${item.month || '0'} mo.</div>
-                                        <div class="muted">Classes/mo: ${item.class_limit || 'Unlimited'}</div>
-                                    </td>
-                                    <td>
-                                        <div class="fw">Approved: ${item.approved || '0'}</div>
-                                        <div class="muted">Pending: ${item.pending || '0'}</div>
-                                        <div class="muted">Rejected: ${item.rejected || '0'}</div>
-                                    </td>
-                                    <td>
-                                        <div>${item.created || ''}</div>
-                                        <div class="muted">${item.updated || ''}</div>
-                                        <div class="muted">${item.archived}</div>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('');
+                        return items.map((item) => ([
+                            item.id || '—',
+                            `<div class="fw">${item.name || '—'}</div><div class="muted">${item.description || ''}</div>`,
+                            `<div>₱${item.price || '0'}</div><div class="muted">Plan length: ${item.month || '0'} mo.</div><div class="muted">Classes/mo: ${item.class_limit || 'Unlimited'}</div>`,
+                            `<div class="fw">Approved: ${item.approved || '0'}</div><div class="muted">Pending: ${item.pending || '0'}</div><div class="muted">Rejected: ${item.rejected || '0'}</div>`,
+                            `<div>${item.created || ''}</div><div class="muted">${item.updated || ''}</div><div class="muted">${item.archived}</div>`,
+                        ]));
                     }
 
                     function renderPrintWindow(payload) {
                         const items = collectTableItems();
-                        const filters = payload.filters || {};
-                        payload.count = items.length;
+                        const filters = buildFilters(payload.filters || {});
+                        const headers = ['ID', 'Membership', 'Plan', 'Members', 'Audit'];
                         const rows = buildRows(items);
-                        const html = `
-                            <!doctype html>
-                            <html>
-                                <head>
-                                    <title>${payload.title || 'Membership performance'}</title>
-                                    <style>
-                                        :root { color-scheme: light; }
-                                        body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
-                                        .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
-                                        .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-                                        .title { margin: 0; font-size: 22px; }
-                                        .muted { color: #6b7280; font-size: 12px; }
-                                        .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                        .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
-                                        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-                                        th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
-                                        th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-                                        .fw { font-weight: 700; }
-                                    </style>
-                                </head>
-                                <body>
-                                    <div class="sheet">
-                                        <div class="header">
-                                            <div>
-                                                <h1 class="title">${payload.title || 'Membership performance'}</h1>
-                                                <div class="muted">Generated ${payload.generated_at || ''}</div>
-                                                <div class="muted">Showing ${payload.count || 0} record(s)</div>
-                                            </div>
-                                        </div>
-                                        <div class="pill-row">${buildFilters(filters)}</div>
-                                        <table>
-                                            <thead>
-                                                <tr>
-                                                    <th>ID</th>
-                                                    <th>Membership</th>
-                                                    <th>Plan</th>
-                                                    <th>Members</th>
-                                                    <th>Audit</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                ${rows || '<tr><td colspan="5" style="text-align:center; padding:16px;">No memberships available for this view.</td></tr>'}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <script>window.print();<\/script>
-                                </body>
-                            </html>
-                        `;
 
-                        const printWindow = window.open('', '_blank', 'width=1200,height=900');
-                        if (!printWindow) return false;
-                        printWindow.document.open();
-                        printWindow.document.write(html);
-                        printWindow.document.close();
-                        return true;
+                        return window.PrintPreview
+                            ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                            : false;
                     }
 
                     if (printButton && printForm) {

@@ -383,12 +383,12 @@
 
             function buildFilters(filters) {
                 const chips = [];
-                if (filters.search) chips.push(`Search: ${filters.search}`);
-                if (filters.role_id) chips.push(`Role ID: ${filters.role_id}`);
-                if (filters.status && filters.status !== 'all') chips.push(`Status: ${filters.status}`);
-                if (filters.archived) chips.push('Archived records');
-                if (filters.start || filters.end) chips.push(`Clock-in: ${filters.start || '—'} → ${filters.end || '—'}`);
-                return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                if (filters.search) chips.push({ label: 'Search', value: filters.search });
+                if (filters.role_id) chips.push({ label: 'Role ID', value: filters.role_id });
+                if (filters.status && filters.status !== 'all') chips.push({ label: 'Status', value: filters.status });
+                if (filters.archived) chips.push({ value: 'Archived records' });
+                if (filters.start || filters.end) chips.push({ label: 'Clock-in', value: `${filters.start || '—'} → ${filters.end || '—'}` });
+                return chips;
             }
 
             function buildRows(items) {
@@ -396,90 +396,28 @@
                     const role = item.role ? `<div class="muted">${item.role}</div>` : '';
                     const phone = item.phone ? `<div class="muted">${item.phone}</div>` : '';
 
-                    return `
-                        <tr>
-                            <td>${item.id ?? '—'}</td>
-                            <td>
-                                <div class="fw">${item.name || '—'}</div>
-                                ${role}
-                            </td>
-                            <td>
-                                <div>${item.email || '—'}</div>
-                                ${phone}
-                            </td>
-                            <td>${item.clock_in || '—'}</td>
-                            <td>${item.clock_out || '—'}</td>
-                            <td>${item.duration || '—'}</td>
-                            <td>${item.status || '—'}</td>
-                            <td>${item.archive || '—'}</td>
-                        </tr>
-                    `;
-                }).join('');
+                    return [
+                        item.id ?? '—',
+                        `<div class="fw">${item.name || '—'}</div>${role}`,
+                        `<div>${item.email || '—'}</div>${phone}`,
+                        item.clock_in || '—',
+                        item.clock_out || '—',
+                        item.duration || '—',
+                        item.status || '—',
+                        item.archive || '—',
+                    ];
+                });
             }
 
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
-                const filters = payload.filters || {};
+                const filters = buildFilters(payload.filters || {});
+                const headers = ['#', 'Name', 'Contact', 'Clock-in', 'Clock-out', 'Duration', 'Status', 'Archive'];
                 const rows = buildRows(items);
-                const html = `
-                    <!doctype html>
-                    <html>
-                        <head>
-                            <title>${payload.title || 'Attendance history'}</title>
-                            <style>
-                                :root { color-scheme: light; }
-                                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
-                                .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
-                                .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-                                .title { margin: 0; font-size: 22px; }
-                                .muted { color: #6b7280; font-size: 12px; }
-                                .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
-                                table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-                                th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
-                                th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-                                .fw { font-weight: 700; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="sheet">
-                                <div class="header">
-                                    <div>
-                                        <h1 class="title">${payload.title || 'Attendance history'}</h1>
-                                        <div class="muted">Generated ${payload.generated_at || ''}</div>
-                                        <div class="muted">Showing ${payload.count || 0} record(s)</div>
-                                    </div>
-                                </div>
-                                <div class="pill-row">${buildFilters(filters)}</div>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Name</th>
-                                            <th>Contact</th>
-                                            <th>Clock-in</th>
-                                            <th>Clock-out</th>
-                                            <th>Duration</th>
-                                            <th>Status</th>
-                                            <th>Archive</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${rows || '<tr><td colspan="8" style="text-align:center; padding:16px;">No attendances available for this view.</td></tr>'}
-                                    </tbody>
-                                </table>
-                            </div>
-                            <script>window.print();<\/script>
-                        </body>
-                    </html>
-                `;
 
-                const printWindow = window.open('', '_blank', 'width=1200,height=900');
-                if (!printWindow) return false;
-                printWindow.document.open();
-                printWindow.document.write(html);
-                printWindow.document.close();
-                return true;
+                return window.PrintPreview
+                    ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                    : false;
             }
 
             if (printButton && printForm) {

@@ -801,113 +801,44 @@
 
             function buildFilters(filters) {
                 const chips = [];
-                if (filters.show_archived) chips.push('Archived view');
-                if (filters.status && filters.status !== 'all') chips.push(`Status: ${filters.status}`);
+                if (filters.show_archived) chips.push({ value: 'Archived view' });
+                if (filters.status && filters.status !== 'all') chips.push({ label: 'Status', value: filters.status });
                 if (filters.search) {
-                    chips.push(
-                        `Search: ${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`
-                    );
+                    chips.push({
+                        label: 'Search',
+                        value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                    });
                 }
                 if (filters.start || filters.end) {
-                    chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
+                    chips.push({ label: 'Date', value: `${filters.start || '—'} → ${filters.end || '—'}` });
                 }
-                return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                return chips;
             }
 
             function buildRows(items) {
                 return items.map((item) => {
                     const classes = (item.classes || []).filter(Boolean).join(', ') || 'None';
-                    return `
-                        <tr>
-                            <td>${item.number ?? '—'}</td>
-                            <td>
-                                <div class="fw">${item.member || '—'}</div>
-                                <div class="muted">${item.member_email || ''}</div>
-                            </td>
-                            <td>
-                                <div>${item.membership || '—'}</div>
-                                <div class="muted">Expires: ${item.expiration || '—'}</div>
-                            </td>
-                            <td>
-                                <div class="fw">${item.amount || 'PHP 0.00'}</div>
-                                <div class="muted">Created: ${item.created || '—'}</div>
-                                <div class="muted">Updated: ${item.updated || '—'}</div>
-                            </td>
-                            <td><span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span></td>
-                            <td>${classes}</td>
-                            <td>${item.created_by || '—'}</td>
-                        </tr>
-                    `;
-                }).join('');
+                    return [
+                        item.number ?? '—',
+                        `<div class="fw">${item.member || '—'}</div><div class="muted">${item.member_email || ''}</div>`,
+                        `<div>${item.membership || '—'}</div><div class="muted">Expires: ${item.expiration || '—'}</div>`,
+                        `<div class="fw">${item.amount || 'PHP 0.00'}</div><div class="muted">Created: ${item.created || '—'}</div><div class="muted">Updated: ${item.updated || '—'}</div>`,
+                        `<span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span>`,
+                        classes,
+                        item.created_by || '—',
+                    ];
+                });
             }
 
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
-                const filters = payload.filters || {};
+                const filters = buildFilters(payload.filters || {});
+                const headers = ['#', 'Member', 'Membership', 'Billing', 'Status', 'Classes', 'Created By'];
                 const rows = buildRows(items);
-                const html = `
-                    <!doctype html>
-                    <html>
-                        <head>
-                            <title>${payload.title || 'Membership payments'}</title>
-                            <style>
-                                :root { color-scheme: light; }
-                                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
-                                .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
-                                .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-                                .title { margin: 0; font-size: 22px; }
-                                .muted { color: #6b7280; font-size: 12px; }
-                                .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
-                                table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-                                th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
-                                th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-                                .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-                                .badge-soft-success { background: #dcfce7; color: #166534; }
-                                .badge-soft-warning { background: #fef3c7; color: #92400e; }
-                                .badge-soft-danger { background: #fee2e2; color: #b91c1c; }
-                                .badge-soft-muted { background: #f3f4f6; color: #6b7280; }
-                                .fw { font-weight: 700; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="sheet">
-                                <div class="header">
-                                    <div>
-                                        <h1 class="title">${payload.title || 'Membership payments'}</h1>
-                                        <div class="muted">Generated ${payload.generated_at || ''}</div>
-                                        <div class="muted">Showing ${payload.count || 0} record(s)</div>
-                                    </div>
-                                </div>
-                                <div class="pill-row">${buildFilters(filters)}</div>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Member</th>
-                                            <th>Membership</th>
-                                            <th>Billing</th>
-                                            <th>Status</th>
-                                            <th>Classes</th>
-                                            <th>Created By</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${rows || '<tr><td colspan="7" style="text-align:center; padding:16px;">No membership payments found for this view.</td></tr>'}
-                                    </tbody>
-                                </table>
-                            </div>
-                            <script>window.print();<\/script>
-                        </body>
-                    </html>
-                `;
 
-                const printWindow = window.open('', '_blank', 'width=1200,height=900');
-                if (!printWindow) return false;
-                printWindow.document.open();
-                printWindow.document.write(html);
-                printWindow.document.close();
-                return true;
+                return window.PrintPreview
+                    ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                    : false;
             }
 
             if (printButton && printForm) {

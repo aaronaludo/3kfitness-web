@@ -25,6 +25,7 @@ use App\Http\Controllers\Admin\New\MembershipController as Membership;
 use App\Http\Controllers\Admin\New\MembershipPaymentController as MembershipPayment;
 use App\Http\Controllers\Admin\New\LogController as Log;
 
+use App\Http\Controllers\Admin\New\PrintController as PrintPreview;
 use App\Http\Controllers\Admin\New\BannerController as Banner;
 use App\Http\Controllers\Admin\New\GoalController as Goal;
 use App\Http\Controllers\Admin\New\PopularWorkoutController as PopularWorkout;
@@ -58,6 +59,8 @@ Route::middleware(['auth:admin'])->group(function () {
     // use App\Http\Controllers\Admin\New\StaffAccountManagementController as StaffAccountManagement;
 
     // Route::get('/admin/dashboard', [AdminDashboardController::class, 'index'])->name('admin.dashboard.index');
+
+    Route::post('/admin/print/preview', [PrintPreview::class, 'preview'])->name('admin.print.preview');
 
     Route::get('/admin/banners', [Banner::class, 'index'])->name('admin.banners.index');
     Route::post('/admin/banners', [Banner::class, 'update'])->name('admin.banners.update');
