@@ -343,6 +343,7 @@
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
+                                            <th>Assignments</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -473,17 +474,6 @@
 
                                                     $futureScheduleCount = $futureScheduleDetails->count();
                                                     $pastScheduleCount = $pastScheduleDetails->count();
-
-                                                    $futureSalaryTotal = $futureScheduleDetails->sum('summary_salary');
-                                                    $pastSalaryTotal = $pastScheduleDetails->sum('summary_salary');
-
-                                                    $futureSalaryAssignments = $futureScheduleDetails->filter(function ($detail) {
-                                                        return $detail['salary_eligible'];
-                                                    })->count();
-
-                                                    $pastSalaryAssignments = $pastScheduleDetails->filter(function ($detail) {
-                                                        return $detail['salary_eligible'];
-                                                    })->count();
                                                 @endphp
                                                 <td>
                                                     @if($salaryEligibleSchedules->isNotEmpty())
@@ -495,6 +485,16 @@
                                                 <td>{{ $createdAt ? $createdAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $updatedAt ? $updatedAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $item->created_by }}</td>
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-outline-primary btn-sm rounded-pill"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#assignmentsModal-{{ $item->id }}"
+                                                    >
+                                                        View assignments
+                                                    </button>
+                                                </td>
                                                 <td>
                                                     <div class="d-flex">
                                                         <div class="action-button"><a href="{{ route('admin.trainer-management.view', $item->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>
@@ -529,35 +529,61 @@
                                                         </div>
                                                         <div class="modal-body">
                                                             @if($scheduleDetails->isNotEmpty())
+                                                                @php
+                                                                    $totalAssignments = $scheduleDetails->count();
+                                                                    $futureHours = $futureScheduleDetails->sum('hours');
+                                                                    $pastHours = $pastScheduleDetails->sum('hours');
+                                                                @endphp
+                                                                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                                                                    <span class="badge bg-dark text-white rounded-pill px-3 py-2" data-role="total-count">
+                                                                        {{ $totalAssignments }} {{ $totalAssignments === 1 ? 'assignment' : 'assignments' }}
+                                                                    </span>
+                                                                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">
+                                                                        Upcoming: <span data-role="future-count">{{ $futureScheduleCount }} {{ $futureScheduleCount === 1 ? 'assignment' : 'assignments' }}</span>
+                                                                    </span>
+                                                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">
+                                                                        Past: <span data-role="past-count">{{ $pastScheduleCount }} {{ $pastScheduleCount === 1 ? 'assignment' : 'assignments' }}</span>
+                                                                    </span>
+                                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">
+                                                                        Hours (upcoming): <span data-role="future-hours">{{ number_format($futureHours, 2) }} hrs</span>
+                                                                    </span>
+                                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">
+                                                                        Hours (past): <span data-role="past-hours">{{ number_format($pastHours, 2) }} hrs</span>
+                                                                    </span>
+                                                                </div>
                                                                 <div class="row g-3 mb-4">
                                                                     <div class="col-sm-6">
                                                                         <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
-                                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Upcoming assignments</span>
-                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                                                <span class="fs-5 fw-semibold" data-role="future-total">₱{{ number_format($futureSalaryTotal, 2) }}</span>
+                                                                            <div class="d-flex align-items-center justify-content-between">
+                                                                                <div class="d-flex align-items-center gap-2">
+                                                                                    <span class="badge bg-success text-white rounded-circle p-2"><i class="fa-solid fa-calendar-check"></i></span>
+                                                                                    <span class="text-muted small text-uppercase fw-semibold">Upcoming</span>
+                                                                                </div>
                                                                                 <span class="text-muted small" data-role="future-count">
                                                                                     {{ $futureScheduleCount }} {{ $futureScheduleCount === 1 ? 'assignment' : 'assignments' }}
                                                                                 </span>
                                                                             </div>
-                                                                            <span class="text-muted small d-block mt-1" data-role="future-payroll-count">
-                                                                                {{ $futureSalaryAssignments }} payroll {{ $futureSalaryAssignments === 1 ? 'class' : 'classes' }}
-                                                                            </span>
-                                                                            <span class="text-muted small d-block">Class duration × rate for eligible entries</span>
+                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                                                <span class="fw-semibold">Hours</span>
+                                                                                <span class="badge bg-success-subtle text-success rounded-pill px-3" data-role="future-hours">{{ number_format($futureHours, 2) }} hrs</span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-sm-6">
                                                                         <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
-                                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Past assignments</span>
-                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                                                <span class="fs-5 fw-semibold" data-role="past-total">₱{{ number_format($pastSalaryTotal, 2) }}</span>
+                                                                            <div class="d-flex align-items-center justify-content-between">
+                                                                                <div class="d-flex align-items-center gap-2">
+                                                                                    <span class="badge bg-secondary text-white rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
+                                                                                    <span class="text-muted small text-uppercase fw-semibold">Past</span>
+                                                                                </div>
                                                                                 <span class="text-muted small" data-role="past-count">
                                                                                     {{ $pastScheduleCount }} {{ $pastScheduleCount === 1 ? 'assignment' : 'assignments' }}
                                                                                 </span>
                                                                             </div>
-                                                                            <span class="text-muted small d-block mt-1" data-role="past-payroll-count">
-                                                                                {{ $pastSalaryAssignments }} payroll {{ $pastSalaryAssignments === 1 ? 'class' : 'classes' }}
-                                                                            </span>
-                                                                            <span class="text-muted small d-block">Totals exclude archived or incomplete data</span>
+                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                                                <span class="fw-semibold">Hours</span>
+                                                                                <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3" data-role="past-hours">{{ number_format($pastHours, 2) }} hrs</span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -600,44 +626,39 @@
                                                                             $summarySalary = $detail['summary_salary'];
                                                                             $isSalaryEligible = $detail['salary_eligible'];
                                                                         @endphp
-                                                                        <div
-                                                                            class="border rounded-3 p-3 mb-3 assignment-card"
-                                                                            data-assignment-card
-                                                                            data-category="{{ $category }}"
-                                                                            data-start="{{ $detail['start_date'] ?? '' }}"
-                                                                            data-end="{{ $detail['end_date'] ?? '' }}"
-                                                                            data-salary="{{ $displaySalary }}"
-                                                                            data-summary-salary="{{ $summarySalary }}"
-                                                                            data-salary-eligible="{{ $isSalaryEligible ? 1 : 0 }}"
-                                                                        >
+                                                                            <div
+                                                                                class="border rounded-3 p-3 mb-3 assignment-card"
+                                                                                data-assignment-card
+                                                                                data-category="{{ $category }}"
+                                                                                data-start="{{ $detail['start_date'] ?? '' }}"
+                                                                                data-end="{{ $detail['end_date'] ?? '' }}"
+                                                                                data-hours="{{ $hours }}"
+                                                                            >
                                                                             <div class="d-flex justify-content-between align-items-start gap-3">
-                                                                                <div>
-                                                                                    <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                                                                    @if(!empty($schedule->class_code))
-                                                                                        <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
-                                                                                    @endif
-                                                                                    @if($start || $end)
-                                                                                        <span class="text-muted small d-block">
-                                                                                            {{ $rangeStart }}
-                                                                                            @if($rangeEnd)
-                                                                                                &ndash; {{ $rangeEnd }}
+                                                                                <div class="d-flex align-items-start gap-3">
+                                                                                    <span class="badge bg-dark-subtle text-dark rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
+                                                                                    <div>
+                                                                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
+                                                                                        <div class="d-flex flex-wrap gap-2 mt-1">
+                                                                                            @if(!empty($schedule->class_code))
+                                                                                                <span class="badge bg-light text-muted border">Code: {{ $schedule->class_code }}</span>
                                                                                             @endif
-                                                                                        </span>
-                                                                                    @endif
+                                                                                            @if($hours > 0)
+                                                                                                <span class="badge bg-primary-subtle text-primary">{{ number_format($hours, 2) }} hrs</span>
+                                                                                            @endif
+                                                                                        </div>
+                                                                                        @if($start || $end)
+                                                                                            <span class="text-muted small d-block mt-1">
+                                                                                                {{ $rangeStart }}
+                                                                                                @if($rangeEnd)
+                                                                                                    &ndash; {{ $rangeEnd }}
+                                                                                                @endif
+                                                                                            </span>
+                                                                                        @endif
+                                                                                    </div>
                                                                                 </div>
                                                                                 <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
                                                                             </div>
-                                                                            @if(!is_null($schedule->trainer_rate_per_hour))
-                                                                                <div class="mt-3">
-                                                                                    <span class="text-muted small d-block">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} per hour</span>
-                                                                                    @if($displaySalary > 0)
-                                                                                        <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($displaySalary, 2) }}</span>
-                                                                                    @endif
-                                                                                </div>
-                                                                            @endif
-                                                                            @if($hours > 0)
-                                                                                <span class="text-muted small d-block mt-2">Duration: {{ number_format($hours, 2) }} {{ $hours === 1.0 ? 'hour' : 'hours' }}</span>
-                                                                            @endif
                                                                             <div class="mt-3">
                                                                                 <span class="text-muted small text-uppercase fw-semibold">Students</span>
                                                                                 @if($students->isNotEmpty())
@@ -703,7 +724,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="9" class="text-center text-muted">No trainers found.</td>
+                                                <td colspan="10" class="text-center text-muted">No trainers found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -734,6 +755,7 @@
                                             <th>Estimated Salary</th>
                                             <th>Created Date</th>
                                             <th>Updated Date</th>
+                                            <th>Assignments</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -842,17 +864,6 @@
 
                                                     $archivedFutureCount = $archivedFutureDetails->count();
                                                     $archivedPastCount = $archivedPastDetails->count();
-
-                                                    $archivedFutureSalaryTotal = $archivedFutureDetails->sum('summary_salary');
-                                                    $archivedPastSalaryTotal = $archivedPastDetails->sum('summary_salary');
-
-                                                    $archivedFuturePayrollCount = $archivedFutureDetails->filter(function ($detail) {
-                                                        return $detail['salary_eligible'];
-                                                    })->count();
-
-                                                    $archivedPastPayrollCount = $archivedPastDetails->filter(function ($detail) {
-                                                        return $detail['salary_eligible'];
-                                                    })->count();
                                                 @endphp
                                                 <td>
                                                     @if($archivedSalaryEligible->isNotEmpty())
@@ -863,6 +874,16 @@
                                                 </td>
                                                 <td>{{ $archiveCreated ? $archiveCreated->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $archiveUpdated ? $archiveUpdated->format('F j, Y g:iA') : '' }}</td>
+                                                <td>
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-outline-primary btn-sm rounded-pill"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#archiveAssignmentsModal-{{ $archive->id }}"
+                                                    >
+                                                        View assignments
+                                                    </button>
+                                                </td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
                                                         <button type="button" data-bs-toggle="modal" data-bs-target="#archiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">
@@ -888,35 +909,61 @@
                                                         </div>
                                                         <div class="modal-body">
                                                             @if($archivedScheduleDetails->isNotEmpty())
+                                                                @php
+                                                                    $archivedTotalAssignments = $archivedScheduleDetails->count();
+                                                                    $archivedFutureHours = $archivedFutureDetails->sum('hours');
+                                                                    $archivedPastHours = $archivedPastDetails->sum('hours');
+                                                                @endphp
+                                                                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                                                                    <span class="badge bg-dark text-white rounded-pill px-3 py-2" data-role="total-count">
+                                                                        {{ $archivedTotalAssignments }} {{ $archivedTotalAssignments === 1 ? 'assignment' : 'assignments' }}
+                                                                    </span>
+                                                                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">
+                                                                        Upcoming: <span data-role="future-count">{{ $archivedFutureCount }} {{ $archivedFutureCount === 1 ? 'assignment' : 'assignments' }}</span>
+                                                                    </span>
+                                                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">
+                                                                        Past: <span data-role="past-count">{{ $archivedPastCount }} {{ $archivedPastCount === 1 ? 'assignment' : 'assignments' }}</span>
+                                                                    </span>
+                                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">
+                                                                        Hours (upcoming): <span data-role="future-hours">{{ number_format($archivedFutureHours, 2) }} hrs</span>
+                                                                    </span>
+                                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">
+                                                                        Hours (past): <span data-role="past-hours">{{ number_format($archivedPastHours, 2) }} hrs</span>
+                                                                    </span>
+                                                                </div>
                                                                 <div class="row g-3 mb-4">
                                                                     <div class="col-sm-6">
                                                                         <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
-                                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Upcoming assignments</span>
-                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                                                <span class="fs-5 fw-semibold" data-role="future-total">₱{{ number_format($archivedFutureSalaryTotal, 2) }}</span>
+                                                                            <div class="d-flex align-items-center justify-content-between">
+                                                                                <div class="d-flex align-items-center gap-2">
+                                                                                    <span class="badge bg-success text-white rounded-circle p-2"><i class="fa-solid fa-calendar-check"></i></span>
+                                                                                    <span class="text-muted small text-uppercase fw-semibold">Upcoming</span>
+                                                                                </div>
                                                                                 <span class="text-muted small" data-role="future-count">
                                                                                     {{ $archivedFutureCount }} {{ $archivedFutureCount === 1 ? 'assignment' : 'assignments' }}
                                                                                 </span>
                                                                             </div>
-                                                                            <span class="text-muted small d-block mt-1" data-role="future-payroll-count">
-                                                                                {{ $archivedFuturePayrollCount }} payroll {{ $archivedFuturePayrollCount === 1 ? 'class' : 'classes' }}
-                                                                            </span>
-                                                                            <span class="text-muted small d-block">Class duration × rate for eligible entries</span>
+                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                                                <span class="fw-semibold">Hours</span>
+                                                                                <span class="badge bg-success-subtle text-success rounded-pill px-3" data-role="future-hours">{{ number_format($archivedFutureHours, 2) }} hrs</span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                     <div class="col-sm-6">
                                                                         <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
-                                                                            <span class="text-muted small text-uppercase fw-semibold d-block">Past assignments</span>
-                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                                                <span class="fs-5 fw-semibold" data-role="past-total">₱{{ number_format($archivedPastSalaryTotal, 2) }}</span>
+                                                                            <div class="d-flex align-items-center justify-content-between">
+                                                                                <div class="d-flex align-items-center gap-2">
+                                                                                    <span class="badge bg-secondary text-white rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
+                                                                                    <span class="text-muted small text-uppercase fw-semibold">Past</span>
+                                                                                </div>
                                                                                 <span class="text-muted small" data-role="past-count">
                                                                                     {{ $archivedPastCount }} {{ $archivedPastCount === 1 ? 'assignment' : 'assignments' }}
                                                                                 </span>
                                                                             </div>
-                                                                            <span class="text-muted small d-block mt-1" data-role="past-payroll-count">
-                                                                                {{ $archivedPastPayrollCount }} payroll {{ $archivedPastPayrollCount === 1 ? 'class' : 'classes' }}
-                                                                            </span>
-                                                                            <span class="text-muted small d-block">Totals exclude archived or incomplete data</span>
+                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                                                <span class="fw-semibold">Hours</span>
+                                                                                <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3" data-role="past-hours">{{ number_format($archivedPastHours, 2) }} hrs</span>
+                                                                            </div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
@@ -965,38 +1012,33 @@
                                                                             data-category="{{ $category }}"
                                                                             data-start="{{ $detail['start_date'] ?? '' }}"
                                                                             data-end="{{ $detail['end_date'] ?? '' }}"
-                                                                            data-salary="{{ $displaySalary }}"
-                                                                            data-summary-salary="{{ $summarySalary }}"
-                                                                            data-salary-eligible="{{ $isSalaryEligible ? 1 : 0 }}"
+                                                                            data-hours="{{ $hours }}"
                                                                         >
                                                                             <div class="d-flex justify-content-between align-items-start gap-3">
-                                                                                <div>
-                                                                                    <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                                                                    @if(!empty($schedule->class_code))
-                                                                                        <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
-                                                                                    @endif
-                                                                                    @if($start || $end)
-                                                                                        <span class="text-muted small d-block">
-                                                                                            {{ $rangeStart }}
-                                                                                            @if($rangeEnd)
-                                                                                                &ndash; {{ $rangeEnd }}
+                                                                                <div class="d-flex align-items-start gap-3">
+                                                                                    <span class="badge bg-dark-subtle text-dark rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
+                                                                                    <div>
+                                                                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
+                                                                                        <div class="d-flex flex-wrap gap-2 mt-1">
+                                                                                            @if(!empty($schedule->class_code))
+                                                                                                <span class="badge bg-light text-muted border">Code: {{ $schedule->class_code }}</span>
                                                                                             @endif
-                                                                                        </span>
-                                                                                    @endif
+                                                                                            @if($hours > 0)
+                                                                                                <span class="badge bg-primary-subtle text-primary">{{ number_format($hours, 2) }} hrs</span>
+                                                                                            @endif
+                                                                                        </div>
+                                                                                        @if($start || $end)
+                                                                                            <span class="text-muted small d-block mt-1">
+                                                                                                {{ $rangeStart }}
+                                                                                                @if($rangeEnd)
+                                                                                                    &ndash; {{ $rangeEnd }}
+                                                                                                @endif
+                                                                                            </span>
+                                                                                        @endif
+                                                                                    </div>
                                                                                 </div>
                                                                                 <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
                                                                             </div>
-                                                                            @if(!is_null($schedule->trainer_rate_per_hour))
-                                                                                <div class="mt-3">
-                                                                                    <span class="text-muted small d-block">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} per hour</span>
-                                                                                    @if($displaySalary > 0)
-                                                                                        <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($displaySalary, 2) }}</span>
-                                                                                    @endif
-                                                                                </div>
-                                                                            @endif
-                                                                            @if($hours > 0)
-                                                                                <span class="text-muted small d-block mt-2">Duration: {{ number_format($hours, 2) }} {{ $hours === 1.0 ? 'hour' : 'hours' }}</span>
-                                                                            @endif
                                                                             <div class="mt-3">
                                                                                 <span class="text-muted small text-uppercase fw-semibold">Students</span>
                                                                                 @if($students->isNotEmpty())
@@ -1332,14 +1374,6 @@
 
             const assignmentModals = document.querySelectorAll('[data-assignment-modal]');
 
-            const formatCurrency = function (amount) {
-                const value = Number(amount) || 0;
-                return '₱' + value.toLocaleString('en-PH', {
-                    minimumFractionDigits: 2,
-                    maximumFractionDigits: 2,
-                });
-            };
-
             const pluralize = function (count, singular, plural) {
                 return `${count} ${count === 1 ? singular : plural}`;
             };
@@ -1548,12 +1582,11 @@
                 const resetButton = modalEl.querySelector('[data-filter-reset]');
                 const cards = Array.from(modalEl.querySelectorAll('[data-assignment-card]'));
                 const summaryEls = {
-                    futureTotal: modalEl.querySelector('[data-role="future-total"]'),
-                    futureCount: modalEl.querySelector('[data-role="future-count"]'),
-                    futurePayroll: modalEl.querySelector('[data-role="future-payroll-count"]'),
-                    pastTotal: modalEl.querySelector('[data-role="past-total"]'),
-                    pastCount: modalEl.querySelector('[data-role="past-count"]'),
-                    pastPayroll: modalEl.querySelector('[data-role="past-payroll-count"]'),
+                    totalCount: modalEl.querySelectorAll('[data-role="total-count"]'),
+                    futureCount: modalEl.querySelectorAll('[data-role="future-count"]'),
+                    pastCount: modalEl.querySelectorAll('[data-role="past-count"]'),
+                    futureHours: modalEl.querySelectorAll('[data-role="future-hours"]'),
+                    pastHours: modalEl.querySelectorAll('[data-role="past-hours"]'),
                 };
 
                 if (!cards.length) {
@@ -1577,51 +1610,40 @@
                 }
 
                 function updateSummary(visibleCards) {
-                    let futureTotal = 0;
-                    let pastTotal = 0;
                     let futureCount = 0;
                     let pastCount = 0;
-                    let futurePayroll = 0;
-                    let pastPayroll = 0;
+                    let futureHours = 0;
+                    let pastHours = 0;
 
                     visibleCards.forEach(function (card) {
                         const category = card.dataset.category === 'past' ? 'past' : 'future';
-                        const summarySalary = Number(card.dataset.summarySalary || 0);
-                        const salaryEligible = card.dataset.salaryEligible === '1' && summarySalary > 0;
+                        const hours = Number(card.dataset.hours || 0);
 
                         if (category === 'future') {
                             futureCount += 1;
-                            futureTotal += summarySalary;
-                            if (salaryEligible) {
-                                futurePayroll += 1;
-                            }
+                            futureHours += hours;
                         } else {
                             pastCount += 1;
-                            pastTotal += summarySalary;
-                            if (salaryEligible) {
-                                pastPayroll += 1;
-                            }
+                            pastHours += hours;
                         }
                     });
 
-                    if (summaryEls.futureTotal) {
-                        summaryEls.futureTotal.textContent = formatCurrency(futureTotal);
-                    }
-                    if (summaryEls.pastTotal) {
-                        summaryEls.pastTotal.textContent = formatCurrency(pastTotal);
-                    }
-                    if (summaryEls.futureCount) {
-                        summaryEls.futureCount.textContent = pluralize(futureCount, 'assignment', 'assignments');
-                    }
-                    if (summaryEls.pastCount) {
-                        summaryEls.pastCount.textContent = pluralize(pastCount, 'assignment', 'assignments');
-                    }
-                    if (summaryEls.futurePayroll) {
-                        summaryEls.futurePayroll.textContent = pluralize(futurePayroll, 'payroll class', 'payroll classes');
-                    }
-                    if (summaryEls.pastPayroll) {
-                        summaryEls.pastPayroll.textContent = pluralize(pastPayroll, 'payroll class', 'payroll classes');
-                    }
+                    const totalCount = futureCount + pastCount;
+                    summaryEls.totalCount.forEach(function (el) {
+                        el.textContent = pluralize(totalCount, 'assignment', 'assignments');
+                    });
+                    summaryEls.futureCount.forEach(function (el) {
+                        el.textContent = pluralize(futureCount, 'assignment', 'assignments');
+                    });
+                    summaryEls.pastCount.forEach(function (el) {
+                        el.textContent = pluralize(pastCount, 'assignment', 'assignments');
+                    });
+                    summaryEls.futureHours.forEach(function (el) {
+                        el.textContent = `${futureHours.toFixed(2)} hrs`;
+                    });
+                    summaryEls.pastHours.forEach(function (el) {
+                        el.textContent = `${pastHours.toFixed(2)} hrs`;
+                    });
                 }
 
                 function matchesDateRange(card) {

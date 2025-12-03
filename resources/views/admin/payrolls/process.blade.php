@@ -370,7 +370,9 @@
                                 $modalId = 'trainer-assignments-' . $trainer->id;
                                 $totals = $assignment['totals'];
                                 $processedRun = $assignment['processed_run'] ?? null;
-                                $trainerGross = $processedRun->gross_pay ?? $assignment['total_salary'];
+                                $trainerGross = $processedRun->gross_pay ?? ($assignment['payable_salary'] ?? 0);
+                                $trainerProjectedGross = $assignment['total_salary'] ?? 0;
+                                $trainerUpcoming = $totals['future_total'] ?? 0;
                                 $trainerSss = $processedRun->deduction_sss ?? ($assignment['deductions']['sss'] ?? round($trainerGross * 0.045, 2));
                                 $trainerPhilhealth = $processedRun->deduction_philhealth ?? ($assignment['deductions']['philhealth'] ?? round($trainerGross * 0.025, 2));
                                 $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
@@ -379,7 +381,7 @@
                                     $schedule = $detail['schedule'];
                                     return [
                                         'id' => $schedule->class_code ?? ($schedule->id ?? 'N/A'),
-                                    'clockin' => $detail['start'] ? $detail['start']->format('M d, Y g:i A') : '—',
+                                        'clockin' => $detail['start'] ? $detail['start']->format('M d, Y g:i A') : '—',
                                         'clockout' => $detail['end'] ? $detail['end']->format('M d, Y g:i A') : '—',
                                         'hours' => $detail['hours'],
                                         'amount' => $detail['summary_salary'],
@@ -397,7 +399,7 @@
                                     'entries' => $assignmentEntries,
                                 ];
                                 $trainerPayslipJson = json_encode($trainerPayslipData);
-                                $canProcessTrainer = ($assignment['salary_assignments_count'] ?? 0) > 0 && empty($processedRun);
+                                $canProcessTrainer = ($assignment['payable_assignments_count'] ?? 0) > 0 && empty($processedRun);
                             @endphp
                             <div
                                 class="card border-0 shadow-sm rounded-4 mb-3"
@@ -419,16 +421,18 @@
                                         </div>
                                         <div class="d-flex flex-wrap align-items-center gap-3">
                                             <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Eligible classes</div>
-                                                <div class="fw-bold fs-5">{{ $assignment['salary_assignments_count'] }}</div>
+                                                <div class="text-muted small text-uppercase">Payable classes</div>
+                                                <div class="fw-bold fs-5">{{ $assignment['payable_assignments_count'] }}</div>
                                             </div>
                                             <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Total estimated</div>
-                                                <div class="fw-bold fs-5">₱{{ number_format($assignment['total_salary'], 2) }}</div>
+                                                <div class="text-muted small text-uppercase">Projected total (incl. upcoming)</div>
+                                                <div class="fw-bold fs-5">₱{{ number_format($trainerProjectedGross, 2) }}</div>
+                                                <div class="text-muted small">Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}</div>
                                             </div>
                                             <div class="text-start">
                                                 <div class="text-muted small text-uppercase">Net (after deductions)</div>
                                                 <div class="fw-bold fs-6 text-success" data-net>₱{{ number_format($trainerNet, 2) }}</div>
+                                                <div class="text-muted small">Completed classes only</div>
                                             </div>
                                             <form action="{{ route('admin.payrolls.process-trainer') }}" method="POST" class="d-inline">
                                                 @csrf
@@ -438,7 +442,7 @@
                                                     type="submit"
                                                     class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2"
                                                     {{ $canProcessTrainer ? '' : 'disabled' }}
-                                                    title="{{ $canProcessTrainer ? 'Process and save payroll' : (!empty($processedRun) ? 'Already processed for this period' : 'No eligible assignments this month') }}"
+                                                    title="{{ $canProcessTrainer ? 'Process and save payroll' : (!empty($processedRun) ? 'Already processed for this period' : 'No completed assignments for this period') }}"
                                                 >
                                                     <i class="fa-solid fa-circle-check"></i>
                                                     {{ !empty($processedRun) ? 'Processed' : 'Process payroll' }}
@@ -464,8 +468,8 @@
                                             </button>
                                             @if(!empty($processedRun))
                                                 <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
-                                            @elseif(($assignment['salary_assignments_count'] ?? 0) === 0)
-                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No eligible assignments</span>
+                                            @elseif(($assignment['payable_assignments_count'] ?? 0) === 0)
+                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No completed assignments</span>
                                             @endif
                                         </div>
                                     </div>
@@ -477,34 +481,47 @@
                                         <div class="modal-header align-items-center">
                                             <div>
                                                 <h5 class="modal-title fw-semibold mb-0" id="{{ $modalId }}Label">Assignments for {{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
-                                                <span class="text-muted small">Total estimated: ₱{{ number_format($assignment['total_salary'], 2) }}</span>
+                                                <span class="text-muted small">Total estimated: ₱{{ number_format($trainerProjectedGross, 2) }}</span>
                                             </div>
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
+                                            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
+                                                <span class="badge bg-dark text-white rounded-pill px-3 py-2">Payable gross: ₱{{ number_format($trainerGross, 2) }}</span>
+                                                <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">Upcoming estimate: ₱{{ number_format($trainerUpcoming, 2) }}</span>
+                                                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">Completed classes: {{ $assignment['payable_assignments_count'] }}</span>
+                                                <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">Projected classes: {{ $assignment['salary_assignments_count'] }}</span>
+                                                <span class="badge bg-light text-muted rounded-pill px-3 py-2">Hours (completed): {{ number_format($assignment['total_hours'], 2) }}</span>
+                                            </div>
                                             <div class="row g-3 mb-3">
                                                 <div class="col-12 col-md-6">
                                                     <div class="border rounded-4 p-3 h-100 bg-light">
-                                                        <span class="text-muted small text-uppercase fw-semibold d-block">Upcoming</span>
-                                                        <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                            <span class="fs-5 fw-semibold">₱{{ number_format($totals['future_total'], 2) }}</span>
+                                                        <div class="d-flex align-items-center justify-content-between">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <span class="badge bg-success text-white rounded-circle p-2"><i class="fa-solid fa-calendar-check"></i></span>
+                                                                <span class="text-muted small text-uppercase fw-semibold">Upcoming</span>
+                                                            </div>
                                                             <span class="text-muted small">{{ $totals['future_count'] }} {{ $totals['future_count'] === 1 ? 'assignment' : 'assignments' }}</span>
                                                         </div>
-                                                        <span class="text-muted small d-block">
-                                                            {{ $totals['future_payroll_count'] }} payroll {{ $totals['future_payroll_count'] === 1 ? 'class' : 'classes' }}
-                                                        </span>
+                                                        <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                            <span class="fs-5 fw-semibold">₱{{ number_format($totals['future_total'], 2) }}</span>
+                                                            <span class="badge bg-success-subtle text-success rounded-pill px-3">{{ $totals['future_payroll_count'] }} payroll {{ $totals['future_payroll_count'] === 1 ? 'class' : 'classes' }}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                                 <div class="col-12 col-md-6">
                                                     <div class="border rounded-4 p-3 h-100 bg-light">
-                                                        <span class="text-muted small text-uppercase fw-semibold d-block">Past</span>
-                                                        <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                            <span class="fs-5 fw-semibold">₱{{ number_format($totals['past_total'], 2) }}</span>
+                                                        <div class="d-flex align-items-center justify-content-between">
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <span class="badge bg-secondary text-white rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
+                                                                <span class="text-muted small text-uppercase fw-semibold">Past</span>
+                                                            </div>
                                                             <span class="text-muted small">{{ $totals['past_count'] }} {{ $totals['past_count'] === 1 ? 'assignment' : 'assignments' }}</span>
                                                         </div>
-                                                        <span class="text-muted small d-block">
-                                                            {{ $totals['past_payroll_count'] }} payroll {{ $totals['past_payroll_count'] === 1 ? 'class' : 'classes' }}
-                                                        </span>
+                                                        <div class="d-flex align-items-baseline justify-content-between mt-2">
+                                                            <span class="fs-5 fw-semibold">₱{{ number_format($totals['past_total'], 2) }}</span>
+                                                            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3">{{ $totals['past_payroll_count'] }} payroll {{ $totals['past_payroll_count'] === 1 ? 'class' : 'classes' }}</span>
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -532,8 +549,12 @@
                                                 <div class="col-12 col-md-6 d-flex align-items-center">
                                                     <div class="w-100 border rounded-4 p-3 bg-light">
                                                         <div class="d-flex justify-content-between">
-                                                            <span class="text-muted small text-uppercase fw-semibold">Gross</span>
+                                                            <span class="text-muted small text-uppercase fw-semibold">Gross (completed classes)</span>
                                                             <span>₱{{ number_format($trainerGross, 2) }}</span>
+                                                        </div>
+                                                        <div class="d-flex justify-content-between text-muted small mt-1">
+                                                            <span>Upcoming not included</span>
+                                                            <span>₱{{ number_format($trainerUpcoming, 2) }}</span>
                                                         </div>
                                                         <div class="d-flex justify-content-between mt-2">
                                                             <span class="fw-semibold">Net payable</span>
@@ -543,13 +564,34 @@
                                                 </div>
                                             </div>
 
-                                            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                                                <div class="btn-group btn-group-sm" role="group">
-                                                    <button type="button" class="btn btn-outline-secondary active" data-filter-button data-filter="all">All</button>
-                                                    <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="future">Upcoming</button>
-                                                    <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="past">Past</button>
+                                            <div class="card border-0 shadow-sm bg-light mb-3">
+                                                <div class="card-body">
+                                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <span class="badge bg-primary-subtle text-primary rounded-circle p-2"><i class="fa-solid fa-filter"></i></span>
+                                                            <span class="text-muted small text-uppercase fw-semibold">Refine assignments</span>
+                                                        </div>
+                                                        <button type="button" class="btn btn-link btn-sm text-decoration-none px-0" data-filter-reset>Reset filters</button>
+                                                    </div>
+                                                    <div class="row g-2 align-items-end">
+                                                        <div class="col-12 col-lg-4">
+                                                            <label class="form-label text-muted text-uppercase small mb-1">Category</label>
+                                                            <div class="btn-group btn-group-sm w-100" role="group">
+                                                                <button type="button" class="btn btn-outline-secondary active" data-filter-button data-filter="all">All</button>
+                                                                <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="future">Upcoming</button>
+                                                                <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="past">Past</button>
+                                                            </div>
+                                                        </div>
+                                                        <div class="col-12 col-sm-4 col-lg-3">
+                                                            <label class="form-label text-muted text-uppercase small mb-1">From date</label>
+                                                            <input type="date" class="form-control form-control-sm" data-filter-start>
+                                                        </div>
+                                                        <div class="col-12 col-sm-4 col-lg-3">
+                                                            <label class="form-label text-muted text-uppercase small mb-1">To date</label>
+                                                            <input type="date" class="form-control form-control-sm" data-filter-end>
+                                                        </div>
+                                                    </div>
                                                 </div>
-                                                <button type="button" class="btn btn-link btn-sm text-decoration-none px-0" data-filter-reset>Reset</button>
                                             </div>
 
         <div class="assignment-list">
@@ -565,32 +607,41 @@
                     $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
                     $students = $detail['students'];
                 @endphp
-                <div class="border rounded-3 p-3 mb-3" data-assignment-card data-category="{{ $category }}">
+                <div
+                    class="border rounded-3 p-3 mb-3"
+                    data-assignment-card
+                    data-category="{{ $category }}"
+                    data-start-date="{{ $detail['start_date'] ?? '' }}"
+                    data-end-date="{{ $detail['end_date'] ?? '' }}"
+                >
                     <div class="d-flex justify-content-between align-items-start gap-3">
-                        <div>
-                            <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                            @if(!empty($schedule->class_code))
-                                <span class="text-muted small d-block">Code: {{ $schedule->class_code }}</span>
-                            @endif
-                            @if($start || $end)
-                                <span class="text-muted small d-block">
-                                    {{ $rangeStart }}
-                                    @if($rangeEnd)
-                                        &ndash; {{ $rangeEnd }}
+                        <div class="d-flex align-items-start gap-3">
+                            <span class="badge bg-dark-subtle text-dark rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
+                            <div>
+                                <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
+                                <div class="d-flex flex-wrap gap-2 mt-1">
+                                    @if(!empty($schedule->class_code))
+                                        <span class="badge bg-light text-muted border">Code: {{ $schedule->class_code }}</span>
                                     @endif
-                                </span>
-                            @endif
-                            @if(!is_null($schedule->trainer_rate_per_hour))
-                                <span class="text-muted small d-block mt-1">
-                                    Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }} / hour
-                                </span>
-                            @endif
-                            @if($detail['display_salary'] > 0)
-                                <span class="text-muted small d-block">Estimated salary: ₱{{ number_format($detail['display_salary'], 2) }}</span>
-                            @endif
-                            @if($detail['hours'] > 0)
-                                <span class="text-muted small d-block">Duration: {{ number_format($detail['hours'], 2) }} hrs</span>
-                            @endif
+                                    @if($detail['hours'] > 0)
+                                        <span class="badge bg-primary-subtle text-primary">Duration: {{ number_format($detail['hours'], 2) }} hrs</span>
+                                    @endif
+                                    @if(!is_null($schedule->trainer_rate_per_hour))
+                                        <span class="badge bg-success-subtle text-success">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }}/hr</span>
+                                    @endif
+                                    @if($detail['display_salary'] > 0)
+                                        <span class="badge bg-danger-subtle text-danger">Est. salary: ₱{{ number_format($detail['display_salary'], 2) }}</span>
+                                    @endif
+                                </div>
+                                @if($start || $end)
+                                    <span class="text-muted small d-block mt-1">
+                                        {{ $rangeStart }}
+                                        @if($rangeEnd)
+                                            &ndash; {{ $rangeEnd }}
+                                        @endif
+                                    </span>
+                                @endif
+                            </div>
                         </div>
                         <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
                     </div>
@@ -837,18 +888,57 @@
             const cards = modal.querySelectorAll('[data-assignment-card]');
             const buttons = modal.querySelectorAll('[data-filter-button]');
             const resetBtn = modal.querySelector('[data-filter-reset]');
+            const startInput = modal.querySelector('[data-filter-start]');
+            const endInput = modal.querySelector('[data-filter-end]');
+            let activeFilter = 'all';
 
             function setActive(targetFilter) {
+                activeFilter = targetFilter;
                 buttons.forEach((btn) => {
                     btn.classList.toggle('active', btn.dataset.filter === targetFilter);
                 });
             }
 
-            function applyFilter(filter) {
+            function parseDate(value) {
+                if (!value) return null;
+                const parsed = new Date(value);
+                return Number.isNaN(parsed.getTime()) ? null : parsed;
+            }
+
+            function matchesDate(card, filterStart, filterEnd) {
+                const cardStart = parseDate(card.dataset.startDate);
+                const cardEnd = parseDate(card.dataset.endDate);
+                const rangeStart = cardStart || cardEnd;
+                const rangeEnd = cardEnd || cardStart;
+
+                if (!filterStart && !filterEnd) {
+                    return true;
+                }
+
+                if (!rangeStart && !rangeEnd) {
+                    return false;
+                }
+
+                if (filterStart && rangeEnd && rangeEnd.getTime() < filterStart.getTime()) {
+                    return false;
+                }
+
+                if (filterEnd && rangeStart && rangeStart.getTime() > filterEnd.getTime()) {
+                    return false;
+                }
+
+                return true;
+            }
+
+            function applyFilters() {
+                const filterStart = parseDate(startInput?.value);
+                const filterEnd = parseDate(endInput?.value);
                 let visible = 0;
                 cards.forEach((card) => {
                     const category = card.dataset.category || 'all';
-                    const show = filter === 'all' || category === filter;
+                    const categoryMatch = activeFilter === 'all' || category === activeFilter;
+                    const dateMatch = matchesDate(card, filterStart, filterEnd);
+                    const show = categoryMatch && dateMatch;
                     card.classList.toggle('d-none', !show);
                     if (show) visible += 1;
                 });
@@ -868,17 +958,23 @@
                 btn.addEventListener('click', () => {
                     const filter = btn.dataset.filter || 'all';
                     setActive(filter);
-                    applyFilter(filter);
+                    applyFilters();
                 });
+            });
+
+            [startInput, endInput].forEach((input) => {
+                input?.addEventListener('change', applyFilters);
             });
 
             resetBtn?.addEventListener('click', () => {
                 setActive('all');
-                applyFilter('all');
+                if (startInput) startInput.value = '';
+                if (endInput) endInput.value = '';
+                applyFilters();
             });
 
             // Default state
-            applyFilter('all');
+            applyFilters();
         });
     });
 </script>

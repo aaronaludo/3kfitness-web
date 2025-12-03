@@ -226,17 +226,20 @@ class PayrollController extends Controller
                 $pastDetails = $scheduleDetails->where('category', 'past')->where('in_month', true);
 
                 $salaryEligibleSchedules = $scheduleDetails->where('salary_eligible', true)->where('in_month', true);
+                $payableSchedules = $salaryEligibleSchedules->where('category', 'past');
+                $projectedSchedules = $salaryEligibleSchedules->where('category', 'future');
 
                 $totals = [
-                    'future_total' => $futureDetails->sum('summary_salary'),
-                    'past_total' => $pastDetails->sum('summary_salary'),
+                    'future_total' => $projectedSchedules->sum('summary_salary'),
+                    'past_total' => $payableSchedules->sum('summary_salary'),
                     'future_count' => $futureDetails->count(),
                     'past_count' => $pastDetails->count(),
-                    'future_payroll_count' => $futureDetails->where('salary_eligible', true)->count(),
-                    'past_payroll_count' => $pastDetails->where('salary_eligible', true)->count(),
+                    'future_payroll_count' => $projectedSchedules->count(),
+                    'past_payroll_count' => $payableSchedules->count(),
                 ];
 
-                $gross = $salaryEligibleSchedules->sum('summary_salary');
+                $projectedGross = round($salaryEligibleSchedules->sum('summary_salary'), 2);
+                $gross = round($payableSchedules->sum('summary_salary'), 2);
                 $deductions = [
                     'sss' => round($gross * 0.045, 2),
                     'philhealth' => round($gross * 0.025, 2),
@@ -257,11 +260,14 @@ class PayrollController extends Controller
                 return [
                     'trainer' => $trainer,
                     'details' => $scheduleDetails,
-                    'entries_for_month' => $salaryEligibleSchedules->values(),
-                    'total_salary' => $gross,
-                    'total_hours' => $salaryEligibleSchedules->sum('hours'),
+                    'entries_for_month' => $payableSchedules->values(),
+                    'total_salary' => $projectedGross,
+                    'payable_salary' => $gross,
+                    'total_hours' => $payableSchedules->sum('hours'),
+                    'projected_hours' => $salaryEligibleSchedules->sum('hours'),
                     'assignments_count' => $scheduleDetails->count(),
                     'salary_assignments_count' => $salaryEligibleSchedules->count(),
+                    'payable_assignments_count' => $payableSchedules->count(),
                     'totals' => $totals,
                     'deductions' => $deductions,
                     'net_pay' => $net,
@@ -375,6 +381,7 @@ class PayrollController extends Controller
             ->with(['trainerSchedules.user_schedules.user'])
             ->firstOrFail();
 
+        $now = Carbon::now();
         try {
             $targetMonth = Carbon::createFromFormat('Y-m', $request->month);
         } catch (\Throwable $th) {
@@ -384,7 +391,7 @@ class PayrollController extends Controller
         $startOfMonth = $targetMonth->copy()->startOfMonth();
         $endOfMonth = $targetMonth->copy()->endOfMonth();
 
-        $eligibleSchedules = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($startOfMonth, $endOfMonth) {
+        $eligibleSchedules = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($startOfMonth, $endOfMonth, $now) {
             $start = !empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date) : null;
             $end = !empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date) : null;
 
@@ -415,8 +422,11 @@ class PayrollController extends Controller
                 'summary_salary' => $summarySalary,
                 'salary_eligible' => $isSalaryEligible,
                 'in_month' => $inMonth,
+                'is_past' => $end
+                    ? $end->lt($now)
+                    : ($start ? $start->lt($now) : false),
             ];
-        })->filter(fn ($detail) => $detail['salary_eligible'] && $detail['in_month']);
+        })->filter(fn ($detail) => $detail['salary_eligible'] && $detail['in_month'] && $detail['is_past']);
 
         if ($eligibleSchedules->isEmpty()) {
             return redirect()->back()->with('error', 'No payroll-eligible trainer assignments found for this month.');
