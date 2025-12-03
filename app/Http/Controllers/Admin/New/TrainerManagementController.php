@@ -9,6 +9,7 @@ use App\Models\Membership;
 use App\Models\Schedule;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Validation\Rule;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Style\Language;
@@ -190,10 +191,24 @@ class TrainerManagementController extends Controller
 
     public function update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
+        $canEditAll = in_array($request->user()->role_id ?? null, [1, 4], true);
+
+        $rules = [
             'address' => ['required', 'string', 'max:255'],
             'phone_number' => ['required', 'regex:/^\\+639\\d{9}$/'],
-        ]);
+        ];
+
+        if ($canEditAll) {
+            $rules = array_merge($rules, [
+                'first_name' => ['required', 'string', 'max:255'],
+                'last_name' => ['required', 'string', 'max:255'],
+                'email' => ['required', 'email', Rule::unique('users', 'email')->ignore($id)],
+                'profile_picture' => ['nullable', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+                'password' => ['nullable', 'confirmed'],
+            ]);
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return redirect()->route('admin.trainer-management.edit', $id)
@@ -204,9 +219,37 @@ class TrainerManagementController extends Controller
         $data = User::where('role_id', 5)->findOrFail($id);
         $data->address = $request->address;
         $data->phone_number = $request->phone_number;
+        if ($canEditAll) {
+            $data->first_name = $request->first_name;
+            $data->last_name = $request->last_name;
+            $data->email = $request->email;
+
+            if ($request->filled('password')) {
+                $data->password = $request->password;
+            }
+
+            if ($request->hasFile('profile_picture')) {
+                $destinationPath = public_path('uploads');
+                if (!is_dir($destinationPath)) {
+                    @mkdir($destinationPath, 0775, true);
+                }
+
+                $profilePicture = $request->file('profile_picture');
+                $profilePictureUrlName = time() . '_image.' . $profilePicture->getClientOriginalExtension();
+                $profilePicture->move($destinationPath, $profilePictureUrlName);
+
+                if (!empty($data->profile_picture) && file_exists(public_path($data->profile_picture))) {
+                    @unlink(public_path($data->profile_picture));
+                }
+
+                $data->profile_picture = 'uploads/' . $profilePictureUrlName;
+            }
+        }
         $data->save();
 
-        return redirect()->route('admin.trainer-management.index')->with('success', 'Trainer contact updated successfully');
+        $message = $canEditAll ? 'Trainer details updated successfully' : 'Trainer contact updated successfully';
+
+        return redirect()->route('admin.trainer-management.index')->with('success', $message);
     }
     
     public function delete(Request $request)

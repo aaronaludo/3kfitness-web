@@ -145,10 +145,30 @@ class StaffAccountManagementController extends Controller
     
     public function update(Request $request, $id)
     {
-        $validator = Validator::make($request->all(), [
+        $canEditAll = in_array($request->user()->role_id ?? null, [1, 4], true);
+
+        $rules = [
             'address' => ['required', 'string', 'max:255'],
             'phone_number' => ['required', 'regex:/^\\+639\\d{9}$/'],
-        ]);
+        ];
+
+        if ($canEditAll) {
+            $rules = array_merge($rules, [
+                'first_name' => ['required', 'string', 'max:255'],
+                'last_name' => ['required', 'string', 'max:255'],
+                'email' => [
+                    'required',
+                    'email',
+                    Rule::unique('users', 'email')
+                        ->where(fn ($q) => $q->where('role_id', 2))
+                        ->ignore($id),
+                ],
+                'rate_per_hour' => ['required', 'numeric', 'min:0'],
+                'password' => ['nullable', 'confirmed'],
+            ]);
+        }
+
+        $validator = Validator::make($request->all(), $rules);
 
         if ($validator->fails()) {
             return redirect()->route('admin.staff-account-management.edit', $id)
@@ -159,9 +179,20 @@ class StaffAccountManagementController extends Controller
         $data = User::where('role_id', 2)->findOrFail($id);
         $data->address = $request->address;
         $data->phone_number = $request->phone_number;
+        if ($canEditAll) {
+            $data->first_name = $request->first_name;
+            $data->last_name = $request->last_name;
+            $data->email = $request->email;
+            $data->rate_per_hour = $request->rate_per_hour;
+            if ($request->filled('password')) {
+                $data->password = $request->password;
+            }
+        }
         $data->save();
 
-        return redirect()->route('admin.staff-account-management.index')->with('success', 'Staff contact updated successfully');
+        $message = $canEditAll ? 'Staff details updated successfully' : 'Staff contact updated successfully';
+
+        return redirect()->route('admin.staff-account-management.index')->with('success', $message);
     }
     
     /*public function delete(Request $request)

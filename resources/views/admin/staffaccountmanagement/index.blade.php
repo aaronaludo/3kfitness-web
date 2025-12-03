@@ -284,7 +284,7 @@
 
             <div class="col-lg-12">
                 @if (session('success'))
-                    <div class="alert alert-success">
+                    <div class="alert alert-success my-3">
                         {{ session('success') }}
                     </div>
                 @endif
