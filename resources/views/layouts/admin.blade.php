@@ -95,18 +95,20 @@
                     @php
                         $currentUserId = auth()->guard('admin')->user()->id;
                         $today = now()->toDateString();
-                        $payroll = \App\Models\Payroll::where('user_id', $currentUserId)
+                        $attendance = \App\Models\Attendance2::where('user_id', $currentUserId)
+                                    ->where('is_archive', 0)
                                     ->whereDate('clockin_at', $today)
+                                    ->orderByDesc('clockin_at')
                                     ->first();
                     @endphp
                 
                     <div class="d-flex align-items-center ms-auto">
-                        @if(!$payroll)
+                        @if(!$attendance)
                             <button type="button" class="btn btn-sm btn-success me-4" data-bs-toggle="modal" data-bs-target="#confirmationModal" data-action="{{ route('admin.payrolls.clockin') }}" data-message="Are you sure you want to Clock In?">
                                 Clock In
                             </button>
                         @else
-                            @if(is_null($payroll->clockout_at))
+                            @if(is_null($attendance->clockout_at))
                                 <button type="button" class="btn btn-sm btn-danger me-4" data-bs-toggle="modal" data-bs-target="#confirmationModal" data-action="{{ route('admin.payrolls.clockout') }}" data-message="Are you sure you want to Clock Out?">
                                     Clock Out
                                 </button>

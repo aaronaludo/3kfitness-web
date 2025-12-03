@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\Payroll;
 use App\Models\PayrollRun;
 use App\Models\Schedule;
+use App\Models\Attendance2;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,19 +16,27 @@ class PayrollController extends Controller
 {
     public function index(Request $request)
     {
-        $search = $request->member_name;
-    
-        $data = Payroll::query()
-            ->with('user')
+        $search = $request->input('member_name');
+        $period = $request->input('period_month');
+
+        $runs = PayrollRun::with('user')
             ->when($search, function ($query, $search) {
                 $query->whereHas('user', function ($subQuery) use ($search) {
-                    $subQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
+                    $subQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                        ->orWhere('email', 'like', "%{$search}%");
                 });
             })
-            ->orderBy('created_at', 'desc')
-            ->paginate(10);
+            ->when($period, function ($query, $period) {
+                $query->where('period_month', $period);
+            })
+            ->orderByDesc('processed_at')
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
 
-        return view('admin.payrolls.index', compact('data'));
+        return view('admin.payrolls.index', [
+            'runs' => $runs,
+        ]);
     }
 
     public function process(Request $request)
@@ -46,14 +55,7 @@ class PayrollController extends Controller
         $endOfMonth = $targetMonth->copy()->endOfMonth();
 
         $staffQuery = User::where('role_id', 2)
-            ->where('is_archive', 0)
-            ->with(['payrolls' => function ($query) use ($startOfMonth, $endOfMonth) {
-                $query->where(function ($inner) use ($startOfMonth, $endOfMonth) {
-                    $inner->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
-                        ->orWhereBetween('clockout_at', [$startOfMonth, $endOfMonth])
-                        ->orWhereBetween('created_at', [$startOfMonth, $endOfMonth]);
-                })->orderBy('clockin_at', 'desc');
-            }]);
+            ->where('is_archive', 0);
 
         if ($search) {
             $staffQuery->where(function ($query) use ($search) {
@@ -64,15 +66,27 @@ class PayrollController extends Controller
         }
 
         $staffMembers = $staffQuery->orderBy('first_name')->get();
+        $staffIds = $staffMembers->pluck('id');
+
+        $attendanceByUser = Attendance2::whereIn('user_id', $staffIds)
+            ->where('is_archive', 0)
+            ->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
+                    ->orWhereBetween('clockout_at', [$startOfMonth, $endOfMonth])
+                    ->orWhereBetween('created_at', [$startOfMonth, $endOfMonth]);
+            })
+            ->orderByDesc('clockin_at')
+            ->get()
+            ->groupBy('user_id');
         $processedRuns = PayrollRun::whereIn('user_id', $staffMembers->pluck('id'))
             ->where('period_month', $month)
             ->get()
             ->keyBy('user_id');
 
-        $summaries = $staffMembers->map(function ($staff) {
-            $entries = $staff->payrolls->map(function ($payroll) use ($staff) {
-                $clockIn = $payroll->clockin_at ? Carbon::parse($payroll->clockin_at) : null;
-                $clockOut = $payroll->clockout_at ? Carbon::parse($payroll->clockout_at) : null;
+        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser) {
+            $entries = collect($attendanceByUser->get($staff->id) ?? [])->map(function ($attendance) use ($staff) {
+                $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
+                $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
 
                 $hours = null;
                 if ($clockIn && $clockOut && $clockOut->greaterThan($clockIn)) {
@@ -82,7 +96,7 @@ class PayrollController extends Controller
                 $amount = $hours ? round($hours * (float) ($staff->rate_per_hour ?? 0), 2) : null;
 
                 return [
-                    'id' => $payroll->id,
+                    'id' => $attendance->id,
                     'clockin_at' => $clockIn,
                     'clockout_at' => $clockOut,
                     'hours' => $hours,
@@ -308,7 +322,8 @@ class PayrollController extends Controller
         $startOfMonth = $targetMonth->copy()->startOfMonth();
         $endOfMonth = $targetMonth->copy()->endOfMonth();
 
-        $entries = Payroll::where('user_id', $staff->id)
+        $entries = Attendance2::where('user_id', $staff->id)
+            ->where('is_archive', 0)
             ->where(function ($query) use ($startOfMonth, $endOfMonth) {
                 $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
                     ->orWhereBetween('clockout_at', [$startOfMonth, $endOfMonth])
@@ -316,9 +331,9 @@ class PayrollController extends Controller
             })
             ->orderBy('clockin_at')
             ->get()
-            ->map(function ($payroll) use ($staff) {
-                $clockIn = $payroll->clockin_at ? Carbon::parse($payroll->clockin_at) : null;
-                $clockOut = $payroll->clockout_at ? Carbon::parse($payroll->clockout_at) : null;
+            ->map(function ($attendance) use ($staff) {
+                $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
+                $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
 
                 $hours = null;
                 if ($clockIn && $clockOut && $clockOut->greaterThan($clockIn)) {
@@ -475,17 +490,19 @@ class PayrollController extends Controller
     public function clockin(Request $request)
     {
         $user = $request->user();
-        
-        $payroll = Payroll::where('user_id', $user->id)
-            ->whereDate('created_at', now()->toDateString())
-            ->orderBy('created_at', 'desc')
+
+        $attendance = Attendance2::where('user_id', $user->id)
+            ->where('is_archive', 0)
+            ->whereDate('clockin_at', now()->toDateString())
+            ->orderByDesc('clockin_at')
             ->first();
     
-        if (!$payroll || $payroll->clockout_at) {
-            $payroll = new Payroll();
-            $payroll->user_id = $user->id;
-            $payroll->clockin_at = now();
-            $payroll->save();
+        if (!$attendance || $attendance->clockout_at) {
+            $attendance = new Attendance2();
+            $attendance->user_id = $user->id;
+            $attendance->clockin_at = now();
+            $attendance->is_archive = 0;
+            $attendance->save();
     
             return redirect()->back()->with('success', 'Clocked in successfully.');
         }
@@ -496,16 +513,17 @@ class PayrollController extends Controller
     public function clockout(Request $request)
     {
         $user = $request->user();
-        
-        $payroll = Payroll::where('user_id', $user->id)
-            ->whereDate('created_at', now()->toDateString())
-            ->orderBy('created_at', 'desc')
+
+        $attendance = Attendance2::where('user_id', $user->id)
+            ->where('is_archive', 0)
+            ->whereDate('clockin_at', now()->toDateString())
+            ->orderByDesc('clockin_at')
             ->first();
     
     
-        if ($payroll && !$payroll->clockout_at) {
-            $payroll->clockout_at = now();
-            $payroll->save();
+        if ($attendance && !$attendance->clockout_at) {
+            $attendance->clockout_at = now();
+            $attendance->save();
 
             return redirect()->back()->with('success', 'Clocked out successfully.');
         }

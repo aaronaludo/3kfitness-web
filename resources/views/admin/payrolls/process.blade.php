@@ -76,6 +76,32 @@
             </div>
 
             <div class="col-12 mb-3">
+                <div class="card shadow-sm border-0 rounded-4">
+                    <div class="card-body d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <div>
+                            <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">View mode</span>
+                            <h5 class="fw-semibold mb-1 mb-lg-0">Switch between staff and trainer payrolls</h5>
+                        </div>
+                        <div class="btn-group" role="group" aria-label="Toggle payroll sections">
+                            <button type="button" class="btn btn-outline-dark active" data-payroll-toggle="staff">Staff payroll</button>
+                            <button type="button" class="btn btn-outline-dark" data-payroll-toggle="trainer">Trainer payroll</button>
+                            <button type="button" class="btn btn-outline-dark" data-payroll-toggle="both">Show both</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <section id="staff-payroll-section" class="payroll-section">
+            <div class="col-12 mb-2">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <span class="badge bg-dark text-white fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Staff payroll</span>
+                        <h4 class="fw-semibold mb-0">Hourly staff payout review</h4>
+                    </div>
+                    <span class="text-muted small">Focused on Attendance2 clock-ins and clock-outs</span>
+                </div>
+            </div>
+            <div class="col-12 mb-3">
                 @if(session('success'))
                     <div class="alert alert-success rounded-4 shadow-sm border-0">
                         {{ session('success') }}
@@ -349,8 +375,10 @@
                     </div>
                 @endforelse
             </div>
+            </section>
 
-            <div class="col-12 mt-4">
+            <section id="trainer-payroll-section" class="payroll-section mt-4">
+            <div class="col-12">
                 <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-body p-4">
                         <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
@@ -674,6 +702,7 @@
                 </div>
             </div>
         </div>
+        </section>
     </div>
 
     {{-- Deduction rules modal --}}
@@ -717,6 +746,31 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const toggleButtons = document.querySelectorAll('[data-payroll-toggle]');
+        const staffSection = document.getElementById('staff-payroll-section');
+        const trainerSection = document.getElementById('trainer-payroll-section');
+
+        function setSection(mode) {
+            toggleButtons.forEach((btn) => {
+                btn.classList.toggle('active', btn.dataset.payrollToggle === mode);
+            });
+
+            const showStaff = mode === 'staff' || mode === 'both';
+            const showTrainer = mode === 'trainer' || mode === 'both';
+
+            if (staffSection) {
+                staffSection.classList.toggle('d-none', !showStaff);
+            }
+            if (trainerSection) {
+                trainerSection.classList.toggle('d-none', !showTrainer);
+            }
+        }
+
+        toggleButtons.forEach((btn) => {
+            btn.addEventListener('click', () => setSection(btn.dataset.payrollToggle || 'staff'));
+        });
+        setSection('staff');
+
         const buttons = document.querySelectorAll('[data-payslip]');
 
         buttons.forEach((btn) => {

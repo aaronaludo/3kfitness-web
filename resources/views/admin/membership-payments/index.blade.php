@@ -8,7 +8,6 @@
                 $showArchived = request()->boolean('show_archived');
                 $activeMemberships = $data;
                 $archivedMemberships = $archivedData;
-                $sortedPayrollHistory = $payrollHistory ?? collect();
                 $printSource = $showArchived ? $archivedMemberships : $activeMemberships;
                 $printStartIndex = method_exists($printSource, 'firstItem') ? ($printSource->firstItem() ?? 1) : 1;
                 $printMemberships = collect($printSource->items())->values()->map(function ($item, $idx) use ($printStartIndex) {
@@ -737,52 +736,6 @@
                         </div>
                     </div>
                 </div>
-                @endif
-                @if($sortedPayrollHistory->isNotEmpty())
-                <div class="box mt-4">
-                    <div class="row">
-                        <div class="col-lg-12">
-                            <div class="d-flex flex-wrap align-items-center justify-content-between mb-3">
-                                <h4 class="fw-semibold mb-0">Payroll History</h4>
-                                <span class="text-muted small">Recent processed payrolls</span>
-                            </div>
-                            <div class="table-responsive mb-3">
-                                <table class="table table-hover">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Staff</th>
-                                            <th>Period</th>
-                                            <th>Hours</th>
-                                            <th>Gross</th>
-                                            <th>Net</th>
-                                            <th>Processed</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($sortedPayrollHistory as $run)
-                                            @php
-                                                $staff = $run->user;
-                                                $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
-                                                $processedAt = $run->processed_at ? $run->processed_at->format('M d, Y g:i A') : '—';
-                                            @endphp
-                                            <tr>
-                                                <td>{{ $run->id }}</td>
-                                                <td>{{ $name }}</td>
-                                                <td>{{ $run->period_month }}</td>
-                                                <td>{{ number_format($run->total_hours, 2) }} hrs</td>
-                                                <td>₱{{ number_format($run->gross_pay, 2) }}</td>
-                                                <td class="text-success fw-semibold">₱{{ number_format($run->net_pay, 2) }}</td>
-                                                <td>{{ $processedAt }}</td>
-                                            </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                @endif
             </div>
         </div>
     </div>
