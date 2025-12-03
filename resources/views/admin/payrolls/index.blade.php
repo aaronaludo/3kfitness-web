@@ -120,7 +120,7 @@
                                                 : ($run->created_at?->format('M d, Y g:i A') ?? '—');
                                         @endphp
                                         <tr>
-                                            <td class="text-muted">#{{ $run->id }}</td>
+                                            <td>{{ $run->id }}</td>
                                             <td>
                                                 <div class="fw-semibold">{{ $name }}</div>
                                                 <span class="text-muted small">{{ $staff->email ?? '—' }}</span>
