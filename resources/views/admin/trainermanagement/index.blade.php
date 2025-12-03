@@ -4,6 +4,72 @@
 @section('content')
     <div class="container-fluid">
         <div class="row">
+            @php
+                $showArchived = request()->boolean('show_archived');
+                $printSource = $showArchived ? $archivedData : $trainers;
+                $printTrainers = collect($printSource->items())->map(function ($item) {
+                    $name = trim(($item->first_name ?? '') . ' ' . ($item->last_name ?? ''));
+                    $trainerSchedules = collect($item->trainerSchedules ?? []);
+                    $salaryEligibleSchedules = $trainerSchedules->filter(function ($schedule) {
+                        if (is_null($schedule->trainer_rate_per_hour)) {
+                            return false;
+                        }
+
+                        if (isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1) {
+                            return false;
+                        }
+
+                        return !empty($schedule->class_start_date) && !empty($schedule->class_end_date);
+                    });
+
+                    $totalSalary = $salaryEligibleSchedules->sum(function ($schedule) {
+                        $start = $schedule->class_start_date ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                        $end = $schedule->class_end_date ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+
+                        if (!$start || !$end || !$end->greaterThan($start)) {
+                            return 0;
+                        }
+
+                        $hours = $end->diffInMinutes($start) / 60;
+
+                        return (float) $schedule->trainer_rate_per_hour * $hours;
+                    });
+
+                    $now = now();
+                    $hasUpcoming = $trainerSchedules->contains(function ($schedule) use ($now) {
+                        $start = $schedule->class_start_date ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                        return $start ? $start->greaterThan($now) : false;
+                    });
+                    $statusLabel = $hasUpcoming ? 'Assigned' : 'No upcoming classes';
+
+                    return [
+                        'id' => $item->user_code ?? $item->id,
+                        'name' => $name ?: '—',
+                        'phone' => $item->phone_number ?: '—',
+                        'email' => $item->email ?: '—',
+                        'salary' => $totalSalary > 0 ? number_format($totalSalary, 2) : null,
+                        'status' => $statusLabel,
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                        'created_by' => $item->created_by ?: '',
+                    ];
+                })->values();
+
+                $printPayload = [
+                    'title' => $showArchived ? 'Archived trainers' : 'Trainer directory',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name'),
+                        'search_column' => request('search_column'),
+                        'status' => request('status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                    ],
+                    'count' => $printTrainers->count(),
+                    'items' => $printTrainers,
+                ];
+            @endphp
             <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
                 <div>
                     <h2 class="title mb-0">Trainer Management</h2>
@@ -17,9 +83,15 @@
                         <input type="hidden" name="name" value="{{ request('name') }}">
                         <input type="hidden" name="search_column" value="{{ request('search_column') }}">
                         <input type="hidden" name="status" value="{{ request('status', 'all') }}">
-                        <button class="btn btn-danger" type="submit" id="print-submit-button">
-                            <i class="fa-solid fa-print"></i>&nbsp;&nbsp;&nbsp;
-                            <span id="print-loader" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                        <button
+                            class="btn btn-danger"
+                            type="submit"
+                            id="print-submit-button"
+                            data-print='@json($printPayload)'
+                            aria-label="Open printable/PDF view of filtered trainers"
+                        >
+                            <i class="fa-solid fa-print"></i>
+                            <span id="print-loader" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
                             Print
                         </button>
                     </form>
@@ -164,7 +236,7 @@
                                                     <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
                                                     <select id="search-column" name="search_column" class="form-select rounded-3">
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
+                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
                                                         <option value="phone_number" {{ request('search_column') == 'phone_number' ? 'selected' : '' }}>Phone Number</option>
                                                         <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>
@@ -261,7 +333,7 @@
                                 <table class="table table-hover">
                                     <thead class="table-light">
                                         <tr>
-                                            <th class="sortable" data-column="id">ID <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
                                             {{-- <th class="sortable" data-column="membership_name">Membership Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="expiration_date">Membership Expiration Date <i class="fa fa-sort"></i></th> --}}
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
@@ -655,7 +727,7 @@
                                 <table class="table table-hover">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>ID</th>
+                                            <th>#</th>
                                             <th>Name</th>
                                             <th>Phone Number</th>
                                             <th>Email</th>
@@ -1107,10 +1179,153 @@
                     });
                 });
 
-                if (printForm && printButton && printLoader) {
-                    printForm.addEventListener('submit', function () {
+                function getStatusBadgeClass(status) {
+                    if (!status) return 'badge-soft-muted';
+                    const normalized = status.toLowerCase();
+                    if (normalized.includes('assigned')) return 'badge-soft-success';
+                    if (normalized.includes('no upcoming')) return 'badge-soft-warning';
+                    return 'badge-soft-secondary';
+                }
+
+                function buildPrintFilters(filters) {
+                    const chips = [];
+                    if (filters.show_archived) chips.push('Archived view');
+                    if (filters.status && filters.status !== 'all') {
+                        const statusMap = {
+                            assigned: 'Assigned to classes',
+                            unassigned: 'No upcoming classes',
+                        };
+                        chips.push(`Status: ${statusMap[filters.status] || filters.status}`);
+                    }
+                    if (filters.search) {
+                        chips.push(
+                            `Search: ${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`
+                        );
+                    }
+                    if (filters.start || filters.end) {
+                        chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
+                    }
+                    return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                }
+
+                function buildPrintRows(items) {
+                    return items.map((item) => `
+                        <tr>
+                            <td>${item.id ?? '—'}</td>
+                            <td>
+                                <div class="fw">${item.name || '—'}</div>
+                                <div class="muted">${item.email || ''}</div>
+                            </td>
+                            <td>${item.phone || '—'}</td>
+                            <td>${item.salary ? '₱' + item.salary : '—'}</td>
+                            <td><span class="badge ${getStatusBadgeClass(item.status)}">${item.status || '—'}</span></td>
+                            <td>
+                                <div>${item.created_at || ''}</div>
+                                <div class="muted">${item.updated_at || ''}</div>
+                                <div class="muted">${item.created_by || ''}</div>
+                            </td>
+                        </tr>
+                    `).join('');
+                }
+
+                function renderPrintWindow(payload) {
+                    const items = payload.items || [];
+                    const filters = payload.filters || {};
+                    const rows = buildPrintRows(items);
+                    const html = `
+                        <!doctype html>
+                        <html>
+                            <head>
+                                <title>${payload.title || 'Trainer directory'}</title>
+                                <style>
+                                    :root { color-scheme: light; }
+                                    body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
+                                    .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
+                                    .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
+                                    .title { margin: 0; font-size: 22px; }
+                                    .muted { color: #6b7280; font-size: 12px; }
+                                    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+                                    .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
+                                    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+                                    th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
+                                    th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+                                    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+                                    .badge-soft-warning { background: #fef9c3; color: #854d0e; }
+                                    .badge-soft-success { background: #dcfce7; color: #166534; }
+                                    .badge-soft-secondary { background: #e5e7eb; color: #374151; }
+                                    .badge-soft-muted { background: #f3f4f6; color: #6b7280; }
+                                    .fw { font-weight: 700; }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="sheet">
+                                    <div class="header">
+                                        <div>
+                                            <h1 class="title">${payload.title || 'Trainer directory'}</h1>
+                                            <div class="muted">Generated ${payload.generated_at || ''}</div>
+                                            <div class="muted">Showing ${payload.count || 0} record(s)</div>
+                                        </div>
+                                    </div>
+                                    <div class="pill-row">${buildPrintFilters(filters)}</div>
+                                    <table>
+                                        <thead>
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Trainer</th>
+                                                <th>Contact</th>
+                                                <th>Est. Salary</th>
+                                                <th>Status</th>
+                                                <th>Audit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            ${rows || '<tr><td colspan="6" style="text-align:center; padding:16px;">No trainers for this view.</td></tr>'}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <script>window.print();<\/script>
+                            </body>
+                        </html>
+                    `;
+
+                    const printWindow = window.open('', '_blank', 'width=1200,height=900');
+                    if (!printWindow) return false;
+                    printWindow.document.open();
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                    return true;
+                }
+
+                if (printButton && printForm) {
+                    printButton.addEventListener('click', function (e) {
+                        const rawPayload = printButton.dataset.print;
+                        if (!rawPayload) {
+                            return;
+                        }
+
+                        e.preventDefault();
+                        if (printLoader) printLoader.classList.remove('d-none');
                         printButton.disabled = true;
-                        printLoader.classList.remove('d-none');
+
+                        let payload = null;
+                        try {
+                            payload = JSON.parse(rawPayload);
+                        } catch (err) {
+                            payload = null;
+                        }
+
+                        const opened = payload ? renderPrintWindow(payload) : false;
+                        if (!opened) {
+                            printButton.disabled = false;
+                            if (printLoader) printLoader.classList.add('d-none');
+                            printForm.submit();
+                            return;
+                        }
+
+                        setTimeout(() => {
+                            printButton.disabled = false;
+                            if (printLoader) printLoader.classList.add('d-none');
+                        }, 300);
                     });
                 }
             }
