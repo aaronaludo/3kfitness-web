@@ -8,6 +8,7 @@ use App\Models\User;
 use App\Models\UserSchedule;
 use App\Traits\ResolvesActiveMembership;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\File;
 
 class MemberAccountController extends Controller
 {
@@ -22,6 +23,7 @@ class MemberAccountController extends Controller
             'address' => 'required|string',
             'phone_number' => 'required|string',
             'email' => 'required|email|unique:users,email,' . $user->id,
+            'profile_picture' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
         ]);
 
         if ($user->role_id != 3) {
@@ -35,6 +37,25 @@ class MemberAccountController extends Controller
         $user->phone_number = $request->phone_number;
         $user->address = $request->address;
         $user->email = $request->email;
+
+        if ($request->hasFile('profile_picture')) {
+            $destinationPath = public_path('uploads');
+            if (!File::isDirectory($destinationPath)) {
+                File::makeDirectory($destinationPath, 0755, true);
+            }
+
+            if ($user->profile_picture) {
+                $currentPath = public_path($user->profile_picture);
+                if (File::exists($currentPath)) {
+                    File::delete($currentPath);
+                }
+            }
+
+            $profilePicture = $request->file('profile_picture');
+            $profilePictureUrlName = time() . '_' . uniqid('profile_') . '.' . $profilePicture->getClientOriginalExtension();
+            $profilePicture->move($destinationPath, $profilePictureUrlName);
+            $user->profile_picture = 'uploads/' . $profilePictureUrlName;
+        }
 
         if ($emailChanged) {
             $user->is_email_verified = 0;
