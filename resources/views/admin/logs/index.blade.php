@@ -16,17 +16,9 @@
                 ];
                 $advancedFiltersOpen = request()->filled('sort_column');
                 $printSource = $data;
-                $printLogs = collect($printSource->items())->map(function ($item) {
-                    return [
-                        'id' => $item->id,
-                        'message' => $item->message,
-                        'role_name' => $item->role_name,
-                        'user_code' => optional($item->user)->user_code,
-                        'created_at' => optional($item->created_at)->format('M j, Y g:i A') ?? '',
-                    ];
-                })->values();
+                $printAllSource = $printAllLogs ?? collect();
 
-                $printAllLogs = collect($printAllLogs ?? [])->map(function ($item) {
+                $mapLog = function ($item) {
                     return [
                         'id' => $item->id,
                         'message' => $item->message,
@@ -34,7 +26,10 @@
                         'user_code' => optional($item->user)->user_code,
                         'created_at' => optional($item->created_at)->format('M j, Y g:i A') ?? '',
                     ];
-                })->values();
+                };
+
+                $printLogs = collect($printSource->items() ?? [])->map($mapLog)->values();
+                $printAllLogs = collect($printAllSource ?? [])->map($mapLog)->values();
 
                 $printPayload = [
                     'title' => 'Logs',

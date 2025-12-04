@@ -9,7 +9,32 @@
         <div class="row">
             @php
                 $showArchived = request()->boolean('show_archived');
-                $printMeta = [
+                $printSource = $showArchived ? $archivedData : $gym_members;
+                $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
+                $printMembers = collect($printSource->items() ?? [])->map(function ($item) use ($current_time) {
+                    $latestMembershipPayment = optional($item->membershipPayments)->first();
+                    $membershipName = optional(optional($latestMembershipPayment)->membership)->name ?? 'No Membership';
+                    $expirationAt   = optional($latestMembershipPayment)->expiration_at;
+                    $membershipStatus = $membershipName !== 'No Membership' ? 'Active membership' : 'No membership';
+
+                    $memberName = trim((optional($item)->first_name ?? '') . ' ' . (optional($item)->last_name ?? ''));
+
+                    return [
+                        'id' => $item->id,
+                        'user_code' => $item->user_code,
+                        'membership' => $membershipName,
+                        'membership_status' => $membershipStatus,
+                        'membership_expires' => $expirationAt ? \Carbon\Carbon::parse($expirationAt)->format('M j, Y g:i A') : 'No Expiration Date',
+                        'name' => $memberName ?: '—',
+                        'phone' => $item->phone_number,
+                        'email' => $item->email,
+                        'created' => optional($item->created_at)->format('M j, Y g:i A') ?: '',
+                        'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?: '',
+                        'created_by' => $item->created_by ?: '—',
+                    ];
+                })->values();
+
+                $printPayload = [
                     'title' => $showArchived ? 'Archived members' : 'Member directory',
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
@@ -20,6 +45,47 @@
                         'end' => request('end_date'),
                         'show_archived' => $showArchived,
                     ],
+                    'count' => $printMembers->count(),
+                    'items' => $printMembers,
+                ];
+
+                $printAllMembers = collect($printAllSource ?? [])->map(function ($item) use ($current_time) {
+                    $latestMembershipPayment = optional($item->membershipPayments)->first();
+                    $membershipName = optional(optional($latestMembershipPayment)->membership)->name ?? 'No Membership';
+                    $expirationAt   = optional($latestMembershipPayment)->expiration_at;
+                    $membershipStatus = $membershipName !== 'No Membership' ? 'Active membership' : 'No membership';
+
+                    $memberName = trim((optional($item)->first_name ?? '') . ' ' . (optional($item)->last_name ?? ''));
+
+                    return [
+                        'id' => $item->id,
+                        'user_code' => $item->user_code,
+                        'membership' => $membershipName,
+                        'membership_status' => $membershipStatus,
+                        'membership_expires' => $expirationAt ? \Carbon\Carbon::parse($expirationAt)->format('M j, Y g:i A') : 'No Expiration Date',
+                        'name' => $memberName ?: '—',
+                        'phone' => $item->phone_number,
+                        'email' => $item->email,
+                        'created' => optional($item->created_at)->format('M j, Y g:i A') ?: '',
+                        'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?: '',
+                        'created_by' => $item->created_by ?: '—',
+                    ];
+                })->values();
+
+                $printAllPayload = [
+                    'title' => $showArchived ? 'Archived members (all pages)' : 'Member directory (all pages)',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name'),
+                        'search_column' => request('search_column'),
+                        'membership_status' => request('membership_status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                        'scope' => 'all',
+                    ],
+                    'count' => $printAllMembers->count(),
+                    'items' => $printAllMembers,
                 ];
             @endphp
             <div class="col-lg-12 d-flex justify-content-between">
@@ -62,7 +128,8 @@
                             class="btn btn-md btn-danger ms-2"
                             type="submit"
                             id="print-submit-button"
-                            data-print='@json($printMeta)'
+                            data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered members"
                           >
                             <i class="fa-solid fa-print"></i>
@@ -94,209 +161,87 @@
                     const printForm = document.getElementById('print-form');
                     const printLoader = document.getElementById('print-loader');
 
-                    function text(cell) {
-                        return (cell ? cell.textContent : '').replace(/\s+/g, ' ').trim();
-                    }
-
-                    function collectTableItems() {
-                        const activeTable = document.getElementById('member-table');
-                        const archivedTable = document.getElementById('archived-member-table');
-                        const table = activeTable || archivedTable;
-                        if (!table) return [];
-
-                        const isActive = !!activeTable;
-                        const rows = table.querySelectorAll('tbody tr');
-                        const items = [];
-
-                        rows.forEach((row) => {
-                            const cells = row.querySelectorAll('td');
-                            if (!cells.length || (cells[0].hasAttribute('colspan'))) return;
-
-                            if (isActive && cells.length >= 9) {
-                                const code = text(cells[0]);
-                                const membership = text(cells[1]);
-                                const expires = text(cells[2]);
-                                const name = text(cells[3]);
-                                const phone = text(cells[4]);
-                                const email = text(cells[5]);
-                                const created = text(cells[6]);
-                                const updated = text(cells[7]);
-                                const createdBy = text(cells[8]);
-                                const membershipStatus = /no membership/i.test(membership) ? 'No membership' : 'Active membership';
-
-                                items.push({
-                                    code,
-                                    membership,
-                                    membership_status: membershipStatus,
-                                    membership_expires: expires || 'No expiration',
-                                    name,
-                                    phone,
-                                    email,
-                                    created,
-                                    updated,
-                                    created_by: createdBy || '—',
-                                });
-                            } else if (!isActive && cells.length >= 8) {
-                                const code = text(cells[0]);
-                                const membership = text(cells[1]);
-                                const expires = text(cells[2]);
-                                const name = text(cells[3]);
-                                const phone = text(cells[4]);
-                                const email = text(cells[5]);
-                                const created = text(cells[6]);
-                                const updated = text(cells[7]);
-                                const membershipStatus = /no membership/i.test(membership) ? 'No membership' : 'Active membership';
-
-                                items.push({
-                                    code,
-                                    membership,
-                                    membership_status: membershipStatus,
-                                    membership_expires: expires || 'No expiration',
-                                    name,
-                                    phone,
-                                    email,
-                                    created,
-                                    updated,
-                                    created_by: '—',
-                                });
-                            }
-                        });
-
-                        return items;
-                    }
-
                     function buildFilters(filters) {
                         const chips = [];
-                        if (filters.show_archived) chips.push('Archived view');
-                        if (filters.membership_status && filters.membership_status !== 'all') chips.push(`Membership: ${filters.membership_status}`);
+                        if (filters.show_archived) chips.push({ value: 'Archived view' });
+                        if (filters.membership_status && filters.membership_status !== 'all') chips.push({ label: 'Membership', value: filters.membership_status });
                         if (filters.search) {
-                            chips.push(
-                                `Search: ${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`
-                            );
+                            chips.push({
+                                label: 'Search',
+                                value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                            });
                         }
                         if (filters.start || filters.end) {
-                            chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
+                            chips.push({ label: 'Date', value: `${filters.start || '—'} → ${filters.end || '—'}` });
                         }
-                        return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                        return chips;
                     }
 
                     function buildRows(items) {
                         return items.map((item) => {
-                            return `
-                                <tr>
-                                    <td>${item.code || '—'}</td>
-                                    <td>
-                                        <div class="fw">${item.name || '—'}</div>
-                                        <div class="muted">${item.email || ''}</div>
-                                        <div class="muted">${item.phone || ''}</div>
-                                    </td>
-                                    <td>
-                                        <div>${item.membership || 'No membership'}</div>
-                                        <div class="muted">${item.membership_status || ''}</div>
-                                        <div class="muted">Expires: ${item.membership_expires || '—'}</div>
-                                    </td>
-                                    <td>
-                                        <div>${item.created || ''}</div>
-                                        <div class="muted">${item.updated || ''}</div>
-                                        <div class="muted">Created by: ${item.created_by || '—'}</div>
-                                    </td>
-                                </tr>
-                            `;
-                        }).join('');
+                            return [
+                                `<div class="fw">${item.user_code || item.id || '—'}</div><div class="muted">ID: ${item.id ?? '—'}</div>`,
+                                `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div><div class="muted">${item.phone || ''}</div>`,
+                                `<div>${item.membership || 'No membership'}</div><div class="muted">${item.membership_status || ''}</div><div class="muted">Expires: ${item.membership_expires || '—'}</div>`,
+                                `<div>${item.created || ''}</div><div class="muted">${item.updated || ''}</div><div class="muted">Created by: ${item.created_by || '—'}</div>`,
+                            ];
+                        });
                     }
 
                     function renderPrintWindow(payload) {
-                        const items = collectTableItems();
-                        const filters = payload.filters || {};
-                        payload.count = items.length;
+                        const rawItems = payload && payload.items ? payload.items : [];
+                        const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
+                        const filters = buildFilters(payload.filters || {});
+                        const headers = ['#', 'Member', 'Membership', 'Audit'];
                         const rows = buildRows(items);
-                        const html = `
-                            <!doctype html>
-                            <html>
-                                <head>
-                                    <title>${payload.title || 'Member directory'}</title>
-                                    <style>
-                                        :root { color-scheme: light; }
-                                        body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
-                                        .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
-                                        .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-                                        .title { margin: 0; font-size: 22px; }
-                                        .muted { color: #6b7280; font-size: 12px; }
-                                        .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                        .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
-                                        table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-                                        th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
-                                        th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-                                        .fw { font-weight: 700; }
-                                    </style>
-                                </head>
-                                <body>
-                                    <div class="sheet">
-                                        <div class="header">
-                                            <div>
-                                                <h1 class="title">${payload.title || 'Member directory'}</h1>
-                                                <div class="muted">Generated ${payload.generated_at || ''}</div>
-                                                <div class="muted">Showing ${payload.count || 0} record(s)</div>
-                                            </div>
-                                        </div>
-                                        <div class="pill-row">${buildFilters(filters)}</div>
-                                        <table>
-                                            <thead>
-                                                <tr>
-                                                    <th>ID</th>
-                                                    <th>Member</th>
-                                                    <th>Membership</th>
-                                                    <th>Audit</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                ${rows || '<tr><td colspan="4" style="text-align:center; padding:16px;">No members available for this view.</td></tr>'}
-                                            </tbody>
-                                        </table>
-                                    </div>
-                                    <script>window.print();<\/script>
-                                </body>
-                            </html>
-                        `;
 
-                        const printWindow = window.open('', '_blank', 'width=1200,height=900');
-                        if (!printWindow) return false;
-                        printWindow.document.open();
-                        printWindow.document.write(html);
-                        printWindow.document.close();
-                        return true;
+                        return window.PrintPreview
+                            ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                            : false;
                     }
 
                     if (printButton && printForm) {
-                        printButton.addEventListener('click', function (e) {
+                        printButton.addEventListener('click', async function (e) {
                             const rawPayload = printButton.dataset.print;
-                            if (!rawPayload) {
-                                return;
-                            }
+                            const rawAllPayload = printButton.dataset.printAll;
+                            if (!rawPayload) return;
 
                             e.preventDefault();
                             if (printLoader) printLoader.classList.remove('d-none');
                             printButton.disabled = true;
 
                             let payload = null;
+                            let allPayload = null;
                             try {
                                 payload = JSON.parse(rawPayload);
                             } catch (err) {
                                 payload = null;
                             }
+                            try {
+                                allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                            } catch (err) {
+                                allPayload = null;
+                            }
 
-                            const opened = payload ? renderPrintWindow(payload) : false;
-                            if (!opened) {
+                            const scope = window.PrintPreview && PrintPreview.chooseScope
+                                ? await PrintPreview.chooseScope()
+                                : 'current';
+
+                            if (!scope) {
                                 printButton.disabled = false;
                                 if (printLoader) printLoader.classList.add('d-none');
-                                printForm.submit();
                                 return;
                             }
 
-                            setTimeout(() => {
-                                printButton.disabled = false;
-                                if (printLoader) printLoader.classList.add('d-none');
-                            }, 300);
+                            const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                            const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                            if (!handled) {
+                                printForm.submit();
+                            }
+
+                            printButton.disabled = false;
+                            if (printLoader) printLoader.classList.add('d-none');
                         });
                     }
                 });

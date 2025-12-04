@@ -60,17 +60,21 @@ class StaffAccountManagementController extends Controller
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
 
-        $data = (clone $baseQuery)
-            ->where('is_archive', 0)
+        $activeQuery = (clone $baseQuery)->where('is_archive', 0);
+        $archivedQuery = (clone $baseQuery)->where('is_archive', 1);
+
+        $printAllActive = (clone $activeQuery)->get();
+        $printAllArchived = (clone $archivedQuery)->get();
+
+        $data = (clone $activeQuery)
             ->paginate(10)
             ->appends($queryParamsWithoutArchivePage);
 
-        $archivedData = (clone $baseQuery)
-            ->where('is_archive', 1)
+        $archivedData = (clone $archivedQuery)
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
 
-        return view('admin.staffaccountmanagement.index', compact('data', 'archivedData', 'payrollTallies', 'payrollStatus'));
+        return view('admin.staffaccountmanagement.index', compact('data', 'archivedData', 'payrollTallies', 'payrollStatus', 'printAllActive', 'printAllArchived'));
     }
 
     

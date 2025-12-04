@@ -60,17 +60,19 @@ class MembershipPaymentController extends Controller
         $queryParamsWithoutMainPage = $request->except('page');
 
         $activeQuery = (clone $baseQuery)->where('is_archive', 0);
-        $data = $activeQuery
+        $archivedQuery = (clone $baseQuery)->where('is_archive', 1);
+
+        // Clone before paginating so print-all queries are not limited to the current page.
+        $printAllActive = (clone $activeQuery)->get();
+        $printAllArchived = (clone $archivedQuery)->get();
+
+        $data = (clone $activeQuery)
             ->paginate(10)
             ->appends($queryParamsWithoutArchivePage);
 
-        $archivedQuery = (clone $baseQuery)->where('is_archive', 1);
-        $archivedData = $archivedQuery
+        $archivedData = (clone $archivedQuery)
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
-
-        $printAllActive = (clone $activeQuery)->get();
-        $printAllArchived = (clone $archivedQuery)->get();
 
         return view('admin.membership-payments.index', [
             'data' => $data,

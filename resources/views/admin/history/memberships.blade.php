@@ -14,7 +14,10 @@
             $activeStatus = $filters['status'] ?? 'all';
             $advancedFiltersOpen = ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
 
-            $printItems = collect($payments->items())->map(function ($payment) {
+            $printSource = $payments;
+            $printAllSource = $printAllPayments ?? collect();
+
+            $mapPayment = function ($payment) {
                 $member = $payment->user;
                 $membership = $payment->membership;
                 $purchasedAt = $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : null;
@@ -37,20 +40,33 @@
                     'purchased' => $purchasedAt,
                     'expires' => $expiresAt,
                 ];
-            })->values();
+            };
+
+            $printItems = collect($printSource->items() ?? [])->map($mapPayment)->values();
+            $printAllItems = collect($printAllSource ?? [])->map($mapPayment)->values();
+
+            $printFilters = [
+                'search' => $filters['search'] ?? '',
+                'membership_id' => $filters['membership_id'] ?? null,
+                'status' => $filters['status'] ?? null,
+                'start' => $filters['start_date'] ?? null,
+                'end' => $filters['end_date'] ?? null,
+            ];
 
             $printPayload = [
                 'title' => 'Membership history',
                 'generated_at' => now()->format('M d, Y g:i A'),
-                'filters' => [
-                    'search' => $filters['search'] ?? '',
-                    'membership_id' => $filters['membership_id'] ?? null,
-                    'status' => $filters['status'] ?? null,
-                    'start' => $filters['start_date'] ?? null,
-                    'end' => $filters['end_date'] ?? null,
-                ],
+                'filters' => $printFilters,
                 'count' => $printItems->count(),
                 'items' => $printItems,
+            ];
+
+            $printAllPayload = [
+                'title' => 'Membership history (all pages)',
+                'generated_at' => now()->format('M d, Y g:i A'),
+                'filters' => array_merge($printFilters, ['scope' => 'all']),
+                'count' => $printAllItems->count(),
+                'items' => $printAllItems,
             ];
         @endphp
 
@@ -73,6 +89,7 @@
                             class="btn btn-danger"
                             id="membership-history-print-submit"
                             data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered membership history"
                         >
                             <i class="fa-solid fa-print me-2"></i>Print
@@ -375,11 +392,11 @@
 
             function buildFilters(filters) {
                 const chips = [];
-                if (filters.search) chips.push(`Search: ${filters.search}`);
-                if (filters.membership_id) chips.push(`Membership ID: ${filters.membership_id}`);
-                if (filters.status && filters.status !== 'all') chips.push(`Status: ${filters.status}`);
-                if (filters.start || filters.end) chips.push(`Purchased: ${filters.start || '—'} → ${filters.end || '—'}`);
-                return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                if (filters.search) chips.push({ label: 'Search', value: filters.search });
+                if (filters.membership_id) chips.push({ label: 'Membership ID', value: filters.membership_id });
+                if (filters.status && filters.status !== 'all') chips.push({ label: 'Status', value: filters.status });
+                if (filters.start || filters.end) chips.push({ label: 'Purchased', value: `${filters.start || '—'} → ${filters.end || '—'}` });
+                return chips;
             }
 
             function buildRows(items) {
@@ -388,122 +405,73 @@
                     const phone = item.phone ? `<div class="muted">${item.phone}</div>` : '';
                     const price = item.price ? `PHP ${item.price}` : '—';
 
-                    return `
-                        <tr>
-                            <td>${item.id ?? '—'}</td>
-                            <td>
-                                <div class="fw">${item.member || '—'}</div>
-                                ${role}
-                            </td>
-                            <td>
-                                <div>${item.email || '—'}</div>
-                                ${phone}
-                            </td>
-                            <td>${item.membership || '—'}</td>
-                            <td>${price}</td>
-                            <td>${item.status || '—'}</td>
-                            <td>${item.purchased || '—'}</td>
-                            <td>${item.expires || '—'}</td>
-                        </tr>
-                    `;
-                }).join('');
+                    return [
+                        item.id ?? '—',
+                        `<div class="fw">${item.member || '—'}</div>${role}`,
+                        `<div>${item.email || '—'}</div>${phone}`,
+                        item.membership || '—',
+                        price,
+                        item.status || '—',
+                        item.purchased || '—',
+                        item.expires || '—',
+                    ];
+                });
             }
 
             function renderPrintWindow(payload) {
-                const items = payload.items || [];
-                const filters = payload.filters || {};
+                const rawItems = payload && payload.items ? payload.items : [];
+                const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
+                const filters = buildFilters(payload.filters || {});
+                const headers = ['#', 'Member', 'Contact', 'Membership', 'Price', 'Status', 'Purchased', 'Expires'];
                 const rows = buildRows(items);
-                const html = `
-                    <!doctype html>
-                    <html>
-                        <head>
-                            <title>${payload.title || 'Membership history'}</title>
-                            <style>
-                                :root { color-scheme: light; }
-                                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
-                                .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
-                                .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-                                .title { margin: 0; font-size: 22px; }
-                                .muted { color: #6b7280; font-size: 12px; }
-                                .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
-                                table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-                                th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
-                                th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-                                .fw { font-weight: 700; }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="sheet">
-                                <div class="header">
-                                    <div>
-                                        <h1 class="title">${payload.title || 'Membership history'}</h1>
-                                        <div class="muted">Generated ${payload.generated_at || ''}</div>
-                                        <div class="muted">Showing ${payload.count || 0} record(s)</div>
-                                    </div>
-                                </div>
-                                <div class="pill-row">${buildFilters(filters)}</div>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Member</th>
-                                            <th>Contact</th>
-                                            <th>Membership</th>
-                                            <th>Price</th>
-                                            <th>Status</th>
-                                            <th>Purchased</th>
-                                            <th>Expires</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${rows || '<tr><td colspan="8" style="text-align:center; padding:16px;">No memberships available for this view.</td></tr>'}
-                                    </tbody>
-                                </table>
-                            </div>
-                            <script>window.print();<\/script>
-                        </body>
-                    </html>
-                `;
 
-                const printWindow = window.open('', '_blank', 'width=1200,height=900');
-                if (!printWindow) return false;
-                printWindow.document.open();
-                printWindow.document.write(html);
-                printWindow.document.close();
-                return true;
+                return window.PrintPreview
+                    ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                    : false;
             }
 
             if (printButton && printForm) {
-                printButton.addEventListener('click', function (e) {
+                printButton.addEventListener('click', async function (e) {
                     const rawPayload = printButton.dataset.print;
-                    if (!rawPayload) {
-                        return;
-                    }
+                    const rawAllPayload = printButton.dataset.printAll;
+                    if (!rawPayload) return;
 
                     e.preventDefault();
                     if (printLoader) printLoader.classList.remove('d-none');
                     printButton.disabled = true;
 
                     let payload = null;
+                    let allPayload = null;
                     try {
                         payload = JSON.parse(rawPayload);
                     } catch (err) {
                         payload = null;
                     }
+                    try {
+                        allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                    } catch (err) {
+                        allPayload = null;
+                    }
 
-                    const opened = payload ? renderPrintWindow(payload) : false;
-                    if (!opened) {
+                    const scope = window.PrintPreview && PrintPreview.chooseScope
+                        ? await PrintPreview.chooseScope()
+                        : 'current';
+
+                    if (!scope) {
                         printButton.disabled = false;
                         if (printLoader) printLoader.classList.add('d-none');
-                        printForm.submit();
                         return;
                     }
 
-                    setTimeout(() => {
-                        printButton.disabled = false;
-                        if (printLoader) printLoader.classList.add('d-none');
-                    }, 300);
+                    const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                    const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                    if (!handled) {
+                        printForm.submit();
+                    }
+
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
                 });
             }
         });

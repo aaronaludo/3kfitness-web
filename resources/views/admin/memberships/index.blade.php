@@ -6,21 +6,10 @@
         <div class="row">
             @php
                 $showArchived = request()->boolean('show_archived');
-                $printMeta = [
-                    'title' => $showArchived ? 'Archived memberships' : 'Membership performance',
-                    'generated_at' => now()->format('M d, Y g:i A'),
-                    'filters' => [
-                        'search' => request('name'),
-                        'search_column' => request('search_column'),
-                        'membership_status' => request('membership_status', 'all') ?: 'all',
-                        'start' => request('start_date'),
-                        'end' => request('end_date'),
-                        'show_archived' => $showArchived,
-                    ],
-                ];
+                $printSource = $showArchived ? $archivedData : $data;
+                $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
 
-                $printSource = $showArchived ? ($printAllArchived ?? $archivedData) : ($printAllActive ?? $data);
-                $printAllRows = collect($printSource)->map(function ($item) {
+                $mapMembership = function ($item) {
                     return [
                         'id' => $item->id ?? '—',
                         'name' => $item->name ?? '—',
@@ -35,14 +24,41 @@
                         'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?? '',
                         'archived' => (int) $item->is_archive === 1 ? 'Archived' : 'Active',
                     ];
-                });
+                };
 
-                $printAllPayload = array_merge($printMeta, [
+                $printMemberships = collect($printSource->items() ?? [])->map($mapMembership)->values();
+                $printAllMemberships = collect($printAllSource ?? [])->map($mapMembership)->values();
+
+                $printPayload = [
+                    'title' => $showArchived ? 'Archived memberships' : 'Membership performance',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name'),
+                        'search_column' => request('search_column'),
+                        'membership_status' => request('membership_status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                    ],
+                    'count' => $printMemberships->count(),
+                    'items' => $printMemberships,
+                ];
+
+                $printAllPayload = [
                     'title' => $showArchived ? 'Archived memberships (all pages)' : 'Membership performance (all pages)',
-                    'filters' => array_merge($printMeta['filters'] ?? [], ['scope' => 'all']),
-                    'count' => $printAllRows->count(),
-                    'items' => $printAllRows,
-                ]);
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name'),
+                        'search_column' => request('search_column'),
+                        'membership_status' => request('membership_status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                        'scope' => 'all',
+                    ],
+                    'count' => $printAllMemberships->count(),
+                    'items' => $printAllMemberships,
+                ];
             @endphp
             <div class="col-lg-12 d-flex justify-content-between">
                 <div><h2 class="title">Memberships</h2></div>
@@ -59,7 +75,7 @@
                             class="btn btn-danger ms-2"
                             type="submit"
                             id="print-submit-button"
-                            data-print='@json($printMeta)'
+                            data-print='@json($printPayload)'
                             data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered memberships"
                         >

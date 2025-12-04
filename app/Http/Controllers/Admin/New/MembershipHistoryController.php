@@ -97,6 +97,10 @@ class MembershipHistoryController extends Controller
             ->orderByDesc('id')
             ->paginate(10)
             ->appends($queryParams);
+        
+        $printAllPayments = (clone $historyQuery)
+            ->orderByDesc('id')
+            ->get();
 
         $stats = [
             'total'       => (clone $historyQuery)->count(),
@@ -112,6 +116,7 @@ class MembershipHistoryController extends Controller
             'filters'           => $filters,
             'stats'             => $stats,
             'statusTallies'     => $statusTallies,
+            'printAllPayments'  => $printAllPayments,
         ]);
     }
 

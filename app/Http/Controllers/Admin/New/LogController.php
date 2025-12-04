@@ -28,9 +28,10 @@ class LogController extends Controller
         }else{
             $query->orderBy('created_at', 'DESC');
         }
-        
-        $data = $query->paginate(10);
+
+        // Capture full result set before pagination so print-all isn't limited to the current page.
         $allLogs = (clone $query)->get();
+        $data = $query->paginate(10);
         
         return view('admin.logs.index', [
             'data' => $data,

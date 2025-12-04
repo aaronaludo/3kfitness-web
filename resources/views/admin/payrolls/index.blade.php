@@ -4,6 +4,56 @@
 @section('content')
     <div class="container-fluid">
         <div class="row">
+            @php
+                $printSource = $runs;
+                $printAllSource = $printAllRuns ?? collect();
+                $mapRun = function ($run) {
+                    $staff = $run->user;
+                    $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
+                    $periodLabel = $run->period_month ?? '—';
+                    $processedAt = $run->processed_at
+                        ? $run->processed_at->format('M d, Y g:i A')
+                        : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+
+                    return [
+                        'id' => $run->id,
+                        'name' => $name !== '' ? $name : '—',
+                        'email' => $staff->email ?? '—',
+                        'period' => $periodLabel,
+                        'hours' => number_format((float) ($run->total_hours ?? 0), 2),
+                        'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
+                        'net' => number_format((float) ($run->net_pay ?? 0), 2),
+                        'processed_at' => $processedAt,
+                    ];
+                };
+
+                $printRuns = collect($printSource->items() ?? [])->map($mapRun)->values();
+                $printAllRuns = collect($printAllSource ?? [])->map($mapRun)->values();
+
+                $printPayload = [
+                    'title' => 'Payroll history',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'member_name' => request('member_name'),
+                        'period_month' => request('period_month'),
+                    ],
+                    'count' => $printRuns->count(),
+                    'items' => $printRuns,
+                ];
+
+                $printAllPayload = [
+                    'title' => 'Payroll history (all pages)',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'member_name' => request('member_name'),
+                        'period_month' => request('period_month'),
+                        'scope' => 'all',
+                    ],
+                    'count' => $printAllRuns->count(),
+                    'items' => $printAllRuns,
+                ];
+            @endphp
+
             <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
                 <div>
                     <h2 class="title mb-0">Payroll History</h2>
@@ -17,6 +67,23 @@
                         <i class="fa-solid fa-gears"></i>
                         Process payroll
                     </a>
+                    <form action="#" method="POST" id="print-form" class="ms-2">
+                        @csrf
+                        <input type="hidden" name="member_name" value="{{ request('member_name') }}">
+                        <input type="hidden" name="period_month" value="{{ request('period_month') }}">
+                        <button
+                            type="submit"
+                            class="btn btn-danger d-flex align-items-center gap-2"
+                            id="print-submit-button"
+                            data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
+                            aria-label="Open printable/PDF view of filtered payrolls"
+                        >
+                            <i class="fa-solid fa-print"></i>
+                            <span id="print-loader" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                            Print
+                        </button>
+                    </form>
                 </div>
             </div>
 
@@ -149,4 +216,89 @@
             </div>
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const printButton = document.getElementById('print-submit-button');
+            const printForm = document.getElementById('print-form');
+            const printLoader = document.getElementById('print-loader');
+
+            function buildFilters(filters) {
+                const chips = [];
+                if (filters.member_name) chips.push({ label: 'Staff', value: filters.member_name });
+                if (filters.period_month) chips.push({ label: 'Period', value: filters.period_month });
+                return chips;
+            }
+
+            function buildRows(items) {
+                return (items || []).map((item) => ([
+                    item.id ?? '—',
+                    `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
+                    item.period || '—',
+                    `${item.hours || '0.00'} hrs`,
+                    `₱${item.gross || '0.00'}`,
+                    `<span class="text-success fw-semibold">₱${item.net || '0.00'}</span>`,
+                    item.processed_at || '—',
+                ]));
+            }
+
+            function renderPrintWindow(payload) {
+                const rawItems = payload && payload.items ? payload.items : [];
+                const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
+                const filters = buildFilters(payload.filters || {});
+                const headers = ['#', 'Staff', 'Period', 'Hours', 'Gross', 'Net', 'Processed'];
+                const rows = buildRows(items);
+
+                return window.PrintPreview
+                    ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                    : false;
+            }
+
+            if (printButton && printForm) {
+                printButton.addEventListener('click', async function (e) {
+                    const rawPayload = printButton.dataset.print;
+                    const rawAllPayload = printButton.dataset.printAll;
+                    if (!rawPayload) return;
+
+                    e.preventDefault();
+                    if (printLoader) printLoader.classList.remove('d-none');
+                    printButton.disabled = true;
+
+                    let payload = null;
+                    let allPayload = null;
+                    try {
+                        payload = JSON.parse(rawPayload);
+                    } catch (err) {
+                        payload = null;
+                    }
+                    try {
+                        allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                    } catch (err) {
+                        allPayload = null;
+                    }
+
+                    const scope = window.PrintPreview && PrintPreview.chooseScope
+                        ? await PrintPreview.chooseScope()
+                        : 'current';
+
+                    if (!scope) {
+                        printButton.disabled = false;
+                        if (printLoader) printLoader.classList.add('d-none');
+                        return;
+                    }
+
+                    const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                    const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                    if (!handled) {
+                        printButton.disabled = false;
+                        if (printLoader) printLoader.classList.add('d-none');
+                        return;
+                    }
+
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
+                });
+            }
+        });
+    </script>
 @endsection

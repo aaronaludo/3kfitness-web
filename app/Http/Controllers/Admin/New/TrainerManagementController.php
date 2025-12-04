@@ -95,7 +95,7 @@ class TrainerManagementController extends Controller
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
 
-        $trainers = (clone $baseQuery)
+        $activeQuery = (clone $baseQuery)
             ->where('is_archive', 0)
             ->when($statusFilter !== 'all', function ($query) use ($statusFilter, $activeTrainerIds) {
                 if ($statusFilter === 'assigned') {
@@ -112,17 +112,32 @@ class TrainerManagementController extends Controller
 
                 return $query;
             })
-            ->orderByDesc('created_at')
+            ->orderByDesc('created_at');
+
+        $archivedQuery = (clone $baseQuery)
+            ->where('is_archive', 1)
+            ->orderByDesc('created_at');
+
+        $printAllActive = (clone $activeQuery)->get();
+        $printAllArchived = (clone $archivedQuery)->get();
+
+        $trainers = (clone $activeQuery)
             ->paginate(10)
             ->appends($queryParamsWithoutArchivePage);
 
-        $archivedData = (clone $baseQuery)
-            ->where('is_archive', 1)
-            ->orderByDesc('created_at')
+        $archivedData = (clone $archivedQuery)
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
 
-        return view('admin.trainermanagement.index', compact('trainers', 'archivedData', 'current_time', 'statusTallies', 'statusFilter'));
+        return view('admin.trainermanagement.index', compact(
+            'trainers',
+            'archivedData',
+            'current_time',
+            'statusTallies',
+            'statusFilter',
+            'printAllActive',
+            'printAllArchived'
+        ));
     } 
 
     public function view($id){

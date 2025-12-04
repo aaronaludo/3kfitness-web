@@ -178,7 +178,12 @@ class ScheduleController extends Controller
                 ->where('is_archieve', 0)
         );
 
-        $data = $activeQuery
+        $printAllActive = (clone $activeQuery)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map($mapSchedule);
+
+        $data = (clone $activeQuery)
             ->orderBy('created_at', 'desc')
             ->paginate(10)
             ->appends($queryParamsWithoutArchivePage)
@@ -190,7 +195,12 @@ class ScheduleController extends Controller
                 ->where('is_archieve', 1)
         );
 
-        $archivedData = $archivedQuery
+        $printAllArchived = (clone $archivedQuery)
+            ->orderBy('created_at', 'desc')
+            ->get()
+            ->map($mapSchedule);
+
+        $archivedData = (clone $archivedQuery)
             ->orderBy('created_at', 'desc')
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage)
@@ -202,7 +212,16 @@ class ScheduleController extends Controller
 
         return view(
             'admin.gymmanagement.schedules',
-            compact('data', 'archivedData', 'classescreatedbyadmin', 'classescreatedbystaff', 'statusTallies', 'pendingRescheduleRequests')
+            compact(
+                'data',
+                'archivedData',
+                'classescreatedbyadmin',
+                'classescreatedbystaff',
+                'statusTallies',
+                'pendingRescheduleRequests',
+                'printAllActive',
+                'printAllArchived'
+            )
         );
     }
 

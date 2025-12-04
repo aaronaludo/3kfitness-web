@@ -7,7 +7,8 @@
             @php
                 $showArchived = request()->boolean('show_archived');
                 $printSource = $showArchived ? $archivedData : $trainers;
-                $printTrainers = collect($printSource->items())->map(function ($item) {
+                $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
+                $mapTrainer = function ($item) {
                     $name = trim(($item->first_name ?? '') . ' ' . ($item->last_name ?? ''));
                     $trainerSchedules = collect($item->trainerSchedules ?? []);
                     $salaryEligibleSchedules = $trainerSchedules->filter(function ($schedule) {
@@ -53,7 +54,10 @@
                         'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
                         'created_by' => $item->created_by ?: '',
                     ];
-                })->values();
+                };
+
+                $printTrainers = collect($printSource->items() ?? [])->map($mapTrainer)->values();
+                $printAllTrainers = collect($printAllSource ?? [])->map($mapTrainer)->values();
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived trainers' : 'Trainer directory',
@@ -68,6 +72,22 @@
                     ],
                     'count' => $printTrainers->count(),
                     'items' => $printTrainers,
+                ];
+
+                $printAllPayload = [
+                    'title' => $showArchived ? 'Archived trainers (all pages)' : 'Trainer directory (all pages)',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name'),
+                        'search_column' => request('search_column'),
+                        'status' => request('status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                        'scope' => 'all',
+                    ],
+                    'count' => $printAllTrainers->count(),
+                    'items' => $printAllTrainers,
                 ];
             @endphp
             <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
@@ -88,6 +108,7 @@
                             type="submit"
                             id="print-submit-button"
                             data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered trainers"
                         >
                             <i class="fa-solid fa-print"></i>
@@ -1323,116 +1344,53 @@
 
                 function buildPrintFilters(filters) {
                     const chips = [];
-                    if (filters.show_archived) chips.push('Archived view');
+                    if (filters.show_archived) chips.push({ value: 'Archived view' });
                     if (filters.status && filters.status !== 'all') {
                         const statusMap = {
                             assigned: 'Assigned to classes',
                             unassigned: 'No upcoming classes',
                         };
-                        chips.push(`Status: ${statusMap[filters.status] || filters.status}`);
+                        chips.push({ label: 'Status', value: statusMap[filters.status] || filters.status });
                     }
                     if (filters.search) {
-                        chips.push(
-                            `Search: ${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`
-                        );
+                        chips.push({
+                            label: 'Search',
+                            value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                        });
                     }
                     if (filters.start || filters.end) {
-                        chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
+                        chips.push({ label: 'Date', value: `${filters.start || '—'} → ${filters.end || '—'}` });
                     }
-                    return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
+                    return chips;
                 }
 
                 function buildPrintRows(items) {
-                    return items.map((item) => `
-                        <tr>
-                            <td>${item.id ?? '—'}</td>
-                            <td>
-                                <div class="fw">${item.name || '—'}</div>
-                                <div class="muted">${item.email || ''}</div>
-                            </td>
-                            <td>${item.phone || '—'}</td>
-                            <td>${item.salary ? '₱' + item.salary : '—'}</td>
-                            <td><span class="badge ${getStatusBadgeClass(item.status)}">${item.status || '—'}</span></td>
-                            <td>
-                                <div>${item.created_at || ''}</div>
-                                <div class="muted">${item.updated_at || ''}</div>
-                                <div class="muted">${item.created_by || ''}</div>
-                            </td>
-                        </tr>
-                    `).join('');
+                    return items.map((item) => ([
+                        item.id ?? '—',
+                        `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
+                        item.phone || '—',
+                        item.salary ? `₱${item.salary}` : '—',
+                        `<span class="badge ${getStatusBadgeClass(item.status)}">${item.status || '—'}</span>`,
+                        `<div>${item.created_at || ''}</div><div class="muted">${item.updated_at || ''}</div><div class="muted">${item.created_by || ''}</div>`,
+                    ]));
                 }
 
                 function renderPrintWindow(payload) {
-                    const items = payload.items || [];
-                    const filters = payload.filters || {};
+                    const rawItems = payload && payload.items ? payload.items : [];
+                    const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
+                    const filters = buildPrintFilters(payload.filters || {});
+                    const headers = ['#', 'Trainer', 'Contact', 'Est. Salary', 'Status', 'Audit'];
                     const rows = buildPrintRows(items);
-                    const html = `
-                        <!doctype html>
-                        <html>
-                            <head>
-                                <title>${payload.title || 'Trainer directory'}</title>
-                                <style>
-                                    :root { color-scheme: light; }
-                                    body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
-                                    .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
-                                    .header { display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap; }
-                                    .title { margin: 0; font-size: 22px; }
-                                    .muted { color: #6b7280; font-size: 12px; }
-                                    .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                    .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
-                                    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-                                    th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
-                                    th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
-                                    .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
-                                    .badge-soft-warning { background: #fef9c3; color: #854d0e; }
-                                    .badge-soft-success { background: #dcfce7; color: #166534; }
-                                    .badge-soft-secondary { background: #e5e7eb; color: #374151; }
-                                    .badge-soft-muted { background: #f3f4f6; color: #6b7280; }
-                                    .fw { font-weight: 700; }
-                                </style>
-                            </head>
-                            <body>
-                                <div class="sheet">
-                                    <div class="header">
-                                        <div>
-                                            <h1 class="title">${payload.title || 'Trainer directory'}</h1>
-                                            <div class="muted">Generated ${payload.generated_at || ''}</div>
-                                            <div class="muted">Showing ${payload.count || 0} record(s)</div>
-                                        </div>
-                                    </div>
-                                    <div class="pill-row">${buildPrintFilters(filters)}</div>
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>#</th>
-                                                <th>Trainer</th>
-                                                <th>Contact</th>
-                                                <th>Est. Salary</th>
-                                                <th>Status</th>
-                                                <th>Audit</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${rows || '<tr><td colspan="6" style="text-align:center; padding:16px;">No trainers for this view.</td></tr>'}
-                                        </tbody>
-                                    </table>
-                                </div>
-                                <script>window.print();<\/script>
-                            </body>
-                        </html>
-                    `;
 
-                    const printWindow = window.open('', '_blank', 'width=1200,height=900');
-                    if (!printWindow) return false;
-                    printWindow.document.open();
-                    printWindow.document.write(html);
-                    printWindow.document.close();
-                    return true;
+                    return window.PrintPreview
+                        ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                        : false;
                 }
 
                 if (printButton && printForm) {
-                    printButton.addEventListener('click', function (e) {
+                    printButton.addEventListener('click', async function (e) {
                         const rawPayload = printButton.dataset.print;
+                        const rawAllPayload = printButton.dataset.printAll;
                         if (!rawPayload) {
                             return;
                         }
@@ -1442,24 +1400,36 @@
                         printButton.disabled = true;
 
                         let payload = null;
+                        let allPayload = null;
                         try {
                             payload = JSON.parse(rawPayload);
                         } catch (err) {
                             payload = null;
                         }
+                        try {
+                            allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                        } catch (err) {
+                            allPayload = null;
+                        }
 
-                        const opened = payload ? renderPrintWindow(payload) : false;
-                        if (!opened) {
+                        const scope = window.PrintPreview && PrintPreview.chooseScope
+                            ? await PrintPreview.chooseScope()
+                            : 'current';
+
+                        if (!scope) {
                             printButton.disabled = false;
                             if (printLoader) printLoader.classList.add('d-none');
-                            printForm.submit();
                             return;
                         }
 
-                        setTimeout(() => {
-                            printButton.disabled = false;
-                            if (printLoader) printLoader.classList.add('d-none');
-                        }, 300);
+                        const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                        const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+                        if (!handled) {
+                            printForm.submit();
+                        }
+
+                        printButton.disabled = false;
+                        if (printLoader) printLoader.classList.add('d-none');
                     });
                 }
             }

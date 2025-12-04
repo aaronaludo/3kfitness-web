@@ -66,6 +66,14 @@ class MemberDataController extends Controller
         ];
 
         $baseQuery = User::where('role_id', 3)
+            ->with([
+                'membershipPayments' => function ($q) use ($current_time) {
+                    $q->where('isapproved', 1)
+                        ->where('expiration_at', '>=', $current_time)
+                        ->orderBy('created_at', 'desc');
+                },
+                'membershipPayments.membership',
+            ])
             ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
                 if ($searchColumn === 'name') {
                     return $query->where(function ($q) use ($search) {
@@ -106,17 +114,27 @@ class MemberDataController extends Controller
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
 
+        $printAllActive = (clone $baseQuery)
+            ->where('is_archive', 0)
+            ->orderBy('created_at', 'desc')
+            ->get();
+
         $gym_members = (clone $baseQuery)
             ->where('is_archive', 0)
             ->paginate(10)
             ->appends($queryParamsWithoutArchivePage);
+
+        $printAllArchived = (clone $baseQuery)
+            ->where('is_archive', 1)
+            ->orderBy('created_at', 'desc')
+            ->get();
 
         $archivedData = (clone $baseQuery)
             ->where('is_archive', 1)
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
 
-        return view('admin.gymmanagement.memberdata', compact('gym_members', 'archivedData', 'current_time', 'statusTallies'));
+        return view('admin.gymmanagement.memberdata', compact('gym_members', 'archivedData', 'current_time', 'statusTallies', 'printAllActive', 'printAllArchived'));
     }
     
     public function view($id)

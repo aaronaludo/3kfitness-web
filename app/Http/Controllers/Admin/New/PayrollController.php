@@ -19,7 +19,7 @@ class PayrollController extends Controller
         $search = $request->input('member_name');
         $period = $request->input('period_month');
 
-        $runs = PayrollRun::with('user')
+        $baseQuery = PayrollRun::with('user')
             ->when($search, function ($query, $search) {
                 $query->whereHas('user', function ($subQuery) use ($search) {
                     $subQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
@@ -28,7 +28,14 @@ class PayrollController extends Controller
             })
             ->when($period, function ($query, $period) {
                 $query->where('period_month', $period);
-            })
+            });
+
+        $printAllRuns = (clone $baseQuery)
+            ->orderByDesc('processed_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $runs = (clone $baseQuery)
             ->orderByDesc('processed_at')
             ->orderByDesc('id')
             ->paginate(10)
@@ -36,6 +43,7 @@ class PayrollController extends Controller
 
         return view('admin.payrolls.index', [
             'runs' => $runs,
+            'printAllRuns' => $printAllRuns,
         ]);
     }
 
