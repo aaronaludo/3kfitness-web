@@ -30,6 +30,8 @@ class AttendanceController extends Controller
         $startDate = $request->input('start_date');
         $endDate   = $request->input('end_date');
         $statusFilter = $request->input('status', 'all');
+        $currentAdmin = $request->user();
+        $restrictStaffView = $currentAdmin && (int) $currentAdmin->role_id === 2;
 
         if (empty($statusFilter)) {
             $statusFilter = 'all';
@@ -46,15 +48,25 @@ class AttendanceController extends Controller
         $date_columns = ['clockin_at', 'clockout_at', 'created_at'];
         $rangeColumn = in_array($search_column, $date_columns, true) ? $search_column : 'clockin_at';
 
-        $activeAttendanceBase = Attendance2::where('is_archive', 0);
+        $activeAttendanceBase = Attendance2::where('is_archive', 0)
+            ->when($restrictStaffView, function ($query) {
+                $query->whereDoesntHave('user', function ($q) {
+                    $q->where('role_id', 2);
+                });
+            });
         $statusTallies = [
             'all' => (clone $activeAttendanceBase)->count(),
             'open' => (clone $activeAttendanceBase)->whereNull('clockout_at')->count(),
             'completed' => (clone $activeAttendanceBase)->whereNotNull('clockout_at')->count(),
         ];
-    
+
         $baseQuery = Attendance2::query()
             ->with('user.role') // Ensure role relationship is loaded
+            ->when($restrictStaffView, function ($query) {
+                $query->whereDoesntHave('user', function ($q) {
+                    $q->where('role_id', 2);
+                });
+            })
             ->when($search && $search_column, function ($query) use ($search, $search_column) {
                 if ($search_column === 'role') {
                     return $query->whereHas('user.role', function ($q) use ($search) {
@@ -343,6 +355,8 @@ class AttendanceController extends Controller
         $startDate    = $request->input('created_start', $request->input('start_date'));
         $endDate      = $request->input('created_end', $request->input('end_date'));
         $statusFilter = $request->input('status', 'all');
+        $currentAdmin = $request->user();
+        $restrictStaffView = $currentAdmin && (int) $currentAdmin->role_id === 2;
 
         if (empty($statusFilter)) {
             $statusFilter = 'all';
@@ -361,6 +375,11 @@ class AttendanceController extends Controller
 
         $query = Attendance2::query()
             ->with('user.role')
+            ->when($restrictStaffView, function ($query) {
+                $query->whereDoesntHave('user', function ($q) {
+                    $q->where('role_id', 2);
+                });
+            })
             ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
                 if ($searchColumn === 'role') {
                     return $query->whereHas('user.role', function ($q) use ($search) {
