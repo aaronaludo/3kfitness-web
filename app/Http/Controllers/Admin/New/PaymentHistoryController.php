@@ -115,6 +115,10 @@ class PaymentHistoryController extends Controller
             ->limit(10)
             ->get();
 
+        $printAllPayments = (clone $historyQuery)
+            ->orderByDesc('id')
+            ->get();
+
         return view('admin.history.payments', [
             'payments'          => $payments,
             'membershipOptions' => $membershipOptions,
@@ -122,6 +126,7 @@ class PaymentHistoryController extends Controller
             'stats'             => $stats,
             'statusTallies'     => $statusTallies,
             'payrollRuns'       => $payrollRuns,
+            'printAllPayments'  => $printAllPayments,
         ]);
     }
 

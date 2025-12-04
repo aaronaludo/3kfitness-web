@@ -30,13 +30,41 @@ class LogController extends Controller
         }
         
         $data = $query->paginate(10);
+        $allLogs = (clone $query)->get();
         
-        return view('admin.logs.index', compact('data'));
+        return view('admin.logs.index', [
+            'data' => $data,
+            'printAllLogs' => $allLogs,
+        ]);
     }
     
     public function print(Request $request)
     {
-        $data = Log::with('user:id,user_code')->get();
+        $request->validate([
+            'search' => 'nullable|string',
+            'search_column' => 'nullable|string',
+            'sort_column' => 'nullable|in:ASC,DESC',
+        ]);
+
+        $search = $request->input('search');
+        $roleFilter = $request->input('search_column');
+        $allowedRoles = ['Admin', 'Staff', 'Member', 'Trainer'];
+        if (!in_array($roleFilter, $allowedRoles, true)) {
+            $roleFilter = null;
+        }
+        $sortDirection = strtoupper($request->input('sort_column', 'DESC')) === 'ASC' ? 'ASC' : 'DESC';
+
+        $data = Log::with('user:id,user_code')
+            ->when(!empty($search), function ($query) use ($search) {
+                $query->where(function ($subQuery) use ($search) {
+                    $subQuery->where('message', 'LIKE', "%{$search}%");
+                });
+            })
+            ->when(!empty($roleFilter), function ($query) use ($roleFilter) {
+                $query->where('role_name', $roleFilter);
+            })
+            ->orderBy('created_at', $sortDirection)
+            ->get();
         
         $fileName = "logs_data_" . date('Y-m-d') . ".csv";
     

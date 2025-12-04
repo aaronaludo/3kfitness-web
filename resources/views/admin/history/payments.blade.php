@@ -41,6 +41,32 @@
                 ];
             })->values();
 
+            $printAllItems = collect($printAllPayments ?? [])->map(function ($payment) {
+                $member = $payment->user;
+                $membership = $payment->membership;
+                $purchasedAt = $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : null;
+                $expiresAt = $payment->expiration_at ? \Carbon\Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : null;
+                $statusMeta = [
+                    0 => 'Pending',
+                    1 => 'Approved',
+                    2 => 'Rejected',
+                ];
+
+                return [
+                    'id' => $payment->id,
+                    'member' => $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member',
+                    'role' => $member && $member->role ? ($member->role->name ?? null) : null,
+                    'email' => $member ? ($member->email ?? null) : null,
+                    'phone' => $member ? ($member->phone_number ?? null) : null,
+                    'membership' => $membership ? $membership->name : 'Membership unavailable',
+                    'price' => $membership && isset($membership->price) ? number_format((float) $membership->price, 2) : null,
+                    'status' => $statusMeta[$payment->isapproved] ?? 'Pending',
+                    'purchased' => $purchasedAt,
+                    'expires' => $expiresAt,
+                    'archive' => (int) ($payment->is_archive ?? 0) === 1 ? 'Archived' : 'Active',
+                ];
+            })->values();
+
             $printPayload = [
                 'title' => $showArchived ? 'Archived payments history' : 'Payments history',
                 'generated_at' => now()->format('M d, Y g:i A'),
@@ -54,6 +80,22 @@
                 ],
                 'count' => $printItems->count(),
                 'items' => $printItems,
+            ];
+
+            $printAllPayload = [
+                'title' => $showArchived ? 'Archived payments history (all pages)' : 'Payments history (all pages)',
+                'generated_at' => now()->format('M d, Y g:i A'),
+                'filters' => [
+                    'search' => $filters['search'] ?? '',
+                    'membership_id' => $filters['membership_id'] ?? null,
+                    'status' => $filters['status'] ?? null,
+                    'start' => $filters['start_date'] ?? null,
+                    'end' => $filters['end_date'] ?? null,
+                    'archived' => $showArchived,
+                    'scope' => 'all',
+                ],
+                'count' => $printAllItems->count(),
+                'items' => $printAllItems,
             ];
         @endphp
 
@@ -77,6 +119,7 @@
                             class="btn btn-danger"
                             id="payment-history-print-submit"
                             data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered payments"
                         >
                             <i class="fa-solid fa-print me-2"></i>Print
@@ -482,35 +525,47 @@
             }
 
             if (printButton && printForm) {
-                printButton.addEventListener('click', function (e) {
+                printButton.addEventListener('click', async function (e) {
                     const rawPayload = printButton.dataset.print;
-                    if (!rawPayload) {
-                        return;
-                    }
+                    const rawAllPayload = printButton.dataset.printAll;
+                    if (!rawPayload) return;
 
                     e.preventDefault();
                     if (printLoader) printLoader.classList.remove('d-none');
                     printButton.disabled = true;
 
                     let payload = null;
+                    let allPayload = null;
                     try {
                         payload = JSON.parse(rawPayload);
                     } catch (err) {
                         payload = null;
                     }
+                    try {
+                        allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                    } catch (err) {
+                        allPayload = null;
+                    }
 
-                    const opened = payload ? renderPrintWindow(payload) : false;
-                    if (!opened) {
+                    const scope = window.PrintPreview && PrintPreview.chooseScope
+                        ? await PrintPreview.chooseScope()
+                        : 'current';
+
+                    if (!scope) {
                         printButton.disabled = false;
                         if (printLoader) printLoader.classList.add('d-none');
-                        printForm.submit();
                         return;
                     }
 
-                    setTimeout(() => {
-                        printButton.disabled = false;
-                        if (printLoader) printLoader.classList.add('d-none');
-                    }, 300);
+                    const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                    const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                    if (!handled) {
+                        printForm.submit();
+                    }
+
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
                 });
             }
         });

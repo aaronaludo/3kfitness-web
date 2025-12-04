@@ -113,12 +113,17 @@ class ClassHistoryController extends Controller
             ->orderBy('last_name')
             ->get(['id', 'first_name', 'last_name']);
 
+        $printAllClasses = (clone $historyQuery)
+            ->orderByDesc('id')
+            ->get();
+
         return view('admin.history.classes', [
             'classes'       => $classes,
             'filters'       => $filters,
             'statusTallies' => $statusTallies,
             'trainerOptions' => $trainerOptions,
             'stats'         => $stats,
+            'printAllClasses' => $printAllClasses,
         ]);
     }
 

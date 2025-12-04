@@ -18,6 +18,31 @@
                         'show_archived' => $showArchived,
                     ],
                 ];
+
+                $printSource = $showArchived ? ($printAllArchived ?? $archivedData) : ($printAllActive ?? $data);
+                $printAllRows = collect($printSource)->map(function ($item) {
+                    return [
+                        'id' => $item->id ?? '—',
+                        'name' => $item->name ?? '—',
+                        'description' => $item->description ?? '',
+                        'price' => $item->price ?? '0',
+                        'month' => $item->month ?? '0',
+                        'class_limit' => $item->class_limit ?? 'Unlimited',
+                        'approved' => $item->members_approved ?? 0,
+                        'pending' => $item->members_pending ?? 0,
+                        'rejected' => $item->members_reject ?? 0,
+                        'created' => optional($item->created_at)->format('M j, Y g:i A') ?? '',
+                        'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?? '',
+                        'archived' => (int) $item->is_archive === 1 ? 'Archived' : 'Active',
+                    ];
+                });
+
+                $printAllPayload = array_merge($printMeta, [
+                    'title' => $showArchived ? 'Archived memberships (all pages)' : 'Membership performance (all pages)',
+                    'filters' => array_merge($printMeta['filters'] ?? [], ['scope' => 'all']),
+                    'count' => $printAllRows->count(),
+                    'items' => $printAllRows,
+                ]);
             @endphp
             <div class="col-lg-12 d-flex justify-content-between">
                 <div><h2 class="title">Memberships</h2></div>
@@ -35,6 +60,7 @@
                             type="submit"
                             id="print-submit-button"
                             data-print='@json($printMeta)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered memberships"
                         >
                             <i class="fa-solid fa-print"></i>&nbsp;&nbsp;&nbsp;
@@ -614,7 +640,9 @@
                     }
 
                     function renderPrintWindow(payload) {
-                        const items = collectTableItems();
+                        const items = payload && Array.isArray(payload.items) && payload.items.length
+                            ? payload.items
+                            : collectTableItems();
                         const filters = buildFilters(payload.filters || {});
                         const headers = ['ID', 'Membership', 'Plan', 'Members', 'Audit'];
                         const rows = buildRows(items);
@@ -625,35 +653,47 @@
                     }
 
                     if (printButton && printForm) {
-                        printButton.addEventListener('click', function (e) {
+                        printButton.addEventListener('click', async function (e) {
                             const rawPayload = printButton.dataset.print;
-                            if (!rawPayload) {
-                                return;
-                            }
+                            const rawAllPayload = printButton.dataset.printAll;
+                            if (!rawPayload) return;
 
                             e.preventDefault();
                             if (printLoader) printLoader.classList.remove('d-none');
                             printButton.disabled = true;
 
                             let payload = null;
+                            let allPayload = null;
                             try {
                                 payload = JSON.parse(rawPayload);
                             } catch (err) {
                                 payload = null;
                             }
+                            try {
+                                allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                            } catch (err) {
+                                allPayload = null;
+                            }
 
-                            const opened = payload ? renderPrintWindow(payload) : false;
-                            if (!opened) {
+                            const scope = window.PrintPreview && PrintPreview.chooseScope
+                                ? await PrintPreview.chooseScope()
+                                : 'current';
+
+                            if (!scope) {
                                 printButton.disabled = false;
                                 if (printLoader) printLoader.classList.add('d-none');
-                                printForm.submit();
                                 return;
                             }
 
-                            setTimeout(() => {
-                                printButton.disabled = false;
-                                if (printLoader) printLoader.classList.add('d-none');
-                            }, 300);
+                            const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                            const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                            if (!handled) {
+                                printForm.submit();
+                            }
+
+                            printButton.disabled = false;
+                            if (printLoader) printLoader.classList.add('d-none');
                         });
                     }
                 });

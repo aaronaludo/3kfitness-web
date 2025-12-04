@@ -67,11 +67,47 @@
         return submitPreview(payload);
     }
 
+    function resolveScope() {
+        const modalEl = document.getElementById('printScopeModal');
+        if (!modalEl || typeof bootstrap === 'undefined' || !bootstrap.Modal) {
+            return Promise.resolve('current');
+        }
+
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+        return new Promise((resolve) => {
+            let settled = false;
+
+            const cleanup = (result) => {
+                if (settled) return;
+                settled = true;
+                modal.hide();
+                resolve(result);
+            };
+
+            const onHidden = () => cleanup(null);
+            modalEl.addEventListener('hidden.bs.modal', onHidden, { once: true });
+
+            const currentBtn = modalEl.querySelector('[data-print-scope="current"]');
+            const allBtn = modalEl.querySelector('[data-print-scope="all"]');
+
+            if (currentBtn) {
+                currentBtn.addEventListener('click', () => cleanup('current'), { once: true });
+            }
+            if (allBtn) {
+                allBtn.addEventListener('click', () => cleanup('all'), { once: true });
+            }
+
+            modal.show();
+        });
+    }
+
     window.PrintPreview = {
         route: previewRoute,
         open: submitPreview,
         buildPayload: composePayload,
         tryOpen: tryOpen,
+        chooseScope: resolveScope,
     };
 
     // Legacy single print form handler (keeps existing UX where present)

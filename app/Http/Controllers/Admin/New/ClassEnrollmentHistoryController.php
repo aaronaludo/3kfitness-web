@@ -89,11 +89,16 @@ class ClassEnrollmentHistoryController extends Controller
             ->orderBy('name')
             ->get(['id', 'name', 'class_code']);
 
+        $printAllEnrollments = (clone $baseQuery)
+            ->orderByDesc('created_at')
+            ->get();
+
         return view('admin.history.enrollments', [
             'enrollments'  => $enrollments,
             'classOptions' => $classOptions,
             'filters'      => $filters,
             'stats'        => $stats,
+            'printAllEnrollments' => $printAllEnrollments,
         ]);
     }
 

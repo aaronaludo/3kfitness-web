@@ -32,6 +32,30 @@
                 ];
             })->values();
 
+            $printAllItems = collect($printAllEnrollments ?? [])->map(function ($enrollment) {
+                $member = $enrollment->user ?? null;
+                $class = $enrollment->class ?? $enrollment->schedule ?? null;
+                $trainer = $class ? $class->trainer : null;
+                $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('M d, Y g:i A') : null;
+                $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
+                $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
+                $memberName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member';
+
+                return [
+                    'id' => $class ? $class->id : ($enrollment->schedule_id ?? null),
+                    'member' => $memberName,
+                    'role' => $member && $member->role ? ($member->role->name ?? null) : null,
+                    'email' => $member->email ?? null,
+                    'phone' => $member->phone_number ?? null,
+                    'class_name' => $class->name ?? null,
+                    'class_code' => $class->class_code ?? null,
+                    'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
+                    'joined' => $joinedAt,
+                    'start' => $start ? $start->format('M d, Y g:i A') : null,
+                    'end' => $end ? $end->format('M d, Y g:i A') : null,
+                ];
+            })->values();
+
             $printPayload = [
                 'title' => 'Enrollment history',
                 'generated_at' => now()->format('M d, Y g:i A'),
@@ -43,6 +67,20 @@
                 ],
                 'count' => $printItems->count(),
                 'items' => $printItems,
+            ];
+
+            $printAllPayload = [
+                'title' => 'Enrollment history (all pages)',
+                'generated_at' => now()->format('M d, Y g:i A'),
+                'filters' => [
+                    'search' => $filters['search'] ?? '',
+                    'class_id' => $filters['class_id'] ?? null,
+                    'start' => $filters['start_date'] ?? null,
+                    'end' => $filters['end_date'] ?? null,
+                    'scope' => 'all',
+                ],
+                'count' => $printAllItems->count(),
+                'items' => $printAllItems,
             ];
         @endphp
 
@@ -64,6 +102,7 @@
                             class="btn btn-danger"
                             id="enrollment-print-submit"
                             data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered enrollments"
                         >
                             <i class="fa-solid fa-print me-2"></i>Print
@@ -369,35 +408,47 @@
             }
 
             if (printButton && printForm) {
-                printButton.addEventListener('click', function (e) {
+                printButton.addEventListener('click', async function (e) {
                     const rawPayload = printButton.dataset.print;
-                    if (!rawPayload) {
-                        return;
-                    }
+                    const rawAllPayload = printButton.dataset.printAll;
+                    if (!rawPayload) return;
 
                     e.preventDefault();
                     if (printLoader) printLoader.classList.remove('d-none');
                     printButton.disabled = true;
 
                     let payload = null;
+                    let allPayload = null;
                     try {
                         payload = JSON.parse(rawPayload);
                     } catch (err) {
                         payload = null;
                     }
+                    try {
+                        allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                    } catch (err) {
+                        allPayload = null;
+                    }
 
-                    const opened = payload ? renderPrintWindow(payload) : false;
-                    if (!opened) {
+                    const scope = window.PrintPreview && PrintPreview.chooseScope
+                        ? await PrintPreview.chooseScope()
+                        : 'current';
+
+                    if (!scope) {
                         printButton.disabled = false;
                         if (printLoader) printLoader.classList.add('d-none');
-                        printForm.submit();
                         return;
                     }
 
-                    setTimeout(() => {
-                        printButton.disabled = false;
-                        if (printLoader) printLoader.classList.add('d-none');
-                    }, 300);
+                    const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                    const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                    if (!handled) {
+                        printForm.submit();
+                    }
+
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
                 });
             }
         });

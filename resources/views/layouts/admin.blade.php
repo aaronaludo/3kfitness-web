@@ -423,9 +423,28 @@
                         <button type="submit" class="btn btn-primary">Confirm</button>
                     </form>
                 </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="printScopeModal" tabindex="-1" aria-labelledby="printScopeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="printScopeModalLabel">Choose what to print</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-0">Use the current filters and pick whether to print only the records on this page or every page.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-outline-secondary" data-print-scope="current">Current page</button>
+                <button type="button" class="btn btn-danger" data-print-scope="all">All pages</button>
             </div>
         </div>
     </div>
+</div>
 
     <script>
         var confirmationModal = document.getElementById('confirmationModal');

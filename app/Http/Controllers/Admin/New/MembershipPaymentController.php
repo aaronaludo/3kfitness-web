@@ -69,9 +69,16 @@ class MembershipPaymentController extends Controller
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
 
-        // dd($data);
+        $printAllActive = (clone $activeQuery)->get();
+        $printAllArchived = (clone $archivedQuery)->get();
 
-        return view('admin.membership-payments.index', compact('data', 'archivedData', 'statusTallies'));
+        return view('admin.membership-payments.index', [
+            'data' => $data,
+            'archivedData' => $archivedData,
+            'statusTallies' => $statusTallies,
+            'printAllActive' => $printAllActive,
+            'printAllArchived' => $printAllArchived,
+        ]);
     }
 
     public function view($id)

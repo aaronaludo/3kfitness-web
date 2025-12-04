@@ -26,6 +26,16 @@
                     ];
                 })->values();
 
+                $printAllLogs = collect($printAllLogs ?? [])->map(function ($item) {
+                    return [
+                        'id' => $item->id,
+                        'message' => $item->message,
+                        'role_name' => $item->role_name,
+                        'user_code' => optional($item->user)->user_code,
+                        'created_at' => optional($item->created_at)->format('M j, Y g:i A') ?? '',
+                    ];
+                })->values();
+
                 $printPayload = [
                     'title' => 'Logs',
                     'generated_at' => now()->format('M d, Y g:i A'),
@@ -36,6 +46,19 @@
                     ],
                     'count' => $printLogs->count(),
                     'items' => $printLogs,
+                ];
+
+                $printAllPayload = [
+                    'title' => 'Logs (all pages)',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => $searchTerm,
+                        'search_column' => request('search_column'),
+                        'sort' => request('sort_column', 'DESC'),
+                        'scope' => 'all',
+                    ],
+                    'count' => $printAllLogs->count(),
+                    'items' => $printAllLogs,
                 ];
             @endphp
             <div class="col-lg-12 d-flex justify-content-between">
@@ -51,6 +74,7 @@
                             type="submit"
                             id="print-submit-button"
                             data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered logs"
                         >
                             <i class="fa-solid fa-print"></i>
@@ -257,35 +281,47 @@
             }
 
             if (printButton && printForm) {
-                printButton.addEventListener('click', function (e) {
+                printButton.addEventListener('click', async function (e) {
                     const rawPayload = printButton.dataset.print;
-                    if (!rawPayload) {
-                        return;
-                    }
+                    const rawAllPayload = printButton.dataset.printAll;
+                    if (!rawPayload) return;
 
                     e.preventDefault();
                     if (printLoader) printLoader.classList.remove('d-none');
                     printButton.disabled = true;
 
                     let payload = null;
+                    let allPayload = null;
                     try {
                         payload = JSON.parse(rawPayload);
                     } catch (err) {
                         payload = null;
                     }
+                    try {
+                        allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                    } catch (err) {
+                        allPayload = null;
+                    }
 
-                    const opened = payload ? renderPrintWindow(payload) : false;
-                    if (!opened) {
+                    const scope = window.PrintPreview && PrintPreview.chooseScope
+                        ? await PrintPreview.chooseScope()
+                        : 'current';
+
+                    if (!scope) {
                         printButton.disabled = false;
                         if (printLoader) printLoader.classList.add('d-none');
-                        printForm.submit();
                         return;
                     }
 
-                    setTimeout(() => {
-                        printButton.disabled = false;
-                        if (printLoader) printLoader.classList.add('d-none');
-                    }, 300);
+                    const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                    const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                    if (!handled) {
+                        printForm.submit();
+                    }
+
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
                 });
             }
 

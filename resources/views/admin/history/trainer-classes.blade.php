@@ -38,6 +38,30 @@
                 ];
             })->values();
 
+            $printAllItems = collect($printAllClasses ?? [])->map(function ($class) {
+                $trainer = $class->trainer ?? null;
+                $start = $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
+                $end = $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
+                $statusMeta = [
+                    0 => 'Pending',
+                    1 => 'Approved',
+                    2 => 'Rejected',
+                ];
+
+                return [
+                    'id' => $class->id,
+                    'name' => $class->name,
+                    'code' => $class->class_code,
+                    'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
+                    'enrollments' => $class->user_schedules_count ?? 0,
+                    'rate' => $class->trainer_rate_per_hour !== null ? number_format((float) $class->trainer_rate_per_hour, 2) : null,
+                    'start' => $start ? $start->format('M d, Y g:i A') : null,
+                    'end' => $end ? $end->format('M d, Y g:i A') : null,
+                    'status' => $statusMeta[$class->isadminapproved] ?? 'Pending',
+                    'archive' => (int) ($class->is_archieve ?? 0) === 1 ? 'Archived' : 'Active',
+                ];
+            })->values();
+
             $printPayload = [
                 'title' => 'Trainer class history',
                 'generated_at' => now()->format('M d, Y g:i A'),
@@ -50,6 +74,21 @@
                 ],
                 'count' => $printItems->count(),
                 'items' => $printItems,
+            ];
+
+            $printAllPayload = [
+                'title' => 'Trainer class history (all pages)',
+                'generated_at' => now()->format('M d, Y g:i A'),
+                'filters' => [
+                    'search' => $filters['search'] ?? '',
+                    'trainer_id' => $filters['trainer_id'] ?? null,
+                    'status' => $filters['status'] ?? null,
+                    'start' => $filters['start_date'] ?? null,
+                    'end' => $filters['end_date'] ?? null,
+                    'scope' => 'all',
+                ],
+                'count' => $printAllItems->count(),
+                'items' => $printAllItems,
             ];
         @endphp
 
@@ -72,6 +111,7 @@
                             class="btn btn-danger"
                             id="trainer-class-print-submit"
                             data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered trainer classes"
                         >
                             <i class="fa-solid fa-print me-2"></i>Print
@@ -431,35 +471,47 @@
             }
 
         if (printButton && printForm) {
-                printButton.addEventListener('click', function (e) {
+                printButton.addEventListener('click', async function (e) {
                     const rawPayload = printButton.dataset.print;
-                    if (!rawPayload) {
-                        return;
-                    }
+                    const rawAllPayload = printButton.dataset.printAll;
+                    if (!rawPayload) return;
 
                     e.preventDefault();
                     if (printLoader) printLoader.classList.remove('d-none');
                     printButton.disabled = true;
 
                     let payload = null;
+                    let allPayload = null;
                     try {
                         payload = JSON.parse(rawPayload);
                     } catch (err) {
                         payload = null;
                     }
+                    try {
+                        allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                    } catch (err) {
+                        allPayload = null;
+                    }
 
-                    const opened = payload ? renderPrintWindow(payload) : false;
-                    if (!opened) {
+                    const scope = window.PrintPreview && PrintPreview.chooseScope
+                        ? await PrintPreview.chooseScope()
+                        : 'current';
+
+                    if (!scope) {
                         printButton.disabled = false;
                         if (printLoader) printLoader.classList.add('d-none');
-                        printForm.submit();
                         return;
                     }
 
-                    setTimeout(() => {
-                        printButton.disabled = false;
-                        if (printLoader) printLoader.classList.add('d-none');
-                    }, 300);
+                    const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                    const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                    if (!handled) {
+                        printForm.submit();
+                    }
+
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
                 });
             }
         });

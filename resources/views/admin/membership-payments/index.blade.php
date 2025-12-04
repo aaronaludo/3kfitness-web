@@ -9,8 +9,8 @@
                 $activeMemberships = $data;
                 $archivedMemberships = $archivedData;
                 $printSource = $showArchived ? $archivedMemberships : $activeMemberships;
-                $printStartIndex = method_exists($printSource, 'firstItem') ? ($printSource->firstItem() ?? 1) : 1;
-                $printMemberships = collect($printSource->items())->values()->map(function ($item, $idx) use ($printStartIndex) {
+                $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
+                $printMemberships = collect($printSource->items() ?? [])->map(function ($item) {
                     $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
                     $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
                     $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
@@ -51,7 +51,7 @@
                         'classes' => $classes->pluck('name')->all(),
                         'created_by' => $item->created_by ?: '',
                     ];
-                });
+                })->values();
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived membership payments' : 'Membership payments',
@@ -66,6 +66,65 @@
                     ],
                     'count' => $printMemberships->count(),
                     'items' => $printMemberships,
+                ];
+
+                $printAllMemberships = collect($printAllSource ?? [])->map(function ($item) {
+                    $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
+                    $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
+                    $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
+
+                    $statusMap = [
+                        0 => 'Pending',
+                        1 => 'Approved',
+                        2 => 'Rejected',
+                    ];
+                    $member = $item->user;
+                    $memberName = trim((optional($member)->first_name ?? '') . ' ' . (optional($member)->last_name ?? ''));
+                    $membership = $item->membership;
+                    $currency = optional($membership)->currency ?: 'PHP';
+                    $price = optional($membership)->price;
+
+                    $classes = collect(optional($item->user)->userSchedules)->map(function ($userSchedule) {
+                        $schedule = $userSchedule->schedule;
+                        if (!$schedule) {
+                            return null;
+                        }
+                        return [
+                            'id' => $schedule->id,
+                            'name' => $schedule->name,
+                        ];
+                    })->filter()->unique('id')->values();
+
+                    return [
+                        'number' => $item->id,
+                        'id' => $item->id,
+                        'member' => $memberName ?: '—',
+                        'member_email' => optional($member)->email ?? '',
+                        'membership' => optional($membership)->name ?: '—',
+                        'expiration' => $expirationAt ? $expirationAt->format('M j, Y g:i A') : '—',
+                        'created' => $createdAt ? $createdAt->format('M j, Y g:i A') : '—',
+                        'updated' => $updatedAt ? $updatedAt->format('M j, Y g:i A') : '—',
+                        'status' => $statusMap[$item->isapproved] ?? 'Pending',
+                        'amount' => trim(($currency ? $currency . ' ' : '') . number_format((float) $price, 2)),
+                        'classes' => $classes->pluck('name')->all(),
+                        'created_by' => $item->created_by ?: '',
+                    ];
+                })->values();
+
+                $printAllPayload = [
+                    'title' => $showArchived ? 'Archived membership payments (all pages)' : 'Membership payments (all pages)',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name', request('member_name')),
+                        'search_column' => request('search_column'),
+                        'status' => request('status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                        'scope' => 'all',
+                    ],
+                    'count' => $printAllMemberships->count(),
+                    'items' => $printAllMemberships,
                 ];
             @endphp
             <div class="col-lg-12 d-flex justify-content-between">
@@ -86,6 +145,7 @@
                             type="submit"
                             id="print-submit-button"
                             data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered membership payments"
                         >
                             <i class="fa-solid fa-print"></i>
@@ -785,7 +845,8 @@
             }
 
             function renderPrintWindow(payload) {
-                const items = payload.items || [];
+                const rawItems = payload && payload.items ? payload.items : [];
+                const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
                 const headers = ['#', 'Member', 'Membership', 'Billing', 'Status', 'Classes', 'Created By'];
                 const rows = buildRows(items);
@@ -796,35 +857,48 @@
             }
 
             if (printButton && printForm) {
-                printButton.addEventListener('click', function (e) {
+                printButton.addEventListener('click', async function (e) {
                     const rawPayload = printButton.dataset.print;
-                    if (!rawPayload) {
-                        return;
-                    }
+                    const rawAllPayload = printButton.dataset.printAll;
+                    if (!rawPayload) return;
 
                     e.preventDefault();
                     if (printLoader) printLoader.classList.remove('d-none');
                     printButton.disabled = true;
 
                     let payload = null;
+                    let allPayload = null;
                     try {
                         payload = JSON.parse(rawPayload);
                     } catch (err) {
                         payload = null;
                     }
+                    try {
+                        allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                    } catch (err) {
+                        allPayload = null;
+                    }
 
-                    const opened = payload ? renderPrintWindow(payload) : false;
-                    if (!opened) {
+                    const scope = window.PrintPreview && PrintPreview.chooseScope
+                        ? await PrintPreview.chooseScope()
+                        : 'current';
+
+                    if (!scope) {
                         printButton.disabled = false;
                         if (printLoader) printLoader.classList.add('d-none');
-                        printForm.submit();
                         return;
                     }
 
-                    setTimeout(() => {
-                        printButton.disabled = false;
-                        if (printLoader) printLoader.classList.add('d-none');
-                    }, 300);
+                    const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+
+                    const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                    if (!handled) {
+                        printForm.submit();
+                    }
+
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
                 });
             }
         });

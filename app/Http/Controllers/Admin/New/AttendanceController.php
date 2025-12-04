@@ -117,7 +117,22 @@ class AttendanceController extends Controller
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
 
-        return view('admin.attendances.index', compact('data', 'archivedData', 'statusTallies', 'statusFilter'));
+        $printAllActive = (clone $baseQuery)
+            ->where('is_archive', 0)
+            ->get();
+
+        $printAllArchived = (clone $baseQuery)
+            ->where('is_archive', 1)
+            ->get();
+
+        return view('admin.attendances.index', [
+            'data' => $data,
+            'archivedData' => $archivedData,
+            'statusTallies' => $statusTallies,
+            'statusFilter' => $statusFilter,
+            'printAllActive' => $printAllActive,
+            'printAllArchived' => $printAllArchived,
+        ]);
     }
 
 

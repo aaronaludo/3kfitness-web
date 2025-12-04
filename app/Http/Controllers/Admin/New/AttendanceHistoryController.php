@@ -101,12 +101,17 @@ class AttendanceHistoryController extends Controller
 
         $roleOptions = Role::orderBy('name')->get(['id', 'name']);
 
+        $printAllAttendances = (clone $historyQuery)
+            ->orderByDesc('id')
+            ->get();
+
         return view('admin.history.attendances', [
             'attendances'  => $attendances,
             'filters'      => $filters,
             'statusTallies'=> $statusTallies,
             'roleOptions'  => $roleOptions,
             'stats'        => $stats,
+            'printAllAttendances' => $printAllAttendances,
         ]);
     }
 

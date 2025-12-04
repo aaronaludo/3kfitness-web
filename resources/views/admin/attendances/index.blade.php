@@ -13,7 +13,27 @@
             @php
                 $showArchived = request()->boolean('show_archived');
                 $printSource = $showArchived ? $archivedData : $data;
+                $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
                 $printAttendances = collect($printSource->items())->map(function ($item) {
+                    $clockIn = $item->clockin_at ? \Carbon\Carbon::parse($item->clockin_at) : null;
+                    $clockOut = $item->clockout_at ? \Carbon\Carbon::parse($item->clockout_at) : null;
+                    $name = trim((optional($item->user)->first_name ?? '') . ' ' . (optional($item->user)->last_name ?? ''));
+                    $role = optional(optional($item->user)->role)->name;
+                    $statusLabel = $clockOut ? 'Completed' : 'Pending clock-out';
+
+                    return [
+                        'id' => $item->id,
+                        'role' => $role ?: '—',
+                        'name' => $name ?: '—',
+                        'clock_in' => $clockIn ? $clockIn->format('M j, Y g:i A') : '—',
+                        'clock_out' => $clockOut ? $clockOut->format('M j, Y g:i A') : '—',
+                        'status' => $statusLabel,
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                    ];
+                })->values();
+
+                $printAllAttendances = collect($printAllSource)->map(function ($item) {
                     $clockIn = $item->clockin_at ? \Carbon\Carbon::parse($item->clockin_at) : null;
                     $clockOut = $item->clockout_at ? \Carbon\Carbon::parse($item->clockout_at) : null;
                     $name = trim((optional($item->user)->first_name ?? '') . ' ' . (optional($item->user)->last_name ?? ''));
@@ -46,6 +66,22 @@
                     'count' => $printAttendances->count(),
                     'items' => $printAttendances,
                 ];
+
+                $printAllPayload = [
+                    'title' => $showArchived ? 'Archived attendances (all pages)' : 'Attendance log (all pages)',
+                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'filters' => [
+                        'search' => request('name'),
+                        'search_column' => request('search_column'),
+                        'status' => request('status', 'all') ?: 'all',
+                        'start' => request('start_date'),
+                        'end' => request('end_date'),
+                        'show_archived' => $showArchived,
+                        'scope' => 'all',
+                    ],
+                    'count' => $printAllAttendances->count(),
+                    'items' => $printAllAttendances,
+                ];
             @endphp
             <div class="col-lg-12 d-flex justify-content-between">
                 <div><h2 class="title">Attendances</h2></div>
@@ -63,6 +99,7 @@
                             type="submit"
                             id="print-submit-button"
                             data-print='@json($printPayload)'
+                            data-print-all='@json($printAllPayload)'
                             aria-label="Open printable/PDF view of filtered attendances"
                         >
                             <i class="fa-solid fa-print"></i>
@@ -920,35 +957,47 @@
             }
 
             if (printButton && printForm) {
-                printButton.addEventListener('click', function (e) {
+                printButton.addEventListener('click', async function (e) {
                     const rawPayload = printButton.dataset.print;
-                    if (!rawPayload) {
-                        return;
-                    }
+                    const rawAllPayload = printButton.dataset.printAll;
+                    if (!rawPayload) return;
 
                     e.preventDefault();
                     if (printLoader) printLoader.classList.remove('d-none');
                     printButton.disabled = true;
 
                     let payload = null;
+                    let allPayload = null;
                     try {
                         payload = JSON.parse(rawPayload);
                     } catch (err) {
                         payload = null;
                     }
+                    try {
+                        allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                    } catch (err) {
+                        allPayload = null;
+                    }
 
-                    const opened = payload ? renderPrintWindow(payload) : false;
-                    if (!opened) {
+                    const scope = window.PrintPreview && PrintPreview.chooseScope
+                        ? await PrintPreview.chooseScope()
+                        : 'current';
+
+                    if (!scope) {
                         printButton.disabled = false;
                         if (printLoader) printLoader.classList.add('d-none');
-                        printForm.submit();
                         return;
                     }
 
-                    setTimeout(() => {
-                        printButton.disabled = false;
-                        if (printLoader) printLoader.classList.add('d-none');
-                    }, 300);
+                    const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                    const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                    if (!handled) {
+                        printForm.submit();
+                    }
+
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
                 });
             }
         });
