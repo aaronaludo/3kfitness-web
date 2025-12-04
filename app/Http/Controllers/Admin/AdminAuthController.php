@@ -41,6 +41,7 @@ class AdminAuthController extends Controller
                 $log = new Log;
                 $log->message   = $user->first_name . " " . $user->last_name . " successfully logged into the admin panel.";
                 $log->role_name = $roleName;
+                $log->user_id   = $user->id;
                 $log->save();
 
                 return redirect()->intended('/admin/dashboard');
@@ -59,6 +60,7 @@ class AdminAuthController extends Controller
         $log = new Log;
         $log->message = $user->first_name . " " . $user->last_name . " has logged out of the admin panel successfully.";
         $log->role_name = 'Admin';
+        $log->user_id = $user->id;
         $log->save();
         
         Auth::guard('admin')->logout();

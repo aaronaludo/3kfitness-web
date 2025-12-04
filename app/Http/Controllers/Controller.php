@@ -27,6 +27,7 @@ class Controller extends BaseController
         $log = new Log();
         $log->message = ($fullName !== '' ? $fullName : 'Admin') . ' ' . $action;
         $log->role_name = $roleName ?? $this->resolveAdminRoleName($admin->role_id, optional($admin->role)->name);
+        $log->user_id = $admin->id;
         $log->save();
     }
 

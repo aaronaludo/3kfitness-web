@@ -21,6 +21,7 @@
                         'id' => $item->id,
                         'message' => $item->message,
                         'role_name' => $item->role_name,
+                        'user_code' => optional($item->user)->user_code,
                         'created_at' => optional($item->created_at)->format('M j, Y g:i A') ?? '',
                     ];
                 })->values();
@@ -176,6 +177,7 @@
                                             <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="message">Message <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="role_name">Role Name <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="user_code">User Code <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                         </tr>
                                     </thead>
@@ -185,6 +187,7 @@
                                                 <td>{{ $item->id  }}</td>
                                                 <td>{{ $item->message }}</td>
                                                 <td>{{ $item->role_name }}</td>
+                                                <td>{{ optional($item->user)->user_code ?? '—' }}</td>
                                                 <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
                                             </tr>
                                         @endforeach
@@ -225,6 +228,7 @@
                         <td>${item.id ?? '—'}</td>
                         <td>${item.message || '—'}</td>
                         <td>${item.role_name || '—'}</td>
+                        <td>${item.user_code || '—'}</td>
                         <td>${item.created_at || ''}</td>
                     </tr>
                 `).join('');
@@ -233,7 +237,7 @@
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Message', 'Role', 'Created'];
+                const headers = ['#', 'Message', 'Role', 'User Code', 'Created'];
                 const rowsHtml = buildRows(items);
 
                 const finalPayload = {

@@ -365,6 +365,7 @@ class ScheduleController extends Controller
         $log = new Log;
         $log->message = $request->user()->first_name . " " . $request->user()->last_name . " has created class successfully.";
         $log->role_name = 'Admin';
+        $log->user_id = $request->user()->id;
         $log->save();
         
         return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule added successfully');
@@ -459,6 +460,7 @@ class ScheduleController extends Controller
         $log = new Log;
         $log->message = $request->user()->first_name . " " . $request->user()->last_name . " has updated class successfully.";
         $log->role_name = 'Admin';
+        $log->user_id = $request->user()->id;
         $log->save();
         
         return redirect()->route('admin.gym-management.schedules')->with('success', 'Schedule updated successfully');

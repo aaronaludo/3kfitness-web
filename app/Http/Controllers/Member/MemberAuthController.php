@@ -87,6 +87,7 @@ class MemberAuthController extends Controller
                 $log = new Log;
                 $log->message = $user->first_name . " " . $user->last_name . " successfully logged into the mobile application.";
                 $log->role_name = 'Member';
+                $log->user_id = $user->id;
                 $log->save();
                 
                 return response()->json(['response' => $response]);
@@ -186,6 +187,7 @@ class MemberAuthController extends Controller
         $log = new Log;
         $log->message = $user->first_name . " " . $user->last_name . " has logged out of the mobile application successfully.";
         $log->role_name = 'Member';
+        $log->user_id = $user->id;
         $log->save();
         
         return response()->json(['message' => 'Member account only'], 401);

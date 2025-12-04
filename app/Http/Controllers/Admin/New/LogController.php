@@ -11,7 +11,7 @@ class LogController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
-        $query = Log::query();
+        $query = Log::query()->with('user:id,user_code');
         
         if (!empty($search)) {
             $query->where(function ($subQuery) use ($search) {
@@ -36,7 +36,7 @@ class LogController extends Controller
     
     public function print(Request $request)
     {
-        $data = Log::all();
+        $data = Log::with('user:id,user_code')->get();
         
         $fileName = "logs_data_" . date('Y-m-d') . ".csv";
     
@@ -48,7 +48,7 @@ class LogController extends Controller
         $output = fopen('php://output', 'w');
     
         fputcsv($output, [
-            'ID', 'Message', 'Role Name', 'Created At', 'Updated At',
+            'ID', 'Message', 'Role Name', 'User Code', 'Created At', 'Updated At',
         ]);
                     
         foreach ($data as $item) {
@@ -56,6 +56,7 @@ class LogController extends Controller
                 $item->id,
                 $item->message,
                 $item->role_name,
+                optional($item->user)->user_code,
                 $item->created_at,
                 $item->updated_at
             ]);
