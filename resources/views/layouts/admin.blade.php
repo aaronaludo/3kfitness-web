@@ -402,7 +402,7 @@
         <div id="content">
             @yield('content')
         </div>
-        <footer>Copyright. &copy; 2024 All Rights Reserved.</footer>
+        <footer>Copyright. &copy; 2025 All Rights Reserved.</footer>
     </div>
 
     <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">

@@ -251,7 +251,7 @@
       </div>
       <!-- <div style="background-color: red; width: 100px; height: 1000px"></div> -->
       <footer class="login-footer text-center py-3" style="margin-left: 0">
-        Copyright. &copy; 2024 All Rights Reserved
+        Copyright. &copy; 2025 All Rights Reserved
       </footer>
     </div>
     <script
