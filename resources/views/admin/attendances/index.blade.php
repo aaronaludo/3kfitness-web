@@ -25,6 +25,7 @@
                         'id' => $item->id,
                         'role' => $role ?: '—',
                         'name' => $name ?: '—',
+                        'user_code' => optional($item->user)->user_code ?? null,
                         'clock_in' => $clockIn ? $clockIn->format('M j, Y g:i A') : '—',
                         'clock_out' => $clockOut ? $clockOut->format('M j, Y g:i A') : '—',
                         'status' => $statusLabel,
@@ -44,6 +45,7 @@
                         'id' => $item->id,
                         'role' => $role ?: '—',
                         'name' => $name ?: '—',
+                        'user_code' => optional($item->user)->user_code ?? null,
                         'clock_in' => $clockIn ? $clockIn->format('M j, Y g:i A') : '—',
                         'clock_out' => $clockOut ? $clockOut->format('M j, Y g:i A') : '—',
                         'status' => $statusLabel,
@@ -278,6 +280,7 @@
                                                         <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
                                                         <option value="role" {{ request('search_column') == 'role' ? 'selected' : '' }}>Role</option>
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
+                                                        <option value="user_code" {{ request('search_column') == 'user_code' ? 'selected' : '' }}>User Code</option>
                                                         <option value="clockin_at" {{ request('search_column') == 'clockin_at' ? 'selected' : '' }}>Clock In Date</option>
                                                         <option value="clockout_at" {{ request('search_column') == 'clockout_at' ? 'selected' : '' }}>Clock Out Date</option>
                                                         <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
@@ -370,26 +373,28 @@
                             <div class="table-responsive">
                                 <table class="table table-hover">
                                    <thead class="table-light">
-                                        <tr>
-                                            <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="role">Role <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="member_name">Member Name <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="clock_in_date">Clock In Date <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="clock_out_date">Clock Out Date <i class="fa fa-sort"></i></th>
-                                            <th>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody id="table-body">
-                                        @foreach($data as $item)
-                                            <tr>
-                                                <td>{{ $item->id }}</td>
-                                                <td>{{ $item->user->role->name }}</td>
-                                                <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
-                                                <td>
-                                                    @if ($item->clockin_at)
-                                                        {{ \Carbon\Carbon::parse($item->clockin_at)->format('F j, Y g:iA') }}
-                                                    @else
-                                                        —
+                                       <tr>
+                                           <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
+                                           <th class="sortable" data-column="role">Role <i class="fa fa-sort"></i></th>
+                                           <th class="sortable" data-column="member_name">Member Name <i class="fa fa-sort"></i></th>
+                                            <th>User Code</th>
+                                           <th class="sortable" data-column="clock_in_date">Clock In Date <i class="fa fa-sort"></i></th>
+                                           <th class="sortable" data-column="clock_out_date">Clock Out Date <i class="fa fa-sort"></i></th>
+                                           <th>Actions</th>
+                                       </tr>
+                                   </thead>
+                                   <tbody id="table-body">
+                                       @foreach($data as $item)
+                                           <tr>
+                                               <td>{{ $item->id }}</td>
+                                               <td>{{ $item->user->role->name }}</td>
+                                               <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
+                                                <td>{{ optional($item->user)->user_code ?? '—' }}</td>
+                                               <td>
+                                                   @if ($item->clockin_at)
+                                                       {{ \Carbon\Carbon::parse($item->clockin_at)->format('F j, Y g:iA') }}
+                                                   @else
+                                                       —
                                                     @endif
                                                 </td>
                                                 <td>
@@ -476,25 +481,27 @@
                 </div>
                 <div class="table-responsive mb-3">
                     <table class="table table-hover">
-                        <thead class="table-light">
-                            <tr>
-                                <th>#</th>
-                                <th>Role</th>
-                                <th>Member Name</th>
-                                <th>Clock In Date</th>
-                                <th>Clock Out Date</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Role</th>
+                                        <th>Member Name</th>
+                                        <th>User Code</th>
+                                        <th>Clock In Date</th>
+                                        <th>Clock Out Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
                         <tbody>
-                            @forelse ($archivedData as $archive)
-                                <tr>
-                                    <td>{{ $archive->id }}</td>
-                                    <td>{{ optional(optional($archive->user)->role)->name }}</td>
-                                    <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
-                                    <td>
-                                        @if ($archive->clockin_at)
-                                            {{ \Carbon\Carbon::parse($archive->clockin_at)->format('F j, Y g:iA') }}
+                                @forelse ($archivedData as $archive)
+                                    <tr>
+                                        <td>{{ $archive->id }}</td>
+                                        <td>{{ optional(optional($archive->user)->role)->name }}</td>
+                                        <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
+                                        <td>{{ optional($archive->user)->user_code ?? '—' }}</td>
+                                        <td>
+                                            @if ($archive->clockin_at)
+                                                {{ \Carbon\Carbon::parse($archive->clockin_at)->format('F j, Y g:iA') }}
                                         @else
                                             —
                                         @endif
@@ -606,7 +613,7 @@
                                 </script>
                             @empty
                                 <tr>
-                                    <td colspan="6" class="text-center text-muted">No archived attendance records found.</td>
+                                    <td colspan="7" class="text-center text-muted">No archived attendance records found.</td>
                                 </tr>
                             @endforelse
                         </tbody>
@@ -938,6 +945,7 @@
                 return items.map((item) => ([
                     item.id ?? '—',
                     `<div class="fw">${item.name || '—'}</div><div class="muted">${item.role || ''}</div>`,
+                    item.user_code || '—',
                     item.clock_in || '—',
                     item.clock_out || '—',
                     `<span class="badge ${getStatusBadgeClass(item.status)}">${item.status || '—'}</span>`,
@@ -948,7 +956,7 @@
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildPrintFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'Clock-in', 'Clock-out', 'Status', 'Audit'];
+                const headers = ['#', 'Member', 'User Code', 'Clock-in', 'Clock-out', 'Status', 'Audit'];
                 const rows = buildPrintRows(items);
 
                 return window.PrintPreview

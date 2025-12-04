@@ -31,6 +31,7 @@
                 return [
                     'id' => $payment->id,
                     'member' => $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member',
+                    'member_code' => $member->user_code ?? null,
                     'role' => $member && $member->role ? ($member->role->name ?? null) : null,
                     'email' => $member ? ($member->email ?? null) : null,
                     'phone' => $member ? ($member->phone_number ?? null) : null,
@@ -278,6 +279,7 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Member</th>
+                                        <th>Member Code</th>
                                         <th>Contact</th>
                                         <th>Membership</th>
                                         <th>Status</th>
@@ -309,6 +311,7 @@
                                                     <div class="text-muted small">{{ $member->role->name ?? '' }}</div>
                                                 @endif
                                             </td>
+                                            <td><span class="text-muted small">{{ optional($member)->user_code ?? '—' }}</span></td>
                                             <td>
                                                 <div>{{ $member ? ($member->email ?? '—') : '—' }}</div>
                                                 <div class="text-muted small">{{ $member ? ($member->phone_number ?? '—') : '—' }}</div>
@@ -363,7 +366,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-4 text-muted">
+                                            <td colspan="9" class="text-center py-4 text-muted">
                                                 No membership history found{{ $hasFilters ? ' for the selected filters.' : '.' }}
                                             </td>
                                         </tr>
@@ -408,6 +411,7 @@
                     return [
                         item.id ?? '—',
                         `<div class="fw">${item.member || '—'}</div>${role}`,
+                        item.member_code || '—',
                         `<div>${item.email || '—'}</div>${phone}`,
                         item.membership || '—',
                         price,
@@ -422,7 +426,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'Contact', 'Membership', 'Price', 'Status', 'Purchased', 'Expires'];
+                const headers = ['#', 'Member', 'Member Code', 'Contact', 'Membership', 'Price', 'Status', 'Purchased', 'Expires'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

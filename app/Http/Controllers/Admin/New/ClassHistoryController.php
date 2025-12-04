@@ -68,7 +68,8 @@ class ClassHistoryController extends Controller
                                 [$like]
                             )
                             ->orWhere('first_name', 'like', $like)
-                            ->orWhere('last_name', 'like', $like);
+                            ->orWhere('last_name', 'like', $like)
+                            ->orWhere('user_code', 'like', $like);
                         });
                     });
             });
@@ -265,6 +266,7 @@ class ClassHistoryController extends Controller
             'Class',
             'Code',
             'Trainer',
+            'Trainer Code',
             'Enrollments',
             'Starts',
             'Ends',
@@ -292,6 +294,7 @@ class ClassHistoryController extends Controller
                 $record->name,
                 $record->class_code,
                 $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
+                optional($trainer)->user_code ?? '—',
                 $record->user_schedules_count ?? 0,
                 $start ? $start->format('Y-m-d H:i') : '—',
                 $end ? $end->format('Y-m-d H:i') : '—',

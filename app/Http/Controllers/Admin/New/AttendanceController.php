@@ -38,7 +38,7 @@ class AttendanceController extends Controller
         }
     
         $allowed_columns = [
-            'id', 'role', 'name', 'clockin_at', 'clockout_at', 'created_at'
+            'id', 'role', 'name', 'user_code', 'clockin_at', 'clockout_at', 'created_at'
         ];
     
         if (!in_array($search_column, $allowed_columns)) {
@@ -77,6 +77,12 @@ class AttendanceController extends Controller
                 if ($search_column === 'name') {
                     return $query->whereHas('user', function ($q) use ($search) {
                         $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
+                    });
+                }
+
+                if ($search_column === 'user_code') {
+                    return $query->whereHas('user', function ($q) use ($search) {
+                        $q->where('user_code', 'like', "%{$search}%");
                     });
                 }
     
@@ -488,6 +494,7 @@ class AttendanceController extends Controller
             'ID',
             'Role',
             'Member Name',
+            'User Code',
             'Clock-in Time',
             'Clock-out Time',
             'Duration (hrs)',
@@ -521,6 +528,7 @@ class AttendanceController extends Controller
                 $record->id,
                 $roleName,
                 $fullName,
+                optional($record->user)->user_code ?? '—',
                 $clockInValue,
                 $clockOutValue,
                 $duration !== null ? number_format($duration, 2) : '—',

@@ -51,6 +51,7 @@ class ClassEnrollmentHistoryController extends Controller
                             )
                             ->orWhere('first_name', 'like', $like)
                             ->orWhere('last_name', 'like', $like)
+                            ->orWhere('user_code', 'like', $like)
                             ->orWhere('email', 'like', $like)
                             ->orWhere('phone_number', 'like', $like);
                         });
@@ -143,6 +144,7 @@ class ClassEnrollmentHistoryController extends Controller
                             )
                             ->orWhere('first_name', 'like', $like)
                             ->orWhere('last_name', 'like', $like)
+                            ->orWhere('user_code', 'like', $like)
                             ->orWhere('email', 'like', $like)
                             ->orWhere('phone_number', 'like', $like);
                         });
@@ -209,7 +211,7 @@ class ClassEnrollmentHistoryController extends Controller
         $table = $section->addTable('EnrollmentHistoryTable');
 
         $headers = [
-            '#', 'Member', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Start', 'Class End',
+            '#', 'Member', 'Member Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Start', 'Class End',
         ];
         $headerRow = $table->addRow();
         foreach ($headers as $h) {
@@ -222,6 +224,7 @@ class ClassEnrollmentHistoryController extends Controller
             $trainer = optional($class)->user;
 
             $memberName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member';
+            $memberCode = $member->user_code ?? '';
             $contact    = trim(($member->email ?? '') . (($member->email ?? '') && ($member->phone_number ?? '') ? ' / ' : '') . ($member->phone_number ?? ''));
             $classTitle = $class
                 ? trim(($class->name ?? '') . ($class->class_code ? ' (' . $class->class_code . ')' : ''))
@@ -245,6 +248,7 @@ class ClassEnrollmentHistoryController extends Controller
             $cells = [
                 $class ? $class->id : ($enrollment->schedule_id ?? '—'),
                 $memberName,
+                $memberCode !== '' ? $memberCode : '—',
                 $contact !== '' ? $contact : '—',
                 $classTitle,
                 $trainerName,

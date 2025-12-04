@@ -51,6 +51,7 @@ class AttendanceHistoryController extends Controller
                             [$like]
                         )->orWhere('first_name', 'like', $like)
                          ->orWhere('last_name', 'like', $like)
+                         ->orWhere('user_code', 'like', $like)
                          ->orWhere('email', 'like', $like)
                          ->orWhere('phone_number', 'like', $like);
                     });
@@ -153,6 +154,7 @@ class AttendanceHistoryController extends Controller
                             [$like]
                         )->orWhere('first_name', 'like', $like)
                          ->orWhere('last_name', 'like', $like)
+                         ->orWhere('user_code', 'like', $like)
                          ->orWhere('email', 'like', $like)
                          ->orWhere('phone_number', 'like', $like);
                     });
@@ -241,6 +243,7 @@ class AttendanceHistoryController extends Controller
         $headers = [
             'ID',
             'Name',
+            'User Code',
             'Role',
             'Email',
             'Phone',
@@ -268,6 +271,7 @@ class AttendanceHistoryController extends Controller
             $cells = [
                 $record->id,
                 $person ? trim(($person->first_name ?? '') . ' ' . ($person->last_name ?? '')) : 'Unknown',
+                $person->user_code ?? '—',
                 $person && $person->role ? ($person->role->name ?? 'Unknown') : 'Unknown',
                 $person ? ($person->email ?? '—') : '—',
                 $person ? ($person->phone_number ?? '—') : '—',

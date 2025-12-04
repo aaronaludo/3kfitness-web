@@ -26,6 +26,7 @@
                 return [
                     'id' => $attendance->id,
                     'name' => $person ? trim(($person->first_name ?? '') . ' ' . ($person->last_name ?? '')) : 'Unknown user',
+                    'user_code' => $person->user_code ?? null,
                     'role' => $person && $person->role ? ($person->role->name ?? null) : null,
                     'email' => $person ? ($person->email ?? null) : null,
                     'phone' => $person ? ($person->phone_number ?? null) : null,
@@ -49,6 +50,7 @@
                 return [
                     'id' => $attendance->id,
                     'name' => $person ? trim(($person->first_name ?? '') . ' ' . ($person->last_name ?? '')) : 'Unknown user',
+                    'user_code' => $person->user_code ?? null,
                     'role' => $person && $person->role ? ($person->role->name ?? null) : null,
                     'email' => $person ? ($person->email ?? null) : null,
                     'phone' => $person ? ($person->phone_number ?? null) : null,
@@ -318,6 +320,7 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Name</th>
+                                        <th>User Code</th>
                                         <th>Role</th>
                                         <th>Contact</th>
                                         <th>Clock-in</th>
@@ -353,6 +356,9 @@
                                                     {{ $person ? trim(($person->first_name ?? '') . ' ' . ($person->last_name ?? '')) : 'Unknown user' }}
                                                 </div>
                                                 <div class="text-muted small">ID: {{ $person->id ?? '—' }}</div>
+                                            </td>
+                                            <td>
+                                                <span class="text-muted small">{{ $person->user_code ?? '—' }}</span>
                                             </td>
                                             <td>{{ $roleName }}</td>
                                             <td>
@@ -439,6 +445,7 @@
                     return [
                         item.id ?? '—',
                         `<div class="fw">${item.name || '—'}</div>${role}`,
+                        item.user_code || '—',
                         `<div>${item.email || '—'}</div>${phone}`,
                         item.clock_in || '—',
                         item.clock_out || '—',
@@ -452,7 +459,7 @@
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Name', 'Contact', 'Clock-in', 'Clock-out', 'Duration', 'Status', 'Archive'];
+                const headers = ['#', 'Name', 'User Code', 'Contact', 'Clock-in', 'Clock-out', 'Duration', 'Status', 'Archive'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

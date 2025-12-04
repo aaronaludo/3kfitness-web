@@ -20,6 +20,7 @@
                 return [
                     'id' => $class ? $class->id : ($enrollment->schedule_id ?? null),
                     'member' => $memberName,
+                    'member_code' => $member->user_code ?? null,
                     'role' => $member && $member->role ? ($member->role->name ?? null) : null,
                     'email' => $member->email ?? null,
                     'phone' => $member->phone_number ?? null,
@@ -44,6 +45,7 @@
                 return [
                     'id' => $class ? $class->id : ($enrollment->schedule_id ?? null),
                     'member' => $memberName,
+                    'member_code' => $member->user_code ?? null,
                     'role' => $member && $member->role ? ($member->role->name ?? null) : null,
                     'email' => $member->email ?? null,
                     'phone' => $member->phone_number ?? null,
@@ -261,6 +263,7 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Member</th>
+                                        <th>Member Code</th>
                                         <th>Contact</th>
                                         <th>Class</th>
                                         <th>Trainer</th>
@@ -288,6 +291,9 @@
                                                 @if($member && $member->role)
                                                     <div class="text-muted small">{{ $member->role->name ?? '' }}</div>
                                                 @endif
+                                            </td>
+                                            <td>
+                                                <span class="text-muted small">{{ $member->user_code ?? '—' }}</span>
                                             </td>
                                             <td>
                                                 <div>{{ $member ? ($member->email ?? '—') : '—' }}</div>
@@ -340,7 +346,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-4 text-muted">
+                                            <td colspan="9" class="text-center py-4 text-muted">
                                                 No past enrollments found{{ $hasFilters ? ' for the selected filters.' : '.' }}
                                             </td>
                                         </tr>
@@ -387,6 +393,7 @@
                     return [
                         item.id ?? '—',
                         `<div class="fw">${item.member || '—'}</div>${role}`,
+                        item.member_code || '—',
                         `<div>${item.email || '—'}</div>${phone}`,
                         `<div class="fw">${item.class_name || '—'}</div>${classCode}`,
                         item.trainer || 'Not assigned',
@@ -399,7 +406,7 @@
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Window'];
+                const headers = ['#', 'Member', 'Member Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Window'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

@@ -19,6 +19,7 @@
                         'id' => $run->id,
                         'name' => $name !== '' ? $name : '—',
                         'email' => $staff->email ?? '—',
+                        'user_code' => $staff->user_code ?? null,
                         'period' => $periodLabel,
                         'hours' => number_format((float) ($run->total_hours ?? 0), 2),
                         'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
@@ -169,6 +170,7 @@
                                     <tr>
                                         <th scope="col">#</th>
                                         <th scope="col">Staff</th>
+                                        <th scope="col">Staff Code</th>
                                         <th scope="col">Period</th>
                                         <th scope="col">Hours</th>
                                         <th scope="col">Gross</th>
@@ -192,6 +194,7 @@
                                                 <div class="fw-semibold">{{ $name }}</div>
                                                 <span class="text-muted small">{{ $staff->email ?? '—' }}</span>
                                             </td>
+                                            <td><span class="text-muted small">{{ optional($staff)->user_code ?? '—' }}</span></td>
                                             <td>{{ $periodLabel }}</td>
                                             <td><span class="fw-semibold">{{ number_format((float) ($run->total_hours ?? 0), 2) }}</span> hrs</td>
                                             <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
@@ -200,7 +203,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center text-muted py-4">
+                                            <td colspan="8" class="text-center text-muted py-4">
                                                 No payroll runs found. Adjust your filters or check back later.
                                             </td>
                                         </tr>
@@ -233,6 +236,7 @@
                 return (items || []).map((item) => ([
                     item.id ?? '—',
                     `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
+                    item.user_code || '—',
                     item.period || '—',
                     `${item.hours || '0.00'} hrs`,
                     `₱${item.gross || '0.00'}`,
@@ -245,7 +249,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Staff', 'Period', 'Hours', 'Gross', 'Net', 'Processed'];
+                const headers = ['#', 'Staff', 'Staff Code', 'Period', 'Hours', 'Gross', 'Net', 'Processed'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

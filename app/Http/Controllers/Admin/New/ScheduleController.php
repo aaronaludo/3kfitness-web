@@ -75,6 +75,7 @@ class ScheduleController extends Controller
     
         $allowedColumns = [
             'id', 'name', 'class_code', 'trainer_name', 'slots',
+            'trainer_user_code',
             'class_start_date', 'class_end_date', 'isadminapproved',
             'rejection_reason', 'created_at',
         ];
@@ -119,6 +120,12 @@ class ScheduleController extends Controller
                                 )->orWhere('first_name', 'like', $likeSearch)
                                  ->orWhere('last_name', 'like', $likeSearch);
                             });
+                        });
+                    } elseif ($searchColumn === 'trainer_user_code') {
+                        $likeSearch = "%{$search}%";
+
+                        return $query->whereHas('user', function ($userQuery) use ($likeSearch) {
+                            $userQuery->where('user_code', 'like', $likeSearch);
                         });
                     }
 

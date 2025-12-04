@@ -30,6 +30,7 @@
                     'name' => $class->name,
                     'code' => $class->class_code,
                     'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
+                    'trainer_code' => optional($trainer)->user_code ?? null,
                     'enrollments' => $class->user_schedules_count ?? 0,
                     'start' => $start ? $start->format('M d, Y g:i A') : null,
                     'end' => $end ? $end->format('M d, Y g:i A') : null,
@@ -53,6 +54,7 @@
                     'name' => $class->name,
                     'code' => $class->class_code,
                     'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
+                    'trainer_code' => optional($trainer)->user_code ?? null,
                     'enrollments' => $class->user_schedules_count ?? 0,
                     'start' => $start ? $start->format('M d, Y g:i A') : null,
                     'end' => $end ? $end->format('M d, Y g:i A') : null,
@@ -326,6 +328,7 @@
                                         <th>#</th>
                                         <th>Class</th>
                                         <th>Trainer</th>
+                                        <th>Trainer Code</th>
                                         <th>Members</th>
                                         <th>Class Window</th>
                                         <th>Status</th>
@@ -362,6 +365,7 @@
                                                     <span class="text-muted">Not assigned</span>
                                                 @endif
                                             </td>
+                                            <td><span class="text-muted small">{{ optional($trainer)->user_code ?? '—' }}</span></td>
                                             <td>{{ $class->user_schedules_count ?? 0 }}</td>
                                             <td>
                                                 @if($start || $end)
@@ -400,7 +404,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center py-4 text-muted">
+                                            <td colspan="9" class="text-center py-4 text-muted">
                                                 No completed classes found{{ $hasFilters ? ' for the selected filters.' : '.' }}
                                             </td>
                                         </tr>
@@ -440,6 +444,7 @@
                         item.id ?? '—',
                         `<div class="fw">${item.name || '—'}</div><div class="muted">${item.code || ''}</div>`,
                         trainer || 'Not assigned',
+                        item.trainer_code || '—',
                         item.enrollments ?? 0,
                         `<div>${item.start || '—'}</div><div class="muted">${item.end ? 'to ' + item.end : ''}</div>`,
                         item.status || '—',
@@ -451,7 +456,7 @@
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Class', 'Trainer', 'Members', 'Class Window', 'Status', 'Archive'];
+                const headers = ['#', 'Class', 'Trainer', 'Trainer Code', 'Members', 'Class Window', 'Status', 'Archive'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

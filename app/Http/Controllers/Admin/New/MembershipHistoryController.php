@@ -168,6 +168,7 @@ class MembershipHistoryController extends Controller
                             )
                             ->orWhere('first_name', 'like', $like)
                             ->orWhere('last_name', 'like', $like)
+                            ->orWhere('user_code', 'like', $like)
                             ->orWhere('email', 'like', $like)
                             ->orWhere('phone_number', 'like', $like);
                         });
@@ -252,6 +253,7 @@ class MembershipHistoryController extends Controller
         $headers = [
             'ID',
             'Member',
+            'Member Code',
             'Role',
             'Email',
             'Phone',
@@ -281,6 +283,7 @@ class MembershipHistoryController extends Controller
             $cells = [
                 $record->id,
                 $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member',
+                $member->user_code ?? '—',
                 $member && $member->role ? ($member->role->name ?? '') : '',
                 $member ? ($member->email ?? '—') : '—',
                 $member ? ($member->phone_number ?? '—') : '—',

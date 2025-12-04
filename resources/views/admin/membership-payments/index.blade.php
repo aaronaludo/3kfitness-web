@@ -22,6 +22,7 @@
                     ];
                     $member = $item->user;
                     $memberName = trim((optional($member)->first_name ?? '') . ' ' . (optional($member)->last_name ?? ''));
+                    $memberCode = optional($member)->user_code;
                     $membership = $item->membership;
                     $currency = optional($membership)->currency ?: 'PHP';
                     $price = optional($membership)->price;
@@ -42,6 +43,7 @@
                         'id' => $item->id,
                         'member' => $memberName ?: '—',
                         'member_email' => optional($member)->email ?? '',
+                        'member_code' => $memberCode ?: '',
                         'membership' => optional($membership)->name ?: '—',
                         'expiration' => $expirationAt ? $expirationAt->format('M j, Y g:i A') : '—',
                         'created' => $createdAt ? $createdAt->format('M j, Y g:i A') : '—',
@@ -80,6 +82,7 @@
                     ];
                     $member = $item->user;
                     $memberName = trim((optional($member)->first_name ?? '') . ' ' . (optional($member)->last_name ?? ''));
+                    $memberCode = optional($member)->user_code;
                     $membership = $item->membership;
                     $currency = optional($membership)->currency ?: 'PHP';
                     $price = optional($membership)->price;
@@ -100,6 +103,7 @@
                         'id' => $item->id,
                         'member' => $memberName ?: '—',
                         'member_email' => optional($member)->email ?? '',
+                        'member_code' => $memberCode ?: '',
                         'membership' => optional($membership)->name ?: '—',
                         'expiration' => $expirationAt ? $expirationAt->format('M j, Y g:i A') : '—',
                         'created' => $createdAt ? $createdAt->format('M j, Y g:i A') : '—',
@@ -298,6 +302,7 @@
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
                                                         <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
                                                         <option value="member_name" {{ request('search_column', 'member_name') == 'member_name' ? 'selected' : '' }}>Member Name</option>
+                                                        <option value="member_user_code" {{ request('search_column') == 'member_user_code' ? 'selected' : '' }}>Member Code</option>
                                                         <option value="membership" {{ request('search_column') == 'membership' ? 'selected' : '' }}>Membership</option>
                                                         <option value="expiration_at" {{ request('search_column') == 'expiration_at' ? 'selected' : '' }}>Expiration Date</option>
                                                         <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
@@ -395,6 +400,7 @@
                                         <tr>
                                             <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="member_name">Member Name <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="member_user_code">Member Code <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="membership">Membership <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="expiration_date">Expiration Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
@@ -417,6 +423,7 @@
                                             <tr>
                                                 <td>{{ $item->id }}</td>
                                                 <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
+                                                <td>{{ optional($item->user)->user_code ?? '—' }}</td>
                                                 <td>{{ $item->membership->name }}</td>
                                                 <td>{{ $expirationAt ? $expirationAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $createdAt ? $createdAt->format('F j, Y g:iA') : '' }}</td>
@@ -666,6 +673,7 @@
                                         <tr>
                                             <th>#</th>
                                             <th>Member Name</th>
+                                            <th>Member Code</th>
                                             <th>Membership</th>
                                             <th>Status</th>
                                             <th>Expiration Date</th>
@@ -683,6 +691,7 @@
                                             <tr>
                                                 <td>{{ $archiveRowNumber ?: $loop->iteration }}</td>
                                                 <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
+                                                <td>{{ optional($archive->user)->user_code ?? '—' }}</td>
                                                 <td>{{ optional($archive->membership)->name }}</td>
                                                 <td>
                                                     @php
@@ -786,7 +795,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="7" class="text-center text-muted">No archived memberships found.</td>
+                                                <td colspan="8" class="text-center text-muted">No archived memberships found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -835,6 +844,7 @@
                     return [
                         item.number ?? '—',
                         `<div class="fw">${item.member || '—'}</div><div class="muted">${item.member_email || ''}</div>`,
+                        item.member_code || '—',
                         `<div>${item.membership || '—'}</div><div class="muted">Expires: ${item.expiration || '—'}</div>`,
                         `<div class="fw">${item.amount || 'PHP 0.00'}</div><div class="muted">Created: ${item.created || '—'}</div><div class="muted">Updated: ${item.updated || '—'}</div>`,
                         `<span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span>`,
@@ -848,7 +858,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'Membership', 'Billing', 'Status', 'Classes', 'Created By'];
+                const headers = ['#', 'Member', 'Member Code', 'Membership', 'Billing', 'Status', 'Classes', 'Created By'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

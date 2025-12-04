@@ -458,8 +458,22 @@
                                                             }
 
                                                             $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                                                            $displayName = $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                            $memberCode = $user->user_code ?? null;
 
-                                                            return $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                            if ($displayName && $memberCode) {
+                                                                return "{$displayName} ({$memberCode})";
+                                                            }
+
+                                                            if ($displayName) {
+                                                                return $displayName;
+                                                            }
+
+                                                            if ($memberCode) {
+                                                                return $memberCode;
+                                                            }
+
+                                                            return null;
                                                         })->filter()->unique()->values();
 
                                                         $isPast = false;
@@ -890,8 +904,22 @@
                                                             }
 
                                                             $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                                                            $displayName = $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                            $memberCode = $user->user_code ?? null;
 
-                                                            return $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                            if ($displayName && $memberCode) {
+                                                                return "{$displayName} ({$memberCode})";
+                                                            }
+
+                                                            if ($displayName) {
+                                                                return $displayName;
+                                                            }
+
+                                                            if ($memberCode) {
+                                                                return $memberCode;
+                                                            }
+
+                                                            return null;
                                                         })->filter()->unique()->values();
 
                                                         $isPast = false;

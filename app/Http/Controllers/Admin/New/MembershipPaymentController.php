@@ -35,7 +35,7 @@ class MembershipPaymentController extends Controller
         }
 
         $allowedColumns = [
-            'id', 'member_name', 'membership', 'expiration_at', 'created_at', 'updated_at', 'status',
+            'id', 'member_name', 'member_user_code', 'membership', 'expiration_at', 'created_at', 'updated_at', 'status',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
@@ -226,7 +226,7 @@ class MembershipPaymentController extends Controller
         }
 
         $allowedColumns = [
-            'id', 'member_name', 'membership', 'expiration_at', 'created_at', 'updated_at', 'status',
+            'id', 'member_name', 'member_user_code', 'membership', 'expiration_at', 'created_at', 'updated_at', 'status',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
@@ -276,6 +276,7 @@ class MembershipPaymentController extends Controller
         $headers = [
             'ID',
             'Member Name',
+            'Member Code',
             'Membership',
             'Expiration Date',
             'Created Date',
@@ -295,12 +296,14 @@ class MembershipPaymentController extends Controller
 
         foreach ($data as $item) {
             $memberName = trim(($item->user->first_name ?? '') . ' ' . ($item->user->last_name ?? ''));
+            $memberCode = $item->user->user_code ?? '';
             $membership = optional($item->membership)->name ?? '';
             $status     = $statusLabels[$item->isapproved] ?? 'Pending';
 
             $row = $table->addRow();
             $row->addCell()->addText((string) $item->id);
             $row->addCell()->addText($memberName);
+            $row->addCell()->addText($memberCode);
             $row->addCell()->addText($membership);
             $row->addCell()->addText((string) $item->expiration_at);
             $row->addCell()->addText((string) $item->created_at);
@@ -328,7 +331,7 @@ class MembershipPaymentController extends Controller
         $query = MembershipPayment::query()
             ->with([
                 'user' => function ($userQuery) {
-                    $userQuery->select('id', 'first_name', 'last_name')
+                    $userQuery->select('id', 'first_name', 'last_name', 'email', 'user_code')
                         ->with([
                             'userSchedules' => function ($userScheduleQuery) {
                                 $userScheduleQuery->select('id', 'user_id', 'schedule_id')
@@ -359,6 +362,10 @@ class MembershipPaymentController extends Controller
                                 ->orWhere('last_name', 'like', "%{$keyword}%")
                                 ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$keyword}%"]);
                         });
+                    });
+                case 'member_user_code':
+                    return $query->whereHas('user', function ($subQuery) use ($keyword) {
+                        $subQuery->where('user_code', 'like', "%{$keyword}%");
                     });
                 case 'membership':
                     return $query->whereHas('membership', function ($subQuery) use ($keyword) {
