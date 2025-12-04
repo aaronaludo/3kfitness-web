@@ -172,6 +172,7 @@ class MemberDataController extends Controller
     {
         $validatedData = $request->validate([
             'profile_picture' => 'nullable|mimes:jpeg,png,jpg,gif|max:2048',
+            'captured_profile_picture' => 'nullable|string',
             'first_name' => 'required',
             'last_name' => 'required',
             'address' => 'required',
@@ -194,12 +195,27 @@ class MemberDataController extends Controller
         $users->created_by = $validatedData['first_name'] . " " .  $validatedData['last_name'];
 
         $destinationPath = public_path('uploads');
+        if (!is_dir($destinationPath)) {
+            @mkdir($destinationPath, 0755, true);
+        }
+        $profilePicturePath = null;
         
-        if ($request->hasFile('profile_picture')) {
+        if ($request->filled('captured_profile_picture')) {
+            $profilePicturePath = $this->storeCapturedImage($request->input('captured_profile_picture'), $destinationPath);
+            if ($profilePicturePath === null) {
+                return redirect()->back()
+                    ->withErrors(['profile_picture' => 'Captured image is invalid or too large. Please retake the photo.'])
+                    ->withInput();
+            }
+        } elseif ($request->hasFile('profile_picture')) {
             $profilePicture = $request->file('profile_picture');
             $profilePictureUrlName = time() . '_image.' . $profilePicture->getClientOriginalExtension();
             $profilePicture->move($destinationPath, $profilePictureUrlName);
-            $users->profile_picture = 'uploads/' . $profilePictureUrlName;
+            $profilePicturePath = 'uploads/' . $profilePictureUrlName;
+        }
+        
+        if ($profilePicturePath) {
+            $users->profile_picture = $profilePicturePath;
         }
         
         $users->save();
@@ -570,5 +586,39 @@ class MemberDataController extends Controller
         $writer->save($fullPath);
 
         return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    protected function storeCapturedImage(?string $dataUri, string $destinationPath): ?string
+    {
+        if (empty($dataUri)) {
+            return null;
+        }
+
+        if (!preg_match('/^data:image\/(jpe?g|png);base64,/', $dataUri, $matches)) {
+            return null;
+        }
+
+        $base64Data = substr($dataUri, strpos($dataUri, ',') + 1);
+        $binary = base64_decode($base64Data, true);
+        if ($binary === false) {
+            return null;
+        }
+
+        $sizeInKb = strlen($binary) / 1024;
+        if ($sizeInKb > 2048) { // ~2MB limit to mirror file validation
+            return null;
+        }
+
+        if (!is_dir($destinationPath)) {
+            @mkdir($destinationPath, 0755, true);
+        }
+
+        $extension = $matches[1] === 'jpeg' ? 'jpg' : $matches[1];
+        $fileName = uniqid('profile_', true) . '.' . $extension;
+        $fullPath = $destinationPath . DIRECTORY_SEPARATOR . $fileName;
+
+        file_put_contents($fullPath, $binary);
+
+        return 'uploads/' . $fileName;
     }
 }

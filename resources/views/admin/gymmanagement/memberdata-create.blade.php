@@ -24,8 +24,31 @@
                                 @endif
                                 <div class="mb-3 row">
                                     <label for="profile_picture" class="col-sm-12 col-lg-2 col-form-label">Profile Picture: </label>
-                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="file" class="form-control" id="profile_picture" name="profile_picture"/>
+                                    <div class="col-lg-10 col-sm-12">
+                                        <div class="border rounded p-3">
+                                            <div class="d-flex align-items-center mb-3">
+                                                <button type="button" class="btn btn-outline-secondary me-2" id="startCameraButton">
+                                                    <i class="fa-solid fa-camera me-1"></i> Start camera
+                                                </button>
+                                                <button type="button" class="btn btn-outline-primary me-2 d-none" id="captureCameraButton">
+                                                    <i class="fa-solid fa-circle-dot me-1"></i> Capture
+                                                </button>
+                                                <button type="button" class="btn btn-outline-secondary d-none" id="retakeCameraButton">
+                                                    <i class="fa-solid fa-rotate-left me-1"></i> Retake
+                                                </button>
+                                            </div>
+                                            <div class="ratio ratio-4x3 bg-light position-relative rounded overflow-hidden">
+                                                <video id="cameraPreview" class="d-none" style="object-fit: cover;" autoplay playsinline></video>
+                                                <canvas id="cameraCanvas" class="d-none w-100 h-100" style="object-fit: cover;"></canvas>
+                                                <div id="cameraPlaceholder" class="position-absolute top-50 start-50 translate-middle text-muted text-center px-3">
+                                                    Camera is off. Click “Start camera” to take a photo.
+                                                </div>
+                                            </div>
+                                            <input type="hidden" name="captured_profile_picture" id="captured_profile_picture">
+                                            <div class="small text-muted mt-2" id="cameraStatus">
+                                                Use the camera to capture the member's profile photo.
+                                            </div>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -196,7 +219,94 @@
         const confirmModal = confirmModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(confirmModalEl) : null;
         const confirmActionButton = document.getElementById('confirmActionButton');
         const confirmActionLoader = document.getElementById('confirmActionLoader');
+        const startCameraButton = document.getElementById('startCameraButton');
+        const captureCameraButton = document.getElementById('captureCameraButton');
+        const retakeCameraButton = document.getElementById('retakeCameraButton');
+        const cameraPreview = document.getElementById('cameraPreview');
+        const cameraCanvas = document.getElementById('cameraCanvas');
+        const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+        const capturedProfileInput = document.getElementById('captured_profile_picture');
+        const cameraStatus = document.getElementById('cameraStatus');
         let allowSubmit = false;
+        let cameraStream = null;
+
+        const stopCameraStream = () => {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+                cameraStream = null;
+            }
+        };
+
+        const setCameraStatus = (message) => {
+            if (cameraStatus) {
+                cameraStatus.textContent = message;
+            }
+        };
+
+        startCameraButton?.addEventListener('click', async () => {
+            if (!navigator.mediaDevices?.getUserMedia) {
+                setCameraStatus('Camera is not supported on this device.');
+                return;
+            }
+
+            try {
+                stopCameraStream();
+                cameraStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+                if (cameraPreview) {
+                    cameraPreview.srcObject = cameraStream;
+                    cameraPreview.classList.remove('d-none');
+                }
+                captureCameraButton?.classList.remove('d-none');
+                retakeCameraButton?.classList.add('d-none');
+                startCameraButton?.classList.add('d-none');
+                cameraCanvas?.classList.add('d-none');
+                cameraPlaceholder?.classList.add('d-none');
+                if (capturedProfileInput) {
+                    capturedProfileInput.value = '';
+                }
+                setCameraStatus('Camera is active. Capture a photo to use it as the profile picture.');
+            } catch (error) {
+                console.error('Camera error', error);
+                setCameraStatus('Unable to access camera. Please check permissions and try again.');
+            }
+        });
+
+        captureCameraButton?.addEventListener('click', () => {
+            if (!cameraPreview || !cameraCanvas || !capturedProfileInput) return;
+            const width = cameraPreview.videoWidth || 640;
+            const height = cameraPreview.videoHeight || 480;
+
+            cameraCanvas.width = width;
+            cameraCanvas.height = height;
+            const ctx = cameraCanvas.getContext('2d');
+            ctx.drawImage(cameraPreview, 0, 0, width, height);
+
+            const dataUrl = cameraCanvas.toDataURL('image/jpeg', 0.9);
+            capturedProfileInput.value = dataUrl;
+
+            cameraCanvas.classList.remove('d-none');
+            cameraPreview.classList.add('d-none');
+            cameraPlaceholder?.classList.add('d-none');
+            captureCameraButton.classList.add('d-none');
+            retakeCameraButton?.classList.remove('d-none');
+            startCameraButton?.classList.add('d-none');
+            setCameraStatus('Photo captured. You can retake if needed.');
+            stopCameraStream();
+        });
+
+        retakeCameraButton?.addEventListener('click', () => {
+            if (capturedProfileInput) {
+                capturedProfileInput.value = '';
+            }
+            cameraCanvas?.classList.add('d-none');
+            cameraPreview?.classList.add('d-none');
+            cameraPlaceholder?.classList.remove('d-none');
+            captureCameraButton?.classList.add('d-none');
+            retakeCameraButton?.classList.add('d-none');
+            startCameraButton?.classList.remove('d-none');
+            setCameraStatus('Use the camera to capture the member\'s profile photo.');
+            stopCameraStream();
+        });
 
         const buildName = () => {
             const first = firstNameInput?.value?.trim() || '';
@@ -221,6 +331,7 @@
             if (!form.checkValidity()) {
                 return;
             }
+            stopCameraStream();
             if (!allowSubmit) {
                 e.preventDefault();
                 populateConfirmation();
@@ -245,7 +356,10 @@
             confirmActionLoader.classList.remove('d-none');
             loader.classList.remove('d-none');
             confirmModal?.hide();
+            stopCameraStream();
             form.submit();
         });
+
+        window.addEventListener('beforeunload', stopCameraStream);
     </script>
 @endsection

@@ -151,6 +151,38 @@
             </div>
         </header>
         <nav id="column-left">
+            @php
+                $gymRoutes = [
+                    'admin.gym-management.index',
+                    'admin.gym-management.schedules*',
+                    'admin.gym-management.members*',
+                    'admin.staff-account-management.memberships*',
+                    'admin.staff-account-management.membership-payments*',
+                ];
+                $historyRoutes = [
+                    'admin.history.class-enrollments*',
+                    'admin.history.attendances*',
+                    'admin.history.classes*',
+                    'admin.history.payments*',
+                    'admin.history.trainer-classes*',
+                    'admin.history.memberships*',
+                ];
+                $staffAccountRoutes = [
+                    'admin.staff-account-management.index',
+                    'admin.staff-account-management.add',
+                    'admin.staff-account-management.view',
+                    'admin.staff-account-management.edit',
+                    'admin.staff-account-management.store',
+                    'admin.staff-account-management.update',
+                    'admin.staff-account-management.delete',
+                    'admin.staff-account-management.restore',
+                    'admin.staff-account-management.print',
+                    'admin.staff-account-management.attendances*',
+                ];
+                $trainerRoutes = ['admin.trainer-management.*'];
+                $operationsRoutes = ['admin.banners.*', 'admin.logs.*'];
+                $payrollRoutes = ['admin.payrolls.*'];
+            @endphp
             <ul id="menu">
                 <li>
                     <a href="{{ route('admin.dashboard.index') }}" class="{{ request()->routeIs('admin.dashboard.index') ? 'active' : '' }}">
@@ -158,168 +190,134 @@
                     </a>
                 </li>
                 <li>
-                    <a class="collapsed {{ 
-                        Request::route()->getName() === 'admin.gym-management.index' || 
-                        Request::route()->getName() === 'admin.gym-management.schedules' || 
-                        Request::route()->getName() === 'admin.gym-management.members' || 
-                        Request::route()->getName() === 'admin.staff-account-management.memberships' || 
-                        Request::route()->getName() === 'admin.staff-account-management.membership-payments'
-                        ? 'active' : '' 
-                    }}" 
+                    <a class="collapsed {{ request()->routeIs($gymRoutes) ? 'active' : '' }}" 
                     data-bs-toggle="collapse" href="#gym-management-menu" 
                     role="button" 
-                    aria-expanded="{{ 
-                        Request::route()->getName() === 'admin.gym-management.index' || 
-                        Request::route()->getName() === 'admin.gym-management.schedules' || 
-                        Request::route()->getName() === 'admin.gym-management.members' || 
-                        Request::route()->getName() === 'admin.staff-account-management.memberships' || 
-                        Request::route()->getName() === 'admin.staff-account-management.membership-payments'
-                        ? 'true' : 'false' 
-                    }}" 
+                    aria-expanded="{{ request()->routeIs($gymRoutes) ? 'true' : 'false' }}" 
                     aria-controls="gym-management-menu">
                         <i class="fa-solid fa-dumbbell"></i> Gym Management
                     </a>
                 
-                    <ul id="gym-management-menu" class="collapse {{ 
-                        Request::route()->getName() === 'admin.gym-management.schedules' || 
-                        Request::route()->getName() === 'admin.gym-management.members' || 
-                        Request::route()->getName() === 'admin.staff-account-management.memberships' || 
-                        Request::route()->getName() === 'admin.staff-account-management.membership-payments'
-                        ? 'show' : '' 
-                    }}">
+                    <ul id="gym-management-menu" class="collapse {{ request()->routeIs($gymRoutes) ? 'show' : '' }}">
                         <li>
                             <a href="{{ route('admin.gym-management.schedules') }}" 
-                               class="{{ Request::route()->getName() === 'admin.gym-management.schedules' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.gym-management.schedules*') ? 'active' : '' }}">
                                Classes
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.gym-management.members') }}" 
-                               class="{{ Request::route()->getName() === 'admin.gym-management.members' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.gym-management.members*') ? 'active' : '' }}">
                                Members Data
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.staff-account-management.memberships') }}" 
-                               class="{{ Request::route()->getName() === 'admin.staff-account-management.memberships' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.staff-account-management.memberships*') ? 'active' : '' }}">
                                Memberships
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.staff-account-management.membership-payments') }}" 
-                               class="{{ Request::route()->getName() === 'admin.staff-account-management.membership-payments' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.staff-account-management.membership-payments*') ? 'active' : '' }}">
                                Membership Payments
                             </a>
                         </li>
                     </ul>
                 </li>                
-                @php
-                    $historyRoutes = ['admin.history.class-enrollments', 'admin.history.attendances', 'admin.history.classes', 'admin.history.payments', 'admin.history.trainer-classes', 'admin.history.memberships'];
-                @endphp
                 <li>
-                    <a class="collapsed {{ in_array(Request::route()->getName(), $historyRoutes) ? 'active' : '' }}"
+                    <a class="collapsed {{ request()->routeIs($historyRoutes) ? 'active' : '' }}"
                        data-bs-toggle="collapse"
                        href="#history-menu"
                        role="button"
-                       aria-expanded="{{ in_array(Request::route()->getName(), $historyRoutes) ? 'true' : 'false' }}"
+                       aria-expanded="{{ request()->routeIs($historyRoutes) ? 'true' : 'false' }}"
                        aria-controls="history-menu">
                         <i class="fa-solid fa-clock-rotate-left"></i> History
                     </a>
-                    <ul id="history-menu" class="collapse {{ in_array(Request::route()->getName(), $historyRoutes) ? 'show' : '' }}">
+                    <ul id="history-menu" class="collapse {{ request()->routeIs($historyRoutes) ? 'show' : '' }}">
                         <li>
                             <a href="{{ route('admin.history.class-enrollments') }}"
-                               class="{{ Request::route()->getName() === 'admin.history.class-enrollments' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.history.class-enrollments*') ? 'active' : '' }}">
                                Enrollment History
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.history.attendances') }}"
-                               class="{{ Request::route()->getName() === 'admin.history.attendances' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.history.attendances*') ? 'active' : '' }}">
                                Attendances History
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.history.classes') }}"
-                               class="{{ Request::route()->getName() === 'admin.history.classes' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.history.classes*') ? 'active' : '' }}">
                                Classes History
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.history.payments') }}"
-                               class="{{ Request::route()->getName() === 'admin.history.payments' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.history.payments*') ? 'active' : '' }}">
                                Payments History
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.history.trainer-classes') }}"
-                               class="{{ Request::route()->getName() === 'admin.history.trainer-classes' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.history.trainer-classes*') ? 'active' : '' }}">
                                Trainer Classes History
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.history.memberships') }}"
-                               class="{{ Request::route()->getName() === 'admin.history.memberships' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.history.memberships*') ? 'active' : '' }}">
                                Membership History
                             </a>
                         </li>
                     </ul>
                 </li>
                 <li>
-                    <a class="collapsed {{ 
-                        in_array(Request::route()->getName(), [
-                            'admin.staff-account-management.index', 
-                            'admin.staff-account-management.attendances'
-                        ]) ? 'active' : '' }}" 
+                    <a class="collapsed {{ request()->routeIs($staffAccountRoutes) ? 'active' : '' }}" 
                         data-bs-toggle="collapse" href="#staff-account-management-menu" 
-                        role="button" aria-expanded="{{ 
-                        in_array(Request::route()->getName(), [
-                            'admin.staff-account-management.index', 
-                            'admin.staff-account-management.attendances'
-                        ]) ? 'true' : 'false' }}" 
+                        role="button" aria-expanded="{{ request()->routeIs($staffAccountRoutes) ? 'true' : 'false' }}" 
                         aria-controls="staff-account-management-menu">
                         <i class="fa-solid fa-users"></i> Staff Account Management
                     </a>
-                    <ul id="staff-account-management-menu" class="collapse {{ 
-                        in_array(Request::route()->getName(), [
-                            'admin.staff-account-management.index', 
-                            'admin.staff-account-management.attendances'
-                        ]) ? 'show' : '' }}">
+                    <ul id="staff-account-management-menu" class="collapse {{ request()->routeIs($staffAccountRoutes) ? 'show' : '' }}">
                         @if(auth()->guard('admin')->user()->role_id != 2)
                             <li>
                                 <a href="{{ route('admin.staff-account-management.index') }}" 
-                                   class="{{ Request::route()->getName() === 'admin.staff-account-management.index' ? 'active' : '' }}">
+                                   class="{{ request()->routeIs([
+                                        'admin.staff-account-management.index',
+                                        'admin.staff-account-management.add',
+                                        'admin.staff-account-management.view',
+                                        'admin.staff-account-management.edit',
+                                        'admin.staff-account-management.store',
+                                        'admin.staff-account-management.update',
+                                        'admin.staff-account-management.delete',
+                                        'admin.staff-account-management.restore',
+                                        'admin.staff-account-management.print',
+                                    ]) ? 'active' : '' }}">
                                    Overview
                                 </a>
                             </li>
                         @endif
                         <li>
                             <a href="{{ route('admin.staff-account-management.attendances') }}" 
-                               class="{{ Request::route()->getName() === 'admin.staff-account-management.attendances' ? 'active' : '' }}">
+                               class="{{ request()->routeIs('admin.staff-account-management.attendances*') ? 'active' : '' }}">
                                Attendances
                             </a>
                         </li>
                     </ul>
                 </li>
-                @php
-                    $trainerRoutes = [
-                        'admin.trainer-management.index',
-                        'admin.trainer-management.add',
-                        'admin.trainer-management.edit',
-                        'admin.trainer-management.view',
-                    ];
-                @endphp
-
                 <li>
-                    <a class="collapsed {{ in_array(Request::route()->getName(), $trainerRoutes) ? 'active' : '' }}" 
+                    <a class="collapsed {{ request()->routeIs($trainerRoutes) ? 'active' : '' }}" 
                     data-bs-toggle="collapse" 
                     href="#trainer-management-menu" 
                     role="button" 
-                    aria-expanded="{{ in_array(Request::route()->getName(), $trainerRoutes) ? 'true' : 'false' }}" 
+                    aria-expanded="{{ request()->routeIs($trainerRoutes) ? 'true' : 'false' }}" 
                     aria-controls="trainer-management-menu">
                         <i class="fa-solid fa-dumbbell"></i> Trainer Management
                     </a>
-                    <ul id="trainer-management-menu" class="collapse {{ in_array(Request::route()->getName(), $trainerRoutes) ? 'show' : '' }}">
-                        <li><a href="{{ route('admin.trainer-management.index') }}" class="{{ Request::route()->getName() === 'admin.trainer-management.index' ? 'active' : '' }}">Trainers</a></li>
+                    <ul id="trainer-management-menu" class="collapse {{ request()->routeIs($trainerRoutes) ? 'show' : '' }}">
+                        <li><a href="{{ route('admin.trainer-management.index') }}" class="{{ request()->routeIs('admin.trainer-management.*') ? 'active' : '' }}">Trainers</a></li>
                         {{-- <li><a href="{{ route('admin.trainer-management.add') }}" class="{{ Request::route()->getName() === 'admin.trainer-management.add' ? 'active' : '' }}">Add Trainer</a></li>
                         <li><a href="#" class="{{ Request::route()->getName() === 'admin.trainer-management.edit' ? 'active' : '' }}">Edit Trainer</a></li>
                         <li><a href="#" class="{{ Request::route()->getName() === 'admin.trainer-management.view' ? 'active' : '' }}">View Trainer</a></li> --}}
@@ -327,34 +325,22 @@
                 </li>
                 @if(auth()->guard('admin')->user()->role_id != 2)
                     <li>
-                        <a class="collapsed {{ 
-                            in_array(Request::route()->getName(), [
-                                'admin.banners.index',
-                                'admin.logs.index'
-                            ]) ? 'active' : '' }}" 
+                        <a class="collapsed {{ request()->routeIs($operationsRoutes) ? 'active' : '' }}" 
                             data-bs-toggle="collapse" 
                             href="#operations-menu" 
                             role="button" 
-                            aria-expanded="{{ 
-                                in_array(Request::route()->getName(), [
-                                    'admin.banners.index',
-                                    'admin.logs.index'
-                                ]) ? 'true' : 'false' }}" 
+                            aria-expanded="{{ request()->routeIs($operationsRoutes) ? 'true' : 'false' }}" 
                             aria-controls="operations-menu">
                             <i class="fa-solid fa-cogs"></i> Operations
                         </a>
-                        <ul id="operations-menu" class="collapse {{ 
-                            in_array(Request::route()->getName(), [
-                                'admin.banners.index',
-                                'admin.logs.index'
-                            ]) ? 'show' : '' }}">
-                            <li><a href="{{ route('admin.banners.index') }}" class="{{ Request::route()->getName() === 'admin.banners.index' ? 'active' : '' }}">Banners</a></li>
-                            <li><a href="{{ route('admin.logs.index') }}" class="{{ Request::route()->getName() === 'admin.logs.index' ? 'active' : '' }}">Logs</a></li>
+                        <ul id="operations-menu" class="collapse {{ request()->routeIs($operationsRoutes) ? 'show' : '' }}">
+                            <li><a href="{{ route('admin.banners.index') }}" class="{{ request()->routeIs('admin.banners.*') ? 'active' : '' }}">Banners</a></li>
+                            <li><a href="{{ route('admin.logs.index') }}" class="{{ request()->routeIs('admin.logs.*') ? 'active' : '' }}">Logs</a></li>
                         </ul>
                     </li>
                 @endif
                 @if(auth()->guard('admin')->user()->role_id != 2)
-                <li><a href="{{ route('admin.payrolls.index') }}"><i class="fa-solid fa-money-bill"></i> Payrolls</a></li>
+                <li><a href="{{ route('admin.payrolls.index') }}" class="{{ request()->routeIs($payrollRoutes) ? 'active' : '' }}"><i class="fa-solid fa-money-bill"></i> Payrolls</a></li>
                 @endif
                 <!--<li>-->
                 <!--    <a href="{{ route('admin.banners.index') }}">-->
