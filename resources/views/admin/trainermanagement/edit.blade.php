@@ -95,7 +95,6 @@
                                             class="form-control" 
                                             id="phone_number" 
                                             name="phone_number" 
-                                            pattern="^\\+639\\d{9}$" 
                                             placeholder="+639XXXXXXXXX"
                                             value="{{ old('phone_number', $data->phone_number) }}"
                                             required
