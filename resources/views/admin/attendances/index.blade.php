@@ -364,7 +364,6 @@
                                                 </td>
                                                 <td>
                                                     <div class="d-flex">
-                                                        <div class="action-button"><a href="#" title="View"><i class="fa-solid fa-eye"></i></a></div>
                                                         <div class="action-button">
                                                             <button
                                                                 type="button"
