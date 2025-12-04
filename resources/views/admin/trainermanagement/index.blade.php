@@ -334,12 +334,12 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="user_code">User Code <i class="fa fa-sort"></i></th>
                                             {{-- <th class="sortable" data-column="membership_name">Membership Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="expiration_date">Membership Expiration Date <i class="fa fa-sort"></i></th> --}}
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="phone_number">Phone Number <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="email">Email <i class="fa fa-sort"></i></th>
-                                            <th>Estimated Salary</th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
@@ -354,6 +354,7 @@
                                                 $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
                                             @endphp
                                             <tr>
+                                                <td>{{ $item->id }}</td>
                                                 <td>{{ $item->user_code }}</td>
                                                 {{-- <td>
                                                     {{ 
@@ -475,13 +476,6 @@
                                                     $futureScheduleCount = $futureScheduleDetails->count();
                                                     $pastScheduleCount = $pastScheduleDetails->count();
                                                 @endphp
-                                                <td>
-                                                    @if($salaryEligibleSchedules->isNotEmpty())
-                                                        ₱{{ number_format($totalSalary, 2) }}
-                                                    @else
-                                                        —
-                                                    @endif
-                                                </td>
                                                 <td>{{ $createdAt ? $createdAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $updatedAt ? $updatedAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $item->created_by }}</td>
@@ -515,25 +509,74 @@
                                                     </div>
                                                 </td>
                                             </tr>
+                                            @php
+                                                $totalAssignments = $scheduleDetails->count();
+                                                $futureHours = $futureScheduleDetails->sum('hours');
+                                                $pastHours = $pastScheduleDetails->sum('hours');
+
+                                                $assignmentPrintPayload = [
+                                                    'title' => 'Assignments for ' . trim(($item->first_name ?? '') . ' ' . ($item->last_name ?? '')),
+                                                    'trainer' => [
+                                                        'name' => trim(($item->first_name ?? '') . ' ' . ($item->last_name ?? '')),
+                                                        'email' => $item->email ?? '',
+                                                        'phone' => $item->phone_number ?? '',
+                                                        'code' => $item->user_code ?? $item->id,
+                                                    ],
+                                                    'generated_at' => now()->format('M d, Y g:i A'),
+                                                    'summary' => [
+                                                        'total' => $totalAssignments,
+                                                        'future' => $futureScheduleCount,
+                                                        'past' => $pastScheduleCount,
+                                                        'future_hours' => (float) $futureHours,
+                                                        'past_hours' => (float) $pastHours,
+                                                    ],
+                                                    'items' => $scheduleDetails->map(function ($detail) {
+                                                        $schedule = $detail['schedule'];
+                                                        $start = $detail['start'];
+                                                        $end = $detail['end'];
+                                                        $students = $detail['students'] ?? collect();
+                                                        $categoryLabel = $detail['category'] === 'past' ? 'Past' : 'Upcoming';
+
+                                                        return [
+                                                            'name' => $schedule->name ?? 'Unnamed Schedule',
+                                                            'class_code' => $schedule->class_code ?? null,
+                                                            'category' => $detail['category'],
+                                                            'category_label' => $categoryLabel,
+                                                            'start_label' => $start ? $start->format('M j, Y g:i A') : 'Not set',
+                                                            'end_label' => $end ? $end->format('M j, Y g:i A') : '—',
+                                                            'start_date' => $detail['start_date'] ?? null,
+                                                            'end_date' => $detail['end_date'] ?? null,
+                                                            'hours' => isset($detail['hours']) ? (float) $detail['hours'] : null,
+                                                            'students' => collect($students)->values()->all(),
+                                                        ];
+                                                    })->values(),
+                                                    'filters' => [
+                                                        'category' => 'all',
+                                                        'start' => null,
+                                                        'end' => null,
+                                                    ],
+                                                ];
+                                            @endphp
                                             <div class="modal fade assignment-modal" data-assignment-modal id="assignmentsModal-{{ $item->id }}" tabindex="-1" aria-labelledby="assignmentsModalLabel-{{ $item->id }}" aria-hidden="true">
                                                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
                                                     <div class="modal-content">
                                                         <div class="modal-header align-items-center">
                                                             <h5 class="modal-title mb-0" id="assignmentsModalLabel-{{ $item->id }}">Assignments for {{ $item->first_name }} {{ $item->last_name }}</h5>
                                                             <div class="d-flex align-items-center gap-2">
-                                                                <button type="button" class="btn btn-outline-secondary btn-sm" data-print-modal="assignmentsModal-{{ $item->id }}">
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-outline-secondary btn-sm"
+                                                                    data-print-modal="assignmentsModal-{{ $item->id }}"
+                                                                    data-print='@json($assignmentPrintPayload)'
+                                                                >
                                                                     <i class="fa-solid fa-print me-1"></i>Print
+                                                                    <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true" data-print-loader></span>
                                                                 </button>
                                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                             </div>
                                                         </div>
                                                         <div class="modal-body">
                                                             @if($scheduleDetails->isNotEmpty())
-                                                                @php
-                                                                    $totalAssignments = $scheduleDetails->count();
-                                                                    $futureHours = $futureScheduleDetails->sum('hours');
-                                                                    $pastHours = $pastScheduleDetails->sum('hours');
-                                                                @endphp
                                                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                                                                     <span class="badge bg-dark text-white rounded-pill px-3 py-2" data-role="total-count">
                                                                         {{ $totalAssignments }} {{ $totalAssignments === 1 ? 'assignment' : 'assignments' }}
@@ -895,25 +938,74 @@
                                                     </div>
                                                 </td>
                                             </tr>
+                                            @php
+                                                $archivedTotalAssignments = $archivedScheduleDetails->count();
+                                                $archivedFutureHours = $archivedFutureDetails->sum('hours');
+                                                $archivedPastHours = $archivedPastDetails->sum('hours');
+
+                                                $archivedAssignmentPrintPayload = [
+                                                    'title' => 'Assignments for ' . trim(($archive->first_name ?? '') . ' ' . ($archive->last_name ?? '')),
+                                                    'trainer' => [
+                                                        'name' => trim(($archive->first_name ?? '') . ' ' . ($archive->last_name ?? '')),
+                                                        'email' => $archive->email ?? '',
+                                                        'phone' => $archive->phone_number ?? '',
+                                                        'code' => $archive->user_code ?? $archive->id,
+                                                    ],
+                                                    'generated_at' => now()->format('M d, Y g:i A'),
+                                                    'summary' => [
+                                                        'total' => $archivedTotalAssignments,
+                                                        'future' => $archivedFutureCount,
+                                                        'past' => $archivedPastCount,
+                                                        'future_hours' => (float) $archivedFutureHours,
+                                                        'past_hours' => (float) $archivedPastHours,
+                                                    ],
+                                                    'items' => $archivedScheduleDetails->map(function ($detail) {
+                                                        $schedule = $detail['schedule'];
+                                                        $start = $detail['start'];
+                                                        $end = $detail['end'];
+                                                        $students = $detail['students'] ?? collect();
+                                                        $categoryLabel = $detail['category'] === 'past' ? 'Past' : 'Upcoming';
+
+                                                        return [
+                                                            'name' => $schedule->name ?? 'Unnamed Schedule',
+                                                            'class_code' => $schedule->class_code ?? null,
+                                                            'category' => $detail['category'],
+                                                            'category_label' => $categoryLabel,
+                                                            'start_label' => $start ? $start->format('M j, Y g:i A') : 'Not set',
+                                                            'end_label' => $end ? $end->format('M j, Y g:i A') : '—',
+                                                            'start_date' => $detail['start_date'] ?? null,
+                                                            'end_date' => $detail['end_date'] ?? null,
+                                                            'hours' => isset($detail['hours']) ? (float) $detail['hours'] : null,
+                                                            'students' => collect($students)->values()->all(),
+                                                        ];
+                                                    })->values(),
+                                                    'filters' => [
+                                                        'category' => 'all',
+                                                        'start' => null,
+                                                        'end' => null,
+                                                    ],
+                                                ];
+                                            @endphp
                                             <div class="modal fade assignment-modal" data-assignment-modal id="archiveAssignmentsModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveAssignmentsModalLabel-{{ $archive->id }}" aria-hidden="true">
                                                 <div class="modal-dialog modal-lg modal-dialog-scrollable">
                                                     <div class="modal-content">
                                                         <div class="modal-header align-items-center">
                                                             <h5 class="modal-title mb-0" id="archiveAssignmentsModalLabel-{{ $archive->id }}">Assignments for {{ $archive->first_name }} {{ $archive->last_name }}</h5>
                                                             <div class="d-flex align-items-center gap-2">
-                                                                <button type="button" class="btn btn-outline-secondary btn-sm" data-print-modal="archiveAssignmentsModal-{{ $archive->id }}">
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-outline-secondary btn-sm"
+                                                                    data-print-modal="archiveAssignmentsModal-{{ $archive->id }}"
+                                                                    data-print='@json($archivedAssignmentPrintPayload)'
+                                                                >
                                                                     <i class="fa-solid fa-print me-1"></i>Print
+                                                                    <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true" data-print-loader></span>
                                                                 </button>
                                                                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                             </div>
                                                         </div>
                                                         <div class="modal-body">
                                                             @if($archivedScheduleDetails->isNotEmpty())
-                                                                @php
-                                                                    $archivedTotalAssignments = $archivedScheduleDetails->count();
-                                                                    $archivedFutureHours = $archivedFutureDetails->sum('hours');
-                                                                    $archivedPastHours = $archivedPastDetails->sum('hours');
-                                                                @endphp
                                                                 <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                                                                     <span class="badge bg-dark text-white rounded-pill px-3 py-2" data-role="total-count">
                                                                         {{ $archivedTotalAssignments }} {{ $archivedTotalAssignments === 1 ? 'assignment' : 'assignments' }}
@@ -1389,189 +1481,259 @@
                 return new Date(parts[0], parts[1] - 1, parts[2]);
             };
 
-            const gatherHeadMarkup = function () {
-                return Array.from(document.querySelectorAll('link[rel="stylesheet"], style'))
-                    .map(function (el) {
-                        return el.outerHTML;
+            const escapeHtml = function (value) {
+                if (value === null || value === undefined) {
+                    return '';
+                }
+                return String(value)
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#039;');
+            };
+
+            const formatHours = function (value) {
+                return Number(value || 0).toFixed(2);
+            };
+
+            const buildAssignmentFilterChips = function (filters) {
+                const chips = [];
+                if (filters.category && filters.category !== 'all') {
+                    chips.push(filters.category === 'future' ? 'Upcoming only' : 'Past only');
+                }
+                if (filters.start || filters.end) {
+                    chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
+                }
+
+                return chips.length
+                    ? chips.map((chip) => `<span class="pill">${escapeHtml(chip)}</span>`).join('')
+                    : '<span class="muted">No filters applied</span>';
+            };
+
+            const buildAssignmentRows = function (items) {
+                return items
+                    .map(function (item, idx) {
+                        const students = Array.isArray(item.students) ? item.students : [];
+                        const studentsMarkup = students.length
+                            ? `<ul>${students.map((student) => `<li>${escapeHtml(student)}</li>`).join('')}</ul>`
+                            : '<div class="muted">No students</div>';
+                        const category = (item.category || '').toLowerCase() === 'past' ? 'past' : 'future';
+                        const badgeClass = category === 'past' ? 'badge-soft-secondary' : 'badge-soft-success';
+                        const categoryLabel = item.category_label || (category === 'past' ? 'Past' : 'Upcoming');
+                        const endLabel = item.end_label && item.end_label !== '—' ? item.end_label : '';
+
+                        return `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td>
+                                    <div class="fw">${escapeHtml(item.name || '—')}</div>
+                                    <div class="muted">${escapeHtml(item.class_code || '')}</div>
+                                </td>
+                                <td>
+                                    <div>${escapeHtml(item.start_label || 'Not set')}</div>
+                                    <div class="muted">${escapeHtml(endLabel ? `Ends ${endLabel}` : '')}</div>
+                                </td>
+                                <td>${item.hours !== null && item.hours !== undefined ? formatHours(item.hours) + ' hrs' : '—'}</td>
+                                <td><span class="badge ${badgeClass}">${escapeHtml(categoryLabel)}</span></td>
+                                <td>${studentsMarkup}</td>
+                            </tr>
+                        `;
                     })
                     .join('');
             };
 
-            const printStyles = `
-                @page { size: A4; margin: 16mm; }
-                body.print-body {
-                    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
-                    background: #f5f6fa;
-                    color: #1f2937;
-                }
-                .print-shell {
-                    max-width: 980px;
-                    margin: 0 auto;
-                    padding: 12px 12px 32px;
-                }
-                .print-heading {
-                    font-size: 20px;
-                    font-weight: 700;
-                    margin-bottom: 4px;
-                    color: #0f172a;
-                }
-                .print-subtitle {
-                    color: #6b7280;
-                    font-size: 12px;
-                    margin-bottom: 16px;
-                }
-                .print-card {
-                    background: #ffffff;
-                    border-radius: 14px;
-                    border: 1px solid #e5e7eb;
-                    box-shadow: 0 10px 35px rgba(15, 23, 42, 0.08);
-                    padding: 28px;
-                }
-                .modal-header {
-                    border: none;
-                    padding: 0 0 12px;
-                    align-items: flex-start;
-                }
-                .modal-title {
-                    font-size: 18px;
-                    font-weight: 700;
-                    color: #111827;
-                }
-                .modal-body {
-                    padding: 0;
-                }
-                .modal-footer,
-                .modal-header .btn-close,
-                .modal-header [data-print-modal] {
-                    display: none !important;
-                }
-                .assignment-summary-card {
-                    background: linear-gradient(135deg, #f9fafb, #eef2f7);
-                    border: 1px solid #e5e7eb;
-                    border-radius: 12px;
-                    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
-                }
-                .assignment-summary-card .fs-5 {
-                    font-size: 1.25rem;
-                    color: #0f172a;
-                }
-                .assignment-summary-card .text-muted {
-                    color: #6b7280 !important;
-                }
-                .assignment-filters {
-                    background: #f9fafb;
-                    border: 1px dashed #d1d5db;
-                    border-radius: 12px;
-                }
-                .assignment-filters .btn-group .btn {
-                    border-color: #d1d5db;
-                    color: #111827;
-                }
-                .assignment-filters .btn-group .btn.btn-dark {
-                    background: #1f2937;
-                    color: #ffffff;
-                    border-color: #1f2937;
-                }
-                .assignment-filters input[type="date"] {
-                    border: 1px solid #d1d5db;
-                    border-radius: 8px;
-                    padding: 8px 10px;
-                    font-size: 0.9rem;
-                }
-                .assignment-card {
-                    border: 1px solid #e5e7eb;
-                    border-radius: 12px;
-                    background: #ffffff;
-                    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
-                }
-                .assignment-card h6 {
-                    font-size: 15px;
-                    font-weight: 700;
-                    color: #0f172a;
-                }
-                .assignment-card .text-muted {
-                    color: #6b7280 !important;
-                }
-                .badge.bg-success {
-                    background: #16a34a !important;
-                    color: #ffffff !important;
-                }
-                .badge.bg-secondary {
-                    background: #94a3b8 !important;
-                    color: #ffffff !important;
-                }
-                .assignment-list {
-                    display: grid;
-                    gap: 12px;
-                }
-                ul {
-                    margin-bottom: 0;
-                    padding-left: 18px;
-                }
-                .assignment-summary-card span,
-                .assignment-card span,
-                .assignment-card p,
-                .assignment-card li {
-                    font-size: 0.95rem;
-                }
-            `;
-
-            const printModalContent = function (modalId) {
-                if (!modalId) {
-                    return;
-                }
-
-                const modalEl = document.getElementById(modalId);
-                const content = modalEl ? modalEl.querySelector('.modal-content') : null;
-
-                if (!content) {
-                    return;
-                }
-
-                const clone = content.cloneNode(true);
-                clone.querySelectorAll('.modal-header .btn-close, .modal-header [data-print-modal], .modal-footer').forEach(function (el) {
-                    el.remove();
-                });
-
-                const titleText = modalEl.querySelector('.modal-title')?.textContent?.trim() || 'Assignments';
-
-                const printWindow = window.open('', '', 'width=900,height=700');
-                if (!printWindow) {
-                    return;
-                }
-
-                printWindow.document.open();
-                printWindow.document.write(`
-                    <!DOCTYPE html>
-                    <html>
-                        <head>
-                            <title>${titleText}</title>
-                            ${gatherHeadMarkup()}
-                            <style>${printStyles}</style>
-                        </head>
-                        <body class="print-body">
-                            <div class="print-shell">
-                                <div class="print-heading">${titleText}</div>
-                                <div class="print-subtitle">Generated ${new Date().toLocaleString()}</div>
-                                <div class="print-card">
-                                    ${clone.innerHTML}
-                                </div>
-                            </div>
-                        </body>
-                    </html>
-                `);
-                printWindow.document.close();
-                printWindow.focus();
-                printWindow.print();
-
-                setTimeout(function () {
-                    printWindow.close();
-                }, 300);
+            const summarizeAssignments = function (items) {
+                return items.reduce(
+                    function (acc, item) {
+                        const category = (item.category || '').toLowerCase() === 'past' ? 'past' : 'future';
+                        const hours = Number(item.hours || 0);
+                        acc.total += 1;
+                        if (category === 'past') {
+                            acc.past += 1;
+                            acc.past_hours += hours;
+                        } else {
+                            acc.future += 1;
+                            acc.future_hours += hours;
+                        }
+                        return acc;
+                    },
+                    { total: 0, future: 0, past: 0, future_hours: 0, past_hours: 0 }
+                );
             };
 
-            document.querySelectorAll('[data-print-modal]').forEach(function (button) {
-                button.addEventListener('click', function () {
-                    printModalContent(this.dataset.printModal);
+            const renderAssignmentPrintWindow = function (payload) {
+                const items = payload.items || [];
+                const filters = payload.filters || {};
+                const summary = payload.summary || summarizeAssignments(items);
+                const trainer = payload.trainer || {};
+                const rows = buildAssignmentRows(items);
+                const html = `
+                    <!doctype html>
+                    <html>
+                        <head>
+                            <title>${escapeHtml(payload.title || 'Trainer assignments')}</title>
+                            <style>
+                                :root { color-scheme: light; }
+                                body { font-family: Arial, sans-serif; background: #f3f4f6; margin: 0; padding: 24px; color: #111827; }
+                                .sheet { max-width: 1100px; margin: 0 auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; padding: 24px 28px; }
+                                .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
+                                .title { margin: 0; font-size: 22px; }
+                                .muted { color: #6b7280; font-size: 12px; }
+                                .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
+                                .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 14px; }
+                                .stat-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; }
+                                .stat-value { font-size: 20px; font-weight: 700; color: #111827; }
+                                .stat-label { color: #6b7280; font-size: 12px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+                                th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
+                                th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+                                .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
+                                .badge-soft-success { background: #dcfce7; color: #166534; }
+                                .badge-soft-secondary { background: #e5e7eb; color: #374151; }
+                                .fw { font-weight: 700; }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="sheet">
+                                <div class="header">
+                                    <div>
+                                        <h1 class="title">${escapeHtml(payload.title || 'Trainer assignments')}</h1>
+                                        <div class="muted">Trainer: ${escapeHtml(trainer.name || '—')} ${trainer.code ? `(${escapeHtml(trainer.code)})` : ''}</div>
+                                        <div class="muted">Contact: ${escapeHtml(trainer.email || '—')} ${trainer.phone ? ' • ' + escapeHtml(trainer.phone) : ''}</div>
+                                        <div class="muted">Generated ${escapeHtml(payload.generated_at || '')}</div>
+                                        <div class="muted">Showing ${items.length} assignment(s)</div>
+                                    </div>
+                                    <div class="stat-grid">
+                                        <div class="stat-card">
+                                            <div class="stat-value">${summary.total}</div>
+                                            <div class="stat-label">Total assignments</div>
+                                        </div>
+                                        <div class="stat-card">
+                                            <div class="stat-value">${summary.future}</div>
+                                            <div class="stat-label">Upcoming</div>
+                                            <div class="muted">Hours: ${formatHours(summary.future_hours)}</div>
+                                        </div>
+                                        <div class="stat-card">
+                                            <div class="stat-value">${summary.past}</div>
+                                            <div class="stat-label">Past</div>
+                                            <div class="muted">Hours: ${formatHours(summary.past_hours)}</div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="pill-row">${buildAssignmentFilterChips(filters)}</div>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>#</th>
+                                            <th>Class</th>
+                                            <th>Schedule</th>
+                                            <th>Hours</th>
+                                            <th>Status</th>
+                                            <th>Students</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows || '<tr><td colspan="6" style="text-align:center; padding:16px;">No assignments for this view.</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                            <script>window.print();<\/script>
+                        </body>
+                    </html>
+                `;
+
+                const printWindow = window.open('', '_blank', 'width=1200,height=900');
+                if (!printWindow) return false;
+                printWindow.document.open();
+                printWindow.document.write(html);
+                printWindow.document.close();
+                return true;
+            };
+
+            const assignmentPrintButtons = document.querySelectorAll('[data-print-modal][data-print]');
+            assignmentPrintButtons.forEach(function (button) {
+                button.addEventListener('click', function (e) {
+                    e.preventDefault();
+
+                    const modalId = button.dataset.printModal;
+                    const rawPayload = button.dataset.print;
+                    const loader = button.querySelector('[data-print-loader]');
+                    const modalEl = modalId ? document.getElementById(modalId) : null;
+
+                    if (loader) {
+                        loader.classList.remove('d-none');
+                    }
+                    button.disabled = true;
+
+                    let payload = null;
+                    try {
+                        payload = JSON.parse(rawPayload || '{}');
+                    } catch (err) {
+                        payload = null;
+                    }
+
+                    if (!payload) {
+                        button.disabled = false;
+                        if (loader) loader.classList.add('d-none');
+                        return;
+                    }
+
+                    const filters = { category: 'all', start: null, end: null };
+                    if (modalEl) {
+                        const activeCategoryButton = modalEl.querySelector('[data-category-filter].btn-dark');
+                        filters.category = activeCategoryButton ? activeCategoryButton.dataset.categoryFilter || 'all' : 'all';
+                        const startInput = modalEl.querySelector('[data-filter-start]');
+                        const endInput = modalEl.querySelector('[data-filter-end]');
+                        filters.start = startInput ? startInput.value : null;
+                        filters.end = endInput ? endInput.value : null;
+                    }
+
+                    const startDate = toDate(filters.start || '');
+                    const endDate = toDate(filters.end || '');
+
+                    const filteredItems = (payload.items || []).filter(function (item) {
+                        const category = (item.category || '').toLowerCase() === 'past' ? 'past' : 'future';
+                        if (filters.category !== 'all' && category !== filters.category) {
+                            return false;
+                        }
+
+                        if (startDate || endDate) {
+                            const itemStart = toDate(item.start_date || '');
+                            const itemEnd = toDate(item.end_date || '');
+                            const scheduleStart = itemStart || itemEnd;
+                            const scheduleEnd = itemEnd || itemStart;
+
+                            if (startDate && scheduleEnd && scheduleEnd < startDate) {
+                                return false;
+                            }
+
+                            if (endDate && scheduleStart && scheduleStart > endDate) {
+                                return false;
+                            }
+
+                            if ((startDate && !scheduleEnd) || (endDate && !scheduleStart)) {
+                                return false;
+                            }
+                        }
+
+                        return true;
+                    });
+
+                    const summary = summarizeAssignments(filteredItems);
+                    const payloadForPrint = Object.assign({}, payload, {
+                        items: filteredItems,
+                        filters: filters,
+                        summary: summary,
+                    });
+
+                    renderAssignmentPrintWindow(payloadForPrint);
+
+                    setTimeout(function () {
+                        button.disabled = false;
+                        if (loader) loader.classList.add('d-none');
+                    }, 300);
                 });
             });
 

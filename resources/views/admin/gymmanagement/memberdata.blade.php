@@ -525,7 +525,8 @@
                                 <table class="table table-hover" id="member-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th class="sortable" data-column="id">ID <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="user_code">User Code <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="membership_name">Membership Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="expiration_date">Membership Expiration Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
@@ -558,7 +559,7 @@
                                         {{-- UPDATED START: mark each row for filtering --}}
                                         <tr data-has-membership="{{ $hasMembership ? '1' : '0' }}">
                                         {{-- UPDATED END --}}
-
+                                            <td>{{ $item->id }}</td>
                                             <td>{{ $item->user_code }}</td>
 
                                             {{-- UPDATED START: show badge + consistent "No Membership" label --}}
