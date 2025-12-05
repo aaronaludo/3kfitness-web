@@ -79,6 +79,31 @@
             </div>
         </div>
 
+        <div class="detail-stats-grid">
+            <div class="detail-stat">
+                <span class="label">Membership</span>
+                <div class="value">{{ $membershipName }}</div>
+                <div class="hint">{{ $expiresAt ? 'Expires ' . $expiresText : 'No active membership' }}</div>
+            </div>
+            <div class="detail-stat">
+                <span class="label">Status</span>
+                <div class="value">{{ $statusText }}</div>
+                <div class="hint">
+                    Last payment {{ optional($latestPayment?->created_at)->format('M d, Y') ?? '—' }}
+                </div>
+            </div>
+            <div class="detail-stat">
+                <span class="label">Contact</span>
+                <div class="value">{{ $gym_member->email ?? 'No email' }}</div>
+                <div class="hint">{{ $gym_member->phone_number ?? 'No phone' }}</div>
+            </div>
+            <div class="detail-stat">
+                <span class="label">Profile</span>
+                <div class="value">{{ $gym_member->role->name ?? 'Member' }}</div>
+                <div class="hint">User code: {{ $gym_member->user_code ?? '—' }}</div>
+            </div>
+        </div>
+
         <div class="detail-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Key details</h5>
@@ -92,8 +117,16 @@
                             <td>{{ $gym_member->user_code ?? '—' }}</td>
                         </tr>
                         <tr>
+                            <th scope="row">Role</th>
+                            <td>{{ $gym_member->role->name ?? 'Member' }}</td>
+                        </tr>
+                        <tr>
                             <th scope="row">Membership</th>
                             <td>{{ $membershipName }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Status</th>
+                            <td>{{ $statusText }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Expiration</th>

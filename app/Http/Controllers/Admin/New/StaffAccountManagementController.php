@@ -11,6 +11,7 @@ use Carbon\Carbon;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Style\Language;
+use Illuminate\Support\Facades\File;
 
 class StaffAccountManagementController extends Controller
 {
@@ -111,7 +112,8 @@ class StaffAccountManagementController extends Controller
                     ->where(fn ($q) => $q->where('role_id', 2)),
             ],
             'password' => ['required', 'confirmed'],
-            'rate_per_hour' => 'required'
+            'rate_per_hour' => 'required',
+            'profile_picture' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
         ]);
 
         if ($validator->fails()) {
@@ -131,6 +133,19 @@ class StaffAccountManagementController extends Controller
         $users->password = $request->password;
         $users->rate_per_hour = $request->rate_per_hour;
         $users->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
+
+        $destinationPath = public_path('uploads');
+        if (!File::isDirectory($destinationPath)) {
+            File::makeDirectory($destinationPath, 0755, true);
+        }
+
+        if ($request->hasFile('profile_picture')) {
+            $profilePicture = $request->file('profile_picture');
+            $profilePictureUrlName = time() . '_' . uniqid('profile_') . '.' . $profilePicture->getClientOriginalExtension();
+            $profilePicture->move($destinationPath, $profilePictureUrlName);
+            $users->profile_picture = 'uploads/' . $profilePictureUrlName;
+        }
+
         $users->save();
 
         $prefix = match ((int) $users->role_id) {
@@ -169,6 +184,8 @@ class StaffAccountManagementController extends Controller
                 ],
                 'rate_per_hour' => ['required', 'numeric', 'min:0'],
                 'password' => ['nullable', 'confirmed'],
+                'profile_picture' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+                'remove_profile_picture' => ['nullable', 'boolean'],
             ]);
         }
 
@@ -190,6 +207,33 @@ class StaffAccountManagementController extends Controller
             $data->rate_per_hour = $request->rate_per_hour;
             if ($request->filled('password')) {
                 $data->password = $request->password;
+            }
+
+            $destinationPath = public_path('uploads');
+            if (!File::isDirectory($destinationPath)) {
+                File::makeDirectory($destinationPath, 0755, true);
+            }
+
+            $removeRequested = $request->boolean('remove_profile_picture');
+            $deleteExistingImage = function () use ($data) {
+                if ($data->profile_picture) {
+                    $currentPath = public_path($data->profile_picture);
+                    if (File::exists($currentPath)) {
+                        File::delete($currentPath);
+                    }
+                    $data->profile_picture = null;
+                }
+            };
+
+            if ($request->hasFile('profile_picture')) {
+                $deleteExistingImage();
+
+                $profilePicture = $request->file('profile_picture');
+                $profilePictureUrlName = time() . '_' . uniqid('profile_') . '.' . $profilePicture->getClientOriginalExtension();
+                $profilePicture->move($destinationPath, $profilePictureUrlName);
+                $data->profile_picture = 'uploads/' . $profilePictureUrlName;
+            } elseif ($removeRequested) {
+                $deleteExistingImage();
             }
         }
         $data->save();

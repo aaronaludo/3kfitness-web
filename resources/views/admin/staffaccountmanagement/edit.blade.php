@@ -13,6 +13,8 @@
                         <div class="col-lg-12">
                             @php
                                 $canEditAll = in_array(auth()->user()->role_id ?? null, [1, 4], true);
+                                $profilePicture = $data->profile_picture ?? null;
+                                $profilePictureUrl = $profilePicture ? asset($profilePicture) : asset('assets/images/profile-45x45.png');
                             @endphp
                             <form action="{{ route('admin.staff-account-management.update', $data->id) }}" method="POST" enctype="multipart/form-data" id="main-form">
                                 @csrf
@@ -26,6 +28,50 @@
                                         </ul>
                                     </div>
                                 @endif
+                                <div class="mb-3 row">
+                                    <label for="profile_picture" class="col-sm-12 col-lg-2 col-form-label">Profile Picture:</label>
+                                    <div class="col-lg-10 col-sm-12">
+                                        <div class="d-flex align-items-center flex-wrap gap-3">
+                                            <img
+                                                id="profilePreview"
+                                                src="{{ $profilePictureUrl }}"
+                                                alt="Profile preview"
+                                                class="rounded-circle border"
+                                                width="100"
+                                                height="100"
+                                                data-default="{{ asset('assets/images/profile-45x45.png') }}"
+                                                data-existing="{{ $profilePicture ? asset($profilePicture) : '' }}"
+                                                data-has-existing="{{ $profilePicture ? '1' : '0' }}"
+                                            />
+                                            @if($canEditAll)
+                                                <div class="flex-grow-1" style="max-width: 320px;">
+                                                    <input
+                                                        type="file"
+                                                        class="form-control mb-2"
+                                                        id="profile_picture"
+                                                        name="profile_picture"
+                                                        accept="image/*"
+                                                    />
+                                                    <input type="hidden" name="remove_profile_picture" id="remove_profile_picture" value="0">
+                                                    <div class="d-flex gap-2">
+                                                        <button type="button" class="btn btn-outline-danger btn-sm" id="removeProfileButton">
+                                                            Remove Photo
+                                                        </button>
+                                                    </div>
+                                                    <small class="text-muted d-block mt-2">
+                                                        Accepted formats: JPG, PNG, GIF up to 2MB.
+                                                    </small>
+                                                </div>
+                                            @else
+                                                <p class="mb-0 text-muted small">Profile photo updates are restricted.</p>
+                                                <input type="hidden" name="remove_profile_picture" id="remove_profile_picture" value="0">
+                                            @endif
+                                        </div>
+                                        @error('profile_picture')
+                                            <div class="text-danger small mt-2">{{ $message }}</div>
+                                        @enderror
+                                    </div>
+                                </div>
                                 <div class="mb-3 row">
                                     <label class="col-sm-12 col-lg-2 col-form-label">Name:</label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
@@ -194,7 +240,56 @@
         const confirmModal = confirmModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(confirmModalEl) : null;
         const confirmActionButton = document.getElementById('confirmActionButton');
         const confirmActionLoader = document.getElementById('confirmActionLoader');
+        const profileInput = document.getElementById('profile_picture');
+        const profilePreview = document.getElementById('profilePreview');
+        const removeProfileButton = document.getElementById('removeProfileButton');
+        const removeProfileInput = document.getElementById('remove_profile_picture');
         let allowSubmit = false;
+
+        if (profilePreview && removeProfileInput && profileInput && removeProfileButton) {
+            const defaultImage = profilePreview.dataset.default;
+            const existingImage = profilePreview.dataset.existing || defaultImage;
+
+            const setRemoveButtonState = () => {
+                const hasExisting = profilePreview.dataset.hasExisting === '1';
+                const hasNewFile = profileInput.files.length > 0;
+                removeProfileButton.disabled = !hasExisting && !hasNewFile;
+            };
+
+            setRemoveButtonState();
+
+            profileInput.addEventListener('change', (event) => {
+                const [file] = event.target.files;
+
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = e => {
+                        profilePreview.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                    removeProfileInput.value = 0;
+                } else {
+                    profilePreview.src = profilePreview.dataset.hasExisting === '1' ? existingImage : defaultImage;
+                    removeProfileInput.value = 0;
+                }
+
+                setRemoveButtonState();
+            });
+
+            removeProfileButton.addEventListener('click', () => {
+                if (profileInput.files.length) {
+                    profileInput.value = '';
+                    profilePreview.src = profilePreview.dataset.hasExisting === '1' ? existingImage : defaultImage;
+                    removeProfileInput.value = 0;
+                } else if (profilePreview.dataset.hasExisting === '1') {
+                    profilePreview.src = defaultImage;
+                    profilePreview.dataset.hasExisting = '0';
+                    removeProfileInput.value = 1;
+                }
+
+                setRemoveButtonState();
+            });
+        }
 
         const buildName = () => {
             const first = firstNameInput?.value?.trim();
