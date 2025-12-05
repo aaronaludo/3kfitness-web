@@ -357,8 +357,6 @@
                                             <th class="sortable" data-column="type">Type <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="phone_number">Phone Number <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="rate_per_hour">Rate per hour <i class="fa fa-sort"></i></th>
-                                            <th>Net Pay (This Month)</th>
                                             <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
                                         </tr>
@@ -404,14 +402,6 @@
                                                 <td>{{ $item->role->name }}</td>
                                                 <td>{{ $item->phone_number }}</td>
                                                 <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
-                                                <td>₱{{ number_format((float) $item->rate_per_hour, 2) }}</td>
-                                                <td>
-                                                    @if($totalHours > 0)
-                                                        ₱{{ number_format($netPay, 2) }}
-                                                    @else
-                                                        —
-                                                    @endif
-                                                </td>
                                                 <td>{{ $item->created_by }}</td>
                                                 <td>
                                                     <div class="d-flex">
@@ -496,8 +486,6 @@
                                             <th>Type</th>
                                             <th>Contact Number</th>
                                             <th>Created Date</th>
-                                            <th>Rate per hour</th>
-                                            <th>Net Pay (This Month)</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -541,14 +529,6 @@
                                                 <td>{{ optional($archive->role)->name }}</td>
                                                 <td>{{ $archive->phone_number }}</td>
                                                 <td>{{ optional($archive->created_at)->format('F j, Y g:iA') }}</td>
-                                                <td>₱{{ number_format((float) $archive->rate_per_hour, 2) }}</td>
-                                                <td>
-                                                    @if($archiveTotalHours > 0)
-                                                        ₱{{ number_format($archiveNetPay, 2) }}
-                                                    @else
-                                                        —
-                                                    @endif
-                                                </td>
                                                 <td class="action-button">
                                                     <div class="d-flex gap-2">
                                                         <button
