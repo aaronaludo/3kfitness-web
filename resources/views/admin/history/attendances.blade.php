@@ -348,6 +348,19 @@
                                                 'completed' => ['label' => 'Completed', 'class' => 'bg-success'],
                                             ][$statusValue];
                                             $archiveLabel = (int) ($attendance->is_archive ?? 0) === 1 ? 'Archived' : 'Active';
+                                            $viewRoute = null;
+                                            if ($person) {
+                                                $normalizedRole = strtolower(trim($roleName ?? ''));
+                                                if ($normalizedRole === 'staff') {
+                                                    $viewRoute = route('admin.staff-account-management.view', $person->id);
+                                                } elseif ($normalizedRole === 'member') {
+                                                    $viewRoute = route('admin.gym-management.members.view', $person->id);
+                                                } elseif ($normalizedRole === 'trainer') {
+                                                    $viewRoute = route('admin.trainer-management.view', $person->id);
+                                                } else {
+                                                    $viewRoute = route('admin.users.view', $person->id);
+                                                }
+                                            }
                                         @endphp
                                         <tr>
                                             <td>{{ $attendance->id ?? '—' }}</td>
@@ -392,9 +405,9 @@
                                             </td>
                                             <td class="text-center">
                                                 <div class="d-flex justify-content-center gap-2 flex-wrap">
-                                                    @if($person)
+                                                    @if($viewRoute)
                                                         <a
-                                                            href="{{ route('admin.users.view', $person->id) }}"
+                                                            href="{{ $viewRoute }}"
                                                             class="btn btn-outline-secondary btn-sm"
                                                         >
                                                             User
