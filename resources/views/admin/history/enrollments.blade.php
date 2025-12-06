@@ -5,7 +5,7 @@
     <div class="container-fluid">
         @php
             $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['class_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null);
-            $advancedFiltersOpen = ($filters['class_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null);
+            $advancedFiltersOpen = ($filters['search_column'] ?? null) || ($filters['class_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null);
 
             $printItems = collect($enrollments->items())->map(function ($enrollment) {
                 $member = $enrollment->user;
@@ -64,6 +64,7 @@
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'class_id' => $filters['class_id'] ?? null,
+                    'search_column' => $filters['search_column'] ?? null,
                     'start' => $filters['start_date'] ?? null,
                     'end' => $filters['end_date'] ?? null,
                 ],
@@ -77,6 +78,7 @@
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'class_id' => $filters['class_id'] ?? null,
+                    'search_column' => $filters['search_column'] ?? null,
                     'start' => $filters['start_date'] ?? null,
                     'end' => $filters['end_date'] ?? null,
                     'scope' => 'all',
@@ -97,6 +99,7 @@
                         @csrf
                         <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
                         <input type="hidden" name="class_id" value="{{ $filters['class_id'] ?? '' }}">
+                        <input type="hidden" name="search_column" value="{{ $filters['search_column'] ?? '' }}">
                         <input type="hidden" name="start_date" value="{{ $filters['start_date'] ?? '' }}">
                         <input type="hidden" name="end_date" value="{{ $filters['end_date'] ?? '' }}">
                         <button
@@ -210,6 +213,25 @@
                                                                 {{ $class->name }} ({{ $class->class_code }})
                                                             </option>
                                                         @endforeach
+                                                    </select>
+                                                </div>
+
+                                                <div>
+                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
+                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
+                                                        <option value="" disabled {{ ($filters['search_column'] ?? '') ? '' : 'selected' }}>Select Option</option>
+                                                        <option value="id" {{ ($filters['search_column'] ?? '') === 'id' ? 'selected' : '' }}>#</option>
+                                                        <option value="member_name" {{ ($filters['search_column'] ?? '') === 'member_name' ? 'selected' : '' }}>Member Name</option>
+                                                        <option value="member_role" {{ ($filters['search_column'] ?? '') === 'member_role' ? 'selected' : '' }}>Member Role</option>
+                                                        <option value="member_code" {{ ($filters['search_column'] ?? '') === 'member_code' ? 'selected' : '' }}>Member Code</option>
+                                                        <option value="member_email" {{ ($filters['search_column'] ?? '') === 'member_email' ? 'selected' : '' }}>Member Email</option>
+                                                        <option value="member_phone" {{ ($filters['search_column'] ?? '') === 'member_phone' ? 'selected' : '' }}>Member Phone Number</option>
+                                                        <option value="class_name" {{ ($filters['search_column'] ?? '') === 'class_name' ? 'selected' : '' }}>Class Name</option>
+                                                        <option value="class_code" {{ ($filters['search_column'] ?? '') === 'class_code' ? 'selected' : '' }}>Class Code</option>
+                                                        <option value="trainer_name" {{ ($filters['search_column'] ?? '') === 'trainer_name' ? 'selected' : '' }}>Trainer Name</option>
+                                                        <option value="joined_at" {{ ($filters['search_column'] ?? '') === 'joined_at' ? 'selected' : '' }}>Joined Date</option>
+                                                        <option value="class_start_date" {{ ($filters['search_column'] ?? '') === 'class_start_date' ? 'selected' : '' }}>Class Start Date</option>
+                                                        <option value="class_end_date" {{ ($filters['search_column'] ?? '') === 'class_end_date' ? 'selected' : '' }}>Class End Date</option>
                                                     </select>
                                                 </div>
 
@@ -375,7 +397,10 @@
 
             function buildFilters(filters) {
                 const chips = [];
-                if (filters.search) chips.push({ label: 'Search', value: filters.search });
+                if (filters.search) {
+                    const searchLabel = filters.search_column ? `${filters.search} (${filters.search_column})` : filters.search;
+                    chips.push({ label: 'Search', value: searchLabel });
+                }
                 if (filters.class_id) chips.push({ label: 'Class ID', value: filters.class_id });
                 if (filters.start || filters.end) chips.push({ label: 'Joined', value: `${filters.start || '—'} → ${filters.end || '—'}` });
                 return chips;
@@ -493,6 +518,7 @@
 
                 if (startInput) startInput.value = formatDate(start);
                 if (endInput) endInput.value = formatDate(end);
+                form.submit();
             }
 
             rangeButtons.forEach((button) => {

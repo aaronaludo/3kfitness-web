@@ -6,6 +6,21 @@
         $users->loadMissing(['role', 'status']);
         $search = trim(request('search', ''));
         $statusFilter = request('status', '');
+        $searchColumn = request('search_column');
+        $allowedSearchColumns = [
+            'id',
+            'user_code',
+            'name',
+            'email',
+            'phone_number',
+            'address',
+            'role',
+            'status',
+            'created_by',
+        ];
+        if (!in_array($searchColumn, $allowedSearchColumns, true)) {
+            $searchColumn = null;
+        }
         $showArchived = request()->boolean('show_archived');
         $allAdmins = collect($users);
         $visibleAdmins = $allAdmins
@@ -22,21 +37,73 @@
             ->unique()
             ->values();
         $admins = $visibleAdmins
-            ->filter(function ($admin) use ($search, $statusFilter) {
+            ->filter(function ($admin) use ($search, $statusFilter, $searchColumn) {
                 $matchesSearch = true;
+                $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
+                $roleName = optional($admin->role)->name ?? 'Admin';
+                $statusName = optional($admin->status)->name ?? '';
+
                 if ($search !== '') {
-                    $haystack = strtolower(
-                        trim(
-                            ($admin->first_name ?? '') .
-                                ' ' .
-                                ($admin->last_name ?? '') .
-                                ' ' .
-                                ($admin->email ?? '') .
-                                ' ' .
-                                ($admin->user_code ?? '')
-                        )
-                    );
-                    $matchesSearch = str_contains($haystack, strtolower($search));
+                    $needle = strtolower($search);
+                    $haystack = '';
+
+                    switch ($searchColumn) {
+                        case 'id':
+                            $matchesSearch = (string) ($admin->id ?? '') === $search;
+                            break;
+                        case 'user_code':
+                            $haystack = strtolower($admin->user_code ?? '');
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                        case 'name':
+                            $haystack = strtolower($fullName);
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                        case 'email':
+                            $haystack = strtolower($admin->email ?? '');
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                        case 'phone_number':
+                            $haystack = strtolower($admin->phone_number ?? '');
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                        case 'address':
+                            $haystack = strtolower($admin->address ?? '');
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                        case 'role':
+                            $haystack = strtolower($roleName);
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                        case 'status':
+                            $haystack = strtolower($statusName);
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                        case 'created_by':
+                            $haystack = strtolower($admin->created_by ?? '');
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                        default:
+                            $haystack = strtolower(
+                                trim(
+                                    ($admin->first_name ?? '') .
+                                        ' ' .
+                                        ($admin->last_name ?? '') .
+                                        ' ' .
+                                        ($admin->email ?? '') .
+                                        ' ' .
+                                        ($admin->user_code ?? '') .
+                                        ' ' .
+                                        ($admin->phone_number ?? '') .
+                                        ' ' .
+                                        $roleName .
+                                        ' ' .
+                                        $statusName
+                                )
+                            );
+                            $matchesSearch = str_contains($haystack, $needle);
+                            break;
+                    }
                 }
 
                 $matchesStatus = true;
@@ -91,6 +158,7 @@
             'generated_at' => now()->format('M d, Y g:i A'),
             'filters' => [
                 'search' => $search ?: null,
+                'search_column' => $searchColumn,
                 'status' => $statusFilter ?: 'all',
                 'show_archived' => $showArchived,
             ],
@@ -102,6 +170,7 @@
             'generated_at' => now()->format('M d, Y g:i A'),
             'filters' => [
                 'search' => $search ?: null,
+                'search_column' => $searchColumn,
                 'status' => $statusFilter ?: 'all',
                 'show_archived' => $showArchived,
                 'scope' => 'all',
@@ -180,6 +249,21 @@
                                         value="{{ $search }}"
                                         aria-label="Search admin"
                                     />
+                                </div>
+                                <div>
+                                    <label for="admin-search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
+                                    <select id="admin-search-column" name="search_column" class="form-select rounded-3">
+                                        <option value="" disabled {{ $searchColumn ? '' : 'selected' }}>Select Option</option>
+                                        <option value="id" {{ $searchColumn === 'id' ? 'selected' : '' }}>#</option>
+                                        <option value="user_code" {{ $searchColumn === 'user_code' ? 'selected' : '' }}>User Code</option>
+                                        <option value="name" {{ $searchColumn === 'name' ? 'selected' : '' }}>Name</option>
+                                        <option value="email" {{ $searchColumn === 'email' ? 'selected' : '' }}>Email</option>
+                                        <option value="phone_number" {{ $searchColumn === 'phone_number' ? 'selected' : '' }}>Phone Number</option>
+                                        <option value="address" {{ $searchColumn === 'address' ? 'selected' : '' }}>Address</option>
+                                        <option value="role" {{ $searchColumn === 'role' ? 'selected' : '' }}>Role</option>
+                                        <option value="status" {{ $searchColumn === 'status' ? 'selected' : '' }}>Status</option>
+                                        <option value="created_by" {{ $searchColumn === 'created_by' ? 'selected' : '' }}>Created By</option>
+                                    </select>
                                 </div>
                                 <div class="d-flex flex-wrap gap-2">
                                     <a href="{{ route('admin.admins.index') }}" class="btn btn-light">Reset</a>
@@ -484,7 +568,10 @@
                 const chips = [];
                 if (filters.show_archived) chips.push({ value: 'Archived view' });
                 if (filters.status && filters.status !== 'all') chips.push({ label: 'Status', value: filters.status });
-                if (filters.search) chips.push({ label: 'Search', value: filters.search });
+                if (filters.search) {
+                    const searchLabel = filters.search_column ? `${filters.search} (${filters.search_column})` : filters.search;
+                    chips.push({ label: 'Search', value: searchLabel });
+                }
                 return chips;
             }
 

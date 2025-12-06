@@ -12,8 +12,8 @@
                 'rejected' => ['label' => 'Rejected', 'class' => 'bg-danger'],
             ];
             $showArchived = $filters['show_archived'] ?? false;
-            $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all' || $showArchived;
-            $advancedFiltersOpen = ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
+            $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all' || $showArchived || ($filters['search_column'] ?? null);
+            $advancedFiltersOpen = ($filters['search_column'] ?? null) || ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
 
             $printItems = collect($payments->items())->map(function ($payment) {
                 $member = $payment->user;
@@ -75,6 +75,7 @@
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'membership_id' => $filters['membership_id'] ?? null,
+                    'search_column' => $filters['search_column'] ?? null,
                     'status' => $filters['status'] ?? null,
                     'start' => $filters['start_date'] ?? null,
                     'end' => $filters['end_date'] ?? null,
@@ -90,6 +91,7 @@
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'membership_id' => $filters['membership_id'] ?? null,
+                    'search_column' => $filters['search_column'] ?? null,
                     'status' => $filters['status'] ?? null,
                     'start' => $filters['start_date'] ?? null,
                     'end' => $filters['end_date'] ?? null,
@@ -112,6 +114,7 @@
                         @csrf
                         <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
                         <input type="hidden" name="membership_id" value="{{ $filters['membership_id'] ?? '' }}">
+                        <input type="hidden" name="search_column" value="{{ $filters['search_column'] ?? '' }}">
                         <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
                         <input type="hidden" name="start_date" value="{{ $filters['start_date'] ?? '' }}">
                         <input type="hidden" name="end_date" value="{{ $filters['end_date'] ?? '' }}">
@@ -280,6 +283,25 @@
                                                 </div>
 
                                                 <div>
+                                                    <label for="payment-history-search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
+                                                    <select id="payment-history-search-column" name="search_column" class="form-select rounded-3">
+                                                        <option value="" disabled {{ ($filters['search_column'] ?? '') ? '' : 'selected' }}>Select Option</option>
+                                                        <option value="id" {{ ($filters['search_column'] ?? '') === 'id' ? 'selected' : '' }}>#</option>
+                                                        <option value="member_name" {{ ($filters['search_column'] ?? '') === 'member_name' ? 'selected' : '' }}>Member Name</option>
+                                                        <option value="member_code" {{ ($filters['search_column'] ?? '') === 'member_code' ? 'selected' : '' }}>Member Code</option>
+                                                        <option value="member_email" {{ ($filters['search_column'] ?? '') === 'member_email' ? 'selected' : '' }}>Member Email</option>
+                                                        <option value="member_phone" {{ ($filters['search_column'] ?? '') === 'member_phone' ? 'selected' : '' }}>Member Phone Number</option>
+                                                        <option value="member_role" {{ ($filters['search_column'] ?? '') === 'member_role' ? 'selected' : '' }}>Member Role</option>
+                                                        <option value="membership_name" {{ ($filters['search_column'] ?? '') === 'membership_name' ? 'selected' : '' }}>Membership Name</option>
+                                                        <option value="price" {{ ($filters['search_column'] ?? '') === 'price' ? 'selected' : '' }}>Price</option>
+                                                        <option value="status" {{ ($filters['search_column'] ?? '') === 'status' ? 'selected' : '' }}>Status</option>
+                                                        <option value="purchased_at" {{ ($filters['search_column'] ?? '') === 'purchased_at' ? 'selected' : '' }}>Purchased Date</option>
+                                                        <option value="expiration_at" {{ ($filters['search_column'] ?? '') === 'expiration_at' ? 'selected' : '' }}>Expiration Date</option>
+                                                        <option value="archive" {{ ($filters['search_column'] ?? '') === 'archive' ? 'selected' : '' }}>Archive</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
                                                     <span class="form-label text-muted text-uppercase small d-block mb-2">Purchased range</span>
                                                     <div class="row g-2">
                                                         <div class="col-12 col-sm-6">
@@ -440,7 +462,10 @@
 
             function buildFilters(filters) {
                 const chips = [];
-                if (filters.search) chips.push({ label: 'Search', value: filters.search });
+                if (filters.search) {
+                    const searchLabel = filters.search_column ? `${filters.search} (${filters.search_column})` : filters.search;
+                    chips.push({ label: 'Search', value: searchLabel });
+                }
                 if (filters.membership_id) chips.push({ label: 'Membership ID', value: filters.membership_id });
                 if (filters.status && filters.status !== 'all') chips.push({ label: 'Status', value: filters.status });
                 if (filters.archived) chips.push({ value: 'Archived records' });
@@ -562,6 +587,7 @@
 
                 if (startInput) startInput.value = formatDate(start);
                 if (endInput) endInput.value = formatDate(end);
+                form.submit();
             }
 
             function setActiveStatus(status) {

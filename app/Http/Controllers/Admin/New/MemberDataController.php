@@ -36,17 +36,20 @@ class MemberDataController extends Controller
         if (empty($membershipStatus)) {
             $membershipStatus = 'all';
         }
-        
+
+        $startDateObj = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate) : null;
+        $endDateObj   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)   : null;
+
         $allowed_columns = [
-            'id', 'name', 'phone_number', 'email', 'created_at',
-            'updated_at'
+            'id', 'user_code', 'name', 'phone_number', 'email', 'created_at',
+            'updated_at', 'created_by', 'membership_name', 'expiration_at',
         ];
-        
-        if (!in_array($searchColumn, $allowed_columns)) {
+
+        if (!in_array($searchColumn, $allowed_columns, true)) {
             $searchColumn = null;
         }
         
-        $dateColumns = ['created_at'];
+        $dateColumns = ['created_at', 'updated_at', 'expiration_at'];
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
         $current_time = Carbon::now();
@@ -74,7 +77,7 @@ class MemberDataController extends Controller
                 },
                 'membershipPayments.membership',
             ])
-            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
+            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn, $current_time) {
                 if ($searchColumn === 'name') {
                     return $query->where(function ($q) use ($search) {
                         $q->where('first_name', 'like', "%{$search}%")
@@ -82,14 +85,54 @@ class MemberDataController extends Controller
                     });
                 }
 
+                if ($searchColumn === 'membership_name') {
+                    return $query->whereHas('membershipPayments', function ($q) use ($search, $current_time) {
+                        $q->where('isapproved', 1)
+                            ->where('expiration_at', '>=', $current_time)
+                            ->whereHas('membership', function ($membershipQuery) use ($search) {
+                                $membershipQuery->where('name', 'like', "%{$search}%");
+                            });
+                    });
+                }
+
+                if ($searchColumn === 'expiration_at') {
+                    return $query->whereHas('membershipPayments', function ($q) use ($search, $current_time) {
+                        $q->where('isapproved', 1)
+                            ->where('expiration_at', '>=', $current_time)
+                            ->where('expiration_at', 'like', "%{$search}%");
+                    });
+                }
+
+                $exactColumns = ['id', 'user_code'];
+                if (in_array($searchColumn, $exactColumns, true)) {
+                    return $query->where($searchColumn, $search);
+                }
+
                 return $query->where($searchColumn, 'like', "%{$search}%");
             })
-            ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
-                if ($startDate) {
-                    $query->whereDate($rangeColumn, '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
+            ->when($startDateObj || $endDateObj, function ($query) use ($startDateObj, $endDateObj, $rangeColumn, $current_time) {
+                $start = $startDateObj ? $startDateObj->toDateString() : null;
+                $end   = $endDateObj ? $endDateObj->toDateString() : null;
+
+                if ($rangeColumn === 'expiration_at') {
+                    return $query->whereHas('membershipPayments', function ($q) use ($start, $end, $current_time) {
+                        $q->where('isapproved', 1)
+                            ->where('expiration_at', '>=', $current_time);
+
+                        if ($start) {
+                            $q->whereDate('expiration_at', '>=', $start);
+                        }
+                        if ($end) {
+                            $q->whereDate('expiration_at', '<=', $end);
+                        }
+                    });
                 }
-                if ($endDate) {
-                    $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
+
+                if ($start) {
+                    $query->whereDate($rangeColumn, '>=', $start);
+                }
+                if ($end) {
+                    $query->whereDate($rangeColumn, '<=', $end);
                 }
             })
             ->when($membershipStatus !== 'all', function ($query) use ($membershipStatus, $current_time) {
@@ -442,13 +485,14 @@ class MemberDataController extends Controller
         $now = Carbon::now();
 
         $allowedColumns = [
-            'id', 'name', 'first_name', 'last_name', 'phone_number', 'email', 'created_at', 'updated_at',
+            'id', 'user_code', 'name', 'first_name', 'last_name', 'phone_number', 'email', 'created_at', 'updated_at',
+            'created_by', 'membership_name', 'expiration_at',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
         }
 
-        $dateColumns = ['created_at', 'updated_at'];
+        $dateColumns = ['created_at', 'updated_at', 'expiration_at'];
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
         $query = User::where('role_id', 3)
@@ -460,7 +504,7 @@ class MemberDataController extends Controller
                 },
                 'membershipPayments.membership',
             ])
-            ->when($search && $searchColumn, function ($q) use ($search, $searchColumn) {
+            ->when($search && $searchColumn, function ($q) use ($search, $searchColumn, $now) {
                 if ($searchColumn === 'name') {
                     return $q->where(function ($inner) use ($search) {
                         $inner->where('first_name', 'like', "%{$search}%")
@@ -468,14 +512,46 @@ class MemberDataController extends Controller
                     });
                 }
 
-                $exactColumns = ['id'];
+                if ($searchColumn === 'membership_name') {
+                    return $q->whereHas('membershipPayments', function ($inner) use ($search, $now) {
+                        $inner->where('isapproved', 1)
+                            ->where('expiration_at', '>=', $now)
+                            ->whereHas('membership', function ($membershipQuery) use ($search) {
+                                $membershipQuery->where('name', 'like', "%{$search}%");
+                            });
+                    });
+                }
+
+                if ($searchColumn === 'expiration_at') {
+                    return $q->whereHas('membershipPayments', function ($inner) use ($search, $now) {
+                        $inner->where('isapproved', 1)
+                            ->where('expiration_at', '>=', $now)
+                            ->where('expiration_at', 'like', "%{$search}%");
+                    });
+                }
+
+                $exactColumns = ['id', 'user_code'];
                 if (in_array($searchColumn, $exactColumns, true)) {
                     return $q->where($searchColumn, $search);
                 }
 
                 return $q->where($searchColumn, 'like', "%{$search}%");
             })
-            ->when($start || $end, function ($q) use ($start, $end, $rangeColumn) {
+            ->when($start || $end, function ($q) use ($start, $end, $rangeColumn, $now) {
+                if ($rangeColumn === 'expiration_at') {
+                    return $q->whereHas('membershipPayments', function ($inner) use ($start, $end, $now) {
+                        $inner->where('isapproved', 1)
+                            ->where('expiration_at', '>=', $now);
+
+                        if ($start) {
+                            $inner->whereDate('expiration_at', '>=', $start->toDateString());
+                        }
+                        if ($end) {
+                            $inner->whereDate('expiration_at', '<=', $end->toDateString());
+                        }
+                    });
+                }
+
                 if ($start && $end) {
                     $q->whereBetween($rangeColumn, [$start, $end]);
                 } elseif ($start) {

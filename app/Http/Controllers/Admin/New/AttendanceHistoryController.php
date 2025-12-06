@@ -22,6 +22,7 @@ class AttendanceHistoryController extends Controller
             'end_date'      => 'nullable|date|after_or_equal:start_date',
             'status'        => 'nullable|in:all,open,completed',
             'show_archived' => 'nullable|boolean',
+            'search_column' => 'nullable|string',
         ]);
 
         $filters = [
@@ -31,6 +32,7 @@ class AttendanceHistoryController extends Controller
             'end_date'      => $request->input('end_date'),
             'status'        => $request->input('status', 'completed'),
             'show_archived' => $request->boolean('show_archived'),
+            'search_column' => $request->input('search_column'),
         ];
 
         $validStatuses = ['all', 'open', 'completed'];
@@ -38,25 +40,92 @@ class AttendanceHistoryController extends Controller
             $filters['status'] = 'completed';
         }
 
+        $allowedSearchColumns = [
+            'id',
+            'name',
+            'user_code',
+            'role',
+            'email',
+            'phone_number',
+            'clockin_at',
+            'clockout_at',
+            'status',
+            'archive',
+        ];
+        if (!in_array($filters['search_column'], $allowedSearchColumns, true)) {
+            $filters['search_column'] = null;
+        }
+
         $baseQuery = Attendance2::with(['user.role'])
             ->where('is_archive', $filters['show_archived'] ? 1 : 0);
 
         if ($filters['search'] !== '') {
             $like = '%' . $filters['search'] . '%';
-            $baseQuery->where(function ($query) use ($like) {
-                $query->whereHas('user', function ($userQuery) use ($like) {
+            $searchColumn = $filters['search_column'];
+            $searchTerm = $filters['search'];
+
+            if ($searchColumn === 'id') {
+                $baseQuery->where('id', $searchTerm);
+            } elseif ($searchColumn === 'name') {
+                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
                     $userQuery->where(function ($nameQuery) use ($like) {
                         $nameQuery->whereRaw(
                             "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
                             [$like]
                         )->orWhere('first_name', 'like', $like)
-                         ->orWhere('last_name', 'like', $like)
-                         ->orWhere('user_code', 'like', $like)
-                         ->orWhere('email', 'like', $like)
-                         ->orWhere('phone_number', 'like', $like);
+                         ->orWhere('last_name', 'like', $like);
                     });
                 });
-            });
+            } elseif ($searchColumn === 'user_code') {
+                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('user_code', 'like', $like);
+                });
+            } elseif ($searchColumn === 'role') {
+                $baseQuery->whereHas('user.role', function ($roleQuery) use ($like) {
+                    $roleQuery->where('name', 'like', $like);
+                });
+            } elseif ($searchColumn === 'email') {
+                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('email', 'like', $like);
+                });
+            } elseif ($searchColumn === 'phone_number') {
+                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('phone_number', 'like', $like);
+                });
+            } elseif ($searchColumn === 'clockin_at') {
+                $baseQuery->where('clockin_at', 'like', $like);
+            } elseif ($searchColumn === 'clockout_at') {
+                $baseQuery->where('clockout_at', 'like', $like);
+            } elseif ($searchColumn === 'status') {
+                $normalizedStatus = strtolower(trim($searchTerm));
+                if (in_array($normalizedStatus, ['completed', 'complete', '1'], true)) {
+                    $baseQuery->whereNotNull('clockout_at');
+                } elseif (in_array($normalizedStatus, ['open', '0'], true)) {
+                    $baseQuery->whereNull('clockout_at');
+                }
+            } elseif ($searchColumn === 'archive') {
+                $normalizedArchive = strtolower(trim($searchTerm));
+                if (in_array($normalizedArchive, ['archived', 'archive', '1', 'yes'], true)) {
+                    $baseQuery->where('is_archive', 1);
+                } elseif (in_array($normalizedArchive, ['active', '0', 'no'], true)) {
+                    $baseQuery->where('is_archive', 0);
+                }
+            } else {
+                $baseQuery->where(function ($query) use ($like) {
+                    $query->whereHas('user', function ($userQuery) use ($like) {
+                        $userQuery->where(function ($nameQuery) use ($like) {
+                            $nameQuery->whereRaw(
+                                "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                [$like]
+                            )->orWhere('first_name', 'like', $like)
+                             ->orWhere('last_name', 'like', $like)
+                             ->orWhere('user_code', 'like', $like)
+                             ->orWhere('email', 'like', $like)
+                             ->orWhere('phone_number', 'like', $like);
+                        });
+                    });
+                });
+            }
         }
 
         if ($filters['role_id']) {
@@ -125,6 +194,7 @@ class AttendanceHistoryController extends Controller
             'end_date'      => 'nullable|date|after_or_equal:start_date',
             'status'        => 'nullable|in:all,open,completed',
             'show_archived' => 'nullable|boolean',
+            'search_column' => 'nullable|string',
         ]);
 
         $filters = [
@@ -134,6 +204,7 @@ class AttendanceHistoryController extends Controller
             'end_date'      => $request->input('end_date'),
             'status'        => $request->input('status', 'completed'),
             'show_archived' => $request->boolean('show_archived'),
+            'search_column' => $request->input('search_column'),
         ];
 
         $validStatuses = ['all', 'open', 'completed'];
@@ -141,25 +212,92 @@ class AttendanceHistoryController extends Controller
             $filters['status'] = 'completed';
         }
 
+        $allowedSearchColumns = [
+            'id',
+            'name',
+            'user_code',
+            'role',
+            'email',
+            'phone_number',
+            'clockin_at',
+            'clockout_at',
+            'status',
+            'archive',
+        ];
+        if (!in_array($filters['search_column'], $allowedSearchColumns, true)) {
+            $filters['search_column'] = null;
+        }
+
         $query = Attendance2::with(['user.role'])
             ->where('is_archive', $filters['show_archived'] ? 1 : 0);
 
         if ($filters['search'] !== '') {
             $like = '%' . $filters['search'] . '%';
-            $query->where(function ($builder) use ($like) {
-                $builder->whereHas('user', function ($userQuery) use ($like) {
+            $searchColumn = $filters['search_column'];
+            $searchTerm = $filters['search'];
+
+            if ($searchColumn === 'id') {
+                $query->where('id', $searchTerm);
+            } elseif ($searchColumn === 'name') {
+                $query->whereHas('user', function ($userQuery) use ($like) {
                     $userQuery->where(function ($nameQuery) use ($like) {
                         $nameQuery->whereRaw(
                             "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
                             [$like]
                         )->orWhere('first_name', 'like', $like)
-                         ->orWhere('last_name', 'like', $like)
-                         ->orWhere('user_code', 'like', $like)
-                         ->orWhere('email', 'like', $like)
-                         ->orWhere('phone_number', 'like', $like);
+                         ->orWhere('last_name', 'like', $like);
                     });
                 });
-            });
+            } elseif ($searchColumn === 'user_code') {
+                $query->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('user_code', 'like', $like);
+                });
+            } elseif ($searchColumn === 'role') {
+                $query->whereHas('user.role', function ($roleQuery) use ($like) {
+                    $roleQuery->where('name', 'like', $like);
+                });
+            } elseif ($searchColumn === 'email') {
+                $query->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('email', 'like', $like);
+                });
+            } elseif ($searchColumn === 'phone_number') {
+                $query->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('phone_number', 'like', $like);
+                });
+            } elseif ($searchColumn === 'clockin_at') {
+                $query->where('clockin_at', 'like', $like);
+            } elseif ($searchColumn === 'clockout_at') {
+                $query->where('clockout_at', 'like', $like);
+            } elseif ($searchColumn === 'status') {
+                $normalizedStatus = strtolower(trim($searchTerm));
+                if (in_array($normalizedStatus, ['completed', 'complete', '1'], true)) {
+                    $query->whereNotNull('clockout_at');
+                } elseif (in_array($normalizedStatus, ['open', '0'], true)) {
+                    $query->whereNull('clockout_at');
+                }
+            } elseif ($searchColumn === 'archive') {
+                $normalizedArchive = strtolower(trim($searchTerm));
+                if (in_array($normalizedArchive, ['archived', 'archive', '1', 'yes'], true)) {
+                    $query->where('is_archive', 1);
+                } elseif (in_array($normalizedArchive, ['active', '0', 'no'], true)) {
+                    $query->where('is_archive', 0);
+                }
+            } else {
+                $query->where(function ($builder) use ($like) {
+                    $builder->whereHas('user', function ($userQuery) use ($like) {
+                        $userQuery->where(function ($nameQuery) use ($like) {
+                            $nameQuery->whereRaw(
+                                "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                [$like]
+                            )->orWhere('first_name', 'like', $like)
+                             ->orWhere('last_name', 'like', $like)
+                             ->orWhere('user_code', 'like', $like)
+                             ->orWhere('email', 'like', $like)
+                             ->orWhere('phone_number', 'like', $like);
+                        });
+                    });
+                });
+            }
         }
 
         if ($filters['role_id']) {
@@ -215,7 +353,11 @@ class AttendanceHistoryController extends Controller
 
         $filterSummary = [];
         if ($filters['search'] !== '') {
-            $filterSummary[] = "Search='{$filters['search']}'";
+            $searchSummary = "Search='{$filters['search']}'";
+            if ($filters['search_column']) {
+                $searchSummary .= " (By={$filters['search_column']})";
+            }
+            $filterSummary[] = $searchSummary;
         }
         if ($filters['role_id']) {
             $roleName = Role::find($filters['role_id']);

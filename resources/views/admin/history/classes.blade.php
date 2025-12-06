@@ -12,8 +12,8 @@
                 'rejected' => ['label' => 'Rejected', 'class' => 'bg-danger'],
             ];
             $showArchived = $filters['show_archived'] ?? false;
-            $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['trainer_id'] ?? null) || ($activeStatus !== 'all') || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $showArchived;
-            $advancedFiltersOpen = ($filters['trainer_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
+            $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['trainer_id'] ?? null) || ($activeStatus !== 'all') || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $showArchived || ($filters['search_column'] ?? null);
+            $advancedFiltersOpen = ($filters['search_column'] ?? null) || ($filters['trainer_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
 
             $printItems = collect($classes->items())->map(function ($class) {
                 $trainer = $class->user;
@@ -69,6 +69,7 @@
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'trainer_id' => $filters['trainer_id'] ?? null,
+                    'search_column' => $filters['search_column'] ?? null,
                     'status' => $filters['status'] ?? null,
                     'start' => $filters['start_date'] ?? null,
                     'end' => $filters['end_date'] ?? null,
@@ -84,6 +85,7 @@
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'trainer_id' => $filters['trainer_id'] ?? null,
+                    'search_column' => $filters['search_column'] ?? null,
                     'status' => $filters['status'] ?? null,
                     'start' => $filters['start_date'] ?? null,
                     'end' => $filters['end_date'] ?? null,
@@ -106,6 +108,7 @@
                         @csrf
                         <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
                         <input type="hidden" name="trainer_id" value="{{ $filters['trainer_id'] ?? '' }}">
+                        <input type="hidden" name="search_column" value="{{ $filters['search_column'] ?? '' }}">
                         <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
                         <input type="hidden" name="start_date" value="{{ $filters['start_date'] ?? '' }}">
                         <input type="hidden" name="end_date" value="{{ $filters['end_date'] ?? '' }}">
@@ -278,6 +281,24 @@
                                                 </div>
 
                                                 <div>
+                                                    <label for="class-history-search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
+                                                    <select id="class-history-search-column" name="search_column" class="form-select rounded-3">
+                                                        <option value="" disabled {{ ($filters['search_column'] ?? '') ? '' : 'selected' }}>Select Option</option>
+                                                        <option value="id" {{ ($filters['search_column'] ?? '') === 'id' ? 'selected' : '' }}>#</option>
+                                                        <option value="name" {{ ($filters['search_column'] ?? '') === 'name' ? 'selected' : '' }}>Class Name</option>
+                                                        <option value="class_code" {{ ($filters['search_column'] ?? '') === 'class_code' ? 'selected' : '' }}>Class Code</option>
+                                                        <option value="trainer_name" {{ ($filters['search_column'] ?? '') === 'trainer_name' ? 'selected' : '' }}>Trainer Name</option>
+                                                        <option value="trainer_code" {{ ($filters['search_column'] ?? '') === 'trainer_code' ? 'selected' : '' }}>Trainer Code</option>
+                                                        <option value="trainer_email" {{ ($filters['search_column'] ?? '') === 'trainer_email' ? 'selected' : '' }}>Trainer Email</option>
+                                                        <option value="enrollments" {{ ($filters['search_column'] ?? '') === 'enrollments' ? 'selected' : '' }}>Members</option>
+                                                        <option value="class_start_date" {{ ($filters['search_column'] ?? '') === 'class_start_date' ? 'selected' : '' }}>Class Start Date</option>
+                                                        <option value="class_end_date" {{ ($filters['search_column'] ?? '') === 'class_end_date' ? 'selected' : '' }}>Class End Date</option>
+                                                        <option value="status" {{ ($filters['search_column'] ?? '') === 'status' ? 'selected' : '' }}>Admin Status</option>
+                                                        <option value="archive" {{ ($filters['search_column'] ?? '') === 'archive' ? 'selected' : '' }}>Archive</option>
+                                                    </select>
+                                                </div>
+
+                                                <div>
                                                     <span class="form-label text-muted text-uppercase small d-block mb-2">Ended range</span>
                                                     <div class="row g-2">
                                                         <div class="col-12 col-sm-6">
@@ -428,7 +449,10 @@
 
             function buildFilters(filters) {
                 const chips = [];
-                if (filters.search) chips.push({ label: 'Search', value: filters.search });
+                if (filters.search) {
+                    const searchLabel = filters.search_column ? `${filters.search} (${filters.search_column})` : filters.search;
+                    chips.push({ label: 'Search', value: searchLabel });
+                }
                 if (filters.trainer_id) chips.push({ label: 'Trainer ID', value: filters.trainer_id });
                 if (filters.status && filters.status !== 'all') chips.push({ label: 'Status', value: filters.status });
                 if (filters.archived) chips.push({ value: 'Archived records' });
@@ -546,6 +570,7 @@
 
                 if (startInput) startInput.value = formatDate(start);
                 if (endInput) endInput.value = formatDate(end);
+                form.submit();
             }
 
             function setActiveStatus(status) {

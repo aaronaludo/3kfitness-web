@@ -6,7 +6,8 @@
         <div class="row">
             @php
                 $searchTerm = request('search');
-                $roleFilter = request('search_column', '');
+                $searchColumn = request('search_column', '');
+                $roleFilter = request('role_filter', '');
                 $roleOptions = [
                     '' => ['label' => 'All'],
                     'Admin' => ['label' => 'Admin'],
@@ -14,7 +15,7 @@
                     'Member' => ['label' => 'Member'],
                     'Trainer' => ['label' => 'Trainer'],
                 ];
-                $advancedFiltersOpen = request()->filled('sort_column');
+                $advancedFiltersOpen = request()->filled('sort_column') || request()->filled('search_column') || request()->filled('role_filter');
                 $printSource = $data;
                 $printAllSource = $printAllLogs ?? collect();
 
@@ -36,7 +37,8 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => $searchTerm,
-                        'search_column' => request('search_column'),
+                        'role_filter' => $roleFilter,
+                        'search_column' => $searchColumn,
                         'sort' => request('sort_column', 'DESC'),
                     ],
                     'count' => $printLogs->count(),
@@ -48,7 +50,8 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => $searchTerm,
-                        'search_column' => request('search_column'),
+                        'role_filter' => $roleFilter,
+                        'search_column' => $searchColumn,
                         'sort' => request('sort_column', 'DESC'),
                         'scope' => 'all',
                     ],
@@ -62,7 +65,8 @@
                     <form action="{{ route('admin.logs.print') }}" method="POST" id="print-form">
                         @csrf
                         <input type="hidden" name="search" value="{{ request('search') }}">
-                        <input type="hidden" name="search_column" value="{{ request('search_column') }}">
+                        <input type="hidden" name="role_filter" value="{{ $roleFilter }}">
+                        <input type="hidden" name="search_column" value="{{ $searchColumn }}">
                         <input type="hidden" name="sort_column" value="{{ request('sort_column', 'DESC') }}">
                         <button
                             class="btn btn-danger ms-2"
@@ -94,7 +98,7 @@
                         </div>
 
                         <form action="{{ route('admin.logs.index') }}" method="GET" id="logs-filter-form" class="mt-4">
-                            <input type="hidden" name="search_column" id="logs-role-filter" value="{{ $roleFilter }}">
+                            <input type="hidden" name="role_filter" id="logs-role-filter" value="{{ $roleFilter }}">
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                                 <div class="d-flex flex-wrap align-items-center gap-2">
                                     @foreach ($roleOptions as $key => $option)
@@ -116,7 +120,7 @@
                                                 type="search"
                                                 class="form-control rounded-pill ps-5"
                                                 name="search"
-                                                placeholder="Search by message"
+                                                placeholder="Search logs"
                                                 value="{{ request('search') }}"
                                                 aria-label="Search logs"
                                             />
@@ -162,6 +166,19 @@
                                                             <option value="{{ $key }}" {{ $roleFilter === $key ? 'selected' : '' }}>{{ $option['label'] }}</option>
                                                         @endforeach
                                                     </select>
+                                                </div>
+                                                <div>
+                                                    <label for="logs-search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
+                                                    <select id="logs-search-column" name="search_column" class="form-select rounded-3">
+                                                        <option value="" disabled {{ $searchColumn ? '' : 'selected' }}>Select Option</option>
+                                                        <option value="id" {{ $searchColumn === 'id' ? 'selected' : '' }}>#</option>
+                                                        <option value="message" {{ $searchColumn === 'message' ? 'selected' : '' }}>Message</option>
+                                                        <option value="role_name" {{ $searchColumn === 'role_name' ? 'selected' : '' }}>Role Name</option>
+                                                        <option value="user_code" {{ $searchColumn === 'user_code' ? 'selected' : '' }}>User Code</option>
+                                                        <option value="created_at" {{ $searchColumn === 'created_at' ? 'selected' : '' }}>Created Date</option>
+                                                        <option value="updated_at" {{ $searchColumn === 'updated_at' ? 'selected' : '' }}>Updated Date</option>
+                                                    </select>
+                                                    <small class="text-muted d-block mt-1">Role chips above override this selector.</small>
                                                 </div>
                                                 <div>
                                                     <label for="logs-sort-select" class="form-label text-muted text-uppercase small mb-1">Sort</label>
@@ -232,6 +249,7 @@
 
             function buildFilters(filters) {
                 const chips = [];
+                if (filters.role_filter) chips.push({ label: 'Role', value: filters.role_filter });
                 if (filters.search) {
                     chips.push({ label: 'Search', value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}` });
                 }

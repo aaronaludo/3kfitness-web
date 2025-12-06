@@ -17,13 +17,52 @@ class PayrollController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('member_name');
+        $searchColumn = $request->input('search_column');
         $period = $request->input('period_month');
 
+        $allowedColumns = ['id', 'name', 'email', 'user_code', 'period_month', 'processed_at', 'created_at', 'updated_at'];
+        if (!in_array($searchColumn, $allowedColumns, true)) {
+            $searchColumn = null;
+        }
+
         $baseQuery = PayrollRun::with('user')
-            ->when($search, function ($query, $search) {
-                $query->whereHas('user', function ($subQuery) use ($search) {
-                    $subQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                        ->orWhere('email', 'like', "%{$search}%");
+            ->when($search, function ($query, $search) use ($searchColumn) {
+                $query->where(function ($subQuery) use ($search, $searchColumn) {
+                    if ($searchColumn === 'id') {
+                        return $subQuery->where('id', $search);
+                    }
+
+                    if ($searchColumn === 'name') {
+                        return $subQuery->whereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                                ->orWhere('email', 'like', "%{$search}%");
+                        });
+                    }
+
+                    if ($searchColumn === 'email') {
+                        return $subQuery->whereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('email', 'like', "%{$search}%");
+                        });
+                    }
+
+                    if ($searchColumn === 'user_code') {
+                        return $subQuery->whereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('user_code', 'like', "%{$search}%");
+                        });
+                    }
+
+                    if ($searchColumn === 'period_month') {
+                        return $subQuery->where('period_month', 'like', "%{$search}%");
+                    }
+
+                    if (in_array($searchColumn, ['processed_at', 'created_at', 'updated_at'], true)) {
+                        return $subQuery->where($searchColumn, 'like', "%{$search}%");
+                    }
+
+                    $subQuery->whereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                            ->orWhere('email', 'like', "%{$search}%");
+                    });
                 });
             })
             ->when($period, function ($query, $period) {

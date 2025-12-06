@@ -279,11 +279,15 @@
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
                                                         <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
                                                         <option value="role" {{ request('search_column') == 'role' ? 'selected' : '' }}>Role</option>
+                                                        <option value="role_name" {{ request('search_column') == 'role_name' ? 'selected' : '' }}>Role Name</option>
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
                                                         <option value="user_code" {{ request('search_column') == 'user_code' ? 'selected' : '' }}>User Code</option>
+                                                        <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>
+                                                        <option value="phone_number" {{ request('search_column') == 'phone_number' ? 'selected' : '' }}>Phone Number</option>
                                                         <option value="clockin_at" {{ request('search_column') == 'clockin_at' ? 'selected' : '' }}>Clock In Date</option>
                                                         <option value="clockout_at" {{ request('search_column') == 'clockout_at' ? 'selected' : '' }}>Clock Out Date</option>
                                                         <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
+                                                        <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
                                                     </select>
                                                 </div>
 

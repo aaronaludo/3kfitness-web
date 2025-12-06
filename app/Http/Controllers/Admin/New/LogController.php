@@ -11,23 +11,50 @@ class LogController extends Controller
     public function index(Request $request)
     {
         $search = $request->search;
+        $searchColumn = $request->input('search_column');
+        $roleFilter = $request->input('role_filter');
+        $sortDirection = strtoupper($request->input('sort_column', 'DESC')) === 'ASC' ? 'ASC' : 'DESC';
+
+        $allowedColumns = ['id', 'message', 'role_name', 'user_code', 'created_at', 'updated_at'];
+        $roleFilters = ['Admin', 'Staff', 'Member', 'Trainer'];
+        $isRoleFilter = in_array($roleFilter, $roleFilters, true);
+        if (!in_array($searchColumn, $allowedColumns, true)) {
+            $searchColumn = null;
+        }
+
         $query = Log::query()->with('user:id,user_code');
-        
+
+        // Role filter chips (no search term needed)
+        if ($isRoleFilter) {
+            $query->where('role_name', $roleFilter);
+        }
+
         if (!empty($search)) {
-            $query->where(function ($subQuery) use ($search) {
-                $subQuery->where('message', 'LIKE', "%$search%");
+            $query->where(function ($subQuery) use ($search, $searchColumn) {
+                if ($searchColumn === 'id') {
+                    return $subQuery->where('id', $search);
+                }
+
+                if ($searchColumn === 'role_name') {
+                    return $subQuery->where('role_name', 'LIKE', "%{$search}%");
+                }
+
+                if ($searchColumn === 'user_code') {
+                    return $subQuery->whereHas('user', function ($userQuery) use ($search) {
+                        $userQuery->where('user_code', 'LIKE', "%{$search}%");
+                    });
+                }
+
+                if (in_array($searchColumn, ['created_at', 'updated_at'], true)) {
+                    return $subQuery->where($searchColumn, 'LIKE', "%{$search}%");
+                }
+
+                // Default to message search or when search_column is message/blank
+                $subQuery->where('message', 'LIKE', "%{$search}%");
             });
         }
-        
-        if ($request->has('search_column') && $request->search_column) {
-            $query->where('role_name', $request->search_column);
-        }
-        
-        if ($request->has('sort_column') && ($request->sort_column) == 'ASC') {
-            $query->orderBy('created_at', 'ASC');
-        }else{
-            $query->orderBy('created_at', 'DESC');
-        }
+
+        $query->orderBy('created_at', $sortDirection);
 
         // Capture full result set before pagination so print-all isn't limited to the current page.
         $allLogs = (clone $query)->get();
@@ -44,25 +71,47 @@ class LogController extends Controller
         $request->validate([
             'search' => 'nullable|string',
             'search_column' => 'nullable|string',
+            'role_filter' => 'nullable|string',
             'sort_column' => 'nullable|in:ASC,DESC',
         ]);
 
         $search = $request->input('search');
-        $roleFilter = $request->input('search_column');
+        $roleFilter = $request->input('role_filter');
+        $searchColumn = $request->input('search_column');
         $allowedRoles = ['Admin', 'Staff', 'Member', 'Trainer'];
-        if (!in_array($roleFilter, $allowedRoles, true)) {
-            $roleFilter = null;
+        $allowedColumns = ['id', 'message', 'role_name', 'user_code', 'created_at', 'updated_at'];
+        $isRoleFilter = in_array($roleFilter, $allowedRoles, true);
+        if (!in_array($searchColumn, $allowedColumns, true)) {
+            $searchColumn = null;
         }
         $sortDirection = strtoupper($request->input('sort_column', 'DESC')) === 'ASC' ? 'ASC' : 'DESC';
 
         $data = Log::with('user:id,user_code')
-            ->when(!empty($search), function ($query) use ($search) {
-                $query->where(function ($subQuery) use ($search) {
+            ->when($isRoleFilter, function ($query) use ($roleFilter) {
+                $query->where('role_name', $roleFilter);
+            })
+            ->when(!empty($search), function ($query) use ($search, $searchColumn) {
+                $query->where(function ($subQuery) use ($search, $searchColumn) {
+                    if ($searchColumn === 'id') {
+                        return $subQuery->where('id', $search);
+                    }
+
+                    if ($searchColumn === 'role_name') {
+                        return $subQuery->where('role_name', 'LIKE', "%{$search}%");
+                    }
+
+                    if ($searchColumn === 'user_code') {
+                        return $subQuery->whereHas('user', function ($userQuery) use ($search) {
+                            $userQuery->where('user_code', 'LIKE', "%{$search}%");
+                        });
+                    }
+
+                    if (in_array($searchColumn, ['created_at', 'updated_at'], true)) {
+                        return $subQuery->where($searchColumn, 'LIKE', "%{$search}%");
+                    }
+
                     $subQuery->where('message', 'LIKE', "%{$search}%");
                 });
-            })
-            ->when(!empty($roleFilter), function ($query) use ($roleFilter) {
-                $query->where('role_name', $roleFilter);
             })
             ->orderBy('created_at', $sortDirection)
             ->get();

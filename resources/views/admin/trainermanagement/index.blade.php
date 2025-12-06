@@ -258,6 +258,7 @@
                                                     <select id="search-column" name="search_column" class="form-select rounded-3">
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
                                                         <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
+                                                        <option value="user_code" {{ request('search_column') == 'user_code' ? 'selected' : '' }}>User Code</option>
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
                                                         <option value="phone_number" {{ request('search_column') == 'phone_number' ? 'selected' : '' }}>Phone Number</option>
                                                         <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>

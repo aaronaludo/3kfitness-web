@@ -5,11 +5,16 @@
     <div class="container-fluid">
         <div class="row">
             @php
+                $searchTerm = request('member_name');
+                $searchColumn = request('search_column');
+                $periodMonth = request('period_month');
                 $printSource = $runs;
                 $printAllSource = $printAllRuns ?? collect();
                 $mapRun = function ($run) {
                     $staff = $run->user;
                     $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
+                    $email = optional($staff)->email ?? '—';
+                    $userCode = optional($staff)->user_code;
                     $periodLabel = $run->period_month ?? '—';
                     $processedAt = $run->processed_at
                         ? $run->processed_at->format('M d, Y g:i A')
@@ -18,8 +23,8 @@
                     return [
                         'id' => $run->id,
                         'name' => $name !== '' ? $name : '—',
-                        'email' => $staff->email ?? '—',
-                        'user_code' => $staff->user_code ?? null,
+                        'email' => $email,
+                        'user_code' => $userCode,
                         'period' => $periodLabel,
                         'hours' => number_format((float) ($run->total_hours ?? 0), 2),
                         'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
@@ -35,8 +40,9 @@
                     'title' => 'Payroll history',
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
-                        'member_name' => request('member_name'),
-                        'period_month' => request('period_month'),
+                        'member_name' => $searchTerm,
+                        'search_column' => $searchColumn,
+                        'period_month' => $periodMonth,
                     ],
                     'count' => $printRuns->count(),
                     'items' => $printRuns,
@@ -46,8 +52,9 @@
                     'title' => 'Payroll history (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
-                        'member_name' => request('member_name'),
-                        'period_month' => request('period_month'),
+                        'member_name' => $searchTerm,
+                        'search_column' => $searchColumn,
+                        'period_month' => $periodMonth,
                         'scope' => 'all',
                     ],
                     'count' => $printAllRuns->count(),
@@ -70,8 +77,9 @@
                     </a>
                     <form action="#" method="POST" id="print-form" class="ms-2">
                         @csrf
-                        <input type="hidden" name="member_name" value="{{ request('member_name') }}">
-                        <input type="hidden" name="period_month" value="{{ request('period_month') }}">
+                        <input type="hidden" name="member_name" value="{{ $searchTerm }}">
+                        <input type="hidden" name="search_column" value="{{ $searchColumn }}">
+                        <input type="hidden" name="period_month" value="{{ $periodMonth }}">
                         <button
                             type="submit"
                             class="btn btn-danger d-flex align-items-center gap-2"
@@ -115,11 +123,31 @@
                                         class="form-control rounded-pill ps-5"
                                         name="member_name"
                                         id="member_name"
-                                        placeholder="Search staff name or email"
-                                        value="{{ request('member_name') }}"
-                                        aria-label="Search staff name or email"
+                                        placeholder="Search staff or payroll"
+                                        value="{{ $searchTerm }}"
+                                        aria-label="Search staff or payroll"
                                     />
                                 </div>
+                            </div>
+
+                            <div class="col-12 col-md-4 col-lg-3">
+                                <label class="form-label text-muted small mb-1" for="search_column">Search by</label>
+                                <select
+                                    class="form-select rounded-3"
+                                    name="search_column"
+                                    id="search_column"
+                                    aria-label="Choose which payroll field to search"
+                                >
+                                    <option value="" disabled {{ $searchColumn ? '' : 'selected' }}>Select option</option>
+                                    <option value="id" {{ $searchColumn === 'id' ? 'selected' : '' }}>#</option>
+                                    <option value="name" {{ $searchColumn === 'name' ? 'selected' : '' }}>Name</option>
+                                    <option value="email" {{ $searchColumn === 'email' ? 'selected' : '' }}>Email</option>
+                                    <option value="user_code" {{ $searchColumn === 'user_code' ? 'selected' : '' }}>Staff Code</option>
+                                    <option value="period_month" {{ $searchColumn === 'period_month' ? 'selected' : '' }}>Period Month</option>
+                                    <option value="processed_at" {{ $searchColumn === 'processed_at' ? 'selected' : '' }}>Processed Date</option>
+                                    <option value="created_at" {{ $searchColumn === 'created_at' ? 'selected' : '' }}>Created Date</option>
+                                    <option value="updated_at" {{ $searchColumn === 'updated_at' ? 'selected' : '' }}>Updated Date</option>
+                                </select>
                             </div>
 
                             <div class="col-12 col-md-4 col-lg-3">
@@ -129,12 +157,12 @@
                                     class="form-control rounded-pill"
                                     name="period_month"
                                     id="period_month"
-                                    value="{{ request('period_month') }}"
+                                    value="{{ $periodMonth }}"
                                     aria-label="Filter by payroll month"
                                 />
                             </div>
 
-                            <div class="col-12 col-md-4 col-lg-3 d-flex gap-2">
+                            <div class="col-12 col-md-4 col-lg-2 d-flex gap-2">
                                 <a href="{{ route('admin.payrolls.index') }}" class="btn btn-link text-decoration-none text-muted px-0">
                                     Reset
                                 </a>
@@ -192,7 +220,7 @@
                                             <td>{{ $run->id }}</td>
                                             <td>
                                                 <div class="fw-semibold">{{ $name }}</div>
-                                                <span class="text-muted small">{{ $staff->email ?? '—' }}</span>
+                                                <span class="text-muted small">{{ optional($staff)->email ?? '—' }}</span>
                                             </td>
                                             <td><span class="text-muted small">{{ optional($staff)->user_code ?? '—' }}</span></td>
                                             <td>{{ $periodLabel }}</td>
@@ -227,7 +255,12 @@
 
             function buildFilters(filters) {
                 const chips = [];
-                if (filters.member_name) chips.push({ label: 'Staff', value: filters.member_name });
+                if (filters.member_name) {
+                    chips.push({
+                        label: 'Search',
+                        value: `${filters.member_name}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                    });
+                }
                 if (filters.period_month) chips.push({ label: 'Period', value: filters.period_month });
                 return chips;
             }

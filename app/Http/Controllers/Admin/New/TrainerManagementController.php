@@ -41,8 +41,8 @@ class TrainerManagementController extends Controller
         }
         
         $allowed_columns = [
-            'id', 'name', 'phone_number', 'email', 'created_at',
-            'updated_at'
+            'id', 'user_code', 'name', 'phone_number', 'email', 'created_at',
+            'updated_at', 'created_by',
         ];
         
         if (!in_array($search_column, $allowed_columns)) {
@@ -78,6 +78,10 @@ class TrainerManagementController extends Controller
                         $q->where('first_name', 'like', "%{$search}%")
                           ->orWhere('last_name', 'like', "%{$search}%");
                     });
+                }
+
+                if (in_array($search_column, ['user_code', 'phone_number', 'email', 'created_by'], true)) {
+                    return $query->where($search_column, 'like', "%{$search}%");
                 }
 
                 return $query->where($search_column, 'like', "%{$search}%");
@@ -359,7 +363,7 @@ class TrainerManagementController extends Controller
             $statusFilter = 'all';
         }
 
-        $allowedColumns = ['id', 'name', 'phone_number', 'email', 'created_at', 'updated_at'];
+        $allowedColumns = ['id', 'user_code', 'name', 'phone_number', 'email', 'created_at', 'updated_at', 'created_by'];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
         }
@@ -385,6 +389,10 @@ class TrainerManagementController extends Controller
                         $q->where('first_name', 'like', "%{$search}%")
                             ->orWhere('last_name', 'like', "%{$search}%");
                     });
+                }
+
+                if (in_array($searchColumn, ['user_code', 'phone_number', 'email', 'created_by'], true)) {
+                    return $query->where($searchColumn, 'like', "%{$search}%");
                 }
 
                 return $query->where($searchColumn, 'like', "%{$search}%");

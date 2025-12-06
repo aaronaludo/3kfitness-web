@@ -35,7 +35,7 @@ class StaffAccountManagementController extends Controller
         }
 
         $allowedColumns = [
-            'id', 'user_code', 'name', 'email', 'role_id', 'phone_number', 'created_at', 'updated_at',
+            'id', 'user_code', 'name', 'email', 'role_id', 'role_name', 'phone_number', 'created_at', 'updated_at', 'created_by',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
@@ -357,7 +357,7 @@ class StaffAccountManagementController extends Controller
         }
 
         $allowedColumns = [
-            'id', 'user_code', 'name', 'email', 'role_id', 'phone_number', 'created_at', 'updated_at',
+            'id', 'user_code', 'name', 'email', 'role_id', 'role_name', 'phone_number', 'created_at', 'updated_at', 'created_by',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
@@ -473,6 +473,12 @@ class StaffAccountManagementController extends Controller
                     });
                 case 'role_id':
                     return $query->where('role_id', $keyword);
+                case 'role_name':
+                    return $query->whereHas('role', function ($roleQuery) use ($keyword) {
+                        $roleQuery->where('name', 'like', "%{$keyword}%");
+                    });
+                case 'created_by':
+                    return $query->where('created_by', 'like', "%{$keyword}%");
                 default:
                     return $query->where($searchColumn, 'like', "%{$keyword}%");
             }

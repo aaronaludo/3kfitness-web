@@ -17,6 +17,7 @@ class ClassEnrollmentHistoryController extends Controller
             'class_id'   => 'nullable|exists:schedules,id',
             'start_date' => 'nullable|date',
             'end_date'   => 'nullable|date|after_or_equal:start_date',
+            'search_column' => 'nullable|string',
         ]);
 
         $filters = [
@@ -24,7 +25,26 @@ class ClassEnrollmentHistoryController extends Controller
             'class_id'   => $request->input('class_id'),
             'start_date' => $request->input('start_date'),
             'end_date'   => $request->input('end_date'),
+            'search_column' => $request->input('search_column'),
         ];
+
+        $allowedSearchColumns = [
+            'id',
+            'member_name',
+            'member_role',
+            'member_code',
+            'member_email',
+            'member_phone',
+            'class_name',
+            'class_code',
+            'trainer_name',
+            'joined_at',
+            'class_start_date',
+            'class_end_date',
+        ];
+        if (!in_array($filters['search_column'], $allowedSearchColumns, true)) {
+            $filters['search_column'] = null;
+        }
 
         $now = Carbon::now();
 
@@ -40,28 +60,96 @@ class ClassEnrollmentHistoryController extends Controller
 
         if ($filters['search'] !== '') {
             $like = '%' . $filters['search'] . '%';
+            $searchColumn = $filters['search_column'];
+            $searchTerm = $filters['search'];
 
-            $baseQuery->where(function ($query) use ($like) {
-                $query
-                    ->whereHas('user', function ($userQuery) use ($like) {
-                        $userQuery->where(function ($nameQuery) use ($like) {
-                            $nameQuery->whereRaw(
+            if ($searchColumn === 'id') {
+                $baseQuery->where(function ($query) use ($searchTerm) {
+                    $query->where('schedule_id', $searchTerm)
+                        ->orWhereHas('schedule', function ($scheduleQuery) use ($searchTerm) {
+                            $scheduleQuery->where('id', $searchTerm);
+                        });
+                });
+            } elseif ($searchColumn === 'member_name') {
+                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where(function ($nameQuery) use ($like) {
+                        $nameQuery->whereRaw(
+                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                            [$like]
+                        )
+                        ->orWhere('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like);
+                    });
+                });
+            } elseif ($searchColumn === 'member_role') {
+                $baseQuery->whereHas('user.role', function ($roleQuery) use ($like) {
+                    $roleQuery->where('name', 'like', $like);
+                });
+            } elseif ($searchColumn === 'member_code') {
+                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('user_code', 'like', $like);
+                });
+            } elseif ($searchColumn === 'member_email') {
+                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('email', 'like', $like);
+                });
+            } elseif ($searchColumn === 'member_phone') {
+                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('phone_number', 'like', $like);
+                });
+            } elseif ($searchColumn === 'class_name') {
+                $baseQuery->whereHas('schedule', function ($scheduleQuery) use ($like) {
+                    $scheduleQuery->where('name', 'like', $like);
+                });
+            } elseif ($searchColumn === 'class_code') {
+                $baseQuery->whereHas('schedule', function ($scheduleQuery) use ($like) {
+                    $scheduleQuery->where('class_code', 'like', $like);
+                });
+            } elseif ($searchColumn === 'trainer_name') {
+                $baseQuery->whereHas('schedule.user', function ($trainerQuery) use ($like) {
+                    $trainerQuery->where(function ($trainerNameQuery) use ($like) {
+                        $trainerNameQuery
+                            ->whereRaw(
                                 "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
                                 [$like]
                             )
                             ->orWhere('first_name', 'like', $like)
-                            ->orWhere('last_name', 'like', $like)
-                            ->orWhere('user_code', 'like', $like)
-                            ->orWhere('email', 'like', $like)
-                            ->orWhere('phone_number', 'like', $like);
-                        });
-                    })
-                    ->orWhereHas('schedule', function ($scheduleQuery) use ($like) {
-                        $scheduleQuery
-                            ->where('name', 'like', $like)
-                            ->orWhere('class_code', 'like', $like);
+                            ->orWhere('last_name', 'like', $like);
                     });
-            });
+                });
+            } elseif ($searchColumn === 'joined_at') {
+                $baseQuery->where('created_at', 'like', $like);
+            } elseif ($searchColumn === 'class_start_date') {
+                $baseQuery->whereHas('schedule', function ($scheduleQuery) use ($like) {
+                    $scheduleQuery->where('class_start_date', 'like', $like);
+                });
+            } elseif ($searchColumn === 'class_end_date') {
+                $baseQuery->whereHas('schedule', function ($scheduleQuery) use ($like) {
+                    $scheduleQuery->where('class_end_date', 'like', $like);
+                });
+            } else {
+                $baseQuery->where(function ($query) use ($like) {
+                    $query
+                        ->whereHas('user', function ($userQuery) use ($like) {
+                            $userQuery->where(function ($nameQuery) use ($like) {
+                                $nameQuery->whereRaw(
+                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                    [$like]
+                                )
+                                ->orWhere('first_name', 'like', $like)
+                                ->orWhere('last_name', 'like', $like)
+                                ->orWhere('user_code', 'like', $like)
+                                ->orWhere('email', 'like', $like)
+                                ->orWhere('phone_number', 'like', $like);
+                            });
+                        })
+                        ->orWhereHas('schedule', function ($scheduleQuery) use ($like) {
+                            $scheduleQuery
+                                ->where('name', 'like', $like)
+                                ->orWhere('class_code', 'like', $like);
+                        });
+                });
+            }
         }
 
         if ($filters['start_date']) {
@@ -110,6 +198,7 @@ class ClassEnrollmentHistoryController extends Controller
             'class_id'   => 'nullable|exists:schedules,id',
             'start_date' => 'nullable|date',
             'end_date'   => 'nullable|date|after_or_equal:start_date',
+            'search_column' => 'nullable|string',
         ]);
 
         $filters = [
@@ -117,7 +206,26 @@ class ClassEnrollmentHistoryController extends Controller
             'class_id'   => $request->input('class_id'),
             'start_date' => $request->input('start_date'),
             'end_date'   => $request->input('end_date'),
+            'search_column' => $request->input('search_column'),
         ];
+
+        $allowedSearchColumns = [
+            'id',
+            'member_name',
+            'member_role',
+            'member_code',
+            'member_email',
+            'member_phone',
+            'class_name',
+            'class_code',
+            'trainer_name',
+            'joined_at',
+            'class_start_date',
+            'class_end_date',
+        ];
+        if (!in_array($filters['search_column'], $allowedSearchColumns, true)) {
+            $filters['search_column'] = null;
+        }
 
         $now = Carbon::now();
 
@@ -133,28 +241,96 @@ class ClassEnrollmentHistoryController extends Controller
 
         if ($filters['search'] !== '') {
             $like = '%' . $filters['search'] . '%';
+            $searchColumn = $filters['search_column'];
+            $searchTerm = $filters['search'];
 
-            $query->where(function ($builder) use ($like) {
-                $builder
-                    ->whereHas('user', function ($userQuery) use ($like) {
-                        $userQuery->where(function ($nameQuery) use ($like) {
-                            $nameQuery->whereRaw(
+            if ($searchColumn === 'id') {
+                $query->where(function ($builder) use ($searchTerm) {
+                    $builder->where('schedule_id', $searchTerm)
+                        ->orWhereHas('schedule', function ($scheduleQuery) use ($searchTerm) {
+                            $scheduleQuery->where('id', $searchTerm);
+                        });
+                });
+            } elseif ($searchColumn === 'member_name') {
+                $query->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where(function ($nameQuery) use ($like) {
+                        $nameQuery->whereRaw(
+                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                            [$like]
+                        )
+                        ->orWhere('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like);
+                    });
+                });
+            } elseif ($searchColumn === 'member_role') {
+                $query->whereHas('user.role', function ($roleQuery) use ($like) {
+                    $roleQuery->where('name', 'like', $like);
+                });
+            } elseif ($searchColumn === 'member_code') {
+                $query->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('user_code', 'like', $like);
+                });
+            } elseif ($searchColumn === 'member_email') {
+                $query->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('email', 'like', $like);
+                });
+            } elseif ($searchColumn === 'member_phone') {
+                $query->whereHas('user', function ($userQuery) use ($like) {
+                    $userQuery->where('phone_number', 'like', $like);
+                });
+            } elseif ($searchColumn === 'class_name') {
+                $query->whereHas('schedule', function ($scheduleQuery) use ($like) {
+                    $scheduleQuery->where('name', 'like', $like);
+                });
+            } elseif ($searchColumn === 'class_code') {
+                $query->whereHas('schedule', function ($scheduleQuery) use ($like) {
+                    $scheduleQuery->where('class_code', 'like', $like);
+                });
+            } elseif ($searchColumn === 'trainer_name') {
+                $query->whereHas('schedule.user', function ($trainerQuery) use ($like) {
+                    $trainerQuery->where(function ($trainerNameQuery) use ($like) {
+                        $trainerNameQuery
+                            ->whereRaw(
                                 "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
                                 [$like]
                             )
                             ->orWhere('first_name', 'like', $like)
-                            ->orWhere('last_name', 'like', $like)
-                            ->orWhere('user_code', 'like', $like)
-                            ->orWhere('email', 'like', $like)
-                            ->orWhere('phone_number', 'like', $like);
-                        });
-                    })
-                    ->orWhereHas('schedule', function ($scheduleQuery) use ($like) {
-                        $scheduleQuery
-                            ->where('name', 'like', $like)
-                            ->orWhere('class_code', 'like', $like);
+                            ->orWhere('last_name', 'like', $like);
                     });
-            });
+                });
+            } elseif ($searchColumn === 'joined_at') {
+                $query->where('created_at', 'like', $like);
+            } elseif ($searchColumn === 'class_start_date') {
+                $query->whereHas('schedule', function ($scheduleQuery) use ($like) {
+                    $scheduleQuery->where('class_start_date', 'like', $like);
+                });
+            } elseif ($searchColumn === 'class_end_date') {
+                $query->whereHas('schedule', function ($scheduleQuery) use ($like) {
+                    $scheduleQuery->where('class_end_date', 'like', $like);
+                });
+            } else {
+                $query->where(function ($builder) use ($like) {
+                    $builder
+                        ->whereHas('user', function ($userQuery) use ($like) {
+                            $userQuery->where(function ($nameQuery) use ($like) {
+                                $nameQuery->whereRaw(
+                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                    [$like]
+                                )
+                                ->orWhere('first_name', 'like', $like)
+                                ->orWhere('last_name', 'like', $like)
+                                ->orWhere('user_code', 'like', $like)
+                                ->orWhere('email', 'like', $like)
+                                ->orWhere('phone_number', 'like', $like);
+                            });
+                        })
+                        ->orWhereHas('schedule', function ($scheduleQuery) use ($like) {
+                            $scheduleQuery
+                                ->where('name', 'like', $like)
+                                ->orWhere('class_code', 'like', $like);
+                        });
+                });
+            }
         }
 
         if ($filters['start_date']) {
@@ -193,9 +369,10 @@ class ClassEnrollmentHistoryController extends Controller
 
         $section->addText('Enrollment History' . $rangeLabel, ['bold' => true, 'size' => 16]);
         $section->addText('Generated: ' . now()->format('M d, Y H:i'));
-        if ($filters['search'] || $filters['class_id']) {
+        if ($filters['search'] || $filters['class_id'] || $filters['search_column']) {
             $section->addText('Filters: ' . trim(
-                ($filters['search'] ? "Search='{$filters['search']}' " : '') .
+                ($filters['search'] ? "Search='{$filters['search']}'" : '') .
+                ($filters['search_column'] ? " (By={$filters['search_column']}) " : ' ') .
                 ($filters['class_id'] ? "Class ID={$filters['class_id']}" : '')
             ));
         }

@@ -300,7 +300,7 @@
                                                     <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
                                                     <select id="search-column" name="search_column" class="form-select rounded-3">
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
+                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
                                                         <option value="member_name" {{ request('search_column', 'member_name') == 'member_name' ? 'selected' : '' }}>Member Name</option>
                                                         <option value="member_user_code" {{ request('search_column') == 'member_user_code' ? 'selected' : '' }}>Member Code</option>
                                                         <option value="membership" {{ request('search_column') == 'membership' ? 'selected' : '' }}>Membership</option>

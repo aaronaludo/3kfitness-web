@@ -21,6 +21,7 @@ class TrainerClassHistoryController extends Controller
             'status'     => 'nullable|in:all,pending,approved,rejected',
             'start_date' => 'nullable|date',
             'end_date'   => 'nullable|date|after_or_equal:start_date',
+            'search_column' => 'nullable|string',
         ]);
 
         $filters = [
@@ -29,6 +30,7 @@ class TrainerClassHistoryController extends Controller
             'status'     => $request->input('status', 'all'),
             'start_date' => $request->input('start_date'),
             'end_date'   => $request->input('end_date'),
+            'search_column' => $request->input('search_column'),
         ];
 
         $statusMap = [
@@ -39,6 +41,24 @@ class TrainerClassHistoryController extends Controller
 
         if (!array_key_exists($filters['status'], $statusMap)) {
             $filters['status'] = 'all';
+        }
+
+        $allowedSearchColumns = [
+            'id',
+            'name',
+            'class_code',
+            'trainer_name',
+            'trainer_code',
+            'trainer_email',
+            'enrollments',
+            'rate',
+            'class_start_date',
+            'class_end_date',
+            'status',
+            'archive',
+        ];
+        if (!in_array($filters['search_column'], $allowedSearchColumns, true)) {
+            $filters['search_column'] = null;
         }
 
         $now = Carbon::now();
@@ -54,20 +74,91 @@ class TrainerClassHistoryController extends Controller
 
         if ($filters['search'] !== '') {
             $like = '%' . $filters['search'] . '%';
+            $searchColumn = $filters['search_column'];
+            $searchTerm = $filters['search'];
 
-            $baseQuery->where(function ($query) use ($like) {
-                $query->where('name', 'like', $like)
-                    ->orWhere('class_code', 'like', $like)
-                    ->orWhereHas('user', function ($trainerQuery) use ($like) {
-                        $trainerQuery->where(function ($nameQuery) use ($like) {
-                            $nameQuery->whereRaw(
-                                "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                [$like]
-                            )->orWhere('first_name', 'like', $like)
-                             ->orWhere('last_name', 'like', $like);
-                        });
+            if ($searchColumn === 'id') {
+                $baseQuery->where('id', $searchTerm);
+            } elseif ($searchColumn === 'name') {
+                $baseQuery->where('name', 'like', $like);
+            } elseif ($searchColumn === 'class_code') {
+                $baseQuery->where('class_code', 'like', $like);
+            } elseif ($searchColumn === 'trainer_name') {
+                $baseQuery->whereHas('user', function ($trainerQuery) use ($like) {
+                    $trainerQuery->where(function ($nameQuery) use ($like) {
+                        $nameQuery->whereRaw(
+                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                            [$like]
+                        )->orWhere('first_name', 'like', $like)
+                         ->orWhere('last_name', 'like', $like);
                     });
-            });
+                });
+            } elseif ($searchColumn === 'trainer_code') {
+                $baseQuery->whereHas('user', function ($trainerQuery) use ($like) {
+                    $trainerQuery->where('user_code', 'like', $like);
+                });
+            } elseif ($searchColumn === 'trainer_email') {
+                $baseQuery->whereHas('user', function ($trainerQuery) use ($like) {
+                    $trainerQuery->where('email', 'like', $like);
+                });
+            } elseif ($searchColumn === 'enrollments') {
+                $baseQuery->having('user_schedules_count', '=', (int) $searchTerm);
+            } elseif ($searchColumn === 'rate') {
+                $baseQuery->where('trainer_rate_per_hour', 'like', $like);
+            } elseif ($searchColumn === 'class_start_date') {
+                $parsed = null;
+                try {
+                    $parsed = Carbon::parse($searchTerm)->toDateString();
+                } catch (\Exception $e) {
+                    $parsed = null;
+                }
+                if ($parsed) {
+                    $baseQuery->whereDate('class_start_date', $parsed);
+                } else {
+                    $baseQuery->where('class_start_date', 'like', $like);
+                }
+            } elseif ($searchColumn === 'class_end_date') {
+                $parsed = null;
+                try {
+                    $parsed = Carbon::parse($searchTerm)->toDateString();
+                } catch (\Exception $e) {
+                    $parsed = null;
+                }
+                if ($parsed) {
+                    $baseQuery->whereDate('class_end_date', $parsed);
+                } else {
+                    $baseQuery->where('class_end_date', 'like', $like);
+                }
+            } elseif ($searchColumn === 'status') {
+                $normalizedStatus = strtolower(trim($searchTerm));
+                $statusValue = $statusMap[$normalizedStatus] ?? null;
+                if (!is_null($statusValue)) {
+                    $baseQuery->where('isadminapproved', $statusValue);
+                } elseif (is_numeric($searchTerm)) {
+                    $baseQuery->where('isadminapproved', (int) $searchTerm);
+                }
+            } elseif ($searchColumn === 'archive') {
+                $normalizedArchive = strtolower(trim($searchTerm));
+                if (in_array($normalizedArchive, ['archived', 'archive', '1', 'yes'], true)) {
+                    $baseQuery->where('is_archieve', 1);
+                } elseif (in_array($normalizedArchive, ['active', '0', 'no'], true)) {
+                    $baseQuery->where('is_archieve', 0);
+                }
+            } else {
+                $baseQuery->where(function ($query) use ($like) {
+                    $query->where('name', 'like', $like)
+                        ->orWhere('class_code', 'like', $like)
+                        ->orWhereHas('user', function ($trainerQuery) use ($like) {
+                            $trainerQuery->where(function ($nameQuery) use ($like) {
+                                $nameQuery->whereRaw(
+                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                    [$like]
+                                )->orWhere('first_name', 'like', $like)
+                                 ->orWhere('last_name', 'like', $like);
+                            });
+                        });
+                });
+            }
         }
 
         if ($filters['start_date']) {
@@ -131,6 +222,7 @@ class TrainerClassHistoryController extends Controller
             'status'     => 'nullable|in:all,pending,approved,rejected',
             'start_date' => 'nullable|date',
             'end_date'   => 'nullable|date|after_or_equal:start_date',
+            'search_column' => 'nullable|string',
         ]);
 
         $filters = [
@@ -139,6 +231,7 @@ class TrainerClassHistoryController extends Controller
             'status'     => $request->input('status', 'all'),
             'start_date' => $request->input('start_date'),
             'end_date'   => $request->input('end_date'),
+            'search_column' => $request->input('search_column'),
         ];
 
         $statusMap = [
@@ -149,6 +242,24 @@ class TrainerClassHistoryController extends Controller
 
         if (!array_key_exists($filters['status'], $statusMap)) {
             $filters['status'] = 'all';
+        }
+
+        $allowedSearchColumns = [
+            'id',
+            'name',
+            'class_code',
+            'trainer_name',
+            'trainer_code',
+            'trainer_email',
+            'enrollments',
+            'rate',
+            'class_start_date',
+            'class_end_date',
+            'status',
+            'archive',
+        ];
+        if (!in_array($filters['search_column'], $allowedSearchColumns, true)) {
+            $filters['search_column'] = null;
         }
 
         $now = Carbon::now();
@@ -164,20 +275,91 @@ class TrainerClassHistoryController extends Controller
 
         if ($filters['search'] !== '') {
             $like = '%' . $filters['search'] . '%';
+            $searchColumn = $filters['search_column'];
+            $searchTerm = $filters['search'];
 
-            $query->where(function ($builder) use ($like) {
-                $builder->where('name', 'like', $like)
-                    ->orWhere('class_code', 'like', $like)
-                    ->orWhereHas('user', function ($trainerQuery) use ($like) {
-                        $trainerQuery->where(function ($nameQuery) use ($like) {
-                            $nameQuery->whereRaw(
-                                "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                [$like]
-                            )->orWhere('first_name', 'like', $like)
-                             ->orWhere('last_name', 'like', $like);
-                        });
+            if ($searchColumn === 'id') {
+                $query->where('id', $searchTerm);
+            } elseif ($searchColumn === 'name') {
+                $query->where('name', 'like', $like);
+            } elseif ($searchColumn === 'class_code') {
+                $query->where('class_code', 'like', $like);
+            } elseif ($searchColumn === 'trainer_name') {
+                $query->whereHas('user', function ($trainerQuery) use ($like) {
+                    $trainerQuery->where(function ($nameQuery) use ($like) {
+                        $nameQuery->whereRaw(
+                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                            [$like]
+                        )->orWhere('first_name', 'like', $like)
+                         ->orWhere('last_name', 'like', $like);
                     });
-            });
+                });
+            } elseif ($searchColumn === 'trainer_code') {
+                $query->whereHas('user', function ($trainerQuery) use ($like) {
+                    $trainerQuery->where('user_code', 'like', $like);
+                });
+            } elseif ($searchColumn === 'trainer_email') {
+                $query->whereHas('user', function ($trainerQuery) use ($like) {
+                    $trainerQuery->where('email', 'like', $like);
+                });
+            } elseif ($searchColumn === 'enrollments') {
+                $query->having('user_schedules_count', '=', (int) $searchTerm);
+            } elseif ($searchColumn === 'rate') {
+                $query->where('trainer_rate_per_hour', 'like', $like);
+            } elseif ($searchColumn === 'class_start_date') {
+                $parsed = null;
+                try {
+                    $parsed = Carbon::parse($searchTerm)->toDateString();
+                } catch (\Exception $e) {
+                    $parsed = null;
+                }
+                if ($parsed) {
+                    $query->whereDate('class_start_date', $parsed);
+                } else {
+                    $query->where('class_start_date', 'like', $like);
+                }
+            } elseif ($searchColumn === 'class_end_date') {
+                $parsed = null;
+                try {
+                    $parsed = Carbon::parse($searchTerm)->toDateString();
+                } catch (\Exception $e) {
+                    $parsed = null;
+                }
+                if ($parsed) {
+                    $query->whereDate('class_end_date', $parsed);
+                } else {
+                    $query->where('class_end_date', 'like', $like);
+                }
+            } elseif ($searchColumn === 'status') {
+                $normalizedStatus = strtolower(trim($searchTerm));
+                $statusValue = $statusMap[$normalizedStatus] ?? null;
+                if (!is_null($statusValue)) {
+                    $query->where('isadminapproved', $statusValue);
+                } elseif (is_numeric($searchTerm)) {
+                    $query->where('isadminapproved', (int) $searchTerm);
+                }
+            } elseif ($searchColumn === 'archive') {
+                $normalizedArchive = strtolower(trim($searchTerm));
+                if (in_array($normalizedArchive, ['archived', 'archive', '1', 'yes'], true)) {
+                    $query->where('is_archieve', 1);
+                } elseif (in_array($normalizedArchive, ['active', '0', 'no'], true)) {
+                    $query->where('is_archieve', 0);
+                }
+            } else {
+                $query->where(function ($builder) use ($like) {
+                    $builder->where('name', 'like', $like)
+                        ->orWhere('class_code', 'like', $like)
+                        ->orWhereHas('user', function ($trainerQuery) use ($like) {
+                            $trainerQuery->where(function ($nameQuery) use ($like) {
+                                $nameQuery->whereRaw(
+                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                                    [$like]
+                                )->orWhere('first_name', 'like', $like)
+                                 ->orWhere('last_name', 'like', $like);
+                            });
+                        });
+                });
+            }
         }
 
         if ($filters['start_date']) {
@@ -226,7 +408,11 @@ class TrainerClassHistoryController extends Controller
 
         $filterSummary = [];
         if ($filters['search'] !== '') {
-            $filterSummary[] = "Search='{$filters['search']}'";
+            $searchSummary = "Search='{$filters['search']}'";
+            if ($filters['search_column']) {
+                $searchSummary .= " (By={$filters['search_column']})";
+            }
+            $filterSummary[] = $searchSummary;
         }
         if ($filters['trainer_id']) {
             $trainer = User::find($filters['trainer_id']);
