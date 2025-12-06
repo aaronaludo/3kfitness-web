@@ -172,6 +172,8 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/admin/admins', [AdminAdminController::class, 'index'])->name('admin.admins.index');
     Route::get('/admin/admins/add', [AdminAdminController::class, 'add'])->name('admin.admins.add');
+    Route::get('/admin/admins/{id}/edit', [AdminAdminController::class, 'edit'])->name('admin.admins.edit');
+    Route::put('/admin/admins/{id}', [AdminAdminController::class, 'update'])->name('admin.admins.update');
     Route::get('/admin/admins/{id}', [AdminAdminController::class, 'view'])->name('admin.admins.view');
     Route::post('/admin/admins/store', [AdminAdminController::class, 'store'])->name('admin.admins.store');
 

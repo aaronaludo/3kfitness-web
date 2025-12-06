@@ -179,6 +179,7 @@
                     'admin.staff-account-management.print',
                     'admin.staff-account-management.attendances*',
                 ];
+                $adminManagementRoutes = ['admin.admins.*'];
                 $trainerRoutes = ['admin.trainer-management.*'];
                 $operationsRoutes = ['admin.banners.*', 'admin.trainer-banners.*', 'admin.logs.*'];
                 $payrollRoutes = ['admin.payrolls.*'];
@@ -307,6 +308,25 @@
                         </li>
                     </ul>
                 </li>
+                @if(auth()->guard('admin')->user()->role_id == 4)
+                    <li>
+                        <a class="collapsed {{ request()->routeIs($adminManagementRoutes) ? 'active' : '' }}"
+                           data-bs-toggle="collapse"
+                           href="#admin-management-menu"
+                           role="button"
+                           aria-expanded="{{ request()->routeIs($adminManagementRoutes) ? 'true' : 'false' }}"
+                           aria-controls="admin-management-menu">
+                            <i class="fa-solid fa-user-shield"></i> Admin Management
+                        </a>
+                        <ul id="admin-management-menu" class="collapse {{ request()->routeIs($adminManagementRoutes) ? 'show' : '' }}">
+                            <li>
+                                <a href="{{ route('admin.admins.index') }}" class="{{ request()->routeIs('admin.admins.*') ? 'active' : '' }}">
+                                    Admins
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                @endif
                 <li>
                     <a class="collapsed {{ request()->routeIs($trainerRoutes) ? 'active' : '' }}" 
                     data-bs-toggle="collapse" 

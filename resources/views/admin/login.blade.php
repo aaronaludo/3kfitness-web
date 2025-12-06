@@ -224,6 +224,7 @@
                       <select name="role_id" class="form-select">
                         <option value="" disabled {{ old('role_id') ? '' : 'selected' }}>Select role</option>
                         <option value="2" {{ old('role_id') == 2 ? 'selected' : '' }}>Staff</option>
+                        <option value="1" {{ old('role_id') == 1 ? 'selected' : '' }}>Admin</option>
                         <option value="4" {{ old('role_id') == 4 ? 'selected' : '' }}>Super Admin</option>
                       </select>
                     </div>
