@@ -20,6 +20,7 @@ use App\Http\Controllers\Admin\New\SalesController as Sales;
 use App\Http\Controllers\Admin\New\StaffAccountManagementController as StaffAccountManagement;
 use App\Http\Controllers\Admin\New\ScheduleController as Schedule;
 use App\Http\Controllers\Admin\New\MemberDataController as MemberData;
+use App\Http\Controllers\Admin\New\TrainerBannerController as TrainerBanner;
 use App\Http\Controllers\Admin\New\AttendanceController as Attendance;
 use App\Http\Controllers\Admin\New\MembershipController as Membership;
 use App\Http\Controllers\Admin\New\MembershipPaymentController as MembershipPayment;
@@ -64,6 +65,8 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/admin/banners', [Banner::class, 'index'])->name('admin.banners.index');
     Route::post('/admin/banners', [Banner::class, 'update'])->name('admin.banners.update');
+    Route::get('/admin/trainer-banners', [TrainerBanner::class, 'index'])->name('admin.trainer-banners.index');
+    Route::post('/admin/trainer-banners', [TrainerBanner::class, 'update'])->name('admin.trainer-banners.update');
     
     Route::get('/admin/goals', [Goal::class, 'index'])->name('admin.goals.index');
     

@@ -76,10 +76,12 @@ use App\Http\Controllers\Trainer\TrainerClassController;
 use App\Http\Controllers\Trainer\TrainerPayrollController;
 
 use App\Http\Controllers\Mobile\BannerController;
+use App\Http\Controllers\Mobile\TrainerBannerController;
 use App\Http\Controllers\Mobile\AttendanceController;
 use App\Http\Controllers\Mobile\MembershipController;
 
 Route::get('/banners', [BannerController::class, 'index'])->name('banners.index');
+Route::get('/trainers/banners', [TrainerBannerController::class, 'index'])->name('trainers.banners.index');
 Route::get('/memberships', [MembershipController::class, 'index'])->name('memberships.index');
 
 Route::get('/memberships/catalog', [MemberMembershipController::class, 'catalog'])->name('memberships.catalog');

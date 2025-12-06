@@ -180,7 +180,7 @@
                     'admin.staff-account-management.attendances*',
                 ];
                 $trainerRoutes = ['admin.trainer-management.*'];
-                $operationsRoutes = ['admin.banners.*', 'admin.logs.*'];
+                $operationsRoutes = ['admin.banners.*', 'admin.trainer-banners.*', 'admin.logs.*'];
                 $payrollRoutes = ['admin.payrolls.*'];
             @endphp
             <ul id="menu">
@@ -334,7 +334,8 @@
                             <i class="fa-solid fa-cogs"></i> Operations
                         </a>
                         <ul id="operations-menu" class="collapse {{ request()->routeIs($operationsRoutes) ? 'show' : '' }}">
-                            <li><a href="{{ route('admin.banners.index') }}" class="{{ request()->routeIs('admin.banners.*') ? 'active' : '' }}">Banners</a></li>
+                            <li><a href="{{ route('admin.banners.index') }}" class="{{ request()->routeIs('admin.banners.*') ? 'active' : '' }}">Banner</a></li>
+                            <li><a href="{{ route('admin.trainer-banners.index') }}" class="{{ request()->routeIs('admin.trainer-banners.*') ? 'active' : '' }}">Trainers Banner</a></li>
                             <li><a href="{{ route('admin.logs.index') }}" class="{{ request()->routeIs('admin.logs.*') ? 'active' : '' }}">Logs</a></li>
                         </ul>
                     </li>
