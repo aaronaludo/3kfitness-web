@@ -409,7 +409,7 @@
                                                         <div class="action-button"><a href="{{ route('admin.staff-account-management.edit', $item->id) }}" title="Edit"><i class="fa-solid fa-pencil text-primary"></i></a></div>
                                                         <div class="action-button">
                                                             <button type="button" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
-                                                                <i class="fa-solid fa-trash text-danger"></i>
+                                                                <i class="fa-solid fa-box-archive text-danger"></i>
                                                             </button>
                                                         </div> 
                                                     </div>

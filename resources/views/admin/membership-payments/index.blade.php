@@ -423,7 +423,7 @@
                                             <tr>
                                                 <td>{{ $item->id }}</td>
                                                 <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
-                                                <td>{{ optional($item->user)->user_code ?? '—' }}</td>
+                                                <td><span class="text-muted small">{{ optional($item->user)->user_code ?? '—' }}</span></td>
                                                 <td>{{ $item->membership->name }}</td>
                                                 <td>{{ $expirationAt ? $expirationAt->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $createdAt ? $createdAt->format('F j, Y g:iA') : '' }}</td>
@@ -691,7 +691,7 @@
                                             <tr>
                                                 <td>{{ $archiveRowNumber ?: $loop->iteration }}</td>
                                                 <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
-                                                <td>{{ optional($archive->user)->user_code ?? '—' }}</td>
+                                                <td><span class="text-muted small">{{ optional($archive->user)->user_code ?? '—' }}</span></td>
                                                 <td>{{ optional($archive->membership)->name }}</td>
                                                 <td>
                                                     @php

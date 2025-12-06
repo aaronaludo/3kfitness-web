@@ -415,7 +415,7 @@
                                                                 title="Delete"
                                                                 style="background: none; border: none; padding: 0; cursor: pointer;"
                                                             >
-                                                                <i class="fa-solid fa-trash text-danger"></i>
+                                                                <i class="fa-solid fa-box-archive text-danger"></i>
                                                             </button>
                                                         </div>
                                                     </div>

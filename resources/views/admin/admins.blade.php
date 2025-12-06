@@ -137,6 +137,7 @@
                             <thead class="table-light">
                                 <tr>
                                     <th>#</th>
+                                    <th>User Code</th>
                                     <th>Admin</th>
                                     <th>Role</th>
                                     <th>Contact</th>
@@ -154,6 +155,9 @@
                                     @endphp
                                     <tr>
                                         <td>{{ $admin->id }}</td>
+                                        <td>
+                                            <span class="text-muted small">{{ optional($admin)->user_code ?? '—' }}</span>
+                                        </td>
                                         <td>
                                             <div class="fw-semibold">{{ $fullName ?: 'Admin' }}</div>
                                             <div class="text-muted small">{{ $admin->email ?? 'No email' }}</div>
@@ -201,7 +205,7 @@
                                                 <div class="action-button"><a href="{{ route('admin.admins.edit', $admin->id) }}" title="Edit"><i class="fa-solid fa-pencil text-primary"></i></a></div>
                                                 <div class="action-button">
                                                     <button type="button" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ $admin->id }}" data-id="{{ $admin->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
-                                                        <i class="fa-solid fa-trash text-danger"></i>
+                                                        <i class="fa-solid fa-box-archive text-danger"></i>
                                                     </button>
                                                 </div> 
                                             </div>

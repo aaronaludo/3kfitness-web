@@ -223,7 +223,7 @@
                                                     <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
                                                     <select id="search-column" name="search_column" class="form-select rounded-3">
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>ID</option>
+                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
                                                         <option value="description" {{ request('search_column') == 'description' ? 'selected' : '' }}>Description</option>
                                                         <option value="month" {{ request('search_column') == 'month' ? 'selected' : '' }}>Month</option>
@@ -323,7 +323,7 @@
                                 <table class="table table-hover" id="membership-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th class="sortable" data-column="id">ID <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="description">Description <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="price">Price <i class="fa fa-sort"></i></th>
@@ -365,7 +365,7 @@
                                                             <!--    </button>-->
                                                             <!--</form>-->
                                                             <button type="button" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Delete" style="background: none; border: none; padding: 0; cursor: pointer;">
-                                                                <i class="fa-solid fa-trash text-danger"></i>
+                                                                <i class="fa-solid fa-box-archive text-danger"></i>
                                                             </button>
                                                         </div> 
                                                     </div>
@@ -432,7 +432,7 @@
                                 <table class="table table-hover" id="archived-membership-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>ID</th>
+                                            <th>#</th>
                                             <th>Name</th>
                                             <th>Description</th>
                                             <th>Price</th>
@@ -660,7 +660,7 @@
                             ? payload.items
                             : collectTableItems();
                         const filters = buildFilters(payload.filters || {});
-                        const headers = ['ID', 'Membership', 'Plan', 'Members', 'Audit'];
+                        const headers = ['#', 'Membership', 'Plan', 'Members', 'Audit'];
                         const rows = buildRows(items);
 
                         return window.PrintPreview

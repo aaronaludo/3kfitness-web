@@ -505,7 +505,7 @@
                                         <tr data-has-membership="{{ $hasMembership ? '1' : '0' }}">
                                         {{-- UPDATED END --}}
                                             <td>{{ $item->id }}</td>
-                                            <td>{{ $item->user_code }}</td>
+                                            <td><span class="text-muted small">{{ optional($item)->user_code ?? '—' }}</span></td>
 
                                             {{-- UPDATED START: show badge + consistent "No Membership" label --}}
                                             <td>
@@ -577,7 +577,7 @@
                                                                     title="Delete"
                                                                     style="background: none; border: none; padding: 0; cursor: pointer;"
                                                                 >
-                                                                    <i class="fa-solid fa-trash text-danger"></i>
+                                                                    <i class="fa-solid fa-box-archive text-danger"></i>
                                                                 </button>
                                                             @endif
                                                             {{-- UPDATED END --}}
@@ -649,7 +649,8 @@
                                 <table class="table table-hover" id="archived-member-table">
                                     <thead class="table-light">
                                         <tr>
-                                            <th>ID</th>
+                                            <th>#</th>
+                                            <th>User Code</th>
                                             <th>Membership Name</th>
                                             <th>Membership Expiration Date</th>
                                             <th>Name</th>
@@ -675,6 +676,7 @@
                                             @endphp
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
+                                                <td><span class="text-muted small">{{ optional($archive)->user_code ?? '—' }}</span></td>
                                                 <td>
                                                     @if ($membershipName !== 'No Membership')
                                                         <span class="badge bg-success">{{ $membershipName }}</span>
