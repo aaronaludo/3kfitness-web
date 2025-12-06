@@ -223,7 +223,7 @@
                                                         <option value="id" {{ ($filters['search_column'] ?? '') === 'id' ? 'selected' : '' }}>#</option>
                                                         <option value="member_name" {{ ($filters['search_column'] ?? '') === 'member_name' ? 'selected' : '' }}>Member Name</option>
                                                         <option value="member_role" {{ ($filters['search_column'] ?? '') === 'member_role' ? 'selected' : '' }}>Member Role</option>
-                                                        <option value="member_code" {{ ($filters['search_column'] ?? '') === 'member_code' ? 'selected' : '' }}>Member Code</option>
+                                                        <option value="member_code" {{ ($filters['search_column'] ?? '') === 'member_code' ? 'selected' : '' }}>User Code</option>
                                                         <option value="member_email" {{ ($filters['search_column'] ?? '') === 'member_email' ? 'selected' : '' }}>Member Email</option>
                                                         <option value="member_phone" {{ ($filters['search_column'] ?? '') === 'member_phone' ? 'selected' : '' }}>Member Phone Number</option>
                                                         <option value="class_name" {{ ($filters['search_column'] ?? '') === 'class_name' ? 'selected' : '' }}>Class Name</option>
@@ -285,7 +285,7 @@
                                     <tr>
                                         <th>#</th>
                                         <th>Member</th>
-                                        <th>Member Code</th>
+                                        <th>User Code</th>
                                         <th>Contact</th>
                                         <th>Class</th>
                                         <th>Trainer</th>
@@ -431,7 +431,7 @@
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'Member Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Window'];
+                const headers = ['#', 'Member', 'User Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Window'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

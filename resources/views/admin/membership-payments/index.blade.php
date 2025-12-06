@@ -302,7 +302,7 @@
                                                         <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
                                                         <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
                                                         <option value="member_name" {{ request('search_column', 'member_name') == 'member_name' ? 'selected' : '' }}>Member Name</option>
-                                                        <option value="member_user_code" {{ request('search_column') == 'member_user_code' ? 'selected' : '' }}>Member Code</option>
+                                                        <option value="member_user_code" {{ request('search_column') == 'member_user_code' ? 'selected' : '' }}>User Code</option>
                                                         <option value="membership" {{ request('search_column') == 'membership' ? 'selected' : '' }}>Membership</option>
                                                         <option value="expiration_at" {{ request('search_column') == 'expiration_at' ? 'selected' : '' }}>Expiration Date</option>
                                                         <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
@@ -400,7 +400,7 @@
                                         <tr>
                                             <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="member_name">Member Name <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="member_user_code">Member Code <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="member_user_code">User Code <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="membership">Membership <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="expiration_date">Expiration Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
@@ -673,7 +673,7 @@
                                         <tr>
                                             <th>#</th>
                                             <th>Member Name</th>
-                                            <th>Member Code</th>
+                                            <th>User Code</th>
                                             <th>Membership</th>
                                             <th>Status</th>
                                             <th>Expiration Date</th>
@@ -858,7 +858,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'Member Code', 'Membership', 'Billing', 'Status', 'Classes', 'Created By'];
+                const headers = ['#', 'Member', 'User Code', 'Membership', 'Billing', 'Status', 'Classes', 'Created By'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

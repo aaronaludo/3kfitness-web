@@ -473,7 +473,7 @@ class PaymentHistoryController extends Controller
         $headers = [
             'ID',
             'Member',
-            'Member Code',
+            'User Code',
             'Role',
             'Email',
             'Phone',

@@ -393,7 +393,9 @@
                                                <td>{{ $item->id }}</td>
                                                <td>{{ $item->user->role->name }}</td>
                                                <td>{{ $item->user->first_name }} {{ $item->user->last_name }}</td>
-                                                <td>{{ optional($item->user)->user_code ?? '—' }}</td>
+                                                <td>
+                                                    <span class="text-muted small">{{ $item->user->user_code ?? '—' }}</span>
+                                                </td>
                                                <td>
                                                    @if ($item->clockin_at)
                                                        {{ \Carbon\Carbon::parse($item->clockin_at)->format('F j, Y g:iA') }}
@@ -502,7 +504,9 @@
                                         <td>{{ $archive->id }}</td>
                                         <td>{{ optional(optional($archive->user)->role)->name }}</td>
                                         <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
-                                        <td>{{ optional($archive->user)->user_code ?? '—' }}</td>
+                                        <td>
+                                            <span class="text-muted small">{{ $archive->user->user_code ?? '—' }}</span>
+                                        </td>
                                         <td>
                                             @if ($archive->clockin_at)
                                                 {{ \Carbon\Carbon::parse($archive->clockin_at)->format('F j, Y g:iA') }}

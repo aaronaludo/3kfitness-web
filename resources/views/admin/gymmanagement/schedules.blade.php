@@ -337,7 +337,7 @@
                                                         <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Class Name</option>
                                                         <option value="class_code" {{ request('search_column') == 'class_code' ? 'selected' : '' }}>Class Code</option>
                                                         <option value="trainer_name" {{ request('search_column') == 'trainer_name' ? 'selected' : '' }}>Trainer</option>
-                                                        <option value="trainer_user_code" {{ request('search_column') == 'trainer_user_code' ? 'selected' : '' }}>Trainer Code</option>
+                                                        <option value="trainer_user_code" {{ request('search_column') == 'trainer_user_code' ? 'selected' : '' }}>User Code</option>
                                                         <option value="trainer_rate_per_hour" {{ request('search_column') == 'trainer_rate_per_hour' ? 'selected' : '' }}>Trainer Rate Per Hour</option>
                                                         <option value="slots" {{ request('search_column') == 'slots' ? 'selected' : '' }}>Slots</option>
                         	                            <option value="class_start_date" {{ request('search_column') == 'class_start_date' ? 'selected' : '' }}>Class Start Date</option>
@@ -652,7 +652,7 @@
                                         <th>#</th>
                                         <th>Class</th>
                                         <th>Trainer</th>
-                                        <th>Trainer Code</th>
+                                        <th>User Code</th>
                                         <th>Requested cadence</th>
                                         <th>Series window</th>
                                         <th>Notes</th>
@@ -891,7 +891,7 @@
                                             <th class="sortable" data-column="id"># <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="class_name">Class</th>
                                             <th class="sortable" data-column="trainer">Trainer</th>
-                                            <th>Trainer Code</th>
+                                            <th>User Code</th>
                                             <th class="sortable" data-column="start_date">Schedule</th>
                                             <th class="sortable" data-column="slots">Enrollment</th>
                                             <th class="sortable" data-column="admin_acceptance">Admin Acceptance</th>

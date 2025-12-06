@@ -448,7 +448,7 @@ class ClassHistoryController extends Controller
             'Class',
             'Code',
             'Trainer',
-            'Trainer Code',
+            'User Code',
             'Enrollments',
             'Starts',
             'Ends',

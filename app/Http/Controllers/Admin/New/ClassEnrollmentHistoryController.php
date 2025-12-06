@@ -388,7 +388,7 @@ class ClassEnrollmentHistoryController extends Controller
         $table = $section->addTable('EnrollmentHistoryTable');
 
         $headers = [
-            '#', 'Member', 'Member Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Start', 'Class End',
+            '#', 'Member', 'User Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Start', 'Class End',
         ];
         $headerRow = $table->addRow();
         foreach ($headers as $h) {

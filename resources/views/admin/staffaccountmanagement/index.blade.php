@@ -398,7 +398,9 @@
                                             @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
-                                                <td>{{ $item->user_code }}</td>
+                                                <td>
+                                                    <span class="text-muted small">{{ $item->user_code ?? '—' }}</span>
+                                                </td>
                                                 <td>{{ $item->first_name }} {{ $item->last_name }}</td>
                                                 <td>{{ $item->email }}</td>
                                                 <td>{{ $item->role->name }}</td>
@@ -525,7 +527,9 @@
                                             @endphp
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
-                                                <td>{{ $archive->user_code }}</td>
+                                                <td>
+                                                    <span class="text-muted small">{{ $archive->user_code ?? '—' }}</span>
+                                                </td>
                                                 <td>{{ $archive->first_name }} {{ $archive->last_name }}</td>
                                                 <td>{{ $archive->email }}</td>
                                                 <td>{{ optional($archive->role)->name }}</td>

@@ -377,7 +377,9 @@
                                             @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
-                                                <td>{{ $item->user_code }}</td>
+                                                <td>
+                                                    <span class="text-muted small">{{ $item->user_code ?? '—' }}</span>
+                                                </td>
                                                 {{-- <td>
                                                     {{ 
                                                         optional($item->membershipPayments()
@@ -828,6 +830,7 @@
                                     <thead class="table-light">
                                         <tr>
                                             <th>#</th>
+                                            <th>User Code</th>
                                             <th>Name</th>
                                             <th>Phone Number</th>
                                             <th>Email</th>
@@ -846,6 +849,9 @@
                                             @endphp
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
+                                                <td>
+                                                    <span class="text-muted small">{{ $archive->user_code ?? '—' }}</span>
+                                                </td>
                                                 <td>{{ $archive->first_name }} {{ $archive->last_name }}</td>
                                                 <td>{{ $archive->phone_number }}</td>
                                                 <td>{{ $archive->email }}</td>

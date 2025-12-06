@@ -276,7 +276,7 @@ class MembershipPaymentController extends Controller
         $headers = [
             'ID',
             'Member Name',
-            'Member Code',
+            'User Code',
             'Membership',
             'Expiration Date',
             'Created Date',

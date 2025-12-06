@@ -142,7 +142,7 @@
                                     <option value="id" {{ $searchColumn === 'id' ? 'selected' : '' }}>#</option>
                                     <option value="name" {{ $searchColumn === 'name' ? 'selected' : '' }}>Name</option>
                                     <option value="email" {{ $searchColumn === 'email' ? 'selected' : '' }}>Email</option>
-                                    <option value="user_code" {{ $searchColumn === 'user_code' ? 'selected' : '' }}>Staff Code</option>
+                                    <option value="user_code" {{ $searchColumn === 'user_code' ? 'selected' : '' }}>User Code</option>
                                     <option value="period_month" {{ $searchColumn === 'period_month' ? 'selected' : '' }}>Period Month</option>
                                     <option value="processed_at" {{ $searchColumn === 'processed_at' ? 'selected' : '' }}>Processed Date</option>
                                     <option value="created_at" {{ $searchColumn === 'created_at' ? 'selected' : '' }}>Created Date</option>
@@ -198,7 +198,7 @@
                                     <tr>
                                         <th scope="col">#</th>
                                         <th scope="col">Staff</th>
-                                        <th scope="col">Staff Code</th>
+                                        <th scope="col">User Code</th>
                                         <th scope="col">Period</th>
                                         <th scope="col">Hours</th>
                                         <th scope="col">Gross</th>
@@ -282,7 +282,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Staff', 'Staff Code', 'Period', 'Hours', 'Gross', 'Net', 'Processed'];
+                const headers = ['#', 'Staff', 'User Code', 'Period', 'Hours', 'Gross', 'Net', 'Processed'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview
