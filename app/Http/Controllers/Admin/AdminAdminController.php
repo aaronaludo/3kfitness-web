@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\File;
 use App\Models\User;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\Hash;
 
 class AdminAdminController extends Controller
 {
@@ -165,5 +166,75 @@ class AdminAdminController extends Controller
         $this->logAdminActivity("created a new admin account for {$request->first_name} {$request->last_name}.");
 
         return redirect()->route('admin.admins.add')->with('success', 'Admin created successfully');
+    }
+
+    public function delete(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:users,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $admin = User::where('role_id', 1)->findOrFail($request->id);
+        $adminName = trim(sprintf('%s %s', $admin->first_name ?? '', $admin->last_name ?? ''));
+        $adminLabel = $adminName !== ''
+            ? sprintf('#%d (%s)', $admin->id, $adminName)
+            : sprintf('#%d (%s)', $admin->id, $admin->email ?? 'admin');
+
+        if ((int) $admin->is_archive === 1) {
+            $admin->delete();
+            $message = 'Admin deleted permanently';
+            $this->logAdminActivity("deleted admin account {$adminLabel} permanently");
+        } else {
+            $admin->is_archive = 1;
+            $admin->save();
+            $message = 'Admin moved to archive';
+            $this->logAdminActivity("archived admin account {$adminLabel}");
+        }
+
+        return redirect()->route('admin.admins.index')->with('success', $message);
+    }
+
+    public function restore(Request $request)
+    {
+        try {
+            $request->validate([
+                'id' => 'required|exists:users,id',
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+        if (!$user || !Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        $admin = User::where('role_id', 1)->findOrFail($request->id);
+        $adminName = trim(sprintf('%s %s', $admin->first_name ?? '', $admin->last_name ?? ''));
+        $adminLabel = $adminName !== ''
+            ? sprintf('#%d (%s)', $admin->id, $adminName)
+            : sprintf('#%d (%s)', $admin->id, $admin->email ?? 'admin');
+
+        if ((int) $admin->is_archive === 0) {
+            return redirect()->route('admin.admins.index')->with('success', 'Admin is already active');
+        }
+
+        $admin->is_archive = 0;
+        $admin->save();
+
+        $this->logAdminActivity("restored admin account {$adminLabel}");
+
+        return redirect()->route('admin.admins.index')->with('success', 'Admin restored successfully');
     }
 }

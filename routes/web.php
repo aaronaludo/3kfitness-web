@@ -176,6 +176,8 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::put('/admin/admins/{id}', [AdminAdminController::class, 'update'])->name('admin.admins.update');
     Route::get('/admin/admins/{id}', [AdminAdminController::class, 'view'])->name('admin.admins.view');
     Route::post('/admin/admins/store', [AdminAdminController::class, 'store'])->name('admin.admins.store');
+    Route::delete('/admin/admins', [AdminAdminController::class, 'delete'])->name('admin.admins.delete');
+    Route::post('/admin/admins/restore', [AdminAdminController::class, 'restore'])->name('admin.admins.restore');
 
     Route::get('/admin/ride-histories', [AdminRideHistoryController::class, 'index'])->name('admin.ride-histories.index');
     Route::get('/admin/ride-histories/{id}', [AdminRideHistoryController::class, 'view'])->name('admin.ride-histories.view');
