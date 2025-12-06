@@ -59,9 +59,204 @@
             mix-blend-mode: soft-light;
         }
 
+        #header {
+            height: auto;
+            padding: 10px 14px;
+        }
+
         #header > .container-fluid {
             position: relative;
             z-index: 1;
+            flex-wrap: wrap;
+            row-gap: 12px;
+        }
+
+        .header-actions {
+            gap: 16px;
+            min-width: 0;
+            flex: 1 1 auto;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            row-gap: 10px;
+        }
+
+        .header-actions .navbar-nav {
+            flex: 0 0 auto;
+            margin-top: 0 !important;
+        }
+
+        .time-action-trigger {
+            border-radius: 999px;
+            padding: 8px 12px;
+            font-weight: 700;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: #ffffff;
+            color: #333;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.08);
+        }
+
+        .time-action-trigger i {
+            color: #0fbf83;
+        }
+
+        .staff-time-card {
+            background: linear-gradient(135deg, rgba(15, 191, 131, 0.12), rgba(15, 191, 131, 0.05));
+            border: 1px solid rgba(15, 191, 131, 0.25);
+            border-radius: 16px;
+            padding: 16px;
+        }
+
+        .staff-time-card__top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .staff-time-card__clock {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .staff-time-card__clock-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            background: rgba(0, 0, 0, 0.08);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: inset 0 0 0 1px rgba(15, 191, 131, 0.25);
+            color: #0fbf83;
+        }
+
+        .staff-time-card__time {
+            font-weight: 800;
+            font-size: 1.05rem;
+        }
+
+        .staff-time-card__meta {
+            font-size: 0.82rem;
+            color: #5b646e;
+        }
+
+        .staff-time-card__actions {
+            margin-top: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            border: 1px solid rgba(0, 0, 0, 0.08);
+            color: #0f5c3f;
+            background: rgba(15, 191, 131, 0.15);
+        }
+
+        .status-pill--pending {
+            background: rgba(0, 0, 0, 0.05);
+            color: #444;
+        }
+
+        .status-pill--done {
+            background: rgba(33, 150, 243, 0.12);
+            color: #1a4f7a;
+        }
+
+        .time-action-btn {
+            border-radius: 12px;
+            font-weight: 700;
+            padding: 0.45rem 0.95rem;
+            border: none;
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.12);
+        }
+
+        .staff-time-card__chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            border-radius: 12px;
+            font-weight: 600;
+            font-size: 0.78rem;
+            letter-spacing: 0.01em;
+            box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+            color: #344455;
+            background: #f8f8f8;
+        }
+
+        .chip-break {
+            background: #fff8f0;
+            color: #b15b10;
+        }
+
+        .chip-tip {
+            background: #f2f6ff;
+            color: #1a4f7a;
+        }
+
+        .break-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: #f8f9fb;
+            border: 1px solid #e6ebf1;
+        }
+
+        .break-control .break-meta {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+
+        .break-countdown {
+            font-weight: 800;
+            color: #0f5c3f;
+            font-size: 1rem;
+        }
+
+        .break-status {
+            font-size: 0.8rem;
+            color: #6c757d;
+        }
+
+        @media (max-width: 991px) {
+            .staff-time-card {
+                width: 100%;
+            }
+
+            .header-actions {
+                width: 100%;
+                margin-top: 10px;
+                flex-direction: column;
+                align-items: flex-start;
+                justify-content: flex-start;
+            }
+        }
+
+        #column-left {
+            padding-top: 105px;
         }
     </style>
     <title>@yield('title')</title>
@@ -91,63 +286,68 @@
                 <a href="#" id="button-menu"><i class="fa-solid fa-bars"></i></a>
                 <a href="#" id="button-menu-close"><i class="fa-solid fa-xmark"></i></a>
 
-                @if(auth()->guard('admin')->user()->role_id == 2)
-                    @php
-                        $currentUserId = auth()->guard('admin')->user()->id;
-                        $today = now()->toDateString();
-                        $attendance = \App\Models\Attendance2::where('user_id', $currentUserId)
-                                    ->where('is_archive', 0)
-                                    ->whereDate('clockin_at', $today)
-                                    ->orderByDesc('clockin_at')
-                                    ->first();
-                    @endphp
-                
-                    <div class="d-flex align-items-center ms-auto">
-                        @if(!$attendance)
-                            <button type="button" class="btn btn-sm btn-success me-4" data-bs-toggle="modal" data-bs-target="#confirmationModal" data-action="{{ route('admin.payrolls.clockin') }}" data-message="Are you sure you want to Clock In?">
-                                Clock In
-                            </button>
-                        @else
-                            @if(is_null($attendance->clockout_at))
-                                <button type="button" class="btn btn-sm btn-danger me-4" data-bs-toggle="modal" data-bs-target="#confirmationModal" data-action="{{ route('admin.payrolls.clockout') }}" data-message="Are you sure you want to Clock Out?">
-                                    Clock Out
-                                </button>
-                            @else
-                                <span class="text-success fw-bold me-4">Already Clocked Out</span>
-                            @endif
-                        @endif
-                    </div>
-                @endif
-                
-                <ul class="navbar-nav">
-                    <li class="nav-item dropdown">
+                <div class="d-flex align-items-center ms-auto flex-wrap flex-lg-nowrap header-actions">
+                    @if(auth()->guard('admin')->user()->role_id == 2)
                         @php
-                            $user = auth()->guard('admin')->user();
-                            $roleMap = [1 => 'Admin', 2 => 'Staff', 4 => 'Super Admin'];
-                            $roleLabel = $roleMap[$user->role_id] ?? 'User';
-                            $profilePicture = $user->profile_picture ? asset($user->profile_picture) : asset('assets/images/profile-45x45.png');
+                            $currentUserId = auth()->guard('admin')->user()->id;
+                            $today = now()->toDateString();
+                            $attendance = \App\Models\Attendance2::where('user_id', $currentUserId)
+                                        ->where('is_archive', 0)
+                                        ->whereDate('clockin_at', $today)
+                                        ->orderByDesc('clockin_at')
+                                        ->first();
+                            $statusLabel = 'Not clocked in';
+                            $statusClass = 'status-pill--pending';
+                            $statusIcon = 'fa-regular fa-circle';
+                            if ($attendance) {
+                                if (is_null($attendance->clockout_at)) {
+                                    $statusLabel = 'On the clock';
+                                    $statusClass = 'status-pill--active';
+                                    $statusIcon = 'fa-solid fa-bolt';
+                                } else {
+                                    $statusLabel = 'Shift finished';
+                                    $statusClass = 'status-pill--done';
+                                    $statusIcon = 'fa-solid fa-check';
+                                }
+                            }
                         @endphp
+                    
+                        <button type="button" class="btn time-action-trigger" data-bs-toggle="modal" data-bs-target="#timeActionsModal">
+                            <i class="fa-regular fa-clock"></i>
+                            Time actions
+                        </button>
+                    @endif
+                    
+                    <ul class="navbar-nav">
+                        <li class="nav-item dropdown">
+                            @php
+                                $user = auth()->guard('admin')->user();
+                                $roleMap = [1 => 'Admin', 2 => 'Staff', 4 => 'Super Admin'];
+                                $roleLabel = $roleMap[$user->role_id] ?? 'User';
+                                $profilePicture = $user->profile_picture ? asset($user->profile_picture) : asset('assets/images/profile-45x45.png');
+                            @endphp
 
-                        <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button"
-                        data-bs-toggle="dropdown" aria-expanded="false">
-                            <img src="{{ $profilePicture }}"
-                                alt="User" title="User"
-                                class="rounded-circle me-2" width="32" height="32" />
-                            {{ $user->first_name }} {{ $user->last_name }}
-                            <span class="badge bg-secondary ms-2">{{ $roleLabel }}</span>
-                        </a>
-                        <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownMenuLink">
-                            <li><a class="dropdown-item" href="{{ route('admin.edit-profile') }}">Edit Profile</a></li>
-                            <li><a class="dropdown-item" href="{{ route('admin.change-password') }}">Change Password</a></li>
-                            <li>
-                                <form method="POST" action="{{ route('admin.logout') }}">
-                                    @csrf
-                                    <button type="submit" class="dropdown-item">Logout</button>
-                                </form>
-                            </li>
-                        </ul>
-                    </li>
-                </ul>
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownMenuLink" role="button"
+                            data-bs-toggle="dropdown" aria-expanded="false">
+                                <img src="{{ $profilePicture }}"
+                                    alt="User" title="User"
+                                    class="rounded-circle me-2" width="32" height="32" />
+                                {{ $user->first_name }} {{ $user->last_name }}
+                                <span class="badge bg-secondary ms-2">{{ $roleLabel }}</span>
+                            </a>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdownMenuLink">
+                                <li><a class="dropdown-item" href="{{ route('admin.edit-profile') }}">Edit Profile</a></li>
+                                <li><a class="dropdown-item" href="{{ route('admin.change-password') }}">Change Password</a></li>
+                                <li>
+                                    <form method="POST" action="{{ route('admin.logout') }}">
+                                        @csrf
+                                        <button type="submit" class="dropdown-item">Logout</button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    </ul>
+                </div>
             </div>
         </header>
         <nav id="column-left">
@@ -453,6 +653,98 @@
     </div>
 </div>
 
+@if(auth()->guard('admin')->user()->role_id == 2)
+<div class="modal fade" id="timeActionsModal" tabindex="-1" aria-labelledby="timeActionsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="timeActionsModalLabel">Your shift</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                @php
+                    $currentUserId = auth()->guard('admin')->user()->id;
+                    $today = now()->toDateString();
+                    $attendance = \App\Models\Attendance2::where('user_id', $currentUserId)
+                                ->where('is_archive', 0)
+                                ->whereDate('clockin_at', $today)
+                                ->orderByDesc('clockin_at')
+                                ->first();
+                    $statusLabel = 'Not clocked in';
+                    $statusClass = 'status-pill--pending';
+                    $statusIcon = 'fa-regular fa-circle';
+                    if ($attendance) {
+                        if (is_null($attendance->clockout_at)) {
+                            $statusLabel = 'On the clock';
+                            $statusClass = '';
+                            $statusIcon = 'fa-solid fa-bolt';
+                        } else {
+                            $statusLabel = 'Shift finished';
+                            $statusClass = 'status-pill--done';
+                            $statusIcon = 'fa-solid fa-check';
+                        }
+                    }
+                @endphp
+                <div class="staff-time-card">
+                    <div class="staff-time-card__top">
+                        <div class="staff-time-card__clock">
+                            <span class="staff-time-card__clock-icon">
+                                <i class="fa-regular fa-clock"></i>
+                            </span>
+                            <div>
+                                <div class="staff-time-card__time live-clock" data-format="with-seconds">--:-- --</div>
+                                <div class="staff-time-card__meta">
+                                    Today, {{ now()->format('M d, Y') }} - Break time: 1 hour
+                                </div>
+                            </div>
+                        </div>
+                        <span class="status-pill {{ $statusClass }}">
+                            <i class="{{ $statusIcon }}"></i> {{ $statusLabel }}
+                        </span>
+                    </div>
+                    <div class="staff-time-card__actions">
+                        <div class="d-flex flex-wrap gap-2 align-items-center">
+                            @if(!$attendance)
+                                <button type="button" class="btn btn-sm btn-success time-action-btn" data-bs-toggle="modal" data-bs-target="#confirmationModal" data-action="{{ route('admin.payrolls.clockin') }}" data-message="Are you sure you want to Clock In?">
+                                    <i class="fa-solid fa-play me-1"></i> Clock In
+                                </button>
+                            @else
+                                @if(is_null($attendance->clockout_at))
+                                    <button type="button" class="btn btn-sm btn-danger time-action-btn" data-bs-toggle="modal" data-bs-target="#confirmationModal" data-action="{{ route('admin.payrolls.clockout') }}" data-message="Are you sure you want to Clock Out?">
+                                        <i class="fa-solid fa-stopwatch me-1"></i> Clock Out
+                                    </button>
+                                @else
+                                    <span class="text-success fw-bold">Already Clocked Out</span>
+                                @endif
+                            @endif
+                            <span class="chip chip-break">
+                                <i class="fa-solid fa-mug-hot"></i>
+                                Break time - 1 hour
+                            </span>
+                        </div>
+                        <div class="staff-time-card__chips">
+                            <span class="chip chip-tip">
+                                <i class="fa-solid fa-star"></i>
+                                Keep your shift clean: clock in, enjoy your 1-hour break, and clock out.
+                            </span>
+                        </div>
+                        <div class="break-control mt-2">
+                            <div class="break-meta">
+                                <div class="break-countdown" id="breakCountdown">01:00:00</div>
+                                <div class="break-status" id="breakStatus">Ready for a 1-hour break</div>
+                            </div>
+                            <button type="button" class="btn btn-outline-success btn-sm" id="breakToggleBtn">
+                                Start Break
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
     <script>
         var confirmationModal = document.getElementById('confirmationModal');
     
@@ -469,6 +761,149 @@
     
             modalMessage.innerHTML = `${message}<br><strong>Current Time:</strong> ${formattedTime}`;
             confirmForm.action = actionUrl;
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var liveClocks = document.querySelectorAll('.live-clock');
+            if (!liveClocks.length) {
+                return;
+            }
+
+            var updateClock = function () {
+                var now = new Date();
+                var timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                liveClocks.forEach(function (el) {
+                    el.textContent = timeString;
+                });
+            };
+
+            updateClock();
+            setInterval(updateClock, 1000);
+        });
+
+        document.addEventListener('DOMContentLoaded', function () {
+            var countdownEl = document.getElementById('breakCountdown');
+            var statusEl = document.getElementById('breakStatus');
+            var toggleBtn = document.getElementById('breakToggleBtn');
+
+            if (!countdownEl || !statusEl || !toggleBtn) {
+                return;
+            }
+
+            var BREAK_DURATION_MS = 60 * 60 * 1000; // 1 hour
+            var STATE_KEY = 'staffBreakState';
+            var END_KEY = 'staffBreakEnd';
+            var intervalId = null;
+
+            var readState = function () {
+                var state = localStorage.getItem(STATE_KEY) || 'idle';
+                var endAt = parseInt(localStorage.getItem(END_KEY), 10);
+                return { state: state, endAt: isNaN(endAt) ? null : endAt };
+            };
+
+            var saveState = function (state, endAt) {
+                localStorage.setItem(STATE_KEY, state);
+                if (endAt) {
+                    localStorage.setItem(END_KEY, endAt.toString());
+                } else {
+                    localStorage.removeItem(END_KEY);
+                }
+            };
+
+            var formatTime = function (msRemaining) {
+                var totalSeconds = Math.max(0, Math.floor(msRemaining / 1000));
+                var hours = Math.floor(totalSeconds / 3600);
+                var minutes = Math.floor((totalSeconds % 3600) / 60);
+                var seconds = totalSeconds % 60;
+                return [
+                    hours.toString().padStart(2, '0'),
+                    minutes.toString().padStart(2, '0'),
+                    seconds.toString().padStart(2, '0'),
+                ].join(':');
+            };
+
+            var updateUI = function () {
+                var current = readState();
+                var now = Date.now();
+
+                if (current.state === 'running' && current.endAt) {
+                    var msRemaining = current.endAt - now;
+                    if (msRemaining <= 0) {
+                        saveState('done', null);
+                        statusEl.textContent = 'Break finished — clock back in';
+                        countdownEl.textContent = '00:00:00';
+                        toggleBtn.textContent = 'Start New Break';
+                        toggleBtn.classList.remove('btn-outline-danger');
+                        toggleBtn.classList.add('btn-outline-success');
+                        clearInterval(intervalId);
+                        intervalId = null;
+                        return;
+                    }
+
+                    countdownEl.textContent = formatTime(msRemaining);
+                    statusEl.textContent = 'On break…';
+                    toggleBtn.textContent = 'End Break';
+                    toggleBtn.classList.remove('btn-outline-success');
+                    toggleBtn.classList.add('btn-outline-danger');
+                    return;
+                }
+
+                if (current.state === 'done') {
+                    statusEl.textContent = 'Break finished — clock back in';
+                    countdownEl.textContent = '00:00:00';
+                    toggleBtn.textContent = 'Start New Break';
+                    toggleBtn.classList.remove('btn-outline-danger');
+                    toggleBtn.classList.add('btn-outline-success');
+                    clearInterval(intervalId);
+                    intervalId = null;
+                    return;
+                }
+
+                // idle state
+                statusEl.textContent = 'Ready for a 1-hour break';
+                countdownEl.textContent = formatTime(BREAK_DURATION_MS);
+                toggleBtn.textContent = 'Start Break';
+                toggleBtn.classList.remove('btn-outline-danger');
+                toggleBtn.classList.add('btn-outline-success');
+                clearInterval(intervalId);
+                intervalId = null;
+            };
+
+            var startTicker = function () {
+                if (intervalId) {
+                    clearInterval(intervalId);
+                }
+                intervalId = setInterval(updateUI, 1000);
+                updateUI();
+            };
+
+            var startBreak = function () {
+                var endAt = Date.now() + BREAK_DURATION_MS;
+                saveState('running', endAt);
+                startTicker();
+            };
+
+            var endBreak = function () {
+                saveState('done', null);
+                updateUI();
+            };
+
+            toggleBtn.addEventListener('click', function () {
+                var current = readState();
+                if (current.state === 'running') {
+                    endBreak();
+                } else {
+                    startBreak();
+                }
+            });
+
+            // Initialize UI and ticker if needed
+            var initial = readState();
+            if (initial.state === 'running') {
+                startTicker();
+            } else {
+                updateUI();
+            }
         });
     </script>    
 
