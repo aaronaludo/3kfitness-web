@@ -297,7 +297,48 @@
                     </div>
                 </div>
             </div>
-
+            
+            <div class="col-12">
+                @if (session('success'))
+                    <div class="alert alert-success my-3">
+                        {{ session('success') }}
+                    </div>
+                @endif
+                @if ($errors->any())
+                    <div class="alert alert-danger">
+                        <ul class="mb-0">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                @endif
+                @php
+                    $actionFeedbackMessage = session('success') ?? session('error');
+                    $actionFeedbackIsError = session()->has('error');
+                @endphp
+                @if ($actionFeedbackMessage)
+                    <div class="modal fade" id="actionFeedbackModal" tabindex="-1" aria-labelledby="actionFeedbackModalLabel" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content rounded-4 border-0 shadow">
+                                <div class="modal-body p-4 text-center">
+                                    <div class="display-5 mb-3 {{ $actionFeedbackIsError ? 'text-danger' : 'text-success' }}">
+                                        <i class="fa-solid {{ $actionFeedbackIsError ? 'fa-circle-exclamation' : 'fa-circle-check' }}"></i>
+                                    </div>
+                                    <h5 class="fw-semibold mb-2" id="actionFeedbackModalLabel">
+                                        {{ $actionFeedbackIsError ? 'Something went wrong' : 'Action completed' }}
+                                    </h5>
+                                    <p class="text-muted mb-0">{{ $actionFeedbackMessage }}</p>
+                                </div>
+                                <div class="modal-footer border-0 justify-content-center pb-4 pt-0">
+                                    <button type="button" class="btn btn-danger px-4" data-bs-dismiss="modal">Got it</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            </div>
+            
             <div class="col-12">
                 <div class="box">
                     <div class="table-responsive">
@@ -470,46 +511,6 @@
                 </div>
             </div>
         </div>
-    </div>
-    <div class="col-12">
-        @if (session('success'))
-            <div class="alert alert-success my-3">
-                {{ session('success') }}
-            </div>
-        @endif
-        @if ($errors->any())
-            <div class="alert alert-danger">
-                <ul class="mb-0">
-                    @foreach ($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-        @php
-            $actionFeedbackMessage = session('success') ?? session('error');
-            $actionFeedbackIsError = session()->has('error');
-        @endphp
-        @if ($actionFeedbackMessage)
-            <div class="modal fade" id="actionFeedbackModal" tabindex="-1" aria-labelledby="actionFeedbackModalLabel" aria-hidden="true">
-                <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content rounded-4 border-0 shadow">
-                        <div class="modal-body p-4 text-center">
-                            <div class="display-5 mb-3 {{ $actionFeedbackIsError ? 'text-danger' : 'text-success' }}">
-                                <i class="fa-solid {{ $actionFeedbackIsError ? 'fa-circle-exclamation' : 'fa-circle-check' }}"></i>
-                            </div>
-                            <h5 class="fw-semibold mb-2" id="actionFeedbackModalLabel">
-                                {{ $actionFeedbackIsError ? 'Something went wrong' : 'Action completed' }}
-                            </h5>
-                            <p class="text-muted mb-0">{{ $actionFeedbackMessage }}</p>
-                        </div>
-                        <div class="modal-footer border-0 justify-content-center pb-4 pt-0">
-                            <button type="button" class="btn btn-danger px-4" data-bs-dismiss="modal">Got it</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        @endif
     </div>
 
     <script>

@@ -109,7 +109,7 @@ class AdminAdminController extends Controller
 
         $this->logAdminActivity("updated admin account details for user ID {$id}.");
 
-        return redirect()->route('admin.admins.edit', $id)->with('success', 'Admin updated successfully');
+        return redirect()->route('admin.admins.index')->with('success', 'Admin updated successfully');
     }
 
     public function store(Request $request){
@@ -165,7 +165,7 @@ class AdminAdminController extends Controller
 
         $this->logAdminActivity("created a new admin account for {$request->first_name} {$request->last_name}.");
 
-        return redirect()->route('admin.admins.add')->with('success', 'Admin created successfully');
+        return redirect()->route('admin.admins.index')->with('success', 'Admin created successfully');
     }
 
     public function delete(Request $request)
