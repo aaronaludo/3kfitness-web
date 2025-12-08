@@ -29,7 +29,7 @@ class DashboardController extends Controller
         $upcomingClasses = Schedule::where('is_archieve', 0)
             ->whereNotNull('class_start_date')
             ->where('class_start_date', '>=', $now)
-            ->orderByDesc('class_start_date')
+            ->orderBy('class_start_date')
             ->with('user')
             ->limit(5)
             ->get();

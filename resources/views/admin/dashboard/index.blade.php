@@ -130,7 +130,7 @@
                                             <div class="small text-muted">Trainer: {{ $trainerName }}</div>
                                         </div>
                                         @if($start && $start->isFuture())
-                                            <span class="badge bg-success">Upcoming</span>
+                                            <span class="badge bg-warning text-dark">Upcoming</span>
                                         @endif
                                     </div>
                                 @empty
