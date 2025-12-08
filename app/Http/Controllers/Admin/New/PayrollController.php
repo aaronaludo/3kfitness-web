@@ -218,7 +218,22 @@ class PayrollController extends Controller
         $trainerAssignments = $trainers
             ->map(function ($trainer) use ($startOfMonth, $endOfMonth, $trainerProcessedRuns) {
                 $now = Carbon::now();
-                $scheduleDetails = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth) {
+                $trainerAttendances = Attendance2::where('user_id', $trainer->id)
+                    ->where('is_archive', 0)
+                    ->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                        $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
+                            ->orWhereBetween('clockout_at', [$startOfMonth, $endOfMonth])
+                            ->orWhereBetween('created_at', [$startOfMonth, $endOfMonth]);
+                    })
+                    ->get()
+                    ->map(function ($attendance) {
+                        return [
+                            'clockin' => $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null,
+                            'clockout' => $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null,
+                        ];
+                    });
+
+                $scheduleDetails = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth, $trainerAttendances) {
                     $start = !empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date) : null;
                     $end = !empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date) : null;
 
@@ -227,17 +242,32 @@ class PayrollController extends Controller
                     $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
                     $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
 
+                    $attendanceMatches = $trainerAttendances->filter(function ($attendance) use ($start, $end) {
+                        if (!$start || !$end) {
+                            return false;
+                        }
+
+                        $clockIn = $attendance['clockin'];
+                        $clockOut = $attendance['clockout'];
+
+                        $overlapsStart = $clockIn && $clockIn->between($start, $end, true);
+                        $overlapsEnd = $clockOut && $clockOut->between($start, $end, true);
+                        $spansRange = $clockIn && $clockOut && $clockIn->lte($start) && $clockOut->gte($end);
+                        $clockInOnly = $clockIn && !$clockOut && $clockIn->between($start, $end, true);
+
+                        return $overlapsStart || $overlapsEnd || $spansRange || $clockInOnly;
+                    });
+                    $hasAttendance = $attendanceMatches->isNotEmpty();
+
                     $hours = $hasValidWindow
                         ? $end->diffInMinutes($start) / 60
                         : 0;
 
-                    $displaySalary = $hasRate
+                    $baseSalary = $hasRate
                         ? (float) $schedule->trainer_rate_per_hour * $hours
                         : 0;
 
-                    $summarySalary = $isSalaryEligible
-                        ? (float) $schedule->trainer_rate_per_hour * $hours
-                        : 0;
+                    $summarySalary = $isSalaryEligible ? $baseSalary : 0;
 
                     $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
                         $user = $userSchedule->user ?? null;
@@ -267,6 +297,14 @@ class PayrollController extends Controller
                         $inMonth = $end->between($startOfMonth, $endOfMonth, true);
                     }
 
+                    $payrollSalary = ($category === 'past' && $isSalaryEligible && $hasAttendance)
+                        ? $baseSalary
+                        : 0;
+
+                    $payrollHours = ($category === 'past' && $isSalaryEligible && $hasAttendance) ? $hours : 0;
+
+                    $displaySalary = $category === 'past' ? $payrollSalary : $summarySalary;
+
                     return [
                         'schedule' => $schedule,
                         'start' => $start,
@@ -276,10 +314,19 @@ class PayrollController extends Controller
                         'hours' => $hours,
                         'display_salary' => $displaySalary,
                         'summary_salary' => $summarySalary,
+                        'payroll_salary' => $payrollSalary,
+                        'payroll_hours' => $payrollHours,
                         'salary_eligible' => $isSalaryEligible,
                         'students' => $students,
                         'category' => $category,
                         'in_month' => $inMonth,
+                        'has_attendance' => $hasAttendance,
+                        'attendances' => $attendanceMatches->map(function ($attendance) {
+                            return [
+                                'clockin_at' => $attendance['clockin'],
+                                'clockout_at' => $attendance['clockout'],
+                            ];
+                        })->values(),
                     ];
                 });
 
@@ -287,20 +334,29 @@ class PayrollController extends Controller
                 $pastDetails = $scheduleDetails->where('category', 'past')->where('in_month', true);
 
                 $salaryEligibleSchedules = $scheduleDetails->where('salary_eligible', true)->where('in_month', true);
-                $payableSchedules = $salaryEligibleSchedules->where('category', 'past');
+                $payableSchedules = $salaryEligibleSchedules->where('category', 'past')->filter(fn ($detail) => $detail['has_attendance']);
                 $projectedSchedules = $salaryEligibleSchedules->where('category', 'future');
 
                 $totals = [
                     'future_total' => $projectedSchedules->sum('summary_salary'),
-                    'past_total' => $payableSchedules->sum('summary_salary'),
+                    'past_total' => $payableSchedules->sum('payroll_salary'),
                     'future_count' => $futureDetails->count(),
                     'past_count' => $pastDetails->count(),
                     'future_payroll_count' => $projectedSchedules->count(),
                     'past_payroll_count' => $payableSchedules->count(),
                 ];
 
-                $projectedGross = round($salaryEligibleSchedules->sum('summary_salary'), 2);
-                $gross = round($payableSchedules->sum('summary_salary'), 2);
+                $projectedGross = round(
+                    $salaryEligibleSchedules->sum(function ($detail) {
+                        if ($detail['category'] === 'past') {
+                            return $detail['payroll_salary'];
+                        }
+
+                        return $detail['summary_salary'];
+                    }),
+                    2
+                );
+                $gross = round($payableSchedules->sum('payroll_salary'), 2);
                 $deductions = [
                     'sss' => round($gross * 0.045, 2),
                     'philhealth' => round($gross * 0.025, 2),
@@ -324,8 +380,12 @@ class PayrollController extends Controller
                     'entries_for_month' => $payableSchedules->values(),
                     'total_salary' => $projectedGross,
                     'payable_salary' => $gross,
-                    'total_hours' => $payableSchedules->sum('hours'),
-                    'projected_hours' => $salaryEligibleSchedules->sum('hours'),
+                    'total_hours' => $payableSchedules->sum('payroll_hours'),
+                    'projected_hours' => $salaryEligibleSchedules->sum(function ($detail) {
+                        return $detail['category'] === 'past'
+                            ? $detail['payroll_hours']
+                            : $detail['hours'];
+                    }),
                     'assignments_count' => $scheduleDetails->count(),
                     'salary_assignments_count' => $salaryEligibleSchedules->count(),
                     'payable_assignments_count' => $payableSchedules->count(),
@@ -453,7 +513,22 @@ class PayrollController extends Controller
         $startOfMonth = $targetMonth->copy()->startOfMonth();
         $endOfMonth = $targetMonth->copy()->endOfMonth();
 
-        $eligibleSchedules = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($startOfMonth, $endOfMonth, $now) {
+        $trainerAttendances = Attendance2::where('user_id', $trainer->id)
+            ->where('is_archive', 0)
+            ->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
+                    ->orWhereBetween('clockout_at', [$startOfMonth, $endOfMonth])
+                    ->orWhereBetween('created_at', [$startOfMonth, $endOfMonth]);
+            })
+            ->get()
+            ->map(function ($attendance) {
+                return [
+                    'clockin' => $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null,
+                    'clockout' => $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null,
+                ];
+            });
+
+        $eligibleSchedules = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($startOfMonth, $endOfMonth, $now, $trainerAttendances) {
             $start = !empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date) : null;
             $end = !empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date) : null;
 
@@ -461,6 +536,23 @@ class PayrollController extends Controller
             $hasRate = !is_null($schedule->trainer_rate_per_hour);
             $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
             $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
+
+            $attendanceMatches = $trainerAttendances->filter(function ($attendance) use ($start, $end) {
+                if (!$start || !$end) {
+                    return false;
+                }
+
+                $clockIn = $attendance['clockin'];
+                $clockOut = $attendance['clockout'];
+
+                $overlapsStart = $clockIn && $clockIn->between($start, $end, true);
+                $overlapsEnd = $clockOut && $clockOut->between($start, $end, true);
+                $spansRange = $clockIn && $clockOut && $clockIn->lte($start) && $clockOut->gte($end);
+                $clockInOnly = $clockIn && !$clockOut && $clockIn->between($start, $end, true);
+
+                return $overlapsStart || $overlapsEnd || $spansRange || $clockInOnly;
+            });
+            $hasAttendance = $attendanceMatches->isNotEmpty();
 
             $inMonth = false;
             if ($start && $end) {
@@ -479,23 +571,32 @@ class PayrollController extends Controller
                 ? (float) $schedule->trainer_rate_per_hour * $hours
                 : 0;
 
+            $payrollSalary = ($isSalaryEligible && $hasAttendance && ($end ? $end->lt($now) : false))
+                ? $summarySalary
+                : 0;
+            $payrollHours = ($isSalaryEligible && $hasAttendance && ($end ? $end->lt($now) : false))
+                ? $hours
+                : 0;
+
             return [
-                'hours' => $hours,
+                'hours' => $payrollHours,
                 'summary_salary' => $summarySalary,
+                'payroll_salary' => $payrollSalary,
                 'salary_eligible' => $isSalaryEligible,
                 'in_month' => $inMonth,
                 'is_past' => $end
                     ? $end->lt($now)
                     : ($start ? $start->lt($now) : false),
+                'has_attendance' => $hasAttendance,
             ];
-        })->filter(fn ($detail) => $detail['salary_eligible'] && $detail['in_month'] && $detail['is_past']);
+        })->filter(fn ($detail) => $detail['salary_eligible'] && $detail['in_month'] && $detail['is_past'] && $detail['has_attendance']);
 
         if ($eligibleSchedules->isEmpty()) {
-            return redirect()->back()->with('error', 'No payroll-eligible trainer assignments found for this month.');
+            return redirect()->back()->with('error', 'No payroll-eligible trainer assignments with attendance found for this month.');
         }
 
         $totalHours = $eligibleSchedules->sum('hours');
-        $gross = round($eligibleSchedules->sum('summary_salary'), 2);
+        $gross = round($eligibleSchedules->sum('payroll_salary'), 2);
 
         $deductions = [
             'sss' => round($gross * 0.045, 2),

@@ -412,6 +412,21 @@
                                         $schedule = $detail['schedule'];
                                         $start = $detail['start'];
                                         $end = $detail['end'];
+                                        $attendance = collect($detail['attendances'] ?? collect())->map(function ($record) {
+                                            $clockIn = $record['clockin_at'] ?? null;
+                                            $clockOut = $record['clockout_at'] ?? null;
+
+                                            $label = '';
+                                            if ($clockIn) {
+                                                $label .= $clockIn->format('g:i A');
+                                            }
+
+                                            if ($clockOut) {
+                                                $label .= $label !== '' ? ' - ' . $clockOut->format('g:i A') : $clockOut->format('g:i A');
+                                            }
+
+                                            return $label !== '' ? $label : 'Attendance recorded';
+                                        })->filter()->values();
                                         return [
                                             'title' => $schedule->name ?? 'Class schedule',
                                             'code' => $schedule->class_code ?? ($schedule->id ?? 'N/A'),
@@ -419,8 +434,11 @@
                                             'time' => $start || $end
                                                 ? trim(($start ? $start->format('g:i A') : '') . ($end ? ' - ' . $end->format('g:i A') : ''))
                                                 : '—',
-                                            'hours' => $detail['hours'],
-                                            'salary' => $detail['summary_salary'] ?? $detail['display_salary'] ?? 0,
+                                            'hours' => $detail['payroll_hours'] ?? $detail['hours'] ?? 0,
+                                            'scheduled_hours' => $detail['hours'] ?? 0,
+                                            'salary' => $detail['payroll_salary'] ?? $detail['summary_salary'] ?? $detail['display_salary'] ?? 0,
+                                            'attendance' => $attendance,
+                                            'status' => ($detail['has_attendance'] ?? false) ? 'Present' : 'Absent',
                                         ];
                                     })->values();
                                 $trainerPayslipData = [
@@ -641,6 +659,9 @@
                     $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
                     $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
                     $students = $detail['students'];
+                    $hasAttendance = $detail['has_attendance'] ?? false;
+                    $attendanceRecords = collect($detail['attendances'] ?? collect());
+                    $payableSalary = $detail['payroll_salary'] ?? 0;
                 @endphp
                 <div
                     class="border rounded-3 p-3 mb-3"
@@ -664,8 +685,19 @@
                                     @if(!is_null($schedule->trainer_rate_per_hour))
                                         <span class="badge bg-success-subtle text-success">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }}/hr</span>
                                     @endif
-                                    @if($detail['display_salary'] > 0)
+                                    @if($category === 'past')
+                                        <span class="badge {{ $hasAttendance ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">
+                                            Payable: ₱{{ number_format($payableSalary, 2) }}
+                                        </span>
+                                    @elseif($detail['display_salary'] > 0)
                                         <span class="badge bg-danger-subtle text-danger">Est. salary: ₱{{ number_format($detail['display_salary'], 2) }}</span>
+                                    @endif
+                                    @if($category === 'past')
+                                        @if($hasAttendance)
+                                            <span class="badge bg-success-subtle text-success">Attendance logged</span>
+                                        @else
+                                            <span class="badge bg-danger-subtle text-danger">Absent (no attendance)</span>
+                                        @endif
                                     @endif
                                 </div>
                                 @if($start || $end)
@@ -690,6 +722,29 @@
                             </ul>
                         @else
                             <p class="text-muted small mb-0">No students assigned.</p>
+                        @endif
+                    </div>
+                    <div class="mt-3">
+                        <span class="text-muted small text-uppercase fw-semibold">Attendance</span>
+                        @if($attendanceRecords->isNotEmpty())
+                            <ul class="list-unstyled mb-0 small mt-1">
+                                @foreach($attendanceRecords as $record)
+                                    @php
+                                        $clockIn = $record['clockin_at'] ?? null;
+                                        $clockOut = $record['clockout_at'] ?? null;
+                                        $clockInLabel = $clockIn ? $clockIn->format('M d, Y g:i A') : '—';
+                                        $clockOutLabel = $clockOut ? $clockOut->format('M d, Y g:i A') : null;
+                                    @endphp
+                                    <li>
+                                        {{ $clockInLabel }}
+                                        @if($clockOutLabel)
+                                            – {{ $clockOutLabel }}
+                                        @endif
+                                    </li>
+                                @endforeach
+                            </ul>
+                        @else
+                            <p class="text-muted small mb-0">No attendance recorded for this schedule.</p>
                         @endif
                     </div>
                 </div>
@@ -836,6 +891,11 @@
                             </td>
                             <td>${assignment.date || '—'}</td>
                             <td>${assignment.time || '—'}</td>
+                            <td>
+                                ${Array.isArray(assignment.attendance) && assignment.attendance.length
+                                    ? assignment.attendance.map((slot) => `<div>${slot}</div>`).join('')
+                                    : '<span class="muted">No attendance</span>'}
+                            </td>
                             <td>${Number(assignment.hours || 0).toFixed(2)} hrs</td>
                             <td>₱${Number(assignment.salary || 0).toFixed(2)}</td>
                         </tr>
@@ -859,12 +919,13 @@
                                         <th>Class/Schedule</th>
                                         <th>Date</th>
                                         <th>Time</th>
+                                        <th>Attendance</th>
                                         <th>Hours</th>
                                         <th>Pay</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${assignmentRows || '<tr><td colspan="5" style="text-align:center;">No past assignments for this period.</td></tr>'}
+                                    ${assignmentRows || '<tr><td colspan="6" style="text-align:center;">No past assignments for this period.</td></tr>'}
                                 </tbody>
                             </table>
                         </div>
