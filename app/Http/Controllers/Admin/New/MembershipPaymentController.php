@@ -110,6 +110,7 @@ class MembershipPaymentController extends Controller
 
         $data = MembershipPayment::findOrFail($request->id);
         $data->isapproved = $request->isapproved;
+        $data->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
         $data->save();
 
         return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership Payment updated successfully');
