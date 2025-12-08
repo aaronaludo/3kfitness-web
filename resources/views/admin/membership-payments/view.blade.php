@@ -35,9 +35,7 @@
             ? ($membership->currency . ' ' . number_format((float) $membership->price, 2))
             : '—';
 
-        $proof = $data->proof_of_payment && $data->proof_of_payment !== 'blank_for_now'
-            ? asset($data->proof_of_payment)
-            : null;
+        $receiptUrl = route('admin.staff-account-management.membership-payments.receipt', $data->id);
     @endphp
 
     <div class="container-fluid">
@@ -113,16 +111,8 @@
                             <td>{{ $expiresText }}</td>
                         </tr>
                         <tr>
-                            <th scope="row">Proof of payment</th>
-                            <td>
-                                @if ($proof)
-                                    <a href="{{ $proof }}" target="_blank" rel="noopener" class="fw-bold text-danger">
-                                        View file
-                                    </a>
-                                @else
-                                    —
-                                @endif
-                            </td>
+                            <th scope="row">Receipt</th>
+                            <td><a href="{{ $receiptUrl }}" target="_blank" rel="noopener" class="fw-bold text-danger">View receipt</a></td>
                         </tr>
                         <tr>
                             <th scope="row">Created</th>

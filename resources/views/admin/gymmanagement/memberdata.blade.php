@@ -14,6 +14,7 @@
                 $printMembers = collect($printSource->items() ?? [])->map(function ($item) use ($current_time) {
                     $latestMembershipPayment = optional($item->membershipPayments)->first();
                     $membershipName = optional(optional($latestMembershipPayment)->membership)->name ?? 'No Membership';
+                    $approvedBy = optional($latestMembershipPayment)->created_by;
                     $expirationAt   = optional($latestMembershipPayment)->expiration_at;
                     $membershipStatus = $membershipName !== 'No Membership' ? 'Active membership' : 'No membership';
 
@@ -30,7 +31,7 @@
                         'email' => $item->email,
                         'created' => optional($item->created_at)->format('M j, Y g:i A') ?: '',
                         'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?: '',
-                        'created_by' => $item->created_by ?: '—',
+                        'approved_by' => $approvedBy ?: 'Pending staff approval',
                     ];
                 })->values();
 
@@ -52,6 +53,7 @@
                 $printAllMembers = collect($printAllSource ?? [])->map(function ($item) use ($current_time) {
                     $latestMembershipPayment = optional($item->membershipPayments)->first();
                     $membershipName = optional(optional($latestMembershipPayment)->membership)->name ?? 'No Membership';
+                    $approvedBy = optional($latestMembershipPayment)->created_by;
                     $expirationAt   = optional($latestMembershipPayment)->expiration_at;
                     $membershipStatus = $membershipName !== 'No Membership' ? 'Active membership' : 'No membership';
 
@@ -68,7 +70,7 @@
                         'email' => $item->email,
                         'created' => optional($item->created_at)->format('M j, Y g:i A') ?: '',
                         'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?: '',
-                        'created_by' => $item->created_by ?: '—',
+                        'approved_by' => $approvedBy ?: 'Pending staff approval',
                     ];
                 })->values();
 
@@ -183,7 +185,7 @@
                                 `<div class="fw">${item.user_code || item.id || '—'}</div><div class="muted">ID: ${item.id ?? '—'}</div>`,
                                 `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div><div class="muted">${item.phone || ''}</div>`,
                                 `<div>${item.membership || 'No membership'}</div><div class="muted">${item.membership_status || ''}</div><div class="muted">Expires: ${item.membership_expires || '—'}</div>`,
-                                `<div>${item.created || ''}</div><div class="muted">${item.updated || ''}</div><div class="muted">Created by: ${item.created_by || '—'}</div>`,
+                                `<div>${item.created || ''}</div><div class="muted">${item.updated || ''}</div><div class="muted">Approved by: ${item.approved_by || 'Pending staff approval'}</div>`,
                             ];
                         });
                     }
@@ -378,7 +380,7 @@
                                                         <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>
                                                         <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
                                                         <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                                        <option value="created_by" {{ request('search_column') == 'created_by' ? 'selected' : '' }}>Created By</option>
+                                                        <option value="created_by" {{ request('search_column') == 'created_by' ? 'selected' : '' }}>Approved By</option>
                                                     </select>
                                                 </div>
 
@@ -482,7 +484,7 @@
                                             <th class="sortable" data-column="email">Email <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
-                                            <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="created_by">Approved By <i class="fa fa-sort"></i></th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -502,6 +504,8 @@
                                             // UPDATED START: compute boolean for client-side filtering
                                             $hasMembership = $membershipName !== 'No Membership';
                                             // UPDATED END
+
+                                            $approvedBy = optional($latestMembershipPayment)->created_by ?: 'Pending staff approval';
                                         @endphp
 
                                         {{-- UPDATED START: mark each row for filtering --}}
@@ -533,7 +537,7 @@
                                             <td>{{ $item->email }}</td>
                                             <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
                                             <td>{{ optional($item->updated_at)->format('F j, Y g:iA') }}</td>
-                                            <td>{{ $item->created_by }}</td>
+                                            <td>{{ $approvedBy }}</td>
                                             <td>
                                                 <div class="d-flex flex-wrap align-items-center gap-2">
                                                     <div class="btn-group btn-group-sm" role="group" aria-label="Manual attendance actions">

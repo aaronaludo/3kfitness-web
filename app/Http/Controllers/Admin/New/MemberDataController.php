@@ -190,7 +190,7 @@ class MemberDataController extends Controller
     public function create()
     {
         $memberships = Membership::all();
-        $classes = Schedule::all();
+        $classes = Schedule::where('is_archieve', 0)->get();
         
         return view('admin.gymmanagement.memberdata-create', compact('memberships', 'classes'));
     }
