@@ -614,28 +614,41 @@
                                                 </td>
                                             </tr>
                                             <div class="modal fade" id="membershipPaymentArchiveModal-{{ $item->id }}" tabindex="-1" aria-labelledby="membershipPaymentArchiveModalLabel-{{ $item->id }}" aria-hidden="true">
-                                                <div class="modal-dialog">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header">
-                                                            <h5 class="modal-title" id="membershipPaymentArchiveModalLabel-{{ $item->id }}">Archive membership payment (#{{ $item->id }})?</h5>
+                                                <div class="modal-dialog modal-dialog-centered">
+                                                    <div class="modal-content border-0 shadow rounded-4">
+                                                        <div class="modal-header border-0 pb-0">
+                                                            <div class="d-flex align-items-center gap-3">
+                                                                <div class="badge bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                                                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                                                </div>
+                                                                <div>
+                                                                    <p class="text-uppercase text-muted small mb-1">Archive membership payment</p>
+                                                                    <h5 class="fw-semibold mb-0" id="membershipPaymentArchiveModalLabel-{{ $item->id }}">
+                                                                        Payment #{{ $item->id }}
+                                                                    </h5>
+                                                                </div>
+                                                            </div>
                                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                         </div>
                                                         <form action="{{ route('admin.staff-account-management.membership-payments.delete') }}" method="POST" id="membership-payment-archive-form-{{ $item->id }}">
                                                             @csrf
                                                             @method('DELETE')
                                                             <input type="hidden" name="id" value="{{ $item->id }}">
-                                                            <div class="modal-body">
-                                                                <p class="mb-3 text-muted small">Provide your password to confirm moving this membership to archive.</p>
-                                                                <div class="input-group mt-3">
+                                                            <div class="modal-body pt-3">
+                                                                <div class="alert alert-danger bg-opacity-10 text-danger border-0 rounded-3">
+                                                                    Archiving will move this membership payment to the archived list. You can restore it later if needed.
+                                                                </div>
+                                                                <label class="form-label fw-semibold mt-2">Confirm with your password</label>
+                                                                <div class="input-group">
                                                                     <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
                                                                     <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
                                                                 </div>
                                                             </div>
-                                                            <div class="modal-footer">
-                                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                            <div class="modal-footer border-0 pt-0">
+                                                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                                                                 <button class="btn btn-danger" type="submit" id="membership-payment-archive-submit-button-{{ $item->id }}">
                                                                     <span id="membership-payment-archive-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                                                                    Archive
+                                                                    Archive payment
                                                                 </button>
                                                             </div>
                                                         </form>

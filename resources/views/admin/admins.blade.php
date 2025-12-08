@@ -438,33 +438,45 @@
                                         </td>
                                     </tr>
                                     <div class="modal fade" id="deleteModal-{{ $admin->id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ $admin->id }}" aria-hidden="true">
-                                        <div class="modal-dialog">
-                                            <div class="modal-content">
-                                                <div class="modal-header">
-                                                    <h5 class="modal-title" id="deleteModalLabel-{{ $admin->id }}">
-                                                        @if ($showArchived)
-                                                            Delete archived admin ({{ $admin->email }}) permanently?
-                                                        @else
-                                                            Archive admin ({{ $admin->email }})?
-                                                        @endif
-                                                    </h5>
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content border-0 shadow rounded-4">
+                                                <div class="modal-header border-0 pb-0">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="badge bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                                        </div>
+                                                        <div>
+                                                            <p class="text-uppercase text-muted small mb-1">{{ $showArchived ? 'Delete admin' : 'Archive admin' }}</p>
+                                                            <h5 class="fw-semibold mb-0" id="deleteModalLabel-{{ $admin->id }}">
+                                                                {{ $admin->email }} ({{ $admin->first_name }} {{ $admin->last_name }})
+                                                            </h5>
+                                                        </div>
+                                                    </div>
                                                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                 </div>
                                                 <form action="{{ route('admin.admins.delete') }}" method="POST" id="admin-delete-form-{{ $admin->id }}">
                                                     @csrf
                                                     @method('DELETE')
                                                     <input type="hidden" name="id" value="{{ $admin->id }}">
-                                                    <div class="modal-body">
-                                                        <div class="input-group mt-3">
+                                                    <div class="modal-body pt-3">
+                                                        <div class="alert alert-danger bg-opacity-10 text-danger border-0 rounded-3">
+                                                            @if ($showArchived)
+                                                                Deleting will permanently remove this admin account. This action cannot be undone.
+                                                            @else
+                                                                Archiving will move this admin to the archived list. You can restore the account later if needed.
+                                                            @endif
+                                                        </div>
+                                                        <label class="form-label fw-semibold mt-2">Confirm with your password</label>
+                                                        <div class="input-group">
                                                             <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
                                                             <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
                                                         </div>
                                                     </div>
-                                                    <div class="modal-footer">
-                                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                    <div class="modal-footer border-0 pt-0">
+                                                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                                                         <button class="btn btn-danger" type="submit" id="admin-delete-submit-{{ $admin->id }}">
                                                             <span id="admin-delete-loader-{{ $admin->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                                                            {{ $showArchived ? 'Delete' : 'Archive' }}
+                                                            {{ $showArchived ? 'Delete admin' : 'Archive admin' }}
                                                         </button>
                                                     </div>
                                                 </form>
@@ -473,26 +485,40 @@
                                     </div>
                                     @if ($showArchived)
                                         <div class="modal fade" id="restoreModal-{{ $admin->id }}" tabindex="-1" aria-labelledby="restoreModalLabel-{{ $admin->id }}" aria-hidden="true">
-                                            <div class="modal-dialog">
-                                                <div class="modal-content">
-                                                    <div class="modal-header">
-                                                        <h5 class="modal-title" id="restoreModalLabel-{{ $admin->id }}">Restore admin ({{ $admin->email }})?</h5>
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content border-0 shadow rounded-4">
+                                                    <div class="modal-header border-0 pb-0">
+                                                        <div class="d-flex align-items-center gap-3">
+                                                            <div class="badge bg-success bg-opacity-10 text-success rounded-circle p-3">
+                                                                <i class="fa-solid fa-rotate-left"></i>
+                                                            </div>
+                                                            <div>
+                                                                <p class="text-uppercase text-muted small mb-1">Restore admin</p>
+                                                                <h5 class="fw-semibold mb-0" id="restoreModalLabel-{{ $admin->id }}">
+                                                                    {{ $admin->email }} ({{ $admin->first_name }} {{ $admin->last_name }})
+                                                                </h5>
+                                                            </div>
+                                                        </div>
                                                         <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                     </div>
                                                     <form action="{{ route('admin.admins.restore') }}" method="POST" id="admin-restore-form-{{ $admin->id }}">
                                                         @csrf
                                                         <input type="hidden" name="id" value="{{ $admin->id }}">
-                                                        <div class="modal-body">
-                                                            <div class="input-group mt-3">
+                                                        <div class="modal-body pt-3">
+                                                            <div class="alert alert-success bg-opacity-10 text-success border-0 rounded-3">
+                                                                Restoring will return this admin to the active list.
+                                                            </div>
+                                                            <label class="form-label fw-semibold mt-2">Confirm with your password</label>
+                                                            <div class="input-group">
                                                                 <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
                                                                 <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
                                                             </div>
                                                         </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                                                        <div class="modal-footer border-0 pt-0">
+                                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
                                                             <button class="btn btn-success" type="submit" id="admin-restore-submit-{{ $admin->id }}">
                                                                 <span id="admin-restore-loader-{{ $admin->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                                                                Restore
+                                                                Restore admin
                                                             </button>
                                                         </div>
                                                     </form>
