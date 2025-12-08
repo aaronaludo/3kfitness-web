@@ -243,19 +243,20 @@
                                             return [
                                                 'id' => $entry['id'],
                                                 'clockin' => $entry['clockin_at'] ? $entry['clockin_at']->format('M d, Y g:i A') : '—',
-                                                'clockout' => $entry['clockout_at'] ? $entry['clockout_at']->format('M d, Y g:i A') : '—',
-                                                'hours' => $entry['hours'],
-                                                'amount' => $entry['amount'],
-                                                'status' => $entry['status'],
-                                            ];
-                                        })->values();
+                                            'clockout' => $entry['clockout_at'] ? $entry['clockout_at']->format('M d, Y g:i A') : '—',
+                                            'hours' => $entry['hours'],
+                                            'amount' => $entry['amount'],
+                                            'status' => $entry['status'],
+                                        ];
+                                    })->values();
 
-                                        $payslipData = [
-                                            'name' => $staff->first_name . ' ' . $staff->last_name,
-                                            'email' => $staff->email,
-                                            'rate' => $staff->rate_per_hour ?? 0,
-                                            'gross' => $summary['gross_pay'],
-                                            'net' => $summary['net_pay'],
+                                    $payslipData = [
+                                        'type' => 'staff',
+                                        'name' => $staff->first_name . ' ' . $staff->last_name,
+                                        'email' => $staff->email,
+                                        'rate' => $staff->rate_per_hour ?? 0,
+                                        'gross' => $summary['gross_pay'],
+                                        'net' => $summary['net_pay'],
                                             'deductions' => $summary['deductions'],
                                             'month' => $monthLabel,
                                             'entries' => $printEntries,
@@ -405,26 +406,32 @@
                                 $trainerPhilhealth = $processedRun->deduction_philhealth ?? ($assignment['deductions']['philhealth'] ?? round($trainerGross * 0.025, 2));
                                 $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
                                 $trainerNet = $processedRun->net_pay ?? $assignment['net_pay'];
-                                $assignmentEntries = ($assignment['entries_for_month'] ?? collect())->map(function ($detail) {
-                                    $schedule = $detail['schedule'];
-                                    return [
-                                        'id' => $schedule->class_code ?? ($schedule->id ?? 'N/A'),
-                                        'clockin' => $detail['start'] ? $detail['start']->format('M d, Y g:i A') : '—',
-                                        'clockout' => $detail['end'] ? $detail['end']->format('M d, Y g:i A') : '—',
-                                        'hours' => $detail['hours'],
-                                        'amount' => $detail['summary_salary'],
-                                        'status' => $detail['category'],
-                                    ];
-                                })->values();
+                                $pastAssignments = collect($assignment['details'] ?? collect())
+                                    ->filter(fn ($detail) => ($detail['category'] ?? null) === 'past')
+                                    ->map(function ($detail) {
+                                        $schedule = $detail['schedule'];
+                                        $start = $detail['start'];
+                                        $end = $detail['end'];
+                                        return [
+                                            'title' => $schedule->name ?? 'Class schedule',
+                                            'code' => $schedule->class_code ?? ($schedule->id ?? 'N/A'),
+                                            'date' => $start ? $start->format('M d, Y') : '—',
+                                            'time' => $start || $end
+                                                ? trim(($start ? $start->format('g:i A') : '') . ($end ? ' - ' . $end->format('g:i A') : ''))
+                                                : '—',
+                                            'hours' => $detail['hours'],
+                                            'salary' => $detail['summary_salary'] ?? $detail['display_salary'] ?? 0,
+                                        ];
+                                    })->values();
                                 $trainerPayslipData = [
+                                    'type' => 'trainer',
                                     'name' => $trainer->first_name . ' ' . $trainer->last_name,
                                     'email' => $trainer->email,
-                                    'rate' => 0,
                                     'gross' => $trainerGross,
                                     'net' => $trainerNet,
                                     'deductions' => ['sss' => $trainerSss, 'philhealth' => $trainerPhilhealth, 'pagibig' => $trainerPagibig],
                                     'month' => $monthLabel,
-                                    'entries' => $assignmentEntries,
+                                    'assignments' => $pastAssignments,
                                 ];
                                 $trainerPayslipJson = json_encode($trainerPayslipData);
                                 $canProcessTrainer = ($assignment['payable_assignments_count'] ?? 0) > 0 && empty($processedRun);
@@ -783,7 +790,9 @@
                     return;
                 }
 
-                const entries = data.entries || [];
+                const entries = Array.isArray(data.entries) ? data.entries : [];
+                const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+                const isTrainer = data.type === 'trainer';
                 const style = `
                     <style>
                         body { font-family: Arial, sans-serif; margin: 0; padding: 24px; color: #111827; }
@@ -819,6 +828,67 @@
                         </tr>
                     `;
                 }).join('');
+                const assignmentRows = assignments.map((assignment) => `
+                        <tr>
+                            <td>
+                                ${assignment.title || '—'}
+                                ${assignment.code ? `<div class="muted">${assignment.code}</div>` : ''}
+                            </td>
+                            <td>${assignment.date || '—'}</td>
+                            <td>${assignment.time || '—'}</td>
+                            <td>${Number(assignment.hours || 0).toFixed(2)} hrs</td>
+                            <td>₱${Number(assignment.salary || 0).toFixed(2)}</td>
+                        </tr>
+                    `).join('');
+                const infoFields = [
+                    `<div><strong>${isTrainer ? 'Trainer' : 'Employee'}:</strong> ${data.name || '—'}</div>`,
+                    `<div><strong>Email:</strong> ${data.email || '—'}</div>`,
+                    `<div><strong>Period:</strong> ${data.month || '—'}</div>`,
+                ];
+                if (!isTrainer) {
+                    infoFields.push(`<div><strong>Hourly rate:</strong> ₱${Number(data.rate || 0).toFixed(2)}</div>`);
+                }
+
+                const detailSection = isTrainer
+                    ? `
+                        <div class="section">
+                            <strong>Past assignments</strong>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Class/Schedule</th>
+                                        <th>Date</th>
+                                        <th>Time</th>
+                                        <th>Hours</th>
+                                        <th>Pay</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${assignmentRows || '<tr><td colspan="5" style="text-align:center;">No past assignments for this period.</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    `
+                    : `
+                        <div class="section">
+                            <strong>Entries</strong>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Entry</th>
+                                        <th>Clock in</th>
+                                        <th>Clock out</th>
+                                        <th>Hours</th>
+                                        <th>Amount</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${rows || '<tr><td colspan="6" style="text-align:center;">No entries</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
 
                 const html = `
                     <!doctype html>
@@ -834,29 +904,9 @@
                                     <div class="muted">3kfitness Gym • ${data.month || ''}</div>
                                 </div>
                                 <div class="section grid">
-                                    <div><strong>Employee:</strong> ${data.name || '—'}</div>
-                                    <div><strong>Email:</strong> ${data.email || '—'}</div>
-                                    <div><strong>Hourly rate:</strong> ₱${Number(data.rate || 0).toFixed(2)}</div>
-                                    <div><strong>Period:</strong> ${data.month || '—'}</div>
+                                    ${infoFields.join('')}
                                 </div>
-                                <div class="section">
-                                    <strong>Entries</strong>
-                                    <table>
-                                        <thead>
-                                            <tr>
-                                                <th>Entry</th>
-                                                <th>Clock in</th>
-                                                <th>Clock out</th>
-                                                <th>Hours</th>
-                                                <th>Amount</th>
-                                                <th>Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            ${rows || '<tr><td colspan="6" style="text-align:center;">No entries</td></tr>'}
-                                        </tbody>
-                                    </table>
-                                </div>
+                                ${detailSection}
                                 <div class="section">
                                     <strong>Summary</strong>
                                     <table class="totals">
