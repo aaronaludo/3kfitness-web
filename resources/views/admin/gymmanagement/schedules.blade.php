@@ -639,9 +639,17 @@
                                 <h5 class="fw-semibold mb-1">Reschedule requests</h5>
                                 <p class="text-muted mb-0">Trainers can propose a new cadence and time. Approving will update the class schedule automatically.</p>
                             </div>
-                            <div class="text-end">
-                                <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">Pending: {{ $pendingRescheduleCount }}</span>
-                                <span class="badge bg-secondary text-white px-3 py-2 rounded-pill ms-2">Resolved: {{ $resolvedRescheduleCount }}</span>
+                            <div class="text-end d-flex flex-column align-items-end gap-2">
+                                <a
+                                    href="{{ route('admin.history.reschedule-requests') }}"
+                                    class="btn btn-outline-secondary btn-sm"
+                                >
+                                    <i class="fa-solid fa-clock-rotate-left"></i>&nbsp;&nbsp;History
+                                </a>
+                                <div>
+                                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">Pending: {{ $pendingRescheduleCount }}</span>
+                                    <span class="badge bg-secondary text-white px-3 py-2 rounded-pill ms-2">Resolved: {{ $resolvedRescheduleCount }}</span>
+                                </div>
                             </div>
                         </div>
 
@@ -732,6 +740,18 @@
                                                             Reject
                                                         </button>
                                                     </div>
+                                                @elseif((int) $requestItem->status === 1)
+                                                    <form
+                                                        method="POST"
+                                                        action="{{ route('admin.gym-management.schedules.reschedules.destroy', $requestItem->id) }}"
+                                                        onsubmit="return confirm('Delete this approved request?')"
+                                                    >
+                                                        @csrf
+                                                        @method('DELETE')
+                                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                            Delete
+                                                        </button>
+                                                    </form>
                                                 @else
                                                     <span class="text-muted small">No action needed</span>
                                                 @endif

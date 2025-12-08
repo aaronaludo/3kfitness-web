@@ -38,6 +38,7 @@ use App\Http\Controllers\Admin\New\ClassHistoryController as ClassHistory;
 use App\Http\Controllers\Admin\New\PaymentHistoryController as PaymentHistory;
 use App\Http\Controllers\Admin\New\MembershipHistoryController as MembershipHistory;
 use App\Http\Controllers\Admin\New\TrainerClassHistoryController as TrainerClassHistory;
+use App\Http\Controllers\Admin\New\RescheduleRequestHistoryController as RescheduleRequestHistory;
 
 use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagement;
 // use App\Http\Controllers\Admin\New\WalkInPaymentController as WalkInPayments;
@@ -116,6 +117,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::match(['put', 'post'], '/admin/classes/restore', [Schedule::class, 'restore'])->name('admin.gym-management.schedules.restore');
     Route::put('/admin/admin-acceptance-classes', [Schedule::class, 'adminacceptance'])->name('admin.gym-management.schedules.adminacceptance');
     Route::put('/admin/classes/reschedules/{id}', [Schedule::class, 'handleRescheduleRequest'])->name('admin.gym-management.schedules.reschedules.update');
+    Route::delete('/admin/classes/reschedules/{id}', [Schedule::class, 'deleteRescheduleRequest'])->name('admin.gym-management.schedules.reschedules.destroy');
     Route::post('/admin/reject-message-classes', [Schedule::class, 'rejectmessage'])->name('admin.gym-management.schedules.rejectmessage');
 
     Route::get('/admin/history/class-enrollments', [ClassEnrollmentHistory::class, 'index'])->name('admin.history.class-enrollments');
@@ -130,6 +132,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/history/memberships/print', [MembershipHistory::class, 'print'])->name('admin.history.memberships.print');
     Route::get('/admin/history/trainer-classes', [TrainerClassHistory::class, 'index'])->name('admin.history.trainer-classes');
     Route::post('/admin/history/trainer-classes/print', [TrainerClassHistory::class, 'print'])->name('admin.history.trainer-classes.print');
+    Route::get('/admin/history/reschedule-requests', [RescheduleRequestHistory::class, 'index'])->name('admin.history.reschedule-requests');
     
     Route::get('/admin/members', [MemberData::class, 'index'])->name('admin.gym-management.members');
     Route::get('/admin/members/create', [MemberData::class, 'create'])->name('admin.gym-management.members.create');

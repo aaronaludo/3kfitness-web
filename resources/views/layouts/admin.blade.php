@@ -366,6 +366,7 @@
                     'admin.history.payments*',
                     'admin.history.trainer-classes*',
                     'admin.history.memberships*',
+                    'admin.history.reschedule-requests*',
                 ];
                 $staffAccountRoutes = [
                     'admin.staff-account-management.index',
@@ -464,6 +465,12 @@
                             <a href="{{ route('admin.history.trainer-classes') }}"
                                class="{{ request()->routeIs('admin.history.trainer-classes*') ? 'active' : '' }}">
                                Trainer Classes History
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.history.reschedule-requests') }}"
+                               class="{{ request()->routeIs('admin.history.reschedule-requests*') ? 'active' : '' }}">
+                               Reschedule Requests
                             </a>
                         </li>
                         <li>

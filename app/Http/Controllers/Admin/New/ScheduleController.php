@@ -554,6 +554,23 @@ class ScheduleController extends Controller
 
         return redirect()->route('admin.gym-management.schedules')->with('success', 'Reschedule request updated.');
     }
+
+    public function deleteRescheduleRequest($rescheduleId)
+    {
+        $reschedule = ScheduleRescheduleRequest::findOrFail($rescheduleId);
+
+        if ((int) $reschedule->status !== 1) {
+            return redirect()
+                ->route('admin.gym-management.schedules')
+                ->with('error', 'Only approved requests can be deleted.');
+        }
+
+        $reschedule->delete();
+
+        return redirect()
+            ->route('admin.gym-management.schedules')
+            ->with('success', 'Approved reschedule request removed.');
+    }
     
     public function delete(Request $request)
     {
