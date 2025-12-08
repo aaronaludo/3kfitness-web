@@ -189,7 +189,7 @@ class MemberDataController extends Controller
 
     public function create()
     {
-        $memberships = Membership::all();
+        $memberships = Membership::where('is_archive', 0)->get();
         $classes = Schedule::where('is_archieve', 0)->get();
         
         return view('admin.gymmanagement.memberdata-create', compact('memberships', 'classes'));
@@ -198,7 +198,7 @@ class MemberDataController extends Controller
     public function edit($id)
     {
         $gym_member = User::where('role_id', 3)->findOrFail($id);
-        $memberships = Membership::all();
+        $memberships = Membership::where('is_archive', 0)->get();
         $current_time = Carbon::now();
         
         $gym_member_membership = optional($gym_member->membershipPayments()

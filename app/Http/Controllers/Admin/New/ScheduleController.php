@@ -277,7 +277,7 @@ class ScheduleController extends Controller
 
     public function create()
     {
-        $trainers = User::where('role_id', 5)->get();
+        $trainers = User::where('role_id', 5)->where('is_archive', 0)->get();
         $rescheduleRequests = collect();
         
         return view('admin.gymmanagement.schedules-create', compact('trainers', 'rescheduleRequests'));
