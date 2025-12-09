@@ -180,11 +180,40 @@ class MemberDataController extends Controller
         return view('admin.gymmanagement.memberdata', compact('gym_members', 'archivedData', 'current_time', 'statusTallies', 'printAllActive', 'printAllArchived'));
     }
     
-    public function view($id)
+    public function view(Request $request, $id)
     {
-        $gym_member = User::where('role_id', 3)->findOrFail($id);
+        $gym_member = User::where('role_id', 3)
+            ->with(['role', 'membershipPayments.membership'])
+            ->findOrFail($id);
 
-        return view('admin.gymmanagement.memberdata-view', compact('gym_member'));
+        $search = trim((string) $request->input('search', ''));
+
+        $userSchedulesQuery = $gym_member->userSchedules()
+            ->with(['schedule.user'])
+            ->orderByDesc('created_at');
+
+        if ($search !== '') {
+            $userSchedulesQuery->whereHas('schedule', function ($query) use ($search) {
+                $like = "%{$search}%";
+                $query->where('name', 'like', $like)
+                    ->orWhere('class_code', 'like', $like)
+                    ->orWhereHas('user', function ($trainerQuery) use ($like) {
+                        $trainerQuery->where('first_name', 'like', $like)
+                            ->orWhere('last_name', 'like', $like)
+                            ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", [$like]);
+                    });
+            });
+        }
+
+        $userSchedules = $userSchedulesQuery
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.gymmanagement.memberdata-view', [
+            'gym_member' => $gym_member,
+            'userSchedules' => $userSchedules,
+            'search' => $search,
+        ]);
     }
 
     public function create()

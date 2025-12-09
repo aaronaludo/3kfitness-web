@@ -156,5 +156,137 @@
                 </table>
             </div>
         </div>
+
+        @php
+            $now = now();
+        @endphp
+
+        <div class="detail-card mt-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h5 class="mb-1">Enrolled classes</h5>
+                    <div class="text-muted detail-meta">Classes this member is enrolled in.</div>
+                </div>
+            </div>
+
+            <form action="{{ route('admin.gym-management.members.view', $gym_member->id) }}" method="GET" class="row g-2 align-items-center mb-3">
+                <div class="col-md-6 col-lg-4">
+                    <label for="search" class="visually-hidden">Search enrolled classes</label>
+                    <div class="input-group">
+                        <span class="input-group-text bg-light"><i class="fa-solid fa-magnifying-glass"></i></span>
+                        <input
+                            type="text"
+                            id="search"
+                            name="search"
+                            class="form-control"
+                            value="{{ $search }}"
+                            placeholder="Search by class, code, or trainer"
+                        >
+                    </div>
+                </div>
+                <div class="col-md-auto">
+                    <button type="submit" class="btn btn-danger">
+                        Apply
+                    </button>
+                </div>
+                @if($search !== '')
+                    <div class="col-md-auto">
+                        <a href="{{ route('admin.gym-management.members.view', $gym_member->id) }}" class="btn btn-link text-decoration-none text-muted">
+                            Reset
+                        </a>
+                    </div>
+                @endif
+            </form>
+
+            <div class="table-responsive">
+                <table class="table table-striped align-middle">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Class</th>
+                            <th>Trainer</th>
+                            <th>Schedule</th>
+                            <th>Status</th>
+                            <th>Joined</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($userSchedules as $index => $userSchedule)
+                            @php
+                                $class = $userSchedule->schedule;
+                                $className = $class->name ?? 'Class removed';
+                                $classCode = $class->class_code ?? '—';
+                                $trainer = optional($class)->user;
+                                $trainerName = $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned';
+                                $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
+                                $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
+                                $scheduleWindow = $start && $end
+                                    ? $start->format('M d, Y g:i A') . ' — ' . $end->format('M d, Y g:i A')
+                                    : ($start ? $start->format('M d, Y g:i A') : 'Not set');
+                                $statusLabel = 'Not scheduled';
+                                $badgeClass = 'bg-secondary';
+                                if ($start && $end) {
+                                    if ($now->lt($start)) {
+                                        $statusLabel = 'Upcoming';
+                                        $badgeClass = 'bg-warning text-dark';
+                                    } elseif ($now->between($start, $end)) {
+                                        $statusLabel = 'Ongoing';
+                                        $badgeClass = 'bg-success';
+                                    } else {
+                                        $statusLabel = 'Completed';
+                                        $badgeClass = 'bg-primary';
+                                    }
+                                } elseif ($start) {
+                                    $statusLabel = $now->lt($start) ? 'Upcoming' : 'Completed';
+                                    $badgeClass = $now->lt($start) ? 'bg-warning text-dark' : 'bg-secondary';
+                                }
+                                $joinedAt = optional($userSchedule->created_at)->format('M d, Y g:i A') ?? '—';
+                            @endphp
+                            <tr>
+                                <td>{{ ($userSchedules->firstItem() ?? 0) + $index }}</td>
+                                <td>
+                                    <div class="fw-semibold">{{ $className }}</div>
+                                    <div class="text-muted small">Code: {{ $classCode }}</div>
+                                </td>
+                                <td>
+                                    <div>{{ $trainerName }}</div>
+                                    @if($trainer)
+                                        <div class="text-muted small">{{ $trainer->email ?? 'No email' }}</div>
+                                    @endif
+                                </td>
+                                <td>{{ $scheduleWindow }}</td>
+                                <td>
+                                    <span class="badge {{ $badgeClass }} px-3 py-2">{{ $statusLabel }}</span>
+                                </td>
+                                <td>{{ $joinedAt }}</td>
+                                <td class="text-center">
+                                    @if($class)
+                                        <a href="{{ route('admin.gym-management.schedules.view', $class->id) }}" class="btn btn-outline-secondary btn-sm">
+                                            View class
+                                        </a>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="7" class="text-center py-4 text-muted">
+                                    No enrolled classes found{{ $search !== '' ? ' for this search.' : '.' }}
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
+                <div class="text-muted small">
+                    Showing {{ $userSchedules->count() }} of {{ $userSchedules->total() }} classes
+                </div>
+                {{ $userSchedules->links() }}
+            </div>
+        </div>
     </div>
 @endsection
