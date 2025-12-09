@@ -9,16 +9,49 @@ use App\Models\Payroll;
 use App\Models\PayrollRun;
 use App\Models\Schedule;
 use App\Models\Attendance2;
+use App\Models\DeductionSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
 class PayrollController extends Controller
 {
+    private function currentDeductionSettings(): array
+    {
+        $setting = DeductionSetting::orderByDesc('id')->first();
+
+        return [
+            'sss_rate' => (float) ($setting->sss_rate ?? 4.5),
+            'philhealth_rate' => (float) ($setting->philhealth_rate ?? 2.5),
+            'pagibig_rate' => (float) ($setting->pagibig_rate ?? 2.0),
+            'pagibig_cap' => (float) ($setting->pagibig_cap ?? 5000),
+            'app_cut_rate' => (float) ($setting->app_cut_rate ?? 0),
+        ];
+    }
+
+    private function calculateDeductions(float $gross, array $settings): array
+    {
+        $sss = round($gross * ($settings['sss_rate'] / 100), 2);
+        $philhealth = round($gross * ($settings['philhealth_rate'] / 100), 2);
+        $pagibigBase = $settings['pagibig_cap'] > 0 ? min($gross, $settings['pagibig_cap']) : $gross;
+        $pagibig = round($pagibigBase * ($settings['pagibig_rate'] / 100), 2);
+        $appCut = round($gross * ($settings['app_cut_rate'] / 100), 2);
+        $total = $sss + $philhealth + $pagibig + $appCut;
+
+        return [
+            'sss' => $sss,
+            'philhealth' => $philhealth,
+            'pagibig' => $pagibig,
+            'app_cut' => $appCut,
+            'total' => $total,
+        ];
+    }
     public function index(Request $request)
     {
         $search = $request->input('member_name');
         $searchColumn = $request->input('search_column');
         $period = $request->input('period_month');
+        $deductionSettings = $this->currentDeductionSettings();
+        $appCutRate = max((float) $request->input('app_cut_rate', $deductionSettings['app_cut_rate']), 0);
 
         $allowedColumns = ['id', 'name', 'email', 'user_code', 'period_month', 'processed_at', 'created_at', 'updated_at'];
         if (!in_array($searchColumn, $allowedColumns, true)) {
@@ -80,16 +113,51 @@ class PayrollController extends Controller
             ->paginate(10)
             ->withQueryString();
 
+        $appCutTotal = $printAllRuns->sum(function ($run) use ($appCutRate) {
+            $stored = $run->deduction_app_cut ?? null;
+            if (!is_null($stored) && (float) $stored !== 0.0) {
+                return (float) $stored;
+            }
+
+            $gross = (float) ($run->gross_pay ?? 0);
+            return round($gross * ($appCutRate / 100), 2);
+        });
+
         return view('admin.payrolls.index', [
             'runs' => $runs,
             'printAllRuns' => $printAllRuns,
+            'deductionSettings' => $deductionSettings,
         ]);
+    }
+
+    public function updateDeductions(Request $request)
+    {
+        $data = $request->validate([
+            'sss_rate' => 'required|numeric|min:0',
+            'philhealth_rate' => 'required|numeric|min:0',
+            'pagibig_rate' => 'required|numeric|min:0',
+            'pagibig_cap' => 'required|numeric|min:0',
+            'app_cut_rate' => 'nullable|numeric|min:0',
+        ]);
+
+        $setting = DeductionSetting::orderByDesc('id')->first() ?? new DeductionSetting();
+        $setting->fill([
+            'sss_rate' => $data['sss_rate'],
+            'philhealth_rate' => $data['philhealth_rate'],
+            'pagibig_rate' => $data['pagibig_rate'],
+            'pagibig_cap' => $data['pagibig_cap'],
+            'app_cut_rate' => $data['app_cut_rate'] ?? 0,
+        ]);
+        $setting->save();
+
+        return redirect()->back()->with('success', 'Deduction settings updated.');
     }
 
     public function process(Request $request)
     {
         $search = $request->input('search');
         $month = $request->input('month', now()->format('Y-m'));
+        $deductionSettings = $this->currentDeductionSettings();
 
         try {
             $targetMonth = Carbon::createFromFormat('Y-m', $month);
@@ -130,7 +198,7 @@ class PayrollController extends Controller
             ->get()
             ->keyBy('user_id');
 
-        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser) {
+        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser, $deductionSettings) {
             $entries = collect($attendanceByUser->get($staff->id) ?? [])->map(function ($attendance) use ($staff) {
                 $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
                 $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
@@ -155,13 +223,8 @@ class PayrollController extends Controller
             $totalHours = $entries->sum(fn ($entry) => $entry['hours'] ?? 0);
             $gross = round($totalHours * (float) ($staff->rate_per_hour ?? 0), 2);
 
-            $deductions = [
-                'sss' => round($gross * 0.045, 2),
-                'philhealth' => round($gross * 0.025, 2),
-                'pagibig' => round(min($gross, 5000) * 0.02, 2),
-            ];
-
-            $net = max($gross - array_sum($deductions), 0);
+            $deductions = $this->calculateDeductions($gross, $deductionSettings);
+            $net = max($gross - $deductions['total'], 0);
 
             return [
                 'staff' => $staff,
@@ -186,6 +249,8 @@ class PayrollController extends Controller
                     'sss' => 0,
                     'philhealth' => 0,
                     'pagibig' => 0,
+                    'app_cut' => 0,
+                    'total' => 0,
                 ];
                 $summary['entries'] = collect(); // Hide entries after processing
                 $summary['pending_entries'] = 0;
@@ -216,7 +281,7 @@ class PayrollController extends Controller
             ->keyBy('user_id');
 
         $trainerAssignments = $trainers
-            ->map(function ($trainer) use ($startOfMonth, $endOfMonth, $trainerProcessedRuns) {
+            ->map(function ($trainer) use ($startOfMonth, $endOfMonth, $trainerProcessedRuns, $deductionSettings) {
                 $now = Carbon::now();
                 $trainerAttendances = Attendance2::where('user_id', $trainer->id)
                     ->where('is_archive', 0)
@@ -432,12 +497,8 @@ class PayrollController extends Controller
                     return ($detail['payroll_salary'] ?? 0) + ($detail['future_potential_salary'] ?? 0);
                 }), 2);
                 $gross = round($salaryEligibleSchedules->sum('payroll_salary'), 2);
-                $deductions = [
-                    'sss' => round($gross * 0.045, 2),
-                    'philhealth' => round($gross * 0.025, 2),
-                    'pagibig' => round(min($gross, 5000) * 0.02, 2),
-                ];
-                $net = max($gross - array_sum($deductions), 0);
+                $deductions = $this->calculateDeductions($gross, $deductionSettings);
+                $net = max($gross - $deductions['total'], 0);
 
                 $processedRun = $trainerProcessedRuns->get($trainer->id);
 
@@ -445,7 +506,7 @@ class PayrollController extends Controller
                     // Once processed, display zeroed values to mirror staff behavior and prevent reprocessing.
                     $gross = 0;
                     $net = 0;
-                    $deductions = ['sss' => 0, 'philhealth' => 0, 'pagibig' => 0];
+                    $deductions = ['sss' => 0, 'philhealth' => 0, 'pagibig' => 0, 'app_cut' => 0, 'total' => 0];
                     $salaryEligibleSchedules = collect();
                 }
 
@@ -481,6 +542,7 @@ class PayrollController extends Controller
             'month' => $month,
             'monthLabel' => $targetMonth->format('F Y'),
             'trainerAssignments' => $trainerAssignments,
+            'deductionSettings' => $deductionSettings,
         ]);
     }
     
@@ -491,6 +553,7 @@ class PayrollController extends Controller
             'month'    => 'required|date_format:Y-m',
         ]);
 
+        $deductionSettings = $this->currentDeductionSettings();
         $staff = User::where('id', $request->staff_id)
             ->where('role_id', 2)
             ->where('is_archive', 0)
@@ -538,13 +601,9 @@ class PayrollController extends Controller
         $totalHours = $entries->sum('hours');
         $gross = round($entries->sum('amount'), 2);
 
-        $deductions = [
-            'sss' => round($gross * 0.045, 2),
-            'philhealth' => round($gross * 0.025, 2),
-            'pagibig' => round(min($gross, 5000) * 0.02, 2),
-        ];
+        $deductions = $this->calculateDeductions($gross, $deductionSettings);
 
-        $net = max($gross - array_sum($deductions), 0);
+        $net = max($gross - $deductions['total'], 0);
 
         PayrollRun::updateOrCreate(
             [
@@ -558,6 +617,7 @@ class PayrollController extends Controller
                 'deduction_sss' => $deductions['sss'],
                 'deduction_philhealth' => $deductions['philhealth'],
                 'deduction_pagibig' => $deductions['pagibig'],
+                'deduction_app_cut' => $deductions['app_cut'],
                 'processed_by' => Auth::id(),
                 'processed_at' => Carbon::now(),
             ]
@@ -573,6 +633,7 @@ class PayrollController extends Controller
             'month'      => 'required|date_format:Y-m',
         ]);
 
+        $deductionSettings = $this->currentDeductionSettings();
         $trainer = User::where('id', $request->trainer_id)
             ->where('role_id', 5)
             ->where('is_archive', 0)
@@ -726,13 +787,9 @@ class PayrollController extends Controller
         $totalHours = $eligibleSchedules->sum(fn ($detail) => $detail['paid_occurrences']->sum('payroll_hours'));
         $gross = round($eligibleSchedules->sum(fn ($detail) => $detail['paid_occurrences']->sum('payroll_salary')), 2);
 
-        $deductions = [
-            'sss' => round($gross * 0.045, 2),
-            'philhealth' => round($gross * 0.025, 2),
-            'pagibig' => round(min($gross, 5000) * 0.02, 2),
-        ];
+        $deductions = $this->calculateDeductions($gross, $deductionSettings);
 
-        $net = max($gross - array_sum($deductions), 0);
+        $net = max($gross - $deductions['total'], 0);
 
         PayrollRun::updateOrCreate(
             [
@@ -746,6 +803,7 @@ class PayrollController extends Controller
                 'deduction_sss' => $deductions['sss'],
                 'deduction_philhealth' => $deductions['philhealth'],
                 'deduction_pagibig' => $deductions['pagibig'],
+                'deduction_app_cut' => $deductions['app_cut'],
                 'processed_by' => Auth::id(),
                 'processed_at' => Carbon::now(),
             ]

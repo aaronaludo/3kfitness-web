@@ -2,6 +2,15 @@
 @section('title', 'Process Payroll')
 
 @section('content')
+    @php
+        $deductionSettings = $deductionSettings ?? [
+            'sss_rate' => 4.5,
+            'philhealth_rate' => 2.5,
+            'pagibig_rate' => 2,
+            'pagibig_cap' => 5000,
+            'app_cut_rate' => 0,
+        ];
+    @endphp
     <div class="container-fluid">
         <div class="row">
             <div class="col-12 mb-4">
@@ -183,6 +192,7 @@
                         data-payroll-card
                         data-gross="{{ $summary['gross_pay'] }}"
                         data-rate="{{ $staff->rate_per_hour ?? 0 }}"
+                        data-appcut="{{ $summary['deductions']['app_cut'] ?? 0 }}"
                     >
                         <div class="card-body p-4">
                             <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
@@ -309,6 +319,10 @@
                                                     <span>Pag-IBIG</span>
                                                     <span data-pagibig>₱{{ number_format($summary['deductions']['pagibig'], 2) }}</span>
                                                 </li>
+                                                <li class="d-flex justify-content-between mb-2">
+                                                    <span>3kfitness app cut</span>
+                                                    <span data-appcut>₱{{ number_format($summary['deductions']['app_cut'] ?? 0, 2) }}</span>
+                                                </li>
                                                 <li class="d-flex justify-content-between fw-semibold pt-2 border-top">
                                                     <span>Net pay</span>
                                                     <span data-net>₱{{ number_format($summary['net_pay'], 2) }}</span>
@@ -405,6 +419,7 @@
                                 $trainerSss = $processedRun->deduction_sss ?? ($assignment['deductions']['sss'] ?? round($trainerGross * 0.045, 2));
                                 $trainerPhilhealth = $processedRun->deduction_philhealth ?? ($assignment['deductions']['philhealth'] ?? round($trainerGross * 0.025, 2));
                                 $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
+                                $trainerAppCut = $assignment['deductions']['app_cut'] ?? 0;
                                 $trainerNet = $processedRun->net_pay ?? $assignment['net_pay'];
                                 $attendanceAssignments = collect($assignment['details'] ?? collect())
                                     ->filter(function ($detail) {
@@ -460,7 +475,12 @@
                                     'email' => $trainer->email,
                                     'gross' => $trainerGross,
                                     'net' => $trainerNet,
-                                    'deductions' => ['sss' => $trainerSss, 'philhealth' => $trainerPhilhealth, 'pagibig' => $trainerPagibig],
+                                    'deductions' => [
+                                        'sss' => $trainerSss,
+                                        'philhealth' => $trainerPhilhealth,
+                                        'pagibig' => $trainerPagibig,
+                                        'app_cut' => $trainerAppCut,
+                                    ],
                                     'month' => $monthLabel,
                                     'assignments' => $attendanceAssignments,
                                 ];
@@ -474,6 +494,7 @@
                                 data-sss="{{ $trainerSss }}"
                                 data-philhealth="{{ $trainerPhilhealth }}"
                                 data-pagibig="{{ $trainerPagibig }}"
+                                data-appcut="{{ $trainerAppCut }}"
                                 data-net="{{ $trainerNet }}"
                             >
                                 <div class="card-body p-4">
@@ -608,6 +629,10 @@
                                                             <li class="d-flex justify-content-between">
                                                                 <span>Pag-IBIG</span>
                                                                 <span data-pagibig>₱{{ number_format($trainerPagibig, 2) }}</span>
+                                                            </li>
+                                                            <li class="d-flex justify-content-between">
+                                                                <span>3kfitness app cut</span>
+                                                                <span data-appcut>₱{{ number_format($trainerAppCut, 2) }}</span>
                                                             </li>
                                                         </ul>
                                                     </div>
@@ -809,28 +834,79 @@
                 </div>
                 <div class="modal-body">
                     <p class="text-muted small mb-3">Set the current government rates. Changes update the on-screen calculations and payslip printout.</p>
-                    <form id="deduction-form" class="row g-3">
+                    <form
+                        id="deduction-form"
+                        class="row g-3"
+                        method="POST"
+                        action="{{ route('admin.payrolls.deductions.update') }}"
+                    >
+                        @csrf
                         <div class="col-12 col-md-6">
                             <label class="form-label text-muted text-uppercase small mb-1">SSS (%)</label>
-                            <input type="number" step="0.01" min="0" class="form-control" id="rate-sss" value="4.5">
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="form-control"
+                                id="rate-sss"
+                                name="sss_rate"
+                                value="{{ $deductionSettings['sss_rate'] ?? 0 }}"
+                            >
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label text-muted text-uppercase small mb-1">PhilHealth (%)</label>
-                            <input type="number" step="0.01" min="0" class="form-control" id="rate-philhealth" value="2.5">
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="form-control"
+                                id="rate-philhealth"
+                                name="philhealth_rate"
+                                value="{{ $deductionSettings['philhealth_rate'] ?? 0 }}"
+                            >
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label text-muted text-uppercase small mb-1">Pag-IBIG (%)</label>
-                            <input type="number" step="0.01" min="0" class="form-control" id="rate-pagibig" value="2">
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="form-control"
+                                id="rate-pagibig"
+                                name="pagibig_rate"
+                                value="{{ $deductionSettings['pagibig_rate'] ?? 0 }}"
+                            >
+                        </div>
+                        <div class="col-12 col-md-6">
+                            <label class="form-label text-muted text-uppercase small mb-1">3kfitness app cut (%)</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="form-control"
+                                id="rate-appcut"
+                                name="app_cut_rate"
+                                value="{{ $deductionSettings['app_cut_rate'] ?? 0 }}"
+                            >
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label text-muted text-uppercase small mb-1">Pag-IBIG max base (₱)</label>
-                            <input type="number" step="0.01" min="0" class="form-control" id="cap-pagibig" value="5000">
+                            <input
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                class="form-control"
+                                id="cap-pagibig"
+                                name="pagibig_cap"
+                                value="{{ $deductionSettings['pagibig_cap'] ?? 0 }}"
+                            >
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-danger" id="apply-deductions">Apply</button>
+                    <button type="button" class="btn btn-danger" id="apply-deductions">Apply on page</button>
+                    <button type="submit" class="btn btn-primary" form="deduction-form">Save settings</button>
                 </div>
             </div>
         </div>
@@ -1009,6 +1085,7 @@
                                             <tr><td>SSS</td><td>₱${Number(data.deductions?.sss || 0).toFixed(2)}</td></tr>
                                             <tr><td>PhilHealth</td><td>₱${Number(data.deductions?.philhealth || 0).toFixed(2)}</td></tr>
                                             <tr><td>Pag-IBIG</td><td>₱${Number(data.deductions?.pagibig || 0).toFixed(2)}</td></tr>
+                                            <tr><td>3kfitness app cut</td><td>₱${Number(data.deductions?.app_cut || 0).toFixed(2)}</td></tr>
                                             <tr><th>Net pay</th><th>₱${Number(data.net || 0).toFixed(2)}</th></tr>
                                         </tbody>
                                     </table>
@@ -1034,6 +1111,7 @@
         const philhealthInput = document.getElementById('rate-philhealth');
         const pagibigInput = document.getElementById('rate-pagibig');
         const pagibigCapInput = document.getElementById('cap-pagibig');
+        const appCutInput = document.getElementById('rate-appcut');
 
         function formatPeso(value) {
             return `₱${Number(value || 0).toFixed(2)}`;
@@ -1044,6 +1122,7 @@
             const philRate = Number(philhealthInput.value || 0) / 100;
             const pagibigRate = Number(pagibigInput.value || 0) / 100;
             const pagibigCap = Number(pagibigCapInput.value || 0);
+            const appCutRate = Number(appCutInput?.value || 0) / 100;
 
             document.querySelectorAll('[data-payroll-card], [data-trainer-card]').forEach((card) => {
                 const gross = Number(card.dataset.gross || 0);
@@ -1052,11 +1131,13 @@
                 const philhealth = +(gross * philRate).toFixed(2);
                 const pagibigBase = pagibigCap > 0 ? Math.min(gross, pagibigCap) : gross;
                 const pagibig = +(pagibigBase * pagibigRate).toFixed(2);
-                const net = Math.max(gross - (sss + philhealth + pagibig), 0);
+                const appCut = +(gross * appCutRate).toFixed(2);
+                const net = Math.max(gross - (sss + philhealth + pagibig + appCut), 0);
 
                 card.querySelectorAll('[data-sss]').forEach((el) => el.textContent = formatPeso(sss));
                 card.querySelectorAll('[data-philhealth]').forEach((el) => el.textContent = formatPeso(philhealth));
                 card.querySelectorAll('[data-pagibig]').forEach((el) => el.textContent = formatPeso(pagibig));
+                card.querySelectorAll('[data-appcut]').forEach((el) => el.textContent = formatPeso(appCut));
                 card.querySelectorAll('[data-net]').forEach((el) => el.textContent = formatPeso(net));
 
                 const payslipBtn = card.querySelector('.payslip-btn');
@@ -1067,7 +1148,7 @@
                     } catch (e) {
                         data = {};
                     }
-                    data.deductions = { sss, philhealth, pagibig };
+                    data.deductions = { sss, philhealth, pagibig, app_cut: appCut };
                     data.net = net;
                     payslipBtn.dataset.payslip = JSON.stringify(data);
                 }

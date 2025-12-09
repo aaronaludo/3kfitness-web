@@ -204,6 +204,7 @@
                                         <th scope="col">Gross</th>
                                         <th scope="col">Net</th>
                                         <th scope="col">Processed</th>
+                                        <th scope="col" class="text-center">Actions</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -215,6 +216,28 @@
                                             $processedAt = $run->processed_at
                                                 ? $run->processed_at->format('M d, Y g:i A')
                                                 : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+                                            $rate = ($run->total_hours ?? 0) > 0
+                                                ? round((float) $run->gross_pay / max((float) $run->total_hours, 0.01), 2)
+                                                : null;
+                                            $isTrainer = optional($staff)->role_id === 5;
+                                            $payslipData = [
+                                                'type' => $isTrainer ? 'trainer' : 'staff',
+                                                'name' => $name,
+                                                'email' => optional($staff)->email ?? '—',
+                                                'month' => $periodLabel,
+                                                'gross' => (float) ($run->gross_pay ?? 0),
+                                                'net' => (float) ($run->net_pay ?? 0),
+                                                'rate' => $rate,
+                                                'hours' => (float) ($run->total_hours ?? 0),
+                                                'deductions' => [
+                                                    'sss' => (float) ($run->deduction_sss ?? 0),
+                                                    'philhealth' => (float) ($run->deduction_philhealth ?? 0),
+                                                    'pagibig' => (float) ($run->deduction_pagibig ?? 0),
+                                                    'app_cut' => (float) ($run->deduction_app_cut ?? 0),
+                                                ],
+                                                'entries' => [],
+                                                'assignments' => [],
+                                            ];
                                         @endphp
                                         <tr>
                                             <td>{{ $run->id }}</td>
@@ -228,10 +251,24 @@
                                             <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
                                             <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
                                             <td>{{ $processedAt }}</td>
+                                            <td class="text-center">
+                                                @if($staff)
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-outline-secondary btn-sm payslip-btn"
+                                                        data-payslip='@json($payslipData)'
+                                                    >
+                                                        <i class="fa-solid fa-file-pdf me-1"></i>
+                                                        Print payslip
+                                                    </button>
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted py-4">
+                                            <td colspan="9" class="text-center text-muted py-4">
                                                 No payroll runs found. Adjust your filters or check back later.
                                             </td>
                                         </tr>
@@ -336,6 +373,170 @@
                     if (printLoader) printLoader.classList.add('d-none');
                 });
             }
+
+            // Payslip preview/print (matches process page)
+            const payslipButtons = document.querySelectorAll('.payslip-btn');
+            payslipButtons.forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    let data = {};
+                    try {
+                        data = JSON.parse(btn.dataset.payslip || '{}');
+                    } catch (e) {
+                        console.error('Invalid payslip data', e);
+                        return;
+                    }
+
+                    const entries = Array.isArray(data.entries) ? data.entries : [];
+                    const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+                    const isTrainer = data.type === 'trainer';
+                    const style = `
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 0; padding: 24px; color: #111827; }
+                            .payslip { max-width: 800px; margin: 0 auto; border: 1px solid #e5e7eb; padding: 24px; border-radius: 12px; }
+                            .header { text-align: center; margin-bottom: 24px; }
+                            .header h1 { margin: 0 0 8px; }
+                            .muted { color: #6b7280; font-size: 13px; }
+                            .section { margin-bottom: 20px; }
+                            .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
+                            th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
+                            th { background: #f3f4f6; }
+                            .totals { background: #fef2f2; }
+                            .badge { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; }
+                            .badge-success { background: #dcfce7; color: #166534; }
+                            .badge-warning { background: #fef9c3; color: #854d0e; }
+                        </style>
+                    `;
+
+                    const rows = entries.map((entry) => {
+                        const status = entry.status === 'complete'
+                            ? '<span class="badge badge-success">Complete</span>'
+                            : '<span class="badge badge-warning">Pending</span>';
+
+                        return `
+                            <tr>
+                                <td>#${entry.id ?? '—'}</td>
+                                <td>${entry.clockin ?? '—'}</td>
+                                <td>${entry.clockout ?? '—'}</td>
+                                <td>${Number(entry.hours || 0).toFixed(2)} hrs</td>
+                                <td>₱${Number(entry.amount || 0).toFixed(2)}</td>
+                                <td>${status}</td>
+                            </tr>
+                        `;
+                    }).join('');
+                    const assignmentRows = assignments.map((assignment) => `
+                            <tr>
+                                <td>
+                                    ${assignment.title || '—'}
+                                    ${assignment.code ? `<div class="muted">${assignment.code}</div>` : ''}
+                                    ${assignment.recurrence ? `<div class="muted">Recurring: ${assignment.recurrence}</div>` : ''}
+                                </td>
+                                <td>${assignment.date || '—'}</td>
+                                <td>${assignment.time || '—'}</td>
+                                <td>
+                                    ${Array.isArray(assignment.attendance) && assignment.attendance.length
+                                        ? assignment.attendance.map((slot) => `<div>${slot}</div>`).join('')
+                                        : '<span class="muted">No attendance</span>'}
+                                </td>
+                                <td>${Number(assignment.hours || 0).toFixed(2)} hrs</td>
+                                <td>₱${Number(assignment.salary || 0).toFixed(2)}</td>
+                            </tr>
+                        `).join('');
+                    const infoFields = [
+                        `<div><strong>${isTrainer ? 'Trainer' : 'Employee'}:</strong> ${data.name || '—'}</div>`,
+                        `<div><strong>Email:</strong> ${data.email || '—'}</div>`,
+                        `<div><strong>Period:</strong> ${data.month || '—'}</div>`,
+                    ];
+                    if (!isTrainer) {
+                        infoFields.push(`<div><strong>Hourly rate:</strong> ₱${Number(data.rate || 0).toFixed(2)}</div>`);
+                        infoFields.push(`<div><strong>Total hours:</strong> ${Number(data.hours || 0).toFixed(2)} hrs</div>`);
+                    }
+
+                    const detailSection = isTrainer
+                        ? `
+                            <div class="section">
+                                <strong>Assignments with attendance</strong>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Class/Schedule</th>
+                                            <th>Date</th>
+                                            <th>Time</th>
+                                            <th>Attendance</th>
+                                            <th>Hours</th>
+                                            <th>Pay</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${assignmentRows || '<tr><td colspan="6" style="text-align:center;">No assignments with attendance for this period.</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `
+                        : `
+                            <div class="section">
+                                <strong>Entries</strong>
+                                <table>
+                                    <thead>
+                                        <tr>
+                                            <th>Entry</th>
+                                            <th>Clock in</th>
+                                            <th>Clock out</th>
+                                            <th>Hours</th>
+                                            <th>Amount</th>
+                                            <th>Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        ${rows || '<tr><td colspan="6" style="text-align:center;">No entries</td></tr>'}
+                                    </tbody>
+                                </table>
+                            </div>
+                        `;
+
+                    const html = `
+                        <!doctype html>
+                        <html>
+                            <head>
+                                <title>Payslip - ${data.name || ''}</title>
+                                ${style}
+                            </head>
+                            <body>
+                                <div class="payslip">
+                                    <div class="header">
+                                        <h1>Payroll Payslip</h1>
+                                        <div class="muted">3kfitness Gym • ${data.month || ''}</div>
+                                    </div>
+                                    <div class="section grid">
+                                        ${infoFields.join('')}
+                                    </div>
+                                    ${detailSection}
+                                    <div class="section">
+                                        <strong>Summary</strong>
+                                        <table class="totals">
+                                            <tbody>
+                                                <tr><td>Gross pay</td><td>₱${Number(data.gross || 0).toFixed(2)}</td></tr>
+                                                <tr><td>SSS</td><td>₱${Number(data.deductions?.sss || 0).toFixed(2)}</td></tr>
+                                                <tr><td>PhilHealth</td><td>₱${Number(data.deductions?.philhealth || 0).toFixed(2)}</td></tr>
+                                                <tr><td>Pag-IBIG</td><td>₱${Number(data.deductions?.pagibig || 0).toFixed(2)}</td></tr>
+                                                <tr><td>3kfitness app cut</td><td>₱${Number(data.deductions?.app_cut || 0).toFixed(2)}</td></tr>
+                                                <tr><th>Net pay</th><th>₱${Number(data.net || 0).toFixed(2)}</th></tr>
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                                <script>window.print();<\/script>
+                            </body>
+                        </html>
+                    `;
+
+                    const printWindow = window.open('', '_blank', 'width=900,height=1200');
+                    if (!printWindow) return;
+                    printWindow.document.open();
+                    printWindow.document.write(html);
+                    printWindow.document.close();
+                });
+            });
         });
     </script>
 @endsection

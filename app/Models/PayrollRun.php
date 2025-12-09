@@ -18,6 +18,7 @@ class PayrollRun extends Model
         'deduction_sss',
         'deduction_philhealth',
         'deduction_pagibig',
+        'deduction_app_cut',
         'processed_by',
         'processed_at',
     ];
