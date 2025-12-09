@@ -27,11 +27,11 @@
                         return $weekdayLookup[$d] ?? ucfirst($d);
                     })->filter()->implode(', ');
 
+                    $seriesStart = $item->series_start_date ? \Carbon\Carbon::parse($item->series_start_date)->startOfDay() : ($startDate ? $startDate->copy()->startOfDay() : null);
+                    $seriesEnd = $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->endOfDay() : ($endDate ? $endDate->copy()->endOfDay() : null);
                     $statusLabel = 'Past';
-                    if ($startDate && $nowForPrint->lt($startDate)) {
-                        $statusLabel = 'Upcoming';
-                    } elseif ($startDate && $endDate && $nowForPrint->between($startDate, $endDate)) {
-                        $statusLabel = 'Present';
+                    if ($seriesEnd && $nowForPrint->lte($seriesEnd)) {
+                        $statusLabel = ($seriesStart && $nowForPrint->lt($seriesStart)) ? 'Upcoming' : 'Present';
                     }
 
                     $adminAcceptance = $item->isadminapproved == 0 ? 'Pending' :
@@ -91,11 +91,11 @@
                         return $weekdayLookup[$d] ?? ucfirst($d);
                     })->filter()->implode(', ');
 
+                    $seriesStart = $item->series_start_date ? \Carbon\Carbon::parse($item->series_start_date)->startOfDay() : ($startDate ? $startDate->copy()->startOfDay() : null);
+                    $seriesEnd = $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->endOfDay() : ($endDate ? $endDate->copy()->endOfDay() : null);
                     $statusLabel = 'Past';
-                    if ($startDate && $nowForPrint->lt($startDate)) {
-                        $statusLabel = 'Upcoming';
-                    } elseif ($startDate && $endDate && $nowForPrint->between($startDate, $endDate)) {
-                        $statusLabel = 'Present';
+                    if ($seriesEnd && $nowForPrint->lte($seriesEnd)) {
+                        $statusLabel = ($seriesStart && $nowForPrint->lt($seriesStart)) ? 'Upcoming' : 'Present';
                     }
 
                     $adminAcceptance = $item->isadminapproved == 0 ? 'Pending' :
@@ -953,18 +953,20 @@
                                                     <div class="text-muted">
                                                         {{ $end_date ? $end_date->format('M j, Y g:iA') : '—' }}
                                                     </div>
+                                                    <div class="text-muted">
+                                                        Series end: {{ $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->format('M j, Y') : '—' }}
+                                                    </div>
                                                     <div class="text-muted">Time: {{ $item->class_start_time && $item->class_end_time ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A') : '—' }}</div>
                                                     <div class="text-muted">Cadence: {{ $dayLabel ?: 'One-time' }}</div>
                                                     <div class="mt-1">
-                                                        @php $now = now(); @endphp
-                                                        @if ($start_date && $now->lt($start_date))
-                                                            <span class="badge rounded-pill bg-warning">Upcoming</span>
-                                                        @elseif ($start_date && $end_date && $now->between($start_date, $end_date))
-                                                            <span class="badge rounded-pill bg-success">Present</span>
-                                                        @elseif ($end_date && $now->gt($end_date))
+                                                        @php
+                                                            $now = now();
+                                                            $seriesEnd = $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->endOfDay() : ($end_date ? $end_date->copy() : null);
+                                                        @endphp
+                                                        @if ($seriesEnd && $now->gt($seriesEnd))
                                                             <span class="badge rounded-pill bg-primary">Past</span>
                                                         @else
-                                                            <span class="badge rounded-pill bg-primary">Past</span>
+                                                            <span class="badge rounded-pill bg-warning">Upcoming</span>
                                                         @endif
                                                     </div>
                                                 </td>

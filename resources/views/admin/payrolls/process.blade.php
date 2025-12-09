@@ -406,12 +406,22 @@
                                 $trainerPhilhealth = $processedRun->deduction_philhealth ?? ($assignment['deductions']['philhealth'] ?? round($trainerGross * 0.025, 2));
                                 $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
                                 $trainerNet = $processedRun->net_pay ?? $assignment['net_pay'];
-                                $pastAssignments = collect($assignment['details'] ?? collect())
-                                    ->filter(fn ($detail) => ($detail['category'] ?? null) === 'past')
+                                $attendanceAssignments = collect($assignment['details'] ?? collect())
+                                    ->filter(function ($detail) {
+                                        $att = collect($detail['attendances'] ?? []);
+                                        return $att->isNotEmpty() || ($detail['has_attendance'] ?? false);
+                                    })
                                     ->map(function ($detail) {
                                         $schedule = $detail['schedule'];
                                         $start = $detail['start'];
                                         $end = $detail['end'];
+                                        $paidDates = collect($detail['paid_dates'] ?? $detail['occurrence_dates'] ?? collect())->map(function ($date) {
+                                            try {
+                                                return \Carbon\Carbon::parse($date)->format('M d, Y');
+                                            } catch (\Throwable $th) {
+                                                return $date;
+                                            }
+                                        })->filter()->values();
                                         $attendance = collect($detail['attendances'] ?? collect())->map(function ($record) {
                                             $clockIn = $record['clockin_at'] ?? null;
                                             $clockOut = $record['clockout_at'] ?? null;
@@ -430,14 +440,17 @@
                                         return [
                                             'title' => $schedule->name ?? 'Class schedule',
                                             'code' => $schedule->class_code ?? ($schedule->id ?? 'N/A'),
-                                            'date' => $start ? $start->format('M d, Y') : '—',
-                                            'time' => $start || $end
+                                            'date' => $paidDates->isNotEmpty()
+                                                ? $paidDates->implode(', ')
+                                                : ($start ? $start->format('M d, Y') : '—'),
+                                            'time' => $detail['time_range'] ?? ($start || $end
                                                 ? trim(($start ? $start->format('g:i A') : '') . ($end ? ' - ' . $end->format('g:i A') : ''))
-                                                : '—',
+                                                : '—'),
                                             'hours' => $detail['payroll_hours'] ?? $detail['hours'] ?? 0,
                                             'scheduled_hours' => $detail['hours'] ?? 0,
                                             'salary' => $detail['payroll_salary'] ?? $detail['summary_salary'] ?? $detail['display_salary'] ?? 0,
                                             'attendance' => $attendance,
+                                            'recurrence' => $detail['recurring_label'] ?? '',
                                             'status' => ($detail['has_attendance'] ?? false) ? 'Present' : 'Absent',
                                         ];
                                     })->values();
@@ -449,7 +462,7 @@
                                     'net' => $trainerNet,
                                     'deductions' => ['sss' => $trainerSss, 'philhealth' => $trainerPhilhealth, 'pagibig' => $trainerPagibig],
                                     'month' => $monthLabel,
-                                    'assignments' => $pastAssignments,
+                                    'assignments' => $attendanceAssignments,
                                 ];
                                 $trainerPayslipJson = json_encode($trainerPayslipData);
                                 $canProcessTrainer = ($assignment['payable_assignments_count'] ?? 0) > 0 && empty($processedRun);
@@ -662,13 +675,24 @@
                     $hasAttendance = $detail['has_attendance'] ?? false;
                     $attendanceRecords = collect($detail['attendances'] ?? collect());
                     $payableSalary = $detail['payroll_salary'] ?? 0;
+                    $recurringLabel = $detail['recurring_label'] ?? '';
+                    $occurrenceDatesRaw = collect($detail['occurrence_dates'] ?? collect())->filter();
+                    $occurrenceDates = $occurrenceDatesRaw->map(function ($date) {
+                        try {
+                            return \Carbon\Carbon::parse($date)->format('M d');
+                        } catch (\Throwable $th) {
+                            return $date;
+                        }
+                    })->values();
+                    $startFilterDate = $occurrenceDatesRaw->first() ?? ($detail['start_date'] ?? '');
+                    $endFilterDate = $occurrenceDatesRaw->last() ?? ($detail['end_date'] ?? '');
                 @endphp
                 <div
                     class="border rounded-3 p-3 mb-3"
                     data-assignment-card
                     data-category="{{ $category }}"
-                    data-start-date="{{ $detail['start_date'] ?? '' }}"
-                    data-end-date="{{ $detail['end_date'] ?? '' }}"
+                    data-start-date="{{ $startFilterDate }}"
+                    data-end-date="{{ $endFilterDate }}"
                 >
                     <div class="d-flex justify-content-between align-items-start gap-3">
                         <div class="d-flex align-items-start gap-3">
@@ -698,6 +722,14 @@
                                         @else
                                             <span class="badge bg-danger-subtle text-danger">Absent (no attendance)</span>
                                         @endif
+                                    @endif
+                                    @if($recurringLabel)
+                                        <span class="badge bg-info-subtle text-info">Recurring: {{ $recurringLabel }}</span>
+                                    @endif
+                                    @if($occurrenceDates->isNotEmpty())
+                                        <span class="badge bg-light text-muted border">
+                                            Dates: {{ $occurrenceDates->take(3)->implode(', ') }}@if($occurrenceDates->count() > 3)+{{ $occurrenceDates->count() - 3 }} more @endif
+                                        </span>
                                     @endif
                                 </div>
                                 @if($start || $end)
@@ -888,6 +920,7 @@
                             <td>
                                 ${assignment.title || '—'}
                                 ${assignment.code ? `<div class="muted">${assignment.code}</div>` : ''}
+                                ${assignment.recurrence ? `<div class="muted">Recurring: ${assignment.recurrence}</div>` : ''}
                             </td>
                             <td>${assignment.date || '—'}</td>
                             <td>${assignment.time || '—'}</td>
@@ -912,7 +945,7 @@
                 const detailSection = isTrainer
                     ? `
                         <div class="section">
-                            <strong>Past assignments</strong>
+                            <strong>Assignments with attendance</strong>
                             <table>
                                 <thead>
                                     <tr>
@@ -925,7 +958,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    ${assignmentRows || '<tr><td colspan="6" style="text-align:center;">No past assignments for this period.</td></tr>'}
+                                    ${assignmentRows || '<tr><td colspan="6" style="text-align:center;">No assignments with attendance for this period.</td></tr>'}
                                 </tbody>
                             </table>
                         </div>

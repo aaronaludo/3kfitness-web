@@ -233,41 +233,136 @@ class PayrollController extends Controller
                         ];
                     });
 
-                $scheduleDetails = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth, $trainerAttendances) {
-                    $start = !empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date) : null;
-                    $end = !empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date) : null;
+                $weekdayKeys = [
+                    0 => 'sun',
+                    1 => 'mon',
+                    2 => 'tue',
+                    3 => 'wed',
+                    4 => 'thu',
+                    5 => 'fri',
+                    6 => 'sat',
+                ];
+                $weekdayLabels = [
+                    'sun' => 'Sunday',
+                    'mon' => 'Monday',
+                    'tue' => 'Tuesday',
+                    'wed' => 'Wednesday',
+                    'thu' => 'Thursday',
+                    'fri' => 'Friday',
+                    'sat' => 'Saturday',
+                ];
 
-                    $hasValidWindow = $start && $end && $end->greaterThan($start);
+                $scheduleDetails = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth, $trainerAttendances, $weekdayKeys, $weekdayLabels) {
+                    $seriesStart = !empty($schedule->series_start_date)
+                        ? Carbon::parse($schedule->series_start_date)->startOfDay()
+                        : (!empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date)->startOfDay() : null);
+                    $seriesEnd = !empty($schedule->series_end_date)
+                        ? Carbon::parse($schedule->series_end_date)->endOfDay()
+                        : (!empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date)->endOfDay() : null);
+
+                    $startTimeString = $schedule->class_start_time
+                        ?? (!empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date)->format('H:i:s') : null);
+                    $endTimeString = $schedule->class_end_time
+                        ?? (!empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date)->format('H:i:s') : null);
+
+                    $startTime = $startTimeString ? Carbon::parse($startTimeString) : null;
+                    $endTime = $endTimeString ? Carbon::parse($endTimeString) : null;
+                    $durationMinutes = ($startTime && $endTime && $endTime->greaterThan($startTime))
+                        ? $endTime->diffInMinutes($startTime)
+                        : 0;
+                    $durationHours = $durationMinutes > 0 ? $durationMinutes / 60 : 0;
+
+                    $hasValidWindow = $seriesStart && $seriesEnd && $seriesEnd->greaterThanOrEqualTo($seriesStart) && $durationMinutes > 0;
                     $hasRate = !is_null($schedule->trainer_rate_per_hour);
                     $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
                     $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
+                    $dayKeys = is_array($schedule->recurring_days)
+                        ? $schedule->recurring_days
+                        : json_decode($schedule->recurring_days ?? '[]', true);
+                    $recurringDays = collect($dayKeys)->filter(fn ($d) => isset($weekdayLabels[$d]))->values();
+                    $recurringLabel = $recurringDays->map(fn ($d) => $weekdayLabels[$d])->implode(', ');
 
-                    $attendanceMatches = $trainerAttendances->filter(function ($attendance) use ($start, $end) {
-                        if (!$start || !$end) {
-                            return false;
+                    $periodStart = $seriesStart ? $seriesStart->copy() : $startOfMonth->copy()->startOfDay();
+                    $periodEnd = $seriesEnd ? $seriesEnd->copy() : $endOfMonth->copy()->endOfDay();
+                    if ($periodStart->lt($startOfMonth)) {
+                        $periodStart = $startOfMonth->copy()->startOfDay();
+                    }
+                    if ($periodEnd->gt($endOfMonth)) {
+                        $periodEnd = $endOfMonth->copy()->endOfDay();
+                    }
+
+                    $occurrences = collect();
+                    if ($recurringDays->isEmpty()) {
+                        if ($seriesStart && $seriesStart->between($periodStart, $periodEnd, true)) {
+                            $occurrences->push($seriesStart->copy());
                         }
+                    } else {
+                        for ($cursor = $periodStart->copy(); $cursor->lte($periodEnd); $cursor->addDay()) {
+                            $dayKey = $weekdayKeys[$cursor->dayOfWeek] ?? null;
+                            if (!$dayKey || !$recurringDays->contains($dayKey)) {
+                                continue;
+                            }
+                            $occurrences->push($cursor->copy());
+                        }
+                    }
 
-                        $clockIn = $attendance['clockin'];
-                        $clockOut = $attendance['clockout'];
+                    $occurrenceDetails = $occurrences->map(function ($occurrenceDate) use ($startTimeString, $durationMinutes, $now, $trainerAttendances, $isSalaryEligible, $schedule) {
+                        $occurrenceStart = $startTimeString
+                            ? Carbon::parse($occurrenceDate->format('Y-m-d') . ' ' . $startTimeString)
+                            : $occurrenceDate->copy();
+                        $occurrenceEnd = $durationMinutes > 0
+                            ? $occurrenceStart->copy()->addMinutes($durationMinutes)
+                            : $occurrenceStart->copy();
 
-                        $overlapsStart = $clockIn && $clockIn->between($start, $end, true);
-                        $overlapsEnd = $clockOut && $clockOut->between($start, $end, true);
-                        $spansRange = $clockIn && $clockOut && $clockIn->lte($start) && $clockOut->gte($end);
-                        $clockInOnly = $clockIn && !$clockOut && $clockIn->between($start, $end, true);
+                        $clockMatches = $trainerAttendances->filter(function ($attendance) use ($occurrenceStart, $occurrenceEnd) {
+                            $clockIn = $attendance['clockin'];
+                            $clockOut = $attendance['clockout'];
 
-                        return $overlapsStart || $overlapsEnd || $spansRange || $clockInOnly;
+                            $overlapsStart = $clockIn && $clockIn->between($occurrenceStart, $occurrenceEnd, true);
+                            $overlapsEnd = $clockOut && $clockOut->between($occurrenceStart, $occurrenceEnd, true);
+                            $spansRange = $clockIn && $clockOut && $clockIn->lte($occurrenceStart) && $clockOut->gte($occurrenceEnd);
+                            $clockInOnly = $clockIn && !$clockOut && $clockIn->between($occurrenceStart, $occurrenceEnd, true);
+
+                            return $overlapsStart || $overlapsEnd || $spansRange || $clockInOnly;
+                        })->values();
+
+                        $hasAttendance = $clockMatches->isNotEmpty();
+                        $potentialSalary = $isSalaryEligible
+                            ? (float) ($schedule->trainer_rate_per_hour ?? 0) * ($durationMinutes > 0 ? $durationMinutes / 60 : 0)
+                            : 0;
+
+                        $isPastOccurrence = $occurrenceEnd->lt($now);
+                        $payrollSalary = ($isPastOccurrence && $hasAttendance) ? $potentialSalary : 0;
+                        $payrollHours = ($isPastOccurrence && $hasAttendance) ? ($durationMinutes > 0 ? $durationMinutes / 60 : 0) : 0;
+
+                        return [
+                            'start' => $occurrenceStart,
+                            'end' => $occurrenceEnd,
+                            'hours' => $durationMinutes > 0 ? $durationMinutes / 60 : 0,
+                            'category' => $isPastOccurrence ? 'past' : 'future',
+                            'has_attendance' => $hasAttendance,
+                            'attendance' => $clockMatches->map(function ($attendance) {
+                                return [
+                                    'clockin_at' => $attendance['clockin'],
+                                    'clockout_at' => $attendance['clockout'],
+                                ];
+                            })->values(),
+                            'potential_salary' => $potentialSalary,
+                            'payroll_salary' => $payrollSalary,
+                            'payroll_hours' => $payrollHours,
+                        ];
                     });
-                    $hasAttendance = $attendanceMatches->isNotEmpty();
 
-                    $hours = $hasValidWindow
-                        ? $end->diffInMinutes($start) / 60
-                        : 0;
+                    $pastOccurrences = $occurrenceDetails->where('category', 'past');
+                    $futureOccurrences = $occurrenceDetails->where('category', 'future');
+                    $payrollOccurrences = $pastOccurrences->where('has_attendance', true);
 
-                    $baseSalary = $hasRate
-                        ? (float) $schedule->trainer_rate_per_hour * $hours
-                        : 0;
-
-                    $summarySalary = $isSalaryEligible ? $baseSalary : 0;
+                    $payrollSalary = $payrollOccurrences->sum('payroll_salary');
+                    $payrollHours = $payrollOccurrences->sum('payroll_hours');
+                    $pastPotentialSalary = $pastOccurrences->sum('potential_salary');
+                    $futurePotentialSalary = $futureOccurrences->sum('potential_salary');
+                    $summarySalary = $pastPotentialSalary + $futurePotentialSalary;
+                    $hasAttendance = $payrollOccurrences->isNotEmpty();
 
                     $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
                         $user = $userSchedule->user ?? null;
@@ -280,39 +375,18 @@ class PayrollController extends Controller
                         return $fullName !== '' ? $fullName : ($user->email ?? null);
                     })->filter()->unique()->values();
 
-                    $isPast = false;
-                    if ($end) {
-                        $isPast = $end->lt($now);
-                    } elseif ($start) {
-                        $isPast = $start->lt($now);
-                    }
-
-                    $category = $isPast ? 'past' : 'future';
-                    $inMonth = false;
-                    if ($start && $end) {
-                        $inMonth = $start->lte($endOfMonth) && $end->gte($startOfMonth);
-                    } elseif ($start) {
-                        $inMonth = $start->between($startOfMonth, $endOfMonth, true);
-                    } elseif ($end) {
-                        $inMonth = $end->between($startOfMonth, $endOfMonth, true);
-                    }
-
-                    $payrollSalary = ($category === 'past' && $isSalaryEligible && $hasAttendance)
-                        ? $baseSalary
-                        : 0;
-
-                    $payrollHours = ($category === 'past' && $isSalaryEligible && $hasAttendance) ? $hours : 0;
-
-                    $displaySalary = $category === 'past' ? $payrollSalary : $summarySalary;
+                    $category = ($seriesEnd && $seriesEnd->lt($now)) ? 'past' : 'future';
+                    $inMonth = $periodStart->lte($endOfMonth) && $periodEnd->gte($startOfMonth);
 
                     return [
                         'schedule' => $schedule,
-                        'start' => $start,
-                        'end' => $end,
-                        'start_date' => $start ? $start->toDateString() : null,
-                        'end_date' => $end ? $end->toDateString() : null,
-                        'hours' => $hours,
-                        'display_salary' => $displaySalary,
+                        'start' => $seriesStart,
+                        'end' => $seriesEnd,
+                        'start_date' => $seriesStart ? $seriesStart->toDateString() : null,
+                        'end_date' => $seriesEnd ? $seriesEnd->toDateString() : null,
+                        'hours' => $durationHours,
+                        'hours_per_occurrence' => $durationHours,
+                        'display_salary' => $payrollSalary + $futurePotentialSalary,
                         'summary_salary' => $summarySalary,
                         'payroll_salary' => $payrollSalary,
                         'payroll_hours' => $payrollHours,
@@ -321,42 +395,43 @@ class PayrollController extends Controller
                         'category' => $category,
                         'in_month' => $inMonth,
                         'has_attendance' => $hasAttendance,
-                        'attendances' => $attendanceMatches->map(function ($attendance) {
-                            return [
-                                'clockin_at' => $attendance['clockin'],
-                                'clockout_at' => $attendance['clockout'],
-                            ];
+                        'attendances' => $payrollOccurrences->flatMap(function ($occurrence) {
+                            return $occurrence['attendance'];
                         })->values(),
+                        'recurring_days' => $recurringDays,
+                        'recurring_label' => $recurringLabel,
+                        'occurrence_dates' => $occurrenceDetails->map(fn ($occ) => $occ['start']->format('Y-m-d'))->values(),
+                        'past_dates' => $pastOccurrences->map(fn ($occ) => $occ['start']->format('Y-m-d'))->values(),
+                        'future_dates' => $futureOccurrences->map(fn ($occ) => $occ['start']->format('Y-m-d'))->values(),
+                        'paid_dates' => $payrollOccurrences->map(fn ($occ) => $occ['start']->format('Y-m-d'))->values(),
+                        'past_occurrence_count' => $pastOccurrences->count(),
+                        'future_occurrence_count' => $futureOccurrences->count(),
+                        'past_paid_count' => $payrollOccurrences->count(),
+                        'future_potential_salary' => $futurePotentialSalary,
+                        'past_potential_salary' => $pastPotentialSalary,
+                        'time_range' => ($startTimeString && $endTimeString)
+                            ? Carbon::parse($startTimeString)->format('g:i A') . ' - ' . Carbon::parse($endTimeString)->format('g:i A')
+                            : null,
                     ];
                 });
 
-                $futureDetails = $scheduleDetails->where('category', 'future')->where('in_month', true);
-                $pastDetails = $scheduleDetails->where('category', 'past')->where('in_month', true);
-
                 $salaryEligibleSchedules = $scheduleDetails->where('salary_eligible', true)->where('in_month', true);
-                $payableSchedules = $salaryEligibleSchedules->where('category', 'past')->filter(fn ($detail) => $detail['has_attendance']);
-                $projectedSchedules = $salaryEligibleSchedules->where('category', 'future');
+                $payableSchedules = $salaryEligibleSchedules->filter(fn ($detail) => ($detail['past_paid_count'] ?? 0) > 0);
+                $projectedSchedules = $salaryEligibleSchedules->filter(fn ($detail) => ($detail['future_occurrence_count'] ?? 0) > 0);
 
                 $totals = [
-                    'future_total' => $projectedSchedules->sum('summary_salary'),
-                    'past_total' => $payableSchedules->sum('payroll_salary'),
-                    'future_count' => $futureDetails->count(),
-                    'past_count' => $pastDetails->count(),
-                    'future_payroll_count' => $projectedSchedules->count(),
-                    'past_payroll_count' => $payableSchedules->count(),
+                    'future_total' => $salaryEligibleSchedules->sum('future_potential_salary'),
+                    'past_total' => $salaryEligibleSchedules->sum('payroll_salary'),
+                    'future_count' => $salaryEligibleSchedules->sum('future_occurrence_count'),
+                    'past_count' => $salaryEligibleSchedules->sum('past_occurrence_count'),
+                    'future_payroll_count' => $salaryEligibleSchedules->sum('future_occurrence_count'),
+                    'past_payroll_count' => $salaryEligibleSchedules->sum('past_paid_count'),
                 ];
 
-                $projectedGross = round(
-                    $salaryEligibleSchedules->sum(function ($detail) {
-                        if ($detail['category'] === 'past') {
-                            return $detail['payroll_salary'];
-                        }
-
-                        return $detail['summary_salary'];
-                    }),
-                    2
-                );
-                $gross = round($payableSchedules->sum('payroll_salary'), 2);
+                $projectedGross = round($salaryEligibleSchedules->sum(function ($detail) {
+                    return ($detail['payroll_salary'] ?? 0) + ($detail['future_potential_salary'] ?? 0);
+                }), 2);
+                $gross = round($salaryEligibleSchedules->sum('payroll_salary'), 2);
                 $deductions = [
                     'sss' => round($gross * 0.045, 2),
                     'philhealth' => round($gross * 0.025, 2),
@@ -380,15 +455,16 @@ class PayrollController extends Controller
                     'entries_for_month' => $payableSchedules->values(),
                     'total_salary' => $projectedGross,
                     'payable_salary' => $gross,
-                    'total_hours' => $payableSchedules->sum('payroll_hours'),
+                    'total_hours' => $salaryEligibleSchedules->sum('payroll_hours'),
                     'projected_hours' => $salaryEligibleSchedules->sum(function ($detail) {
-                        return $detail['category'] === 'past'
-                            ? $detail['payroll_hours']
-                            : $detail['hours'];
+                        $futureHours = ($detail['future_occurrence_count'] ?? 0) * ($detail['hours_per_occurrence'] ?? 0);
+                        return ($detail['payroll_hours'] ?? 0) + $futureHours;
                     }),
                     'assignments_count' => $scheduleDetails->count(),
-                    'salary_assignments_count' => $salaryEligibleSchedules->count(),
-                    'payable_assignments_count' => $payableSchedules->count(),
+                    'salary_assignments_count' => $salaryEligibleSchedules->sum(function ($detail) {
+                        return ($detail['past_occurrence_count'] ?? 0) + ($detail['future_occurrence_count'] ?? 0);
+                    }),
+                    'payable_assignments_count' => $payableSchedules->sum('past_paid_count'),
                     'totals' => $totals,
                     'deductions' => $deductions,
                     'net_pay' => $net,
@@ -528,75 +604,127 @@ class PayrollController extends Controller
                 ];
             });
 
-        $eligibleSchedules = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($startOfMonth, $endOfMonth, $now, $trainerAttendances) {
+        $weekdayKeys = [
+            0 => 'sun',
+            1 => 'mon',
+            2 => 'tue',
+            3 => 'wed',
+            4 => 'thu',
+            5 => 'fri',
+            6 => 'sat',
+        ];
+
+        $eligibleSchedules = collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($startOfMonth, $endOfMonth, $now, $trainerAttendances, $weekdayKeys) {
             $start = !empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date) : null;
             $end = !empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date) : null;
 
-            $hasValidWindow = $start && $end && $end->greaterThan($start);
+            $seriesStart = !empty($schedule->series_start_date)
+                ? Carbon::parse($schedule->series_start_date)->startOfDay()
+                : (!empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date)->startOfDay() : null);
+            $seriesEnd = !empty($schedule->series_end_date)
+                ? Carbon::parse($schedule->series_end_date)->endOfDay()
+                : (!empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date)->endOfDay() : null);
+
+            $startTimeString = $schedule->class_start_time
+                ?? (!empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date)->format('H:i:s') : null);
+            $endTimeString = $schedule->class_end_time
+                ?? (!empty($schedule->class_end_date) ? Carbon::parse($schedule->class_end_date)->format('H:i:s') : null);
+
+            $startTime = $startTimeString ? Carbon::parse($startTimeString) : null;
+            $endTime = $endTimeString ? Carbon::parse($endTimeString) : null;
+
+            $durationMinutes = ($startTime && $endTime && $endTime->greaterThan($startTime))
+                ? $endTime->diffInMinutes($startTime)
+                : 0;
+            $durationHours = $durationMinutes > 0 ? $durationMinutes / 60 : 0;
+
+            $hasValidWindow = $seriesStart && $seriesEnd && $seriesEnd->greaterThanOrEqualTo($seriesStart) && $durationMinutes > 0;
             $hasRate = !is_null($schedule->trainer_rate_per_hour);
             $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
             $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
 
-            $attendanceMatches = $trainerAttendances->filter(function ($attendance) use ($start, $end) {
-                if (!$start || !$end) {
-                    return false;
-                }
+            $inMonth = $seriesStart
+                ? $seriesStart->lte($endOfMonth) && ($seriesEnd ? $seriesEnd->gte($startOfMonth) : true)
+                : true;
 
-                $clockIn = $attendance['clockin'];
-                $clockOut = $attendance['clockout'];
+            $dayKeys = is_array($schedule->recurring_days)
+                ? $schedule->recurring_days
+                : json_decode($schedule->recurring_days ?? '[]', true);
+            $recurringDays = collect($dayKeys)->filter(fn ($d) => in_array($d, $weekdayKeys, true));
 
-                $overlapsStart = $clockIn && $clockIn->between($start, $end, true);
-                $overlapsEnd = $clockOut && $clockOut->between($start, $end, true);
-                $spansRange = $clockIn && $clockOut && $clockIn->lte($start) && $clockOut->gte($end);
-                $clockInOnly = $clockIn && !$clockOut && $clockIn->between($start, $end, true);
-
-                return $overlapsStart || $overlapsEnd || $spansRange || $clockInOnly;
-            });
-            $hasAttendance = $attendanceMatches->isNotEmpty();
-
-            $inMonth = false;
-            if ($start && $end) {
-                $inMonth = $start->lte($endOfMonth) && $end->gte($startOfMonth);
-            } elseif ($start) {
-                $inMonth = $start->between($startOfMonth, $endOfMonth, true);
-            } elseif ($end) {
-                $inMonth = $end->between($startOfMonth, $endOfMonth, true);
+            $periodStart = $seriesStart ? $seriesStart->copy() : $startOfMonth->copy()->startOfDay();
+            $periodEnd = $seriesEnd ? $seriesEnd->copy() : $endOfMonth->copy()->endOfDay();
+            if ($periodStart->lt($startOfMonth)) {
+                $periodStart = $startOfMonth->copy()->startOfDay();
+            }
+            if ($periodEnd->gt($endOfMonth)) {
+                $periodEnd = $endOfMonth->copy()->endOfDay();
             }
 
-            $hours = $hasValidWindow
-                ? $end->diffInMinutes($start) / 60
-                : 0;
+            $occurrences = collect();
+            if ($recurringDays->isEmpty()) {
+                if ($seriesStart && $seriesStart->between($periodStart, $periodEnd, true)) {
+                    $occurrences->push($seriesStart->copy());
+                }
+            } else {
+                for ($cursor = $periodStart->copy(); $cursor->lte($periodEnd); $cursor->addDay()) {
+                    $dayKey = $weekdayKeys[$cursor->dayOfWeek] ?? null;
+                    if (!$dayKey || !$recurringDays->contains($dayKey)) {
+                        continue;
+                    }
+                    $occurrences->push($cursor->copy());
+                }
+            }
 
-            $summarySalary = $isSalaryEligible
-                ? (float) $schedule->trainer_rate_per_hour * $hours
-                : 0;
+            $paidOccurrences = $occurrences->map(function ($occurrenceDate) use ($durationMinutes, $startTimeString, $trainerAttendances, $isSalaryEligible, $schedule, $now) {
+                $occurrenceStart = $startTimeString
+                    ? Carbon::parse($occurrenceDate->format('Y-m-d') . ' ' . $startTimeString)
+                    : $occurrenceDate->copy();
+                $occurrenceEnd = $durationMinutes > 0
+                    ? $occurrenceStart->copy()->addMinutes($durationMinutes)
+                    : $occurrenceStart->copy();
 
-            $payrollSalary = ($isSalaryEligible && $hasAttendance && ($end ? $end->lt($now) : false))
-                ? $summarySalary
-                : 0;
-            $payrollHours = ($isSalaryEligible && $hasAttendance && ($end ? $end->lt($now) : false))
-                ? $hours
-                : 0;
+                $clockMatches = $trainerAttendances->filter(function ($attendance) use ($occurrenceStart, $occurrenceEnd) {
+                    $clockIn = $attendance['clockin'];
+                    $clockOut = $attendance['clockout'];
+
+                    $overlapsStart = $clockIn && $clockIn->between($occurrenceStart, $occurrenceEnd, true);
+                    $overlapsEnd = $clockOut && $clockOut->between($occurrenceStart, $occurrenceEnd, true);
+                    $spansRange = $clockIn && $clockOut && $clockIn->lte($occurrenceStart) && $clockOut->gte($occurrenceEnd);
+                    $clockInOnly = $clockIn && !$clockOut && $clockIn->between($occurrenceStart, $occurrenceEnd, true);
+
+                    return $overlapsStart || $overlapsEnd || $spansRange || $clockInOnly;
+                });
+
+                $isPastOccurrence = $occurrenceEnd->lt($now);
+                $hasAttendance = $clockMatches->isNotEmpty();
+                $potentialSalary = $isSalaryEligible
+                    ? (float) ($schedule->trainer_rate_per_hour ?? 0) * ($durationMinutes > 0 ? $durationMinutes / 60 : 0)
+                    : 0;
+                $payrollSalary = ($isPastOccurrence && $hasAttendance) ? $potentialSalary : 0;
+                $payrollHours = ($isPastOccurrence && $hasAttendance) ? ($durationMinutes > 0 ? $durationMinutes / 60 : 0) : 0;
+
+                return [
+                    'is_past' => $isPastOccurrence,
+                    'has_attendance' => $hasAttendance,
+                    'payroll_salary' => $payrollSalary,
+                    'payroll_hours' => $payrollHours,
+                ];
+            })->filter(fn ($occurrence) => $occurrence['is_past']);
 
             return [
-                'hours' => $payrollHours,
-                'summary_salary' => $summarySalary,
-                'payroll_salary' => $payrollSalary,
                 'salary_eligible' => $isSalaryEligible,
                 'in_month' => $inMonth,
-                'is_past' => $end
-                    ? $end->lt($now)
-                    : ($start ? $start->lt($now) : false),
-                'has_attendance' => $hasAttendance,
+                'paid_occurrences' => $paidOccurrences,
             ];
-        })->filter(fn ($detail) => $detail['salary_eligible'] && $detail['in_month'] && $detail['is_past'] && $detail['has_attendance']);
+        })->filter(fn ($detail) => $detail['salary_eligible'] && $detail['in_month'] && $detail['paid_occurrences']->isNotEmpty());
 
         if ($eligibleSchedules->isEmpty()) {
             return redirect()->back()->with('error', 'No payroll-eligible trainer assignments with attendance found for this month.');
         }
 
-        $totalHours = $eligibleSchedules->sum('hours');
-        $gross = round($eligibleSchedules->sum('payroll_salary'), 2);
+        $totalHours = $eligibleSchedules->sum(fn ($detail) => $detail['paid_occurrences']->sum('payroll_hours'));
+        $gross = round($eligibleSchedules->sum(fn ($detail) => $detail['paid_occurrences']->sum('payroll_salary')), 2);
 
         $deductions = [
             'sss' => round($gross * 0.045, 2),
