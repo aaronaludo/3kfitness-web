@@ -43,6 +43,15 @@ class MemberAuthController extends Controller
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
 
+            $isArchivedMember = $user->role_id === 3
+                && Schema::hasColumn('users', 'is_archive')
+                && (int) ($user->is_archive ?? 0) === 1;
+            
+            if ($isArchivedMember) {
+                Auth::logout();
+                return response()->json(['message' => 'Your account is archived. Please contact the gym to restore access.'], 403);
+            }
+
             if ($user->role_id === 3 && $user->status_id === 2) {
                 $hasActiveMembership = MembershipPayment::where('user_id', $user->id)
                     ->where('isapproved', 1)
