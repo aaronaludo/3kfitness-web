@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 use App\Models\Log;
 
 class AdminAuthController extends Controller
@@ -29,6 +30,20 @@ class AdminAuthController extends Controller
 
         if (Auth::guard('admin')->attempt($credentials)) {
             $user = Auth::guard('admin')->user();
+
+            $isArchived = Schema::hasColumn('users', 'is_archive')
+                && (int) ($user->is_archive ?? 0) === 1;
+
+            if ($isArchived) {
+                $archivedRoleLabel = match ($user->role_id) {
+                    1 => 'Admin',
+                    2 => 'Staff',
+                    4 => 'Super Admin',
+                    default => 'User',
+                };
+                Auth::guard('admin')->logout();
+                return redirect()->route('login')->with('error', "Your {$archivedRoleLabel} account has been archived. Please contact a super admin to restore access.");
+            }
 
             if ($user->role_id == $request->role_id) {
                 $roleName = match ($user->role_id) {
