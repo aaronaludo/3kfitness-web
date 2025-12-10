@@ -950,6 +950,8 @@
                                                 $maxSessions = 6;
                                                 $hasMoreSessions = false;
                                                 $nowSession = now();
+                                                $hasOngoingSession = false;
+                                                $hasFutureSession = false;
 
                                                 if ($seriesStart && $seriesEnd && count($recurringDayKeys)) {
                                                     $cursor = $seriesStart->copy();
@@ -969,15 +971,18 @@
                                                                 $sessionStatus = 'Upcoming';
                                                                 if ($nowSession->between($sessionStart, $sessionEnd, true)) {
                                                                     $sessionStatus = 'Ongoing';
+                                                                    $hasOngoingSession = true;
                                                                 } elseif ($nowSession->gt($sessionEnd)) {
                                                                     $sessionStatus = 'Completed';
+                                                                } else {
+                                                                    $hasFutureSession = true;
                                                                 }
 
                                                                 $statusClass = 'bg-secondary';
                                                                 if ($sessionStatus === 'Upcoming') {
-                                                                    $statusClass = 'bg-info text-dark';
+                                                                    $statusClass = 'bg-warning text-dark';
                                                                 } elseif ($sessionStatus === 'Ongoing') {
-                                                                    $statusClass = 'bg-success';
+                                                                    $statusClass = 'bg-info text-dark';
                                                                 } elseif ($sessionStatus === 'Completed') {
                                                                     $statusClass = 'bg-success';
                                                                 }
@@ -993,7 +998,10 @@
 
                                                             if ($occurrenceCount >= $maxSessions && $cursor->lt($seriesEnd)) {
                                                                 $hasMoreSessions = true;
-                                                                break;
+                                                                if ($hasOngoingSession || $hasFutureSession) {
+                                                                    // We already know there is a relevant upcoming/ongoing session; stop scanning.
+                                                                    break;
+                                                                }
                                                             }
                                                         }
                                                         $cursor->addDay();
@@ -1009,15 +1017,18 @@
                                                     $sessionStatus = 'Upcoming';
                                                     if ($nowSession->between($sessionStart, $sessionEnd, true)) {
                                                         $sessionStatus = 'Ongoing';
+                                                        $hasOngoingSession = true;
                                                     } elseif ($nowSession->gt($sessionEnd)) {
                                                         $sessionStatus = 'Completed';
+                                                    } else {
+                                                        $hasFutureSession = true;
                                                     }
 
                                                     $statusClass = 'bg-secondary';
                                                     if ($sessionStatus === 'Upcoming') {
-                                                        $statusClass = 'bg-info text-dark';
+                                                        $statusClass = 'bg-warning text-dark';
                                                     } elseif ($sessionStatus === 'Ongoing') {
-                                                        $statusClass = 'bg-success';
+                                                        $statusClass = 'bg-info text-dark';
                                                     } elseif ($sessionStatus === 'Completed') {
                                                         $statusClass = 'bg-success';
                                                     }
@@ -1029,6 +1040,16 @@
                                                         'status' => $sessionStatus,
                                                         'status_class' => $statusClass,
                                                     ];
+                                                }
+
+                                                $scheduleStatus = 'Upcoming';
+                                                $scheduleBadgeClass = 'bg-warning';
+                                                if ($hasOngoingSession) {
+                                                    $scheduleStatus = 'Ongoing';
+                                                    $scheduleBadgeClass = 'bg-info text-dark';
+                                                } elseif (!$hasFutureSession) {
+                                                    $scheduleStatus = 'Completed';
+                                                    $scheduleBadgeClass = 'bg-success';
                                                 }
                                             @endphp
                                             <tr>
@@ -1058,15 +1079,7 @@
                                                     <div class="text-muted">Time: {{ $item->class_start_time && $item->class_end_time ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A') : '—' }}</div>
                                                     <div class="text-muted">Cadence: {{ $dayLabel ?: 'One-time' }}</div>
                                                     <div class="mt-1">
-                                                        @php
-                                                            $now = now();
-                                                            $seriesEndBoundary = $seriesEnd ?? ($end_date ? $end_date->copy() : null);
-                                                        @endphp
-                                                        @if ($seriesEndBoundary && $now->gt($seriesEndBoundary))
-                                                            <span class="badge rounded-pill bg-success">Completed</span>
-                                                        @else
-                                                            <span class="badge rounded-pill bg-warning">Upcoming</span>
-                                                        @endif
+                                                        <span class="badge rounded-pill {{ $scheduleBadgeClass }}">{{ $scheduleStatus }}</span>
                                                     </div>
                                                 </td>
                                                 <td class="small">

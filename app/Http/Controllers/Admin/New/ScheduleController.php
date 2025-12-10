@@ -9,6 +9,7 @@ use App\Models\User;
 use App\Models\Log;
 use App\Models\ScheduleRescheduleRequest;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
@@ -94,21 +95,49 @@ class ScheduleController extends Controller
             ->where('is_archieve', 0)
             ->count();
         $now = Carbon::now();
+        $nowString = $now->toDateTimeString();
+        $todayDate = $now->toDateString();
+        $nowTime = $now->format('H:i:s');
+        $todayKey = strtolower($now->format('D'));
+
+        $recurringJson = "IF(JSON_VALID(recurring_days), recurring_days, JSON_ARRAY())";
+        $seriesStartExpr = "COALESCE(series_start_date, class_start_date)";
+        $seriesEndExpr = "COALESCE(series_end_date, class_end_date)";
+
+        $statusCase = "
+            CASE
+                WHEN {$seriesEndExpr} IS NOT NULL
+                     AND CONCAT({$seriesEndExpr}, ' 23:59:59') < '{$nowString}' THEN 'completed'
+                WHEN {$seriesStartExpr} IS NOT NULL
+                     AND CONCAT({$seriesStartExpr}, ' 00:00:00') > '{$nowString}' THEN 'upcoming'
+                WHEN JSON_CONTAINS({$recurringJson}, '\"{$todayKey}\"')
+                     AND {$seriesStartExpr} IS NOT NULL
+                     AND {$seriesEndExpr} IS NOT NULL
+                     AND '{$todayDate}' BETWEEN {$seriesStartExpr} AND {$seriesEndExpr}
+                     AND class_start_time IS NOT NULL
+                     AND class_end_time IS NOT NULL
+                     AND '{$nowTime}' BETWEEN class_start_time AND class_end_time THEN 'ongoing'
+                WHEN class_start_date IS NOT NULL
+                     AND class_end_date IS NOT NULL
+                     AND '{$nowString}' BETWEEN class_start_date AND class_end_date THEN 'ongoing'
+                WHEN {$seriesEndExpr} IS NOT NULL
+                     AND CONCAT({$seriesEndExpr}, ' 23:59:59') >= '{$nowString}' THEN 'upcoming'
+                ELSE 'upcoming'
+            END
+        ";
         $statusTallies = [
             'all' => Schedule::where('is_archieve', 0)->count(),
             'upcoming' => Schedule::where('is_archieve', 0)
-                ->where('class_start_date', '>', $now)->count(),
+                ->whereRaw("({$statusCase}) = 'upcoming'")->count(),
             'ongoing' => Schedule::where('is_archieve', 0)
-                ->where('class_start_date', '<=', $now)
-                ->where('class_end_date', '>=', $now)
-                ->count(),
+                ->whereRaw("({$statusCase}) = 'ongoing'")->count(),
             'completed' => Schedule::where('is_archieve', 0)
-                ->where('class_end_date', '<', $now)->count(),
+                ->whereRaw("({$statusCase}) = 'completed'")->count(),
         ];
         // Maintain backward compatibility for legacy "active" key.
         $statusTallies['active'] = $statusTallies['ongoing'];
 
-        $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn, $status, $now) {
+        $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn, $status, $statusCase, $now) {
             return $query
                 ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
                     if ($searchColumn === 'trainer_name') {
@@ -145,23 +174,9 @@ class ScheduleController extends Controller
                         $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
                     }
                 })
-                ->when($status !== 'all', function ($query) use ($status, $now) {
+                ->when($status !== 'all', function ($query) use ($status, $statusCase) {
                     $normalizedStatus = $status === 'active' ? 'ongoing' : $status;
-
-                    if ($normalizedStatus === 'upcoming') {
-                        return $query->where('class_start_date', '>', $now);
-                    }
-
-                    if ($normalizedStatus === 'ongoing') {
-                        return $query->where('class_start_date', '<=', $now)
-                            ->where('class_end_date', '>=', $now);
-                    }
-
-                    if ($normalizedStatus === 'completed') {
-                        return $query->where('class_end_date', '<', $now);
-                    }
-
-                    return $query;
+                    return $query->whereRaw("({$statusCase}) = ?", [$normalizedStatus]);
                 });
         };
 
