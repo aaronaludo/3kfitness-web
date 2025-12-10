@@ -14,11 +14,13 @@
                 $printMembers = collect($printSource->items() ?? [])->map(function ($item) use ($current_time) {
                     $latestMembershipPayment = optional($item->membershipPayments)->first();
                     $membership = optional($latestMembershipPayment)->membership;
+                    $paymentIsArchived = (int) optional($latestMembershipPayment)->is_archive === 1;
                     $membershipIsArchived = (int) optional($membership)->is_archive === 1;
-                    $membershipName = $membershipIsArchived ? 'No Membership' : (optional($membership)->name ?? 'No Membership');
-                    $approvedBy = $membershipIsArchived ? null : optional($latestMembershipPayment)->created_by;
-                    $expirationAt   = $membershipIsArchived ? null : optional($latestMembershipPayment)->expiration_at;
-                    $membershipStatus = $membershipName !== 'No Membership' ? 'Active membership' : 'No membership';
+                    $membershipActive = $latestMembershipPayment && !$paymentIsArchived && !$membershipIsArchived;
+                    $membershipName = $membershipActive ? (optional($membership)->name ?? 'No Membership') : 'No Membership';
+                    $approvedBy = $membershipActive ? optional($latestMembershipPayment)->created_by : null;
+                    $expirationAt   = $membershipActive ? optional($latestMembershipPayment)->expiration_at : null;
+                    $membershipStatus = $membershipActive ? 'Active membership' : 'No membership';
 
                     $memberName = trim((optional($item)->first_name ?? '') . ' ' . (optional($item)->last_name ?? ''));
 
@@ -55,11 +57,13 @@
                 $printAllMembers = collect($printAllSource ?? [])->map(function ($item) use ($current_time) {
                     $latestMembershipPayment = optional($item->membershipPayments)->first();
                     $membership = optional($latestMembershipPayment)->membership;
+                    $paymentIsArchived = (int) optional($latestMembershipPayment)->is_archive === 1;
                     $membershipIsArchived = (int) optional($membership)->is_archive === 1;
-                    $membershipName = $membershipIsArchived ? 'No Membership' : (optional($membership)->name ?? 'No Membership');
-                    $approvedBy = $membershipIsArchived ? null : optional($latestMembershipPayment)->created_by;
-                    $expirationAt   = $membershipIsArchived ? null : optional($latestMembershipPayment)->expiration_at;
-                    $membershipStatus = $membershipName !== 'No Membership' ? 'Active membership' : 'No membership';
+                    $membershipActive = $latestMembershipPayment && !$paymentIsArchived && !$membershipIsArchived;
+                    $membershipName = $membershipActive ? (optional($membership)->name ?? 'No Membership') : 'No Membership';
+                    $approvedBy = $membershipActive ? optional($latestMembershipPayment)->created_by : null;
+                    $expirationAt   = $membershipActive ? optional($latestMembershipPayment)->expiration_at : null;
+                    $membershipStatus = $membershipActive ? 'Active membership' : 'No membership';
 
                     $memberName = trim((optional($item)->first_name ?? '') . ' ' . (optional($item)->last_name ?? ''));
 
@@ -498,13 +502,15 @@
                                             $latestMembershipPayment = $item->membershipPayments()
                                                 ->where('isapproved', 1)
                                                 ->where('expiration_at', '>=', $current_time)
+                                                ->where('is_archive', 0)
                                                 ->with('membership')
                                                 ->orderBy('created_at', 'desc')
                                                 ->first();
 
                                             $membership = optional($latestMembershipPayment)->membership;
+                                            $paymentIsArchived = (int) optional($latestMembershipPayment)->is_archive === 1;
                                             $membershipIsArchived = (int) optional($membership)->is_archive === 1;
-                                            $membershipActive = $membership && !$membershipIsArchived;
+                                            $membershipActive = $latestMembershipPayment && !$paymentIsArchived && $membership && !$membershipIsArchived;
                                             $membershipName = $membershipActive ? $membership->name : 'No Membership';
                                             $expirationAt   = $membershipActive ? optional($latestMembershipPayment)->expiration_at : 'No Expiration Date';
 
@@ -695,13 +701,15 @@
                                                 $latestMembershipPayment = $archive->membershipPayments()
                                                     ->where('isapproved', 1)
                                                     ->where('expiration_at', '>=', $current_time)
+                                                    ->where('is_archive', 0)
                                                     ->with('membership')
                                                     ->orderBy('created_at', 'desc')
                                                     ->first();
 
                                                 $membership = optional($latestMembershipPayment)->membership;
+                                                $paymentIsArchived = (int) optional($latestMembershipPayment)->is_archive === 1;
                                                 $membershipIsArchived = (int) optional($membership)->is_archive === 1;
-                                                $membershipActive = $membership && !$membershipIsArchived;
+                                                $membershipActive = $latestMembershipPayment && !$paymentIsArchived && $membership && !$membershipIsArchived;
                                                 $membershipName = $membershipActive ? $membership->name : 'No Membership';
                                                 $expirationAt   = $membershipActive ? optional($latestMembershipPayment)->expiration_at : 'No Expiration Date';
                                             @endphp

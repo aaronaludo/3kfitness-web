@@ -12,6 +12,7 @@ use App\Models\UserSchedule;
 use App\Models\Attendance;
 use App\Models\Attendance2;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
@@ -53,13 +54,18 @@ class MemberDataController extends Controller
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
         $current_time = Carbon::now();
+        $hasPaymentArchiveColumn = Schema::hasColumn('membership_payments', 'is_archive');
 
         $activeMembersBase = User::where('role_id', 3)->where('is_archive', 0);
         $totalMembers = (clone $activeMembersBase)->count();
         $withMembershipCount = (clone $activeMembersBase)
-            ->whereHas('membershipPayments', function ($query) use ($current_time) {
+            ->whereHas('membershipPayments', function ($query) use ($current_time, $hasPaymentArchiveColumn) {
                 $query->where('isapproved', 1)
                     ->where('expiration_at', '>=', $current_time);
+
+                if ($hasPaymentArchiveColumn) {
+                    $query->where('is_archive', 0);
+                }
             })
             ->count();
         $statusTallies = [
@@ -70,14 +76,19 @@ class MemberDataController extends Controller
 
         $baseQuery = User::where('role_id', 3)
             ->with([
-                'membershipPayments' => function ($q) use ($current_time) {
+                'membershipPayments' => function ($q) use ($current_time, $hasPaymentArchiveColumn) {
                     $q->where('isapproved', 1)
-                        ->where('expiration_at', '>=', $current_time)
-                        ->orderBy('created_at', 'desc');
+                        ->where('expiration_at', '>=', $current_time);
+
+                    if ($hasPaymentArchiveColumn) {
+                        $q->where('is_archive', 0);
+                    }
+
+                    $q->orderBy('created_at', 'desc');
                 },
                 'membershipPayments.membership',
             ])
-            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn, $current_time) {
+            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn, $current_time, $hasPaymentArchiveColumn) {
                 if ($searchColumn === 'name') {
                     return $query->where(function ($q) use ($search) {
                         $q->where('first_name', 'like', "%{$search}%")
@@ -86,20 +97,28 @@ class MemberDataController extends Controller
                 }
 
                 if ($searchColumn === 'membership_name') {
-                    return $query->whereHas('membershipPayments', function ($q) use ($search, $current_time) {
+                    return $query->whereHas('membershipPayments', function ($q) use ($search, $current_time, $hasPaymentArchiveColumn) {
                         $q->where('isapproved', 1)
                             ->where('expiration_at', '>=', $current_time)
                             ->whereHas('membership', function ($membershipQuery) use ($search) {
                                 $membershipQuery->where('name', 'like', "%{$search}%");
                             });
+
+                        if ($hasPaymentArchiveColumn) {
+                            $q->where('is_archive', 0);
+                        }
                     });
                 }
 
                 if ($searchColumn === 'expiration_at') {
-                    return $query->whereHas('membershipPayments', function ($q) use ($search, $current_time) {
+                    return $query->whereHas('membershipPayments', function ($q) use ($search, $current_time, $hasPaymentArchiveColumn) {
                         $q->where('isapproved', 1)
                             ->where('expiration_at', '>=', $current_time)
                             ->where('expiration_at', 'like', "%{$search}%");
+
+                        if ($hasPaymentArchiveColumn) {
+                            $q->where('is_archive', 0);
+                        }
                     });
                 }
 
@@ -110,12 +129,12 @@ class MemberDataController extends Controller
 
                 return $query->where($searchColumn, 'like', "%{$search}%");
             })
-            ->when($startDateObj || $endDateObj, function ($query) use ($startDateObj, $endDateObj, $rangeColumn, $current_time) {
+            ->when($startDateObj || $endDateObj, function ($query) use ($startDateObj, $endDateObj, $rangeColumn, $current_time, $hasPaymentArchiveColumn) {
                 $start = $startDateObj ? $startDateObj->toDateString() : null;
                 $end   = $endDateObj ? $endDateObj->toDateString() : null;
 
                 if ($rangeColumn === 'expiration_at') {
-                    return $query->whereHas('membershipPayments', function ($q) use ($start, $end, $current_time) {
+                    return $query->whereHas('membershipPayments', function ($q) use ($start, $end, $current_time, $hasPaymentArchiveColumn) {
                         $q->where('isapproved', 1)
                             ->where('expiration_at', '>=', $current_time);
 
@@ -124,6 +143,10 @@ class MemberDataController extends Controller
                         }
                         if ($end) {
                             $q->whereDate('expiration_at', '<=', $end);
+                        }
+
+                        if ($hasPaymentArchiveColumn) {
+                            $q->where('is_archive', 0);
                         }
                     });
                 }
@@ -135,18 +158,26 @@ class MemberDataController extends Controller
                     $query->whereDate($rangeColumn, '<=', $end);
                 }
             })
-            ->when($membershipStatus !== 'all', function ($query) use ($membershipStatus, $current_time) {
+            ->when($membershipStatus !== 'all', function ($query) use ($membershipStatus, $current_time, $hasPaymentArchiveColumn) {
                 if ($membershipStatus === 'with') {
-                    return $query->whereHas('membershipPayments', function ($q) use ($current_time) {
+                    return $query->whereHas('membershipPayments', function ($q) use ($current_time, $hasPaymentArchiveColumn) {
                         $q->where('isapproved', 1)
                             ->where('expiration_at', '>=', $current_time);
+
+                        if ($hasPaymentArchiveColumn) {
+                            $q->where('is_archive', 0);
+                        }
                     });
                 }
 
                 if ($membershipStatus === 'none') {
-                    return $query->whereDoesntHave('membershipPayments', function ($q) use ($current_time) {
+                    return $query->whereDoesntHave('membershipPayments', function ($q) use ($current_time, $hasPaymentArchiveColumn) {
                         $q->where('isapproved', 1)
                             ->where('expiration_at', '>=', $current_time);
+
+                        if ($hasPaymentArchiveColumn) {
+                            $q->where('is_archive', 0);
+                        }
                     });
                 }
 
@@ -182,8 +213,20 @@ class MemberDataController extends Controller
     
     public function view(Request $request, $id)
     {
+        $hasPaymentArchiveColumn = Schema::hasColumn('membership_payments', 'is_archive');
+
         $gym_member = User::where('role_id', 3)
-            ->with(['role', 'membershipPayments.membership'])
+            ->with([
+                'role',
+                'membershipPayments' => function ($query) use ($hasPaymentArchiveColumn) {
+                    if ($hasPaymentArchiveColumn) {
+                        $query->where('is_archive', 0);
+                    }
+
+                    $query->orderByDesc('created_at');
+                },
+                'membershipPayments.membership',
+            ])
             ->findOrFail($id);
 
         $search = trim((string) $request->input('search', ''));
@@ -229,10 +272,14 @@ class MemberDataController extends Controller
         $gym_member = User::where('role_id', 3)->findOrFail($id);
         $memberships = Membership::where('is_archive', 0)->get();
         $current_time = Carbon::now();
+        $hasPaymentArchiveColumn = Schema::hasColumn('membership_payments', 'is_archive');
         
         $gym_member_membership = optional($gym_member->membershipPayments()
             ->where('isapproved', 1)
             ->where('expiration_at', '>=', $current_time)
+            ->when($hasPaymentArchiveColumn, function ($q) {
+                $q->where('is_archive', 0);
+            })
             ->orderBy('created_at', 'desc')
             ->first()
         )->membership;
@@ -351,6 +398,7 @@ class MemberDataController extends Controller
         
         // Block issuing a new membership if the user already has an active approved membership
         $now = Carbon::now();
+        $hasPaymentArchiveColumn = Schema::hasColumn('membership_payments', 'is_archive');
         $existingActive = MembershipPayment::where('user_id', $id)
             ->where('isapproved', 1)
             ->where(function ($q) use ($now) {
@@ -526,14 +574,19 @@ class MemberDataController extends Controller
 
         $query = User::where('role_id', 3)
             ->with([
-                'membershipPayments' => function ($q) use ($now) {
+                'membershipPayments' => function ($q) use ($now, $hasPaymentArchiveColumn) {
                     $q->where('isapproved', 1)
-                        ->where('expiration_at', '>=', $now)
-                        ->orderBy('created_at', 'desc');
+                        ->where('expiration_at', '>=', $now);
+
+                    if ($hasPaymentArchiveColumn) {
+                        $q->where('is_archive', 0);
+                    }
+
+                    $q->orderBy('created_at', 'desc');
                 },
                 'membershipPayments.membership',
             ])
-            ->when($search && $searchColumn, function ($q) use ($search, $searchColumn, $now) {
+            ->when($search && $searchColumn, function ($q) use ($search, $searchColumn, $now, $hasPaymentArchiveColumn) {
                 if ($searchColumn === 'name') {
                     return $q->where(function ($inner) use ($search) {
                         $inner->where('first_name', 'like', "%{$search}%")
@@ -542,20 +595,28 @@ class MemberDataController extends Controller
                 }
 
                 if ($searchColumn === 'membership_name') {
-                    return $q->whereHas('membershipPayments', function ($inner) use ($search, $now) {
+                    return $q->whereHas('membershipPayments', function ($inner) use ($search, $now, $hasPaymentArchiveColumn) {
                         $inner->where('isapproved', 1)
                             ->where('expiration_at', '>=', $now)
                             ->whereHas('membership', function ($membershipQuery) use ($search) {
                                 $membershipQuery->where('name', 'like', "%{$search}%");
                             });
+
+                        if ($hasPaymentArchiveColumn) {
+                            $inner->where('is_archive', 0);
+                        }
                     });
                 }
 
                 if ($searchColumn === 'expiration_at') {
-                    return $q->whereHas('membershipPayments', function ($inner) use ($search, $now) {
+                    return $q->whereHas('membershipPayments', function ($inner) use ($search, $now, $hasPaymentArchiveColumn) {
                         $inner->where('isapproved', 1)
                             ->where('expiration_at', '>=', $now)
                             ->where('expiration_at', 'like', "%{$search}%");
+
+                        if ($hasPaymentArchiveColumn) {
+                            $inner->where('is_archive', 0);
+                        }
                     });
                 }
 
@@ -566,9 +627,9 @@ class MemberDataController extends Controller
 
                 return $q->where($searchColumn, 'like', "%{$search}%");
             })
-            ->when($start || $end, function ($q) use ($start, $end, $rangeColumn, $now) {
+            ->when($start || $end, function ($q) use ($start, $end, $rangeColumn, $now, $hasPaymentArchiveColumn) {
                 if ($rangeColumn === 'expiration_at') {
-                    return $q->whereHas('membershipPayments', function ($inner) use ($start, $end, $now) {
+                    return $q->whereHas('membershipPayments', function ($inner) use ($start, $end, $now, $hasPaymentArchiveColumn) {
                         $inner->where('isapproved', 1)
                             ->where('expiration_at', '>=', $now);
 
@@ -577,6 +638,10 @@ class MemberDataController extends Controller
                         }
                         if ($end) {
                             $inner->whereDate('expiration_at', '<=', $end->toDateString());
+                        }
+
+                        if ($hasPaymentArchiveColumn) {
+                            $inner->where('is_archive', 0);
                         }
                     });
                 }
@@ -589,18 +654,26 @@ class MemberDataController extends Controller
                     $q->whereDate($rangeColumn, '<=', $end->toDateString());
                 }
             })
-            ->when($membershipStatus !== 'all', function ($q) use ($membershipStatus, $now) {
+            ->when($membershipStatus !== 'all', function ($q) use ($membershipStatus, $now, $hasPaymentArchiveColumn) {
                 if ($membershipStatus === 'with') {
-                    return $q->whereHas('membershipPayments', function ($inner) use ($now) {
+                    return $q->whereHas('membershipPayments', function ($inner) use ($now, $hasPaymentArchiveColumn) {
                         $inner->where('isapproved', 1)
                             ->where('expiration_at', '>=', $now);
+
+                        if ($hasPaymentArchiveColumn) {
+                            $inner->where('is_archive', 0);
+                        }
                     });
                 }
 
                 if ($membershipStatus === 'none') {
-                    return $q->whereDoesntHave('membershipPayments', function ($inner) use ($now) {
+                    return $q->whereDoesntHave('membershipPayments', function ($inner) use ($now, $hasPaymentArchiveColumn) {
                         $inner->where('isapproved', 1)
                             ->where('expiration_at', '>=', $now);
+
+                        if ($hasPaymentArchiveColumn) {
+                            $inner->where('is_archive', 0);
+                        }
                     });
                 }
 

@@ -15,6 +15,7 @@
         $fullName = trim(($gym_member->first_name ?? '') . ' ' . ($gym_member->last_name ?? ''));
         $latestPayment = $gym_member->membershipPayments->sortByDesc('created_at')->first();
         $activePayment = $gym_member->membershipPayments
+            ->where('is_archive', 0)
             ->where('isapproved', 1)
             ->sortByDesc('expiration_at')
             ->first();
