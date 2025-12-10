@@ -23,10 +23,20 @@ class MemberClassController extends Controller
             ->where('isadminapproved', 1)
             ->where('is_archieve', 0)
             ->where(function ($query) use ($now) {
-                $query->whereNull('class_start_date')->orWhere('class_start_date', '>=', $now);
+                $query->whereNull('class_start_date')
+                    ->orWhere('class_start_date', '>=', $now)
+                    ->orWhere(function ($subQuery) use ($now) {
+                        $subQuery->whereNotNull('series_end_date')
+                            ->whereDate('series_end_date', '>=', $now->toDateString());
+                    });
             })
             ->where(function ($query) use ($now) {
-                $query->whereNull('class_end_date')->orWhere('class_end_date', '>=', $now);
+                $query->whereNull('class_end_date')
+                    ->orWhere('class_end_date', '>=', $now)
+                    ->orWhere(function ($subQuery) use ($now) {
+                        $subQuery->whereNotNull('series_end_date')
+                            ->whereDate('series_end_date', '>=', $now->toDateString());
+                    });
             })
             ->whereDoesntHave('user_schedules', function ($query) use ($user) {
                 $query->where('user_id', $user->id);
@@ -61,17 +71,32 @@ class MemberClassController extends Controller
                     return false;
                 }
 
-                if ($schedule->class_start_date === null) {
-                    return true;
-                }
+                $status = $this->computeScheduleStatusFromDates(
+                    $this->parseDateValue($schedule->class_start_date),
+                    $this->parseDateValue($schedule->class_end_date),
+                    $this->parseDateValue($schedule->series_start_date),
+                    $this->parseDateValue($schedule->series_end_date),
+                    $now
+                );
 
-                return Carbon::parse($schedule->class_start_date)->greaterThanOrEqualTo($now);
+                return $status !== 'completed';
             })
             ->values();
 
         $formattedAvailableClasses = $availableClasses->map(function ($class) use ($now) {
-            return $this->transformSchedule($class, 'availableclasses', false, $now);
-        });
+            $startDate = $this->parseDateValue($class->class_start_date);
+            $endDate = $this->parseDateValue($class->class_end_date);
+            $seriesStart = $this->parseDateValue($class->series_start_date);
+            $seriesEnd = $this->parseDateValue($class->series_end_date);
+
+            $status = $this->computeScheduleStatusFromDates($startDate, $endDate, $seriesStart, $seriesEnd, $now);
+
+            if ($status === 'completed') {
+                return null;
+            }
+
+            return $this->transformSchedule($class, 'availableclasses', false, $now, $status);
+        })->filter()->values();
 
         $formattedMyClasses = $myclasses->map(function ($class) use ($now) {
             $schedule = $class->schedule;
@@ -79,7 +104,18 @@ class MemberClassController extends Controller
                 return null;
             }
 
-            return $this->transformSchedule($schedule, 'myclasses', true, $now);
+            $startDate = $this->parseDateValue($schedule->class_start_date);
+            $endDate = $this->parseDateValue($schedule->class_end_date);
+            $seriesStart = $this->parseDateValue($schedule->series_start_date);
+            $seriesEnd = $this->parseDateValue($schedule->series_end_date);
+
+            $status = $this->computeScheduleStatusFromDates($startDate, $endDate, $seriesStart, $seriesEnd, $now);
+
+            if ($status === 'completed') {
+                return null;
+            }
+
+            return $this->transformSchedule($schedule, 'myclasses', true, $now, $status);
         })->filter()->values();
 
         return response()->json([
@@ -247,16 +283,12 @@ class MemberClassController extends Controller
                     return null;
                 }
 
-                $start = $schedule->class_start_date ? Carbon::parse($schedule->class_start_date) : null;
-                $end = $schedule->class_end_date ? Carbon::parse($schedule->class_end_date) : null;
+                $start = $this->parseDateValue($schedule->class_start_date);
+                $end = $this->parseDateValue($schedule->class_end_date);
+                $seriesStart = $this->parseDateValue($schedule->series_start_date);
+                $seriesEnd = $this->parseDateValue($schedule->series_end_date);
 
-                $status = 'upcoming';
-
-                if ($end && $now->gt($end)) {
-                    $status = 'completed';
-                } elseif ($start && $now->gte($start)) {
-                    $status = 'active';
-                }
+                $status = $this->computeScheduleStatusFromDates($start, $end, $seriesStart, $seriesEnd, $now);
 
                 $trainerName = 'Not assigned';
 
@@ -308,19 +340,59 @@ class MemberClassController extends Controller
         }
     }
 
-    protected function transformSchedule(Schedule $schedule, string $type, bool $isJoined, Carbon $now): array
+    private function parseDateValue($value): ?Carbon
     {
-        $startDate = $schedule->class_start_date ? Carbon::parse($schedule->class_start_date) : null;
-        $endDate = $schedule->class_end_date ? Carbon::parse($schedule->class_end_date) : null;
-
-        $status = 'unknown';
-        if ($startDate && $now->lt($startDate)) {
-            $status = 'upcoming';
-        } elseif ($startDate && $endDate && $now->between($startDate, $endDate)) {
-            $status = 'active';
-        } elseif ($endDate && $now->gt($endDate)) {
-            $status = 'completed';
+        if (empty($value)) {
+            return null;
         }
+
+        try {
+            return Carbon::parse($value);
+        } catch (\Throwable $th) {
+            return null;
+        }
+    }
+
+    private function computeScheduleStatusFromDates(?Carbon $startDate, ?Carbon $endDate, ?Carbon $seriesStartDate, ?Carbon $seriesEndDate, Carbon $now): string
+    {
+        $seriesEndBoundary = $seriesEndDate ? $seriesEndDate->copy()->endOfDay() : null;
+
+        if ($startDate && $endDate && $now->between($startDate, $endDate)) {
+            return 'active';
+        }
+
+        if ($startDate && $now->lt($startDate)) {
+            return 'upcoming';
+        }
+
+        if ($seriesStartDate && $now->lt($seriesStartDate)) {
+            return 'upcoming';
+        }
+
+        if ($seriesEndBoundary) {
+            if ($now->lte($seriesEndBoundary)) {
+                return 'upcoming';
+            }
+
+            return 'completed';
+        }
+
+        if ($endDate) {
+            return $now->gt($endDate) ? 'completed' : 'unknown';
+        }
+
+        return 'unknown';
+    }
+
+    protected function transformSchedule(Schedule $schedule, string $type, bool $isJoined, Carbon $now, ?string $precomputedStatus = null): array
+    {
+        $startDate = $this->parseDateValue($schedule->class_start_date);
+        $endDate = $this->parseDateValue($schedule->class_end_date);
+        $seriesStartDate = $this->parseDateValue($schedule->series_start_date);
+        $seriesEndDate = $this->parseDateValue($schedule->series_end_date);
+
+        $status = $precomputedStatus
+            ?? $this->computeScheduleStatusFromDates($startDate, $endDate, $seriesStartDate, $seriesEndDate, $now);
 
         $joinedCount = $schedule->user_schedules_count ?? $schedule->user_schedules()->count();
         $availableSlots = null;
@@ -345,8 +417,8 @@ class MemberClassController extends Controller
             'class_code' => $schedule->class_code,
             'class_start_date' => $startDate ? $startDate->toIso8601String() : null,
             'class_end_date' => $endDate ? $endDate->toIso8601String() : null,
-            'series_start_date' => $this->normalizeDateTime($schedule->series_start_date),
-            'series_end_date' => $this->normalizeDateTime($schedule->series_end_date),
+            'series_start_date' => $seriesStartDate ? $seriesStartDate->toIso8601String() : null,
+            'series_end_date' => $seriesEndDate ? $seriesEndDate->toIso8601String() : null,
             'class_start_time' => $schedule->class_start_time,
             'class_end_time' => $schedule->class_end_time,
             'recurring_days' => $schedule->recurring_days,
