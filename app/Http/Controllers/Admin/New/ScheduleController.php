@@ -60,7 +60,7 @@ class ScheduleController extends Controller
             'name'          => 'nullable|string|max:255',
             'start_date'    => 'nullable|date_format:Y-m-d',
             'end_date'      => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
-            'status'        => 'nullable|in:all,upcoming,active,completed',
+            'status'        => 'nullable|in:all,upcoming,ongoing,active,completed',
         ]);
 
         $search        = $request->input('name');
@@ -98,13 +98,15 @@ class ScheduleController extends Controller
             'all' => Schedule::where('is_archieve', 0)->count(),
             'upcoming' => Schedule::where('is_archieve', 0)
                 ->where('class_start_date', '>', $now)->count(),
-            'active' => Schedule::where('is_archieve', 0)
+            'ongoing' => Schedule::where('is_archieve', 0)
                 ->where('class_start_date', '<=', $now)
                 ->where('class_end_date', '>=', $now)
                 ->count(),
             'completed' => Schedule::where('is_archieve', 0)
                 ->where('class_end_date', '<', $now)->count(),
         ];
+        // Maintain backward compatibility for legacy "active" key.
+        $statusTallies['active'] = $statusTallies['ongoing'];
 
         $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn, $status, $now) {
             return $query
@@ -144,16 +146,18 @@ class ScheduleController extends Controller
                     }
                 })
                 ->when($status !== 'all', function ($query) use ($status, $now) {
-                    if ($status === 'upcoming') {
+                    $normalizedStatus = $status === 'active' ? 'ongoing' : $status;
+
+                    if ($normalizedStatus === 'upcoming') {
                         return $query->where('class_start_date', '>', $now);
                     }
 
-                    if ($status === 'active') {
+                    if ($normalizedStatus === 'ongoing') {
                         return $query->where('class_start_date', '<=', $now)
                             ->where('class_end_date', '>=', $now);
                     }
 
-                    if ($status === 'completed') {
+                    if ($normalizedStatus === 'completed') {
                         return $query->where('class_end_date', '<', $now);
                     }
 
