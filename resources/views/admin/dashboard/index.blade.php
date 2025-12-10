@@ -115,23 +115,46 @@
                             <div class="list-group list-group-flush mt-2">
                                 @forelse($upcomingClasses as $class)
                                     @php
-                                        $start = $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
                                         $trainerName = $class->trainer_id == 0
                                             ? 'No Trainer'
                                             : trim(optional($class->user)->first_name . ' ' . optional($class->user)->last_name);
                                         $trainerName = $trainerName !== '' ? $trainerName : 'Unknown';
+                                        $sessions = collect($class->upcoming_occurrences ?? []);
+                                        $nextStart = $class->next_occurrence ?? null;
+                                        $cadence = $class->cadence_label ?? 'One-time session';
+                                        $seriesRange = $class->series_range_label ?? 'Series not set';
+                                        $timeRange = $class->time_range_label ?? null;
+                                        $totalCount = (int) ($class->upcoming_occurrence_count ?? $sessions->count());
+                                        $remaining = max($totalCount - $sessions->count(), 0);
                                     @endphp
-                                    <div class="list-group-item px-0 d-flex justify-content-between align-items-start">
-                                        <div>
-                                            <div class="fw-semibold">{{ $class->name }}</div>
-                                            <div class="small text-muted">
-                                                {{ $start ? $start->format('F j, Y g:iA') : 'No start date set' }}
+                                    <div class="list-group-item px-0">
+                                        <div class="d-flex justify-content-between align-items-start gap-3">
+                                            <div class="flex-grow-1">
+                                                <div class="fw-semibold">{{ $class->name }}</div>
+                                                <div class="small text-muted">Series: {{ $seriesRange }}</div>
+                                                @if($timeRange)
+                                                    <div class="small text-muted">Time: {{ $timeRange }}</div>
+                                                @endif
+                                                <div class="small text-muted">Cadence: {{ $cadence }}</div>
+                                                <div class="small text-muted">Trainer: {{ $trainerName }}</div>
+                                                <div class="mt-2">
+                                                    <div class="text-muted small">Next sessions</div>
+                                                    @forelse($sessions as $occurrence)
+                                                        <div class="small">{{ $occurrence['label'] ?? '—' }}</div>
+                                                    @empty
+                                                        <div class="text-muted small">No upcoming sessions found.</div>
+                                                    @endforelse
+                                                    @if($remaining > 0)
+                                                        <div class="text-muted small">+ {{ $remaining }} more in series</div>
+                                                    @endif
+                                                </div>
                                             </div>
-                                            <div class="small text-muted">Trainer: {{ $trainerName }}</div>
+                                            @if($nextStart instanceof \Carbon\Carbon)
+                                                <span class="badge {{ $nextStart->isToday() ? 'bg-info text-dark' : 'bg-warning text-dark' }}">
+                                                    {{ $nextStart->isToday() ? 'Today' : 'Upcoming' }}
+                                                </span>
+                                            @endif
                                         </div>
-                                        @if($start && $start->isFuture())
-                                            <span class="badge bg-warning text-dark">Upcoming</span>
-                                        @endif
                                     </div>
                                 @empty
                                     <div class="list-group-item px-0 text-muted">No upcoming classes scheduled.</div>
