@@ -269,8 +269,15 @@ class MembershipController extends Controller
             return redirect()->route('admin.staff-account-management.memberships')->with('success', 'Membership is already active');
         }
 
-        $data->is_archive = 0;
-        $data->save();
+        DB::transaction(function () use ($data) {
+            $data->is_archive = 0;
+            $data->save();
+
+            // Restore all payments tied to this membership so mobile/API views pick them up again.
+            $data->membershipPayments()
+                ->where('is_archive', 1)
+                ->update(['is_archive' => 0]);
+        });
 
         $this->logAdminActivity("restored membership {$membershipLabel}");
 
