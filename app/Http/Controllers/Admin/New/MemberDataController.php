@@ -376,7 +376,11 @@ class MemberDataController extends Controller
         if (!empty($validatedData['class_id'])) {
             $schedule = Schedule::find($validatedData['class_id']);
             if ($schedule) {
-                $currentCount = UserSchedule::where('schedule_id', $schedule->id)->count();
+                $currentCount = UserSchedule::where('schedule_id', $schedule->id)
+                    ->whereHas('user', function ($query) {
+                        $query->where('is_archive', 0);
+                    })
+                    ->count();
                 if (!isset($schedule->slots) || $currentCount < (int) $schedule->slots) {
                     $enroll = new UserSchedule();
                     $enroll->user_id = $users->id;

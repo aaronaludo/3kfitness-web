@@ -340,7 +340,7 @@ class TrainerClassController extends Controller
     {
         $trainer = $request->user();
 
-        $schedule = Schedule::with(['user_schedules' => function ($query) {
+        $schedule = Schedule::with(['activeUserSchedules' => function ($query) {
                 $query->with(['user' => function ($userQuery) {
                     $userQuery->select([
                         'id',
@@ -350,8 +350,10 @@ class TrainerClassController extends Controller
                         'phone_number',
                         'phone_number',
                         'profile_picture',
-                    ]);
-                }]);
+                    ])->where('is_archive', 0);
+                }])->whereHas('user', function ($userQuery) {
+                    $userQuery->where('is_archive', 0);
+                });
             }])
             ->find($classId);
 
@@ -359,9 +361,9 @@ class TrainerClassController extends Controller
             return response()->json(['message' => 'Class not found or you do not have access to its participants.'], 404);
         }
 
-        $schedule->loadCount('user_schedules');
+        $schedule->loadCount(['activeUserSchedules as user_schedules_count']);
 
-        $participants = $schedule->user_schedules->map(function ($enrollment) {
+        $participants = $schedule->activeUserSchedules->map(function ($enrollment) {
             $user = $enrollment->user;
             $fullName = $user
                 ? trim(collect([$user->first_name, $user->last_name])->filter()->implode(' '))

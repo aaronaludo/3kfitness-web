@@ -7,7 +7,7 @@
 
 @section('content')
     @php
-        $data->loadMissing(['user'])->loadCount('user_schedules');
+        $data->loadMissing(['user'])->loadCount(['activeUserSchedules as user_schedules_count']);
 
         $image = $data->image ? asset($data->image) : asset('assets/images/default-image.png');
         $startDate = $data->class_start_date ? \Carbon\Carbon::parse($data->class_start_date) : null;

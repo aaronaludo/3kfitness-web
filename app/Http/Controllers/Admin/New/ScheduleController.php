@@ -181,9 +181,14 @@ class ScheduleController extends Controller
         };
 
         $mapSchedule = function ($schedule) {
-            $schedule->user_schedules_count = $schedule->user_schedules_count ?? $schedule->user_schedules->count();
+            if (!$schedule->relationLoaded('activeUserSchedules')) {
+                $schedule->load(['activeUserSchedules.user']);
+            }
 
-            $schedule->user_schedules_json = $schedule->user_schedules->map(function ($us) {
+            $activeEnrollments = $schedule->activeUserSchedules ?? collect();
+            $schedule->user_schedules_count = $schedule->user_schedules_count ?? $activeEnrollments->count();
+
+            $schedule->user_schedules_json = $activeEnrollments->map(function ($us) {
                 $user = $us->user;
                 $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '';
                 return [
@@ -199,8 +204,8 @@ class ScheduleController extends Controller
         $queryParamsWithoutMainPage = $request->except('page');
 
         $activeQuery = $applyFilters(
-            Schedule::with(['user_schedules.user', 'user'])
-                ->withCount('user_schedules')
+            Schedule::with(['activeUserSchedules.user', 'user'])
+                ->withActiveEnrollmentCount()
                 ->where('is_archieve', 0)
         );
 
@@ -216,8 +221,8 @@ class ScheduleController extends Controller
             ->through($mapSchedule);
 
         $archivedQuery = $applyFilters(
-            Schedule::with(['user_schedules.user', 'user'])
-                ->withCount('user_schedules')
+            Schedule::with(['activeUserSchedules.user', 'user'])
+                ->withActiveEnrollmentCount()
                 ->where('is_archieve', 1)
         );
 
@@ -261,12 +266,12 @@ class ScheduleController extends Controller
     public function users(Request $request, $id)
     {
         $schedule = Schedule::with(['user'])
-            ->withCount('user_schedules')
+            ->withActiveEnrollmentCount()
             ->findOrFail($id);
 
         $search = trim((string) $request->input('search', ''));
 
-        $userSchedulesQuery = $schedule->user_schedules()
+        $userSchedulesQuery = $schedule->activeUserSchedules()
             ->with('user')
             ->orderByDesc('created_at');
 
@@ -842,7 +847,7 @@ class ScheduleController extends Controller
         $now = Carbon::now();
 
         $query = \App\Models\Schedule::with(['user:id,first_name,last_name'])
-            ->withCount('user_schedules')
+            ->withActiveEnrollmentCount()
             ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
                 if ($searchColumn === 'trainer_name') {
                     $likeSearch = "%{$search}%";

@@ -19,7 +19,7 @@ class MemberClassController extends Controller
         $now = now();
 
         $availableClasses = Schedule::with(['user'])
-            ->withCount('user_schedules')
+            ->withActiveEnrollmentCount()
             ->where('isadminapproved', 1)
             ->where('is_archieve', 0)
             ->where(function ($query) use ($now) {
@@ -54,7 +54,7 @@ class MemberClassController extends Controller
         $myclasses = UserSchedule::where('user_id', $user->id)
             ->with(['schedule' => function ($query) {
                 $query->with(['user'])
-                    ->withCount('user_schedules');
+                    ->withActiveEnrollmentCount();
             }])
             ->get()
             ->filter(function ($class) use ($now) {
@@ -132,7 +132,11 @@ class MemberClassController extends Controller
         $user = $request->user();
 
         $schedule = Schedule::findOrFail($request->class_id);
-        $userschedule_count = UserSchedule::where('schedule_id', $request->class_id)->count();
+        $userschedule_count = UserSchedule::where('schedule_id', $request->class_id)
+            ->whereHas('user', function ($query) {
+                $query->where('is_archive', 0);
+            })
+            ->count();
         $userschedule_user_validation = UserSchedule::where('schedule_id', $request->class_id)->where('user_id', $user->id)->first();
         
         if($userschedule_user_validation){
@@ -193,7 +197,7 @@ class MemberClassController extends Controller
     {
         $user = $request->user();
 
-        $schedule = Schedule::with(['user_schedules' => function ($query) {
+        $schedule = Schedule::with(['activeUserSchedules' => function ($query) {
                 $query->with(['user' => function ($userQuery) {
                     $userQuery->select([
                         'id',
@@ -203,7 +207,9 @@ class MemberClassController extends Controller
                         'phone_number',
                         'profile_picture',
                     ]);
-                }]);
+                }])->whereHas('user', function ($userQuery) {
+                    $userQuery->where('is_archive', 0);
+                });
             }])
             ->find($classId);
 
@@ -211,7 +217,7 @@ class MemberClassController extends Controller
             return response()->json(['message' => 'Class not found.'], 404);
         }
 
-        $isEnrolled = $schedule->user_schedules->contains(function ($enrollment) use ($user) {
+        $isEnrolled = $schedule->activeUserSchedules->contains(function ($enrollment) use ($user) {
             return (int) $enrollment->user_id === (int) $user->id;
         });
 
@@ -219,9 +225,9 @@ class MemberClassController extends Controller
             return response()->json(['message' => 'Join the class to view its participants.'], 403);
         }
 
-        $schedule->loadCount('user_schedules');
+        $schedule->loadCount(['activeUserSchedules as user_schedules_count']);
 
-        $participants = $schedule->user_schedules->map(function ($enrollment) {
+        $participants = $schedule->activeUserSchedules->map(function ($enrollment) {
             $member = $enrollment->user;
             $fullName = $member
                 ? trim(collect([optional($member)->first_name, optional($member)->last_name])->filter()->implode(' '))
@@ -394,7 +400,7 @@ class MemberClassController extends Controller
         $status = $precomputedStatus
             ?? $this->computeScheduleStatusFromDates($startDate, $endDate, $seriesStartDate, $seriesEndDate, $now);
 
-        $joinedCount = $schedule->user_schedules_count ?? $schedule->user_schedules()->count();
+        $joinedCount = $schedule->user_schedules_count ?? $schedule->activeUserSchedules()->count();
         $availableSlots = null;
         if ($schedule->slots !== null) {
             $availableSlots = max($schedule->slots - $joinedCount, 0);

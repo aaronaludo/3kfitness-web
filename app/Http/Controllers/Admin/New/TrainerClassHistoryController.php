@@ -63,8 +63,8 @@ class TrainerClassHistoryController extends Controller
 
         $now = Carbon::now();
 
-        $baseQuery = Schedule::with(['user', 'user_schedules'])
-            ->withCount('user_schedules')
+        $baseQuery = Schedule::with(['user', 'activeUserSchedules'])
+            ->withActiveEnrollmentCount()
             ->whereNotNull('class_end_date')
             ->where('class_end_date', '<', $now);
 
@@ -264,8 +264,8 @@ class TrainerClassHistoryController extends Controller
 
         $now = Carbon::now();
 
-        $query = Schedule::with(['user', 'user_schedules'])
-            ->withCount('user_schedules')
+        $query = Schedule::with(['user', 'activeUserSchedules'])
+            ->withActiveEnrollmentCount()
             ->whereNotNull('class_end_date')
             ->where('class_end_date', '<', $now);
 

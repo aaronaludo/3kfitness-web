@@ -71,7 +71,7 @@ class TrainerManagementController extends Controller
         $statusTallies['unassigned'] = max($statusTallies['all'] - $statusTallies['assigned'], 0);
 
         $baseQuery = User::where('role_id', 5)
-            ->with(['trainerSchedules.user_schedules.user'])
+            ->with(['trainerSchedules.activeUserSchedules.user'])
             ->when($search && $search_column, function ($query) use ($search, $search_column) {
                 if ($search_column === 'name') {
                     return $query->where(function ($q) use ($search) {

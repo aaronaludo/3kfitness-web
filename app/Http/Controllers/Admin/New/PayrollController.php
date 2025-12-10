@@ -272,7 +272,7 @@ class PayrollController extends Controller
 
         $trainers = User::where('role_id', 5)
             ->where('is_archive', 0)
-            ->with(['trainerSchedules.user_schedules.user'])
+            ->with(['trainerSchedules.activeUserSchedules.user'])
             ->get();
 
         $trainerProcessedRuns = PayrollRun::whereIn('user_id', $trainers->pluck('id'))
@@ -429,7 +429,7 @@ class PayrollController extends Controller
                     $summarySalary = $pastPotentialSalary + $futurePotentialSalary;
                     $hasAttendance = $payrollOccurrences->isNotEmpty();
 
-                    $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
+                    $students = collect($schedule->activeUserSchedules ?? [])->map(function ($userSchedule) {
                         $user = $userSchedule->user ?? null;
                         if (!$user) {
                             return null;
@@ -637,7 +637,7 @@ class PayrollController extends Controller
         $trainer = User::where('id', $request->trainer_id)
             ->where('role_id', 5)
             ->where('is_archive', 0)
-            ->with(['trainerSchedules.user_schedules.user'])
+            ->with(['trainerSchedules.activeUserSchedules.user'])
             ->firstOrFail();
 
         $now = Carbon::now();
