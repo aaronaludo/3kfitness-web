@@ -1276,8 +1276,17 @@
                                                     @endif
                                                 </td>
                                                 <td>
-                                                    <div class="d-flex">
-                                                        <div class="action-button"><a href="{{ route('admin.gym-management.schedules.edit', $item->id) }}" title="Edit"><i class="fa-solid fa-pencil text-primary"></i></a></div>
+                                                    <div class="d-flex flex-wrap align-items-center gap-2">
+                                                        <div class="action-button">
+                                                            <a href="{{ route('admin.gym-management.schedules.view', $item->id) }}" title="View">
+                                                                <i class="fa-solid fa-eye"></i>
+                                                            </a>
+                                                        </div>
+                                                        <div class="action-button">
+                                                            <a href="{{ route('admin.gym-management.schedules.edit', $item->id) }}" title="Edit">
+                                                                <i class="fa-solid fa-pencil text-primary"></i>
+                                                            </a>
+                                                        </div>
                                                         <div class="action-button">
                                                             <button type="button" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">
                                                                 <i class="fa-solid fa-box-archive text-danger"></i>

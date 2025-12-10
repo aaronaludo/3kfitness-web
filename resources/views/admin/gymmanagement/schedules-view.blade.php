@@ -81,6 +81,105 @@
         $enrolled = $data->user_schedules_count ?? 0;
         $fill = $slots ? min(100, round(($enrolled / max($slots, 1)) * 100)) : null;
         $classCode = $data->class_code ?? '—';
+
+        $recurringDayKeys = collect($dayKeys)->map(function ($d) {
+            return strtolower($d);
+        })->toArray();
+        $sessionOccurrences = [];
+        $maxSessions = 6;
+        $hasMoreSessions = false;
+        $nowSession = now();
+        $hasOngoingSession = false;
+        $hasFutureSession = false;
+        $sessionTimeLabel = $data->class_start_time && $data->class_end_time
+            ? \Carbon\Carbon::parse($data->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($data->class_end_time)->format('g:i A')
+            : ($data->class_start_time ? \Carbon\Carbon::parse($data->class_start_time)->format('g:i A') : null);
+
+        if ($seriesStart && $seriesEnd && count($recurringDayKeys)) {
+            $cursor = $seriesStart->copy()->startOfDay();
+            $occurrenceCount = 0;
+            while ($cursor->lte($seriesEnd)) {
+                $dayKey = strtolower(substr($cursor->format('D'), 0, 3));
+                if (in_array($dayKey, $recurringDayKeys, true)) {
+                    $occurrenceCount++;
+                    if (count($sessionOccurrences) < $maxSessions) {
+                        $sessionStart = $data->class_start_time
+                            ? $cursor->copy()->setTimeFromTimeString($data->class_start_time)
+                            : $cursor->copy()->startOfDay();
+                        $sessionEnd = $data->class_end_time
+                            ? $cursor->copy()->setTimeFromTimeString($data->class_end_time)
+                            : $cursor->copy()->endOfDay();
+
+                        $sessionStatus = 'Upcoming';
+                        if ($nowSession->between($sessionStart, $sessionEnd, true)) {
+                            $sessionStatus = 'Ongoing';
+                            $hasOngoingSession = true;
+                        } elseif ($nowSession->gt($sessionEnd)) {
+                            $sessionStatus = 'Completed';
+                        } else {
+                            $hasFutureSession = true;
+                        }
+
+                        $statusClass = 'bg-secondary';
+                        if ($sessionStatus === 'Upcoming') {
+                            $statusClass = 'bg-warning text-dark';
+                        } elseif ($sessionStatus === 'Ongoing') {
+                            $statusClass = 'bg-info text-dark';
+                        } elseif ($sessionStatus === 'Completed') {
+                            $statusClass = 'bg-success';
+                        }
+
+                        $sessionOccurrences[] = [
+                            'label' => $cursor->format('M j, Y'),
+                            'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
+                            'time' => $sessionTimeLabel,
+                            'status' => $sessionStatus,
+                            'status_class' => $statusClass,
+                        ];
+                    }
+
+                    if ($occurrenceCount >= $maxSessions && $cursor->lt($seriesEnd)) {
+                        $hasMoreSessions = true;
+                        if ($hasOngoingSession || $hasFutureSession) {
+                            break;
+                        }
+                    }
+                }
+
+                $cursor->addDay();
+            }
+        }
+
+        if (!count($sessionOccurrences) && $startDate) {
+            $sessionStart = $startDate->copy();
+            $sessionEnd = $endDate ?: ($data->class_end_time
+                ? $sessionStart->copy()->setTimeFromTimeString($data->class_end_time)
+                : $sessionStart->copy()->endOfDay());
+
+            $sessionStatus = 'Upcoming';
+            if ($nowSession->between($sessionStart, $sessionEnd, true)) {
+                $sessionStatus = 'Ongoing';
+            } elseif ($nowSession->gt($sessionEnd)) {
+                $sessionStatus = 'Completed';
+            }
+
+            $statusClass = 'bg-secondary';
+            if ($sessionStatus === 'Upcoming') {
+                $statusClass = 'bg-warning text-dark';
+            } elseif ($sessionStatus === 'Ongoing') {
+                $statusClass = 'bg-info text-dark';
+            } elseif ($sessionStatus === 'Completed') {
+                $statusClass = 'bg-success';
+            }
+
+            $sessionOccurrences[] = [
+                'label' => $sessionStart->format('M j, Y'),
+                'weekday' => $sessionStart->format('l'),
+                'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
+                'status' => $sessionStatus,
+                'status_class' => $statusClass,
+            ];
+        }
     @endphp
 
     <div class="container-fluid">
@@ -237,6 +336,52 @@
                     </tbody>
                 </table>
             </div>
+        </div>
+
+        <div class="detail-card mt-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h5 class="mb-1">Series of sessions</h5>
+                    <div class="text-muted detail-meta">Generated from the cadence and series window.</div>
+                </div>
+                @if($seriesStart && $seriesEnd)
+                    <span class="detail-chip">
+                        <span class="icon"><i class="fa-regular fa-calendar"></i></span>
+                        {{ $seriesStart->format('M d, Y') }} — {{ $seriesEnd->format('M d, Y') }}
+                    </span>
+                @endif
+            </div>
+
+            @if(count($sessionOccurrences))
+                <div class="d-flex flex-column gap-3">
+                    @foreach($sessionOccurrences as $index => $session)
+                        <div class="d-flex align-items-start gap-3">
+                            <div class="d-flex flex-column align-items-center">
+                                <span class="rounded-circle bg-danger" style="width: 10px; height: 10px;"></span>
+                                @if($index < count($sessionOccurrences) - 1)
+                                    <span class="flex-grow-1" style="width: 2px; background: #e9ecef; min-height: 24px;"></span>
+                                @endif
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    <div>
+                                        <div class="fw-semibold">{{ $session['label'] }}</div>
+                                        <div class="text-muted small">
+                                            {{ $session['weekday'] }}{{ $session['time'] ? ' • ' . $session['time'] : '' }}
+                                        </div>
+                                    </div>
+                                    <span class="badge {{ $session['status_class'] }} px-3 py-2">{{ $session['status'] }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                    @if($hasMoreSessions)
+                        <div class="text-muted small">More sessions in this series…</div>
+                    @endif
+                </div>
+            @else
+                <div class="text-muted">No sessions generated yet. Add a series window and cadence to preview occurrences.</div>
+            @endif
         </div>
     </div>
 @endsection
