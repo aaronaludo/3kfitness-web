@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use App\Models\User;
 use App\Models\Log;
 
@@ -30,6 +31,15 @@ class TrainerAuthController extends Controller
 
         if (Auth::attempt($credentials)) {
             $user = Auth::user();
+
+            $isArchivedTrainer = $user->role_id === 5
+                && Schema::hasColumn('users', 'is_archive')
+                && (int) ($user->is_archive ?? 0) === 1;
+
+            if ($isArchivedTrainer) {
+                Auth::logout();
+                return response()->json(['message' => 'Your account is archived. Please contact the gym to restore access.'], 403);
+            }
 
             if ($user->role_id === 5 && $user->status_id === 2) {
                 $token = $user->createToken('trainer_fithub_token')->plainTextToken;
