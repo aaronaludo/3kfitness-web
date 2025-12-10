@@ -561,19 +561,33 @@ class ScheduleController extends Controller
 
         if ($reschedule->status === 1 && $reschedule->schedule) {
             $schedule = $reschedule->schedule;
-            $schedule->recurring_days = $reschedule->recurring_days ?? [];
-            $schedule->class_start_time = $reschedule->proposed_start_time;
-            $schedule->class_end_time = $reschedule->proposed_end_time;
+            $targetSessions = (array) ($reschedule->target_session_dates ?? []);
 
-            if ($reschedule->proposed_series_start_date) {
-                $schedule->series_start_date = $reschedule->proposed_series_start_date;
+            if (count($targetSessions) > 0) {
+                $existingOverrides = is_array($schedule->session_overrides)
+                    ? $schedule->session_overrides
+                    : json_decode($schedule->session_overrides ?? '[]', true);
+
+                $schedule->session_overrides = $this->mergeSessionOverrides(
+                    $existingOverrides ?: [],
+                    $reschedule
+                );
+                $schedule->save();
+            } else {
+                $schedule->recurring_days = $reschedule->recurring_days ?? [];
+                $schedule->class_start_time = $reschedule->proposed_start_time;
+                $schedule->class_end_time = $reschedule->proposed_end_time;
+
+                if ($reschedule->proposed_series_start_date) {
+                    $schedule->series_start_date = $reschedule->proposed_series_start_date;
+                }
+
+                if ($reschedule->proposed_series_end_date) {
+                    $schedule->series_end_date = $reschedule->proposed_series_end_date;
+                }
+
+                $schedule->save();
             }
-
-            if ($reschedule->proposed_series_end_date) {
-                $schedule->series_end_date = $reschedule->proposed_series_end_date;
-            }
-
-            $schedule->save();
         }
 
         return redirect()->route('admin.gym-management.schedules')->with('success', 'Reschedule request updated.');
@@ -581,12 +595,29 @@ class ScheduleController extends Controller
 
     public function deleteRescheduleRequest($rescheduleId)
     {
-        $reschedule = ScheduleRescheduleRequest::findOrFail($rescheduleId);
+        $reschedule = ScheduleRescheduleRequest::with('schedule')->findOrFail($rescheduleId);
 
         if ((int) $reschedule->status !== 1) {
             return redirect()
                 ->route('admin.gym-management.schedules')
                 ->with('error', 'Only approved requests can be deleted.');
+        }
+
+        $schedule = $reschedule->schedule;
+        if ($schedule && $schedule->session_overrides) {
+            $currentOverrides = is_array($schedule->session_overrides)
+                ? $schedule->session_overrides
+                : json_decode($schedule->session_overrides ?? '[]', true);
+
+            $filtered = collect($currentOverrides)
+                ->filter(function ($override) use ($rescheduleId) {
+                    return (int) ($override['request_id'] ?? 0) !== (int) $rescheduleId;
+                })
+                ->values()
+                ->all();
+
+            $schedule->session_overrides = $filtered;
+            $schedule->save();
         }
 
         $reschedule->delete();
@@ -709,6 +740,77 @@ class ScheduleController extends Controller
         $filtered = array_values(array_intersect($daysMeta, $raw));
 
         return array_values(array_unique($filtered));
+    }
+
+    /**
+     * Merge a reschedule request into a schedule's session overrides.
+     *
+     * Each override keeps track of the original session date, the new date (or same date for time-only changes),
+     * and the times requested by the trainer.
+     */
+    private function mergeSessionOverrides(array $existingOverrides, ScheduleRescheduleRequest $reschedule): array
+    {
+        $normalizedExisting = collect($existingOverrides)
+            ->map(function ($item) {
+                if (is_array($item)) {
+                    return $item;
+                }
+                if (is_object($item)) {
+                    return (array) $item;
+                }
+                return [];
+            })
+            ->filter(function ($item) {
+                return isset($item['original_date']);
+            })
+            ->values()
+            ->all();
+
+        $targets = $reschedule->target_session_dates ?? [];
+        $proposed = $reschedule->proposed_session_dates ?? [];
+
+        foreach ($targets as $idx => $targetDate) {
+            $originalDate = $this->normalizeDateValue($targetDate);
+            if (!$originalDate) {
+                continue;
+            }
+
+            $replacement = $this->normalizeDateValue($proposed[$idx] ?? $targetDate) ?? $originalDate;
+
+            $overrideEntry = [
+                'original_date' => $originalDate,
+                'new_date' => $replacement,
+                'start_time' => $reschedule->proposed_start_time,
+                'end_time' => $reschedule->proposed_end_time,
+                'request_id' => $reschedule->id,
+                'notes' => $reschedule->notes,
+            ];
+
+            $existingIndex = collect($normalizedExisting)->search(function ($item) use ($originalDate) {
+                return isset($item['original_date']) && $item['original_date'] === $originalDate;
+            });
+
+            if ($existingIndex !== false) {
+                $normalizedExisting[$existingIndex] = array_merge($normalizedExisting[$existingIndex], $overrideEntry);
+            } else {
+                $normalizedExisting[] = $overrideEntry;
+            }
+        }
+
+        return array_values($normalizedExisting);
+    }
+
+    private function normalizeDateValue($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            return \Carbon\Carbon::parse($value)->toDateString();
+        } catch (\Throwable $th) {
+            return null;
+        }
     }
     
     // public function print(Request $request)

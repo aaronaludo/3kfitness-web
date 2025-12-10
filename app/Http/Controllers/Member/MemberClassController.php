@@ -435,6 +435,7 @@ class MemberClassController extends Controller
             'class_start_time' => $schedule->class_start_time,
             'class_end_time' => $schedule->class_end_time,
             'recurring_days' => $schedule->recurring_days,
+            'session_overrides' => $schedule->session_overrides,
             'class_status' => $status,
             'slots' => $schedule->slots,
             'user_schedules_count' => $joinedCount,

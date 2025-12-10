@@ -646,7 +646,7 @@
                             <div>
                                 <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Trainer cadence</span>
                                 <h5 class="fw-semibold mb-1">Reschedule requests</h5>
-                                <p class="text-muted mb-0">Trainers can propose a new cadence and time. Approving will update the class schedule automatically.</p>
+                                <p class="text-muted mb-0">Trainers can propose changes to specific sessions. Approving will update those sessions automatically.</p>
                             </div>
                             <div class="text-end d-flex flex-column align-items-end gap-2">
                                 <a
@@ -670,8 +670,8 @@
                                         <th>Class</th>
                                         <th>Trainer</th>
                                         <th>User Code</th>
-                                        <th>Requested cadence</th>
-                                        <th>Series window</th>
+                                        <th>Target sessions</th>
+                                        <th>Proposed slot</th>
                                         <th>Notes</th>
                                         <th>Status</th>
                                         <th>Actions</th>
@@ -701,6 +701,29 @@
                                             $seriesRange = $requestItem->proposed_series_start_date && $requestItem->proposed_series_end_date
                                                 ? $requestItem->proposed_series_start_date->format('M j, Y') . ' → ' . $requestItem->proposed_series_end_date->format('M j, Y')
                                                 : 'Keep existing';
+                                            $targetDates = collect($requestItem->target_session_dates ?? []);
+                                            $proposedDates = collect($requestItem->proposed_session_dates ?? []);
+                                            $targetDatesLabel = $targetDates->map(function ($date) {
+                                                try {
+                                                    return \Carbon\Carbon::parse($date)->format('M j, Y');
+                                                } catch (\Exception $e) {
+                                                    return $date;
+                                                }
+                                            })->implode(', ');
+                                            $proposedDatesLabel = $proposedDates->map(function ($date) {
+                                                try {
+                                                    return \Carbon\Carbon::parse($date)->format('M j, Y');
+                                                } catch (\Exception $e) {
+                                                    return $date;
+                                                }
+                                            })->implode(', ');
+                                            $targetSummary = $targetDates->count()
+                                                ? $targetDates->count() . ' selected'
+                                                : 'No sessions';
+                                            $proposedSummary = $proposedDates->count()
+                                                ? $proposedDates->count() . ' new date(s)'
+                                                : 'Same dates';
+                                            $timeWindowLabel = $formatRequestTime($requestItem->proposed_start_time) . ' - ' . $formatRequestTime($requestItem->proposed_end_time);
                                         @endphp
                                         <tr>
                                             <td>{{ $requestItem->id }}</td>
@@ -718,11 +741,13 @@
                                                 <span class="text-muted small">{{ $trainerCodeDisplay }}</span>
                                             </td>
                                             <td>
-                                                <div class="fw-semibold">{{ $dayList ?: '—' }}</div>
-                                                <div class="text-muted small">{{ $formatRequestTime($requestItem->proposed_start_time) }} - {{ $formatRequestTime($requestItem->proposed_end_time) }}</div>
+                                                <div class="fw-semibold">{{ $targetSummary }}</div>
+                                                <div class="text-muted small">{{ $targetDatesLabel ?: '—' }}</div>
                                             </td>
                                             <td>
-                                                <div>{{ $seriesRange }}</div>
+                                                <div class="fw-semibold">{{ $proposedSummary }}</div>
+                                                <div class="text-muted small">{{ $proposedDatesLabel ?: 'Same dates as selected' }}</div>
+                                                <div class="text-muted small">{{ $timeWindowLabel }}</div>
                                                 <div class="text-muted small">Requested {{ $requestItem->created_at ? $requestItem->created_at->format('M j, Y g:i A') : '' }}</div>
                                             </td>
                                             <td class="text-muted">
@@ -796,8 +821,8 @@
                                                                         <i class="fa-solid fa-calendar-check"></i>
                                                                     </div>
                                                                     <div class="flex-grow-1">
-                                                                        <div class="fw-semibold">Requested cadence</div>
-                                                                        <div class="text-muted small">{{ $dayList ?: 'The requested cadence' }}</div>
+                                                                        <div class="fw-semibold">Selected sessions</div>
+                                                                        <div class="text-muted small">{{ $targetDatesLabel ?: 'No sessions provided' }}</div>
                                                                     </div>
                                                                 </div>
                                                                 <div class="d-flex align-items-start gap-3 mb-3">
@@ -806,7 +831,7 @@
                                                                     </div>
                                                                     <div class="flex-grow-1">
                                                                         <div class="fw-semibold">Time</div>
-                                                                        <div class="text-muted small">{{ $formatRequestTime($requestItem->proposed_start_time) }} – {{ $formatRequestTime($requestItem->proposed_end_time) }}</div>
+                                                                        <div class="text-muted small">{{ $timeWindowLabel }}</div>
                                                                     </div>
                                                                 </div>
                                                                 <div class="d-flex align-items-start gap-3">
@@ -814,8 +839,8 @@
                                                                         <i class="fa-solid fa-repeat"></i>
                                                                     </div>
                                                                     <div class="flex-grow-1">
-                                                                        <div class="fw-semibold">Series window</div>
-                                                                        <div class="text-muted small">{{ $seriesRange }}</div>
+                                                                        <div class="fw-semibold">Move to</div>
+                                                                        <div class="text-muted small">{{ $proposedDatesLabel ?: 'Same dates as selected' }}</div>
                                                                     </div>
                                                                 </div>
                                                             </div>

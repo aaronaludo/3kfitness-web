@@ -273,7 +273,11 @@ class TrainerClassController extends Controller
         }
 
         $validated = $request->validate([
-            'recurring_days' => 'required',
+            'target_session_dates' => 'required|array|min:1',
+            'target_session_dates.*' => 'required|date',
+            'proposed_session_dates' => 'nullable|array',
+            'proposed_session_dates.*' => 'nullable|date',
+            'recurring_days' => 'nullable',
             'proposed_start_time' => 'required|date_format:H:i',
             'proposed_end_time' => 'required|date_format:H:i|after:proposed_start_time',
             'proposed_series_start_date' => 'nullable|date',
@@ -281,9 +285,56 @@ class TrainerClassController extends Controller
             'notes' => 'nullable|string|max:500',
         ]);
 
-        $recurringDays = $this->sanitizeRecurringDays($validated['recurring_days'] ?? []);
+        $targetSessions = $this->normalizeDateArray($validated['target_session_dates'] ?? []);
+        $proposedSessions = $this->normalizeDateArray($validated['proposed_session_dates'] ?? []);
+
+        if (empty($targetSessions)) {
+            return response()->json(['message' => 'Please choose at least one session from the series to reschedule.'], 422);
+        }
+
+        $seriesStart = $schedule->series_start_date
+            ? Carbon::parse($schedule->series_start_date)->startOfDay()
+            : ($schedule->class_start_date ? Carbon::parse($schedule->class_start_date)->startOfDay() : null);
+        $seriesEnd = $schedule->series_end_date
+            ? Carbon::parse($schedule->series_end_date)->endOfDay()
+            : ($schedule->class_end_date ? Carbon::parse($schedule->class_end_date)->endOfDay() : null);
+
+        if ($seriesStart && $seriesEnd) {
+            foreach ($targetSessions as $sessionDate) {
+                $sessionCarbon = Carbon::parse($sessionDate)->startOfDay();
+                if ($sessionCarbon->lt($seriesStart) || $sessionCarbon->gt($seriesEnd)) {
+                    return response()->json([
+                        'message' => 'One or more selected sessions are outside of this class series.',
+                    ], 422);
+                }
+            }
+        }
+
+        $resolvedProposed = [];
+        foreach ($targetSessions as $idx => $date) {
+            $resolvedProposed[] = $proposedSessions[$idx] ?? $date;
+        }
+
+        $recurringDaysInput = $validated['recurring_days'] ?? $schedule->recurring_days ?? [];
+        $recurringDays = $this->sanitizeRecurringDays($recurringDaysInput);
+
         if (empty($recurringDays)) {
-            return response()->json(['message' => 'Please provide at least one day to reschedule.'], 422);
+            $recurringDays = collect($resolvedProposed)
+                ->map(function ($date) {
+                    try {
+                        return strtolower(Carbon::parse($date)->format('D'));
+                    } catch (\Throwable $th) {
+                        return null;
+                    }
+                })
+                ->filter()
+                ->unique()
+                ->values()
+                ->all();
+        }
+
+        if (empty($recurringDays)) {
+            $recurringDays = $this->sanitizeRecurringDays($schedule->recurring_days ?? []);
         }
 
         $pending = ScheduleRescheduleRequest::where('schedule_id', $schedule->id)
@@ -303,6 +354,8 @@ class TrainerClassController extends Controller
             'proposed_end_time' => $validated['proposed_end_time'],
             'proposed_series_start_date' => $validated['proposed_series_start_date'] ?? null,
             'proposed_series_end_date' => $validated['proposed_series_end_date'] ?? null,
+            'target_session_dates' => $targetSessions,
+            'proposed_session_dates' => $resolvedProposed,
             'notes' => $validated['notes'] ?? null,
             'status' => 0,
         ]);
@@ -449,6 +502,34 @@ class TrainerClassController extends Controller
             'proposed_series_end_date' => $request->proposed_series_end_date
                 ? $request->proposed_series_end_date->toDateString()
                 : null,
+            'target_session_dates' => collect($request->target_session_dates ?? [])
+                ->map(function ($date) {
+                    if (!$date) {
+                        return null;
+                    }
+                    try {
+                        return Carbon::parse($date)->toDateString();
+                    } catch (\Throwable $th) {
+                        return $date;
+                    }
+                })
+                ->filter()
+                ->values()
+                ->all(),
+            'proposed_session_dates' => collect($request->proposed_session_dates ?? [])
+                ->map(function ($date) {
+                    if (!$date) {
+                        return null;
+                    }
+                    try {
+                        return Carbon::parse($date)->toDateString();
+                    } catch (\Throwable $th) {
+                        return $date;
+                    }
+                })
+                ->filter()
+                ->values()
+                ->all(),
             'notes' => $request->notes,
             'status' => (int) $request->status,
             'status_label' => $statusLabels[(int) $request->status] ?? 'Pending',
@@ -477,5 +558,33 @@ class TrainerClassController extends Controller
         $filtered = array_values(array_intersect($daysMeta, $raw));
 
         return array_values(array_unique($filtered));
+    }
+
+    /**
+     * Normalize an array of date-like values into Y-m-d strings.
+     */
+    private function normalizeDateArray($raw): array
+    {
+        if (is_string($raw)) {
+            $decoded = json_decode($raw, true);
+            $raw = json_last_error() === JSON_ERROR_NONE ? $decoded : explode(',', $raw);
+        }
+
+        if (!is_array($raw)) {
+            return [];
+        }
+
+        return collect($raw)
+            ->map(function ($value) {
+                try {
+                    return Carbon::parse($value)->toDateString();
+                } catch (\Throwable $th) {
+                    return null;
+                }
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->all();
     }
 }

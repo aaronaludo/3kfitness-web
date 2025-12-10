@@ -17,6 +17,8 @@ class ScheduleRescheduleRequest extends Model
         'proposed_end_time',
         'proposed_series_start_date',
         'proposed_series_end_date',
+        'target_session_dates',
+        'proposed_session_dates',
         'notes',
         'admin_comment',
         'status',
@@ -28,6 +30,8 @@ class ScheduleRescheduleRequest extends Model
         'recurring_days' => 'array',
         'proposed_series_start_date' => 'date',
         'proposed_series_end_date' => 'date',
+        'target_session_dates' => 'array',
+        'proposed_session_dates' => 'array',
         'responded_at' => 'datetime',
     ];
 

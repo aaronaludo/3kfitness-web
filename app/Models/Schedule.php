@@ -11,6 +11,7 @@ class Schedule extends Model
     
     protected $casts = [
         'recurring_days' => 'array',
+        'session_overrides' => 'array',
     ];
     
     public function user()
