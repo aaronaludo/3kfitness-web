@@ -400,14 +400,21 @@ class MemberClassController extends Controller
             $availableSlots = max($schedule->slots - $joinedCount, 0);
         }
 
+        $trainer = $schedule->user;
+        $trainerIsArchived = (int) optional($trainer)->is_archive === 1;
+
         $trainerName = 'Trainer details pending';
         if ((int) $schedule->trainer_id === 0) {
             $trainerName = 'No trainer assigned yet';
-        } elseif ($schedule->user) {
+        } elseif ($trainer) {
             $trainerName = trim(collect([
-                $schedule->user->first_name ?? null,
-                $schedule->user->last_name ?? null,
+                $trainer->first_name ?? null,
+                $trainer->last_name ?? null,
             ])->filter()->implode(' '));
+        }
+
+        if ($trainerIsArchived) {
+            $trainerName = '';
         }
 
         return [
@@ -429,6 +436,7 @@ class MemberClassController extends Controller
             'trainer_id' => $schedule->trainer_id,
             'trainer_name' => $trainerName,
             'trainer' => $trainerName,
+            'trainer_is_archived' => $trainerIsArchived ? 1 : 0,
             'type' => $type,
             'is_joined' => $isJoined,
             'isadminapproved' => (int) $schedule->isadminapproved,

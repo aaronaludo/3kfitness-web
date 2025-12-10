@@ -376,8 +376,16 @@
                                         <select class="form-control" id="trainer_id" name="trainer_id" required>
                                             <option value="0" {{ (string) $selectedTrainerId === '0' ? 'selected' : '' }}>No Trainer for Now</option>
                                             @foreach($trainers as $trainer)
-                                                <option value="{{ $trainer->id }}" {{ (string) $selectedTrainerId === (string) $trainer->id ? 'selected' : '' }}>
-                                                    {{ $trainer->first_name . ' ' . $trainer->last_name }}
+                                                @php
+                                                    $trainerIsArchived = (int) ($trainer->is_archive ?? 0) === 1;
+                                                    $trainerName = trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? ''));
+                                                @endphp
+                                                <option
+                                                    value="{{ $trainer->id }}"
+                                                    data-archived="{{ $trainerIsArchived ? '1' : '0' }}"
+                                                    {{ (string) $selectedTrainerId === (string) $trainer->id ? 'selected' : '' }}
+                                                >
+                                                    {{ $trainerName }}
                                                 </option>
                                             @endforeach
                                         </select>
@@ -568,7 +576,11 @@
 
         const populateConfirmation = () => {
             confirmName.textContent = nameInput?.value?.trim() || '—';
-            confirmTrainer.textContent = trainerSelect?.options[trainerSelect.selectedIndex]?.text || '—';
+            const selectedOption = trainerSelect?.options[trainerSelect.selectedIndex];
+            const isArchivedTrainer = selectedOption?.dataset?.archived === '1';
+            confirmTrainer.textContent = isArchivedTrainer
+                ? '—'
+                : (selectedOption?.text || '—');
             confirmSlots.textContent = slotsInput?.value || '—';
             const daysReadable = Array.from(selectedDays)
                 .sort((a, b) => dayIndexMap[a] - dayIndexMap[b])

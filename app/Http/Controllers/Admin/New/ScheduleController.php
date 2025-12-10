@@ -305,7 +305,7 @@ class ScheduleController extends Controller
     public function edit($id)
     {
         $data = Schedule::findOrFail($id);
-        $trainers = User::where('role_id', 5)->get();
+        $trainers = User::where('role_id', 5)->where('is_archive', 0)->get();
         $rescheduleRequests = ScheduleRescheduleRequest::with(['trainer'])
             ->where('schedule_id', $id)
             ->orderBy('created_at', 'desc')

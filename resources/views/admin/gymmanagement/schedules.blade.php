@@ -38,9 +38,12 @@
                         ($item->isadminapproved == 1 ? 'Approve' :
                         ($item->isadminapproved == 2 ? 'Reject' : ''));
 
+                    $trainer = optional($item->user);
+                    $trainerIsArchived = (int) ($trainer->is_archive ?? 0) === 1;
                     $trainerName = $item->trainer_id == 0
                         ? 'No Trainer for now'
-                        : trim((optional($item->user)->first_name ?? '') . ' ' . (optional($item->user)->last_name ?? ''));
+                        : trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? ''));
+                    $trainerDisplayName = $trainerIsArchived ? '' : ($trainerName ?: '—');
 
                     $timeRange = $item->class_start_time && $item->class_end_time
                         ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
@@ -50,7 +53,7 @@
                         'id' => $item->id,
                         'name' => $item->name,
                         'class_code' => $item->class_code,
-                        'trainer' => $trainerName ?: '—',
+                        'trainer' => $trainerDisplayName,
                         'trainer_rate' => $item->trainer_rate_per_hour !== null
                             ? number_format((float) $item->trainer_rate_per_hour, 2)
                             : null,
@@ -102,9 +105,12 @@
                         ($item->isadminapproved == 1 ? 'Approve' :
                         ($item->isadminapproved == 2 ? 'Reject' : ''));
 
+                    $trainer = optional($item->user);
+                    $trainerIsArchived = (int) ($trainer->is_archive ?? 0) === 1;
                     $trainerName = $item->trainer_id == 0
                         ? 'No Trainer for now'
-                        : trim((optional($item->user)->first_name ?? '') . ' ' . (optional($item->user)->last_name ?? ''));
+                        : trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? ''));
+                    $trainerDisplayName = $trainerIsArchived ? '' : ($trainerName ?: '—');
 
                     $timeRange = $item->class_start_time && $item->class_end_time
                         ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
@@ -114,7 +120,7 @@
                         'id' => $item->id,
                         'name' => $item->name,
                         'class_code' => $item->class_code,
-                        'trainer' => $trainerName ?: '—',
+                        'trainer' => $trainerDisplayName,
                         'trainer_rate' => $item->trainer_rate_per_hour !== null
                             ? number_format((float) $item->trainer_rate_per_hour, 2)
                             : null,
@@ -682,6 +688,13 @@
                                             $statusMeta = $statusMap[$requestItem->status] ?? $statusMap[0];
                                             $classItem = $requestItem->schedule;
                                             $trainer = $requestItem->trainer;
+                                            $trainerIsArchived = (int) (optional($trainer)->is_archive ?? 0) === 1;
+                                            $trainerDisplay = $trainerIsArchived
+                                                ? ''
+                                                : ($trainer ? ($trainer->first_name . ' ' . $trainer->last_name) : 'Trainer');
+                                            $trainerCodeDisplay = ($trainer && ! $trainerIsArchived)
+                                                ? ($trainer->user_code ?? '—')
+                                                : '—';
                                             $dayList = collect($requestItem->recurring_days ?? [])->map(function ($d) use ($weekdayLookup) {
                                                 return $weekdayLookup[$d] ?? ucfirst($d);
                                             })->implode(', ');
@@ -696,13 +709,13 @@
                                                 <div class="text-muted small">{{ $classItem->class_code ?? '' }}</div>
                                             </td>
                                             <td>
-                                                {{ $trainer ? ($trainer->first_name . ' ' . $trainer->last_name) : 'Trainer' }}
-                                                @if($trainer && $trainer->email)
+                                                {{ $trainerDisplay }}
+                                                @if($trainer && $trainer->email && ! $trainerIsArchived)
                                                     <div class="text-muted small">{{ $trainer->email }}</div>
                                                 @endif
                                             </td>
                                             <td>
-                                                <span class="text-muted small">{{ optional($trainer)->user_code ?? '—' }}</span>
+                                                <span class="text-muted small">{{ $trainerCodeDisplay }}</span>
                                             </td>
                                             <td>
                                                 <div class="fw-semibold">{{ $dayList ?: '—' }}</div>
@@ -1051,6 +1064,16 @@
                                                     $scheduleStatus = 'Completed';
                                                     $scheduleBadgeClass = 'bg-success';
                                                 }
+
+                                                $trainer = optional($item->user);
+                                                $isTrainerArchived = (int) ($trainer->is_archive ?? 0) === 1;
+                                                $trainerName = $item->trainer_id == 0
+                                                    ? 'No Trainer for now'
+                                                    : trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? ''));
+                                                $trainerDisplay = $isTrainerArchived ? '' : $trainerName;
+                                                $trainerCodeDisplay = ($item->trainer_id == 0 || $isTrainerArchived)
+                                                    ? '—'
+                                                    : ($trainer->user_code ?? '—');
                                             @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
@@ -1059,11 +1082,11 @@
                                                     <div class="text-muted small">{{ $item->class_code }}</div>
                                                 </td>
                                                 <td>
-                                                    {{ $item->trainer_id == 0 ? 'No Trainer for now' : optional($item->user)->first_name .' '. optional($item->user)->last_name }}
+                                                    {{ $trainerDisplay }}
                                                 </td>
                                                 <td>
                                                     <span class="text-muted small">
-                                                        {{ $item->trainer_id == 0 ? '—' : (optional($item->user)->user_code ?? '—') }}
+                                                        {{ $trainerCodeDisplay }}
                                                     </span>
                                                 </td>
                                                 <td class="small">
@@ -1389,12 +1412,18 @@
                                                 @php
                                                     $archiveStart = $archive->class_start_date ? \Carbon\Carbon::parse($archive->class_start_date) : null;
                                                     $archiveEnd = $archive->class_end_date ? \Carbon\Carbon::parse($archive->class_end_date) : null;
+                                                    $archiveTrainer = optional($archive->user);
+                                                    $archiveTrainerArchived = (int) ($archiveTrainer->is_archive ?? 0) === 1;
+                                                    $archiveTrainerName = $archive->trainer_id == 0
+                                                        ? 'No Trainer for now'
+                                                        : trim(($archiveTrainer->first_name ?? '') . ' ' . ($archiveTrainer->last_name ?? ''));
+                                                    $archiveTrainerDisplay = $archiveTrainerArchived ? '' : $archiveTrainerName;
                                                 @endphp
                                                 <tr>
                                                     <td>{{ $archive->id }}</td>
                                                     <td>{{ $archive->name }}</td>
                                                     <td>{{ $archive->class_code }}</td>
-                                                    <td>{{ $archive->trainer_id == 0 ? 'No Trainer for now' : optional($archive->user)->first_name .' '. optional($archive->user)->last_name }}</td>
+                                                    <td>{{ $archiveTrainerDisplay }}</td>
                                                     <td>
                                                         @if($archive->trainer_id == 0 || is_null($archive->trainer_rate_per_hour))
                                                             —

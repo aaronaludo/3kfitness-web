@@ -22,16 +22,25 @@ class TrainerClassController extends Controller
             })
             ->get()
             ->map(function ($class) {
-            $class->trainer = 'No Trainer';
-            $class->type = 'availableclasses';
-            return $class;
-        });
+                $class->trainer = 'No Trainer';
+                $class->trainer_name = 'No Trainer';
+                $class->trainer_is_archived = 0;
+                $class->type = 'availableclasses';
+                return $class;
+            });
         
         $myclasses = Schedule::where('trainer_id', $user->id)
             ->where('istrainerapproved', '!=', 0)
             ->get()
             ->map(function ($class) {
-                $class->trainer = ($class->trainer_id == 0) ? 'No Trainer' : ($class->user->first_name . ' ' . $class->user->last_name);
+                $trainerIsArchived = (int) optional($class->user)->is_archive === 1;
+                $trainerName = ($class->trainer_id == 0)
+                    ? 'No Trainer'
+                    : ($class->user->first_name . ' ' . $class->user->last_name);
+
+                $class->trainer = $trainerIsArchived ? '' : $trainerName;
+                $class->trainer_name = $class->trainer;
+                $class->trainer_is_archived = $trainerIsArchived ? 1 : 0;
                 $class->type = 'myclasses';
                 return $class;
             });
@@ -40,7 +49,14 @@ class TrainerClassController extends Controller
             ->where('istrainerapproved', 0)
             ->get()
             ->map(function ($class) {
-                $class->trainer = ($class->trainer_id == 0) ? 'No Trainer' : ($class->user->first_name . ' ' . $class->user->last_name);
+                $trainerIsArchived = (int) optional($class->user)->is_archive === 1;
+                $trainerName = ($class->trainer_id == 0)
+                    ? 'No Trainer'
+                    : ($class->user->first_name . ' ' . $class->user->last_name);
+
+                $class->trainer = $trainerIsArchived ? '' : $trainerName;
+                $class->trainer_name = $class->trainer;
+                $class->trainer_is_archived = $trainerIsArchived ? 1 : 0;
                 $class->type = 'classesassignbyadmin';
                 return $class;
             });
@@ -61,7 +77,14 @@ class TrainerClassController extends Controller
                 $query->whereNull('class_start_date')
                     ->orWhere('class_start_date', '>=', $now);
             })
-            ->get();
+            ->get()
+            ->map(function ($class) {
+                $class->trainer = 'No Trainer';
+                $class->trainer_name = 'No Trainer';
+                $class->trainer_is_archived = 0;
+                $class->type = 'availableclasses';
+                return $class;
+            });
         
         if (!$data) {
             return response()->json(['message' => 'Class is Empty']);
@@ -72,7 +95,21 @@ class TrainerClassController extends Controller
     
     public function myclasses(Request $request){
         $user = $request->user();
-        $data = Schedule::where('trainer_id', $user->id)->where('istrainerapproved', '!=', 0)->get();
+        $data = Schedule::where('trainer_id', $user->id)
+            ->where('istrainerapproved', '!=', 0)
+            ->get()
+            ->map(function ($class) {
+                $trainerIsArchived = (int) optional($class->user)->is_archive === 1;
+                $trainerName = ($class->trainer_id == 0)
+                    ? 'No Trainer'
+                    : ($class->user->first_name . ' ' . $class->user->last_name);
+
+                $class->trainer = $trainerIsArchived ? '' : $trainerName;
+                $class->trainer_name = $class->trainer;
+                $class->trainer_is_archived = $trainerIsArchived ? 1 : 0;
+                $class->type = 'myclasses';
+                return $class;
+            });
         
         if (!$data) {
             return response()->json(['message' => 'Class is Empty']);
@@ -83,7 +120,21 @@ class TrainerClassController extends Controller
 
     public function myclassesbyadmin(Request $request){
         $user = $request->user();
-        $data = Schedule::where('trainer_id', $user->id)->where('istrainerapproved', 0)->get();
+        $data = Schedule::where('trainer_id', $user->id)
+            ->where('istrainerapproved', 0)
+            ->get()
+            ->map(function ($class) {
+                $trainerIsArchived = (int) optional($class->user)->is_archive === 1;
+                $trainerName = ($class->trainer_id == 0)
+                    ? 'No Trainer'
+                    : ($class->user->first_name . ' ' . $class->user->last_name);
+
+                $class->trainer = $trainerIsArchived ? '' : $trainerName;
+                $class->trainer_name = $class->trainer;
+                $class->trainer_is_archived = $trainerIsArchived ? 1 : 0;
+                $class->type = 'classesassignbyadmin';
+                return $class;
+            });
         $dataCount = Schedule::where('trainer_id', $user->id)->where('istrainerapproved', 0)->count();
         
         if (!$data) {
