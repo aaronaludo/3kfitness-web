@@ -394,7 +394,7 @@
                                                             <input type="hidden" name="id" value="{{ $item->id }}">
                                                             <div class="modal-body pt-3">
                                                                 <div class="alert alert-danger bg-opacity-10 text-danger border-0 rounded-3">
-                                                                    Archiving will move this membership to the archived list. You can restore it later if needed.
+                                                                    Archiving will move this membership to the archived list and remove it from all members who currently have it. You can restore the plan later, but members will no longer keep this assignment once archived.
                                                                 </div>
                                                                 <label class="form-label fw-semibold mt-2">Confirm with your password</label>
                                                                 <div class="input-group">
