@@ -471,6 +471,7 @@ class MemberDataController extends Controller
         }
         
         $data = User::where('role_id', 3)->findOrFail($request->id);
+        $hasPaymentArchiveColumn = Schema::hasColumn('membership_payments', 'is_archive');
         $memberName = trim(sprintf('%s %s', $data->first_name ?? '', $data->last_name ?? ''));
         $memberLabel = $memberName !== ''
             ? sprintf('#%d (%s)', $data->id, $memberName)
@@ -489,8 +490,15 @@ class MemberDataController extends Controller
             $message = 'Gym member deleted permanently';
             $this->logAdminActivity("deleted gym member {$memberLabel} permanently");
         } else {
-            $data->is_archive = 1;
-            $data->save();
+            DB::transaction(function () use ($data, $hasPaymentArchiveColumn) {
+                if ($hasPaymentArchiveColumn) {
+                    MembershipPayment::where('user_id', $data->id)->update(['is_archive' => 1]);
+                }
+
+                $data->is_archive = 1;
+                $data->save();
+            });
+
             $message = 'Gym member moved to archive';
             $this->logAdminActivity("archived gym member {$memberLabel}");
         }
@@ -516,6 +524,7 @@ class MemberDataController extends Controller
         }
 
         $data = User::where('role_id', 3)->findOrFail($request->id);
+        $hasPaymentArchiveColumn = Schema::hasColumn('membership_payments', 'is_archive');
         $memberName = trim(sprintf('%s %s', $data->first_name ?? '', $data->last_name ?? ''));
         $memberLabel = $memberName !== ''
             ? sprintf('#%d (%s)', $data->id, $memberName)
@@ -525,8 +534,14 @@ class MemberDataController extends Controller
             return redirect()->route('admin.gym-management.members')->with('success', 'Gym member is already active');
         }
 
-        $data->is_archive = 0;
-        $data->save();
+        DB::transaction(function () use ($data, $hasPaymentArchiveColumn) {
+            $data->is_archive = 0;
+            $data->save();
+
+            if ($hasPaymentArchiveColumn) {
+                MembershipPayment::where('user_id', $data->id)->update(['is_archive' => 0]);
+            }
+        });
 
         $this->logAdminActivity("restored gym member {$memberLabel}");
 
@@ -564,6 +579,7 @@ class MemberDataController extends Controller
         }
 
         $now = Carbon::now();
+        $hasPaymentArchiveColumn = Schema::hasColumn('membership_payments', 'is_archive');
 
         $allowedColumns = [
             'id', 'user_code', 'name', 'first_name', 'last_name', 'phone_number', 'email', 'created_at', 'updated_at',

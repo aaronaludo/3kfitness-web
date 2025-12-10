@@ -702,7 +702,7 @@
                                                 $archiveUpdated = $archive->updated_at ? \Carbon\Carbon::parse($archive->updated_at) : null;
                                             @endphp
                                             <tr>
-                                                <td>{{ $archiveRowNumber ?: $loop->iteration }}</td>
+                                                <td>{{ $archive->id }}</td>
                                                 <td>{{ optional($archive->user)->first_name }} {{ optional($archive->user)->last_name }}</td>
                                                 <td><span class="text-muted small">{{ optional($archive->user)->user_code ?? '—' }}</span></td>
                                                 <td>{{ optional($archive->membership)->name }}</td>

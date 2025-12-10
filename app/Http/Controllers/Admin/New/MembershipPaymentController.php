@@ -189,6 +189,11 @@ class MembershipPaymentController extends Controller
         }
 
         $parentMembership = $data->membership;
+        $parentUser = $data->user;
+
+        if ($parentUser && (int) $parentUser->is_archive === 1) {
+            return redirect()->back()->with('error', 'Cannot restore this payment while its member is archived. Restore the member first.');
+        }
         if ($parentMembership && (int) $parentMembership->is_archive === 1) {
             return redirect()->back()->with('error', 'Cannot restore this payment while its membership is archived. Restore the membership first.');
         }
