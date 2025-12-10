@@ -188,6 +188,11 @@ class MembershipPaymentController extends Controller
             return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership payment is already active');
         }
 
+        $parentMembership = $data->membership;
+        if ($parentMembership && (int) $parentMembership->is_archive === 1) {
+            return redirect()->back()->with('error', 'Cannot restore this payment while its membership is archived. Restore the membership first.');
+        }
+
         $data->is_archive = 0;
         $data->save();
 

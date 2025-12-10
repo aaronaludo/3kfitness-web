@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin\New;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\Membership;
+use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
@@ -228,8 +229,15 @@ class MembershipController extends Controller
             $message = 'Membership deleted permanently';
             $this->logAdminActivity("deleted membership {$membershipLabel} permanently");
         } else {
-            $data->is_archive = 1;
-            $data->save();
+            DB::transaction(function () use ($data) {
+                $data->is_archive = 1;
+                $data->save();
+
+                // Keep membership payments in sync with the archived membership.
+                $data->membershipPayments()
+                    ->where('is_archive', 0)
+                    ->update(['is_archive' => 1]);
+            });
             $message = 'Membership moved to archive';
             $this->logAdminActivity("archived membership {$membershipLabel}");
         }
