@@ -220,6 +220,7 @@
                                                 ? round((float) $run->gross_pay / max((float) $run->total_hours, 0.01), 2)
                                                 : null;
                                             $isTrainer = optional($staff)->role_id === 5;
+                                            $payslipDetail = $payslipDetails[$run->id] ?? ['entries' => [], 'assignments' => []];
                                             $payslipData = [
                                                 'type' => $isTrainer ? 'trainer' : 'staff',
                                                 'name' => $name,
@@ -235,8 +236,8 @@
                                                     'pagibig' => (float) ($run->deduction_pagibig ?? 0),
                                                     'app_cut' => (float) ($run->deduction_app_cut ?? 0),
                                                 ],
-                                                'entries' => [],
-                                                'assignments' => [],
+                                                'entries' => $payslipDetail['entries'] ?? [],
+                                                'assignments' => $payslipDetail['assignments'] ?? [],
                                             ];
                                         @endphp
                                         <tr>
