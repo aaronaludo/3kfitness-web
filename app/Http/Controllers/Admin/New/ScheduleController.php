@@ -11,6 +11,8 @@ use App\Models\ScheduleRescheduleRequest;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Support\Collection;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Carbon\Carbon;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\IOFactory;
@@ -209,33 +211,37 @@ class ScheduleController extends Controller
                 ->where('is_archieve', 0)
         );
 
-        $printAllActive = (clone $activeQuery)
-            ->orderBy('created_at', 'desc')
-            ->get()
-            ->map($mapSchedule);
-
-        $data = (clone $activeQuery)
-            ->orderBy('created_at', 'desc')
-            ->paginate(10)
-            ->appends($queryParamsWithoutArchivePage)
-            ->through($mapSchedule);
-
         $archivedQuery = $applyFilters(
             Schedule::with(['activeUserSchedules.user', 'user'])
                 ->withActiveEnrollmentCount()
                 ->where('is_archieve', 1)
         );
 
-        $printAllArchived = (clone $archivedQuery)
+        $shouldSortBySession = in_array($status, ['upcoming', 'ongoing', 'completed', 'active'], true);
+
+        $activeCollection = (clone $activeQuery)
             ->orderBy('created_at', 'desc')
             ->get()
             ->map($mapSchedule);
 
-        $archivedData = (clone $archivedQuery)
+        $archivedCollection = (clone $archivedQuery)
             ->orderBy('created_at', 'desc')
-            ->paginate(10, ['*'], 'archive_page')
-            ->appends($queryParamsWithoutMainPage)
-            ->through($mapSchedule);
+            ->get()
+            ->map($mapSchedule);
+
+        if ($shouldSortBySession) {
+            $activeCollection = $this->sortSchedulesByNearestSession($activeCollection, $status, $now);
+            $archivedCollection = $this->sortSchedulesByNearestSession($archivedCollection, $status, $now);
+        } else {
+            $activeCollection = $activeCollection->values();
+            $archivedCollection = $archivedCollection->values();
+        }
+
+        $printAllActive = $activeCollection->values();
+        $data = $this->paginateCollection($activeCollection, 10, 'page', $queryParamsWithoutArchivePage);
+
+        $printAllArchived = $archivedCollection->values();
+        $archivedData = $this->paginateCollection($archivedCollection, 10, 'archive_page', $queryParamsWithoutMainPage);
 
         $pendingRescheduleRequests = ScheduleRescheduleRequest::with(['schedule', 'trainer'])
             ->orderBy('created_at', 'desc')
@@ -740,6 +746,148 @@ class ScheduleController extends Controller
         $filtered = array_values(array_intersect($daysMeta, $raw));
 
         return array_values(array_unique($filtered));
+    }
+
+    /**
+     * Order a list of schedules by the closest relevant session date.
+     */
+    private function sortSchedulesByNearestSession(Collection $collection, string $status, Carbon $now): Collection
+    {
+        $normalizedStatus = $status === 'active' ? 'ongoing' : $status;
+
+        if ($normalizedStatus === 'completed') {
+            return $collection
+                ->sortByDesc(function ($schedule) {
+                    $last = $this->computeLastSessionEnd($schedule);
+                    return $last ? $last->getTimestamp() : 0;
+                })
+                ->values();
+        }
+
+        return $collection
+            ->sortBy(function ($schedule) use ($now) {
+                $next = $this->computeNextSessionStart($schedule, $now);
+                return $next ? $next->getTimestamp() : PHP_INT_MAX;
+            })
+            ->values();
+    }
+
+    /**
+     * Find the next session start (upcoming or ongoing) for a schedule.
+     */
+    private function computeNextSessionStart(Schedule $schedule, Carbon $now): ?Carbon
+    {
+        $seriesStart = $schedule->series_start_date
+            ? Carbon::parse($schedule->series_start_date)->startOfDay()
+            : ($schedule->class_start_date ? Carbon::parse($schedule->class_start_date)->startOfDay() : null);
+        $seriesEnd = $schedule->series_end_date
+            ? Carbon::parse($schedule->series_end_date)->endOfDay()
+            : ($schedule->class_end_date ? Carbon::parse($schedule->class_end_date)->endOfDay() : null);
+
+        $recurringDayKeys = $this->sanitizeRecurringDays($schedule->recurring_days ?? []);
+
+        if ($seriesStart && $seriesEnd && count($recurringDayKeys)) {
+            $cursor = $now->copy()->startOfDay();
+            if ($cursor->lt($seriesStart)) {
+                $cursor = $seriesStart->copy();
+            }
+
+            while ($cursor->lte($seriesEnd)) {
+                $dayKey = strtolower(substr($cursor->format('D'), 0, 3));
+                if (in_array($dayKey, $recurringDayKeys, true)) {
+                    $sessionStart = $schedule->class_start_time
+                        ? $cursor->copy()->setTimeFromTimeString($schedule->class_start_time)
+                        : $cursor->copy()->startOfDay();
+                    $sessionEnd = $schedule->class_end_time
+                        ? $cursor->copy()->setTimeFromTimeString($schedule->class_end_time)
+                        : $cursor->copy()->endOfDay();
+
+                    if ($now->lte($sessionEnd)) {
+                        return $sessionStart;
+                    }
+                }
+
+                $cursor->addDay();
+            }
+        }
+
+        if ($schedule->class_start_date) {
+            try {
+                $start = Carbon::parse($schedule->class_start_date);
+                if ($schedule->class_start_time) {
+                    $start->setTimeFromTimeString($schedule->class_start_time);
+                }
+                return $start;
+            } catch (\Throwable $th) {
+                return null;
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Find the last session end for a schedule (used to order completed items).
+     */
+    private function computeLastSessionEnd(Schedule $schedule): ?Carbon
+    {
+        try {
+            if ($schedule->series_end_date) {
+                $end = Carbon::parse($schedule->series_end_date);
+                if ($schedule->class_end_time) {
+                    $end->setTimeFromTimeString($schedule->class_end_time);
+                } else {
+                    $end->endOfDay();
+                }
+                return $end;
+            }
+
+            if ($schedule->class_end_date) {
+                $end = Carbon::parse($schedule->class_end_date);
+                if ($schedule->class_end_time) {
+                    $end->setTimeFromTimeString($schedule->class_end_time);
+                } else {
+                    $end->endOfDay();
+                }
+                return $end;
+            }
+
+            if ($schedule->class_start_date) {
+                $end = Carbon::parse($schedule->class_start_date);
+                if ($schedule->class_end_time) {
+                    $end->setTimeFromTimeString($schedule->class_end_time);
+                } elseif ($schedule->class_start_time) {
+                    $end->setTimeFromTimeString($schedule->class_start_time);
+                }
+                return $end;
+            }
+        } catch (\Throwable $th) {
+            return null;
+        }
+
+        return null;
+    }
+
+    /**
+     * Paginate an in-memory collection while keeping query string parameters.
+     */
+    private function paginateCollection(Collection $collection, int $perPage, string $pageName, array $queryParams): LengthAwarePaginator
+    {
+        $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+        $items = $collection->forPage($page, $perPage)->values();
+
+        $paginator = new LengthAwarePaginator(
+            $items,
+            $collection->count(),
+            $perPage,
+            $page,
+            [
+                'pageName' => $pageName,
+                'path' => LengthAwarePaginator::resolveCurrentPath(),
+            ]
+        );
+
+        return $paginator->appends($queryParams);
     }
 
     /**

@@ -86,64 +86,46 @@
             return strtolower($d);
         })->toArray();
         $sessionOccurrences = [];
-        $maxSessions = 6;
-        $hasMoreSessions = false;
         $nowSession = now();
-        $hasOngoingSession = false;
-        $hasFutureSession = false;
         $sessionTimeLabel = $data->class_start_time && $data->class_end_time
             ? \Carbon\Carbon::parse($data->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($data->class_end_time)->format('g:i A')
             : ($data->class_start_time ? \Carbon\Carbon::parse($data->class_start_time)->format('g:i A') : null);
 
         if ($seriesStart && $seriesEnd && count($recurringDayKeys)) {
             $cursor = $seriesStart->copy()->startOfDay();
-            $occurrenceCount = 0;
             while ($cursor->lte($seriesEnd)) {
                 $dayKey = strtolower(substr($cursor->format('D'), 0, 3));
                 if (in_array($dayKey, $recurringDayKeys, true)) {
-                    $occurrenceCount++;
-                    if (count($sessionOccurrences) < $maxSessions) {
-                        $sessionStart = $data->class_start_time
-                            ? $cursor->copy()->setTimeFromTimeString($data->class_start_time)
-                            : $cursor->copy()->startOfDay();
-                        $sessionEnd = $data->class_end_time
-                            ? $cursor->copy()->setTimeFromTimeString($data->class_end_time)
-                            : $cursor->copy()->endOfDay();
+                    $sessionStart = $data->class_start_time
+                        ? $cursor->copy()->setTimeFromTimeString($data->class_start_time)
+                        : $cursor->copy()->startOfDay();
+                    $sessionEnd = $data->class_end_time
+                        ? $cursor->copy()->setTimeFromTimeString($data->class_end_time)
+                        : $cursor->copy()->endOfDay();
 
-                        $sessionStatus = 'Upcoming';
-                        if ($nowSession->between($sessionStart, $sessionEnd, true)) {
-                            $sessionStatus = 'Ongoing';
-                            $hasOngoingSession = true;
-                        } elseif ($nowSession->gt($sessionEnd)) {
-                            $sessionStatus = 'Completed';
-                        } else {
-                            $hasFutureSession = true;
-                        }
-
-                        $statusClass = 'bg-secondary';
-                        if ($sessionStatus === 'Upcoming') {
-                            $statusClass = 'bg-warning text-dark';
-                        } elseif ($sessionStatus === 'Ongoing') {
-                            $statusClass = 'bg-info text-dark';
-                        } elseif ($sessionStatus === 'Completed') {
-                            $statusClass = 'bg-success';
-                        }
-
-                        $sessionOccurrences[] = [
-                            'label' => $cursor->format('M j, Y'),
-                            'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
-                            'time' => $sessionTimeLabel,
-                            'status' => $sessionStatus,
-                            'status_class' => $statusClass,
-                        ];
+                    $sessionStatus = 'Upcoming';
+                    if ($nowSession->between($sessionStart, $sessionEnd, true)) {
+                        $sessionStatus = 'Ongoing';
+                    } elseif ($nowSession->gt($sessionEnd)) {
+                        $sessionStatus = 'Completed';
                     }
 
-                    if ($occurrenceCount >= $maxSessions && $cursor->lt($seriesEnd)) {
-                        $hasMoreSessions = true;
-                        if ($hasOngoingSession || $hasFutureSession) {
-                            break;
-                        }
+                    $statusClass = 'bg-secondary';
+                    if ($sessionStatus === 'Upcoming') {
+                        $statusClass = 'bg-warning text-dark';
+                    } elseif ($sessionStatus === 'Ongoing') {
+                        $statusClass = 'bg-info text-dark';
+                    } elseif ($sessionStatus === 'Completed') {
+                        $statusClass = 'bg-success';
                     }
+
+                    $sessionOccurrences[] = [
+                        'label' => $cursor->format('M j, Y'),
+                        'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
+                        'time' => $sessionTimeLabel,
+                        'status' => $sessionStatus,
+                        'status_class' => $statusClass,
+                    ];
                 }
 
                 $cursor->addDay();
@@ -375,9 +357,6 @@
                             </div>
                         </div>
                     @endforeach
-                    @if($hasMoreSessions)
-                        <div class="text-muted small">More sessions in this series…</div>
-                    @endif
                 </div>
             @else
                 <div class="text-muted">No sessions generated yet. Add a series window and cadence to preview occurrences.</div>
