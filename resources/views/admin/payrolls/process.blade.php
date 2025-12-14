@@ -46,6 +46,58 @@
             </div>
 
             <div class="col-12 mb-3">
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-4">
+                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+                            <div>
+                                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Processing blueprint</span>
+                                <h4 class="fw-semibold mb-1">What gets paid in this run</h4>
+                                <p class="text-muted mb-0">Staff payroll is driven by Attendance clock-ins/outs, while trainer payroll is driven by class schedules with attendance per session.</p>
+                            </div>
+                            <div class="text-end">
+                                <span class="badge bg-dark text-white rounded-pill px-3 py-2">{{ $monthLabel }}</span>
+                                <div class="text-muted small">Use this as your source-of-truth before processing.</div>
+                            </div>
+                        </div>
+                        <div class="row g-3">
+                            <div class="col-12 col-md-6">
+                                <div class="border rounded-4 p-3 h-100 bg-light-subtle">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge bg-danger text-white rounded-circle p-2"><i class="fa-solid fa-user-clock"></i></span>
+                                        <div>
+                                            <div class="text-muted small text-uppercase fw-semibold">Staff payroll</div>
+                                            <div class="fw-semibold">Attendance-based payouts</div>
+                                        </div>
+                                    </div>
+                                    <ul class="text-muted small mb-0 ps-3">
+                                        <li>Uses Attendance2 clock-ins/outs within the selected month.</li>
+                                        <li>Net pay = hours × hourly rate minus deductions and app cut.</li>
+                                        <li>Pending entries (no clock-out) are blocked from processing.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            <div class="col-12 col-md-6">
+                                <div class="border rounded-4 p-3 h-100 bg-light-subtle">
+                                    <div class="d-flex align-items-center gap-2 mb-2">
+                                        <span class="badge bg-primary text-white rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
+                                        <div>
+                                            <div class="text-muted small text-uppercase fw-semibold">Trainer payroll</div>
+                                            <div class="fw-semibold">Classes + attendance per session</div>
+                                        </div>
+                                    </div>
+                                    <ul class="text-muted small mb-0 ps-3">
+                                        <li>Combines recurring class schedules with their session dates.</li>
+                                        <li>Marks sessions as payable when attendance is logged for that day.</li>
+                                        <li>Process button previews only the sessions inside the processing window.</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mb-3">
                 <form action="{{ route('admin.payrolls.process') }}" method="GET" class="card shadow-sm border-0 rounded-4">
                     <div class="card-body">
                         <div class="row g-3 align-items-end">
@@ -188,6 +240,8 @@
                     @php
                         $staff = $summary['staff'];
                         $collapseId = 'payroll-breakdown-' . $staff->id;
+                        $hasStaffData = ($summary['entries'] ?? collect())->count() > 0;
+                        $staffNoData = !$hasStaffData && empty($summary['processed_run']);
                     @endphp
                     <div
                         class="card border-0 shadow-sm rounded-4 mb-3"
@@ -230,6 +284,7 @@
                                     <div>
                                         @if(!empty($summary['processed_run']))
                                             <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
+                                            <div class="text-muted small" data-cooldown-display></div>
                                         @else
                                             <span class="badge {{ $summary['pending_entries'] ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
                                                 {{ $summary['pending_entries'] ? $summary['pending_entries'] . ' pending entries' : 'Ready to finalize' }}
@@ -237,10 +292,12 @@
                                         @endif
                                     </div>
                                     @php
-                                        $staffProcessDisabled = $summary['pending_entries'] || !empty($summary['processed_run']);
+                                        $staffProcessDisabled = $summary['pending_entries'] || !empty($summary['processed_run']) || $staffNoData;
                                         $staffProcessTitle = $summary['pending_entries']
                                             ? 'Clock-out pending entries before processing'
-                                            : (!empty($summary['processed_run']) ? 'Already processed for this period' : 'Process and save payroll');
+                                            : (!empty($summary['processed_run'])
+                                                ? 'Already processed for this period'
+                                                : ($staffNoData ? 'Processing disabled: no attendance data yet' : 'Process and save payroll'));
                                     @endphp
                                     <form action="{{ route('admin.payrolls.process-staff') }}" method="POST" class="d-inline">
                                         @csrf
@@ -251,12 +308,23 @@
                                             class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2 process-payroll-btn"
                                             data-base-disabled="{{ $staffProcessDisabled ? '1' : '0' }}"
                                             data-base-title="{{ $staffProcessTitle }}"
+                                            data-role="staff"
+                                            data-name="{{ $staff->first_name }} {{ $staff->last_name }}"
+                                            data-month="{{ $monthLabel }}"
+                                            data-hours="{{ number_format($summary['total_hours'], 2, '.', '') }}"
+                                            data-gross="{{ number_format($summary['gross_pay'], 2, '.', '') }}"
+                                            data-net="{{ number_format($summary['net_pay'], 2, '.', '') }}"
+                                            data-pending="{{ (int) $summary['pending_entries'] }}"
+                                            data-basis="Attendance clock-ins/outs"
                                             {{ $staffProcessDisabled ? 'disabled' : '' }}
                                             title="{{ $staffProcessTitle }}"
                                         >
                                             <i class="fa-solid fa-circle-check"></i>
                                             {{ !empty($summary['processed_run']) ? 'Processed' : 'Process payroll' }}
                                         </button>
+                                        @if($staffNoData && empty($summary['processed_run']))
+                                            <div class="text-muted small mt-1">Process is disabled because there is no attendance data yet.</div>
+                                        @endif
                                     </form>
                                     @php
                                         $printEntries = $summary['entries']->map(function ($entry) {
@@ -513,6 +581,7 @@
                                     'assignments' => $attendanceAssignments,
                                 ];
                                 $trainerPayslipJson = json_encode($trainerPayslipData);
+                                $trainerNoData = ($assignment['payable_assignments_count'] ?? 0) <= 0 && empty($processedRun);
                                 $canProcessTrainer = ($assignment['payable_assignments_count'] ?? 0) > 0 && empty($processedRun);
                             @endphp
                             <div
@@ -538,6 +607,7 @@
                                             <span class="badge bg-secondary text-white rounded-pill px-3 py-2">
                                                 Processed: {{ optional($processedRun->processed_at)->format('M d, Y g:i A') ?? 'Saved' }}
                                             </span>
+                                            <div class="text-muted small mt-1" data-cooldown-display></div>
                                             <span class="badge bg-dark text-white rounded-pill px-3 py-2">
                                                 Gross ₱{{ number_format((float) ($processedRun->gross_pay ?? 0), 2) }}
                                             </span>
@@ -578,7 +648,9 @@
                                                 $trainerProcessDisabled = !$canProcessTrainer;
                                                 $trainerProcessTitle = $canProcessTrainer
                                                     ? 'Process and save payroll'
-                                                    : (!empty($processedRun) ? 'Already processed for this period' : 'No completed assignments for this period');
+                                                    : (!empty($processedRun)
+                                                        ? 'Already processed for this period'
+                                                        : 'Processing disabled: no completed assignments for this period');
                                             @endphp
                                             <form action="{{ route('admin.payrolls.process-trainer') }}" method="POST" class="d-inline">
                                                 @csrf
@@ -623,12 +695,23 @@
                                                     data-base-disabled="{{ $trainerProcessDisabled ? '1' : '0' }}"
                                                     data-base-title="{{ $trainerProcessTitle }}"
                                                     data-range-assignments='{{ $rangeAssignmentsJson }}'
+                                                    data-role="trainer"
+                                                    data-name="{{ $trainer->first_name }} {{ $trainer->last_name }}"
+                                                    data-month="{{ $monthLabel }}"
+                                                    data-hours="{{ number_format($assignment['total_hours'] ?? 0, 2, '.', '') }}"
+                                                    data-gross="{{ number_format($trainerGross, 2, '.', '') }}"
+                                                    data-net="{{ number_format($displayNet, 2, '.', '') }}"
+                                                    data-pending="0"
+                                                    data-basis="Classes with attendance"
                                                     {{ $trainerProcessDisabled ? 'disabled' : '' }}
                                                     title="{{ $trainerProcessTitle }}"
                                                 >
                                                     <i class="fa-solid fa-circle-check"></i>
                                                     {{ !empty($processedRun) ? 'Processed' : 'Process payroll' }}
                                                 </button>
+                                                @if($trainerNoData && empty($processedRun))
+                                                    <div class="text-muted small mt-1">Process is disabled because there is no class data with attendance yet.</div>
+                                                @endif
                                             </form>
                                             @if(empty($processedRun))
                                                 <button
@@ -668,6 +751,68 @@
                                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
                                         <div class="modal-body">
+                                            <style>
+                                                .assignment-card {
+                                                    border: 1px solid #e5e7eb;
+                                                    background: #fff;
+                                                    border-radius: 16px;
+                                                    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+                                                    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+                                                }
+                                                .assignment-card:hover {
+                                                    transform: translateY(-2px);
+                                                    box-shadow: 0 10px 26px rgba(0,0,0,0.06);
+                                                    border-color: #d1d5db;
+                                                }
+                                                .meta-chip {
+                                                    display: inline-flex;
+                                                    align-items: center;
+                                                    gap: 6px;
+                                                    padding: 6px 10px;
+                                                    border-radius: 999px;
+                                                    background: #f8fafc;
+                                                    border: 1px solid #e5e7eb;
+                                                    font-size: 12px;
+                                                    color: #334155;
+                                                }
+                                                .meta-chip .dot {
+                                                    width: 8px;
+                                                    height: 8px;
+                                                    border-radius: 50%;
+                                                    background: currentColor;
+                                                    display: inline-block;
+                                                }
+                                                .mini-card {
+                                                    border: 1px solid #e5e7eb;
+                                                    border-radius: 12px;
+                                                    background: #f9fafb;
+                                                    padding: 12px;
+                                                }
+                                                .timeline-entry {
+                                                    display: grid;
+                                                    grid-template-columns: auto 1fr;
+                                                    gap: 10px;
+                                                    align-items: start;
+                                                    padding: 8px 0;
+                                                    border-bottom: 1px dashed #e5e7eb;
+                                                }
+                                                .timeline-entry:last-child { border-bottom: none; }
+                                                .timeline-dot {
+                                                    width: 12px;
+                                                    height: 12px;
+                                                    border-radius: 50%;
+                                                    margin-top: 4px;
+                                                }
+                                                .timeline-status {
+                                                    font-size: 12px;
+                                                    padding: 3px 8px;
+                                                    border-radius: 999px;
+                                                    border: 1px solid transparent;
+                                                    display: inline-flex;
+                                                    align-items: center;
+                                                    gap: 4px;
+                                                }
+                                            </style>
                                             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
                                                 @if($isProcessed)
                                                     <span class="badge bg-dark text-white rounded-pill px-3 py-2">Processed gross: ₱{{ number_format((float) ($processedRun->gross_pay ?? 0), 2) }}</span>
@@ -940,129 +1085,150 @@
                             $detailJson = json_encode($detailPayload, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
                         @endphp
                         <div
-                            class="border rounded-3 p-3 mb-3 assignment-card"
+                            class="assignment-card p-3 mb-3"
                             style="cursor: pointer;"
                             data-assignment-card
                             data-category="{{ $category }}"
-                    data-start-date="{{ $startFilterDate }}"
-                    data-end-date="{{ $endFilterDate }}"
-                    data-future-salary="{{ (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0) }}"
-                    data-past-salary="{{ (float) $payableSalary }}"
-                    data-future-count="{{ (int) ($detail['future_occurrence_count'] ?? 0) }}"
-                    data-past-count="{{ (int) ($detail['past_occurrence_count'] ?? 0) }}"
-                    data-paid-count="{{ (int) ($detail['past_paid_count'] ?? 0) }}"
-                    data-future-amount="{{ (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0) }}"
-                    data-past-amount="{{ (float) ($detail['payroll_salary'] ?? 0) }}"
-                    data-occurrence-days="{{ $occurrenceDays->implode(',') }}"
-                    data-detail='{{ $detailJson }}'
-                >
+                            data-start-date="{{ $startFilterDate }}"
+                            data-end-date="{{ $endFilterDate }}"
+                            data-future-salary="{{ (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0) }}"
+                            data-past-salary="{{ (float) $payableSalary }}"
+                            data-future-count="{{ (int) ($detail['future_occurrence_count'] ?? 0) }}"
+                            data-past-count="{{ (int) ($detail['past_occurrence_count'] ?? 0) }}"
+                            data-paid-count="{{ (int) ($detail['past_paid_count'] ?? 0) }}"
+                            data-future-amount="{{ (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0) }}"
+                            data-past-amount="{{ (float) ($detail['payroll_salary'] ?? 0) }}"
+                            data-occurrence-days="{{ $occurrenceDays->implode(',') }}"
+                            data-detail='{{ $detailJson }}'
+                        >
                             <div class="d-flex justify-content-between align-items-start gap-3">
                                 <div class="d-flex align-items-start gap-3">
-                                    <span class="badge bg-dark-subtle text-dark rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
+                                    <span class="rounded-circle bg-dark text-white d-inline-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
+                                        <i class="fa-solid fa-dumbbell"></i>
+                                    </span>
                                     <div>
                                         <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                        <div class="d-flex flex-wrap gap-2 mt-1">
-                                            @if(!empty($schedule->class_code))
-                                                <span class="badge bg-light text-muted border">Code: {{ $schedule->class_code }}</span>
-                                            @endif
-                                            @if($detail['hours'] > 0)
-                                                <span class="badge bg-primary-subtle text-primary">Duration: {{ number_format($detail['hours'], 2) }} hrs</span>
-                                            @endif
-                                            @if(!is_null($schedule->trainer_rate_per_hour))
-                                                <span class="badge bg-success-subtle text-success">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }}/hr</span>
-                                            @endif
-                                            @if($category === 'past')
-                                                <span class="badge {{ $hasAttendance ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">
-                                                    Payable: ₱{{ number_format($payableSalary, 2) }}
-                                                </span>
-                                            @elseif($detail['display_salary'] > 0)
-                                                <span class="badge bg-danger-subtle text-danger">Est. salary: ₱{{ number_format($detail['display_salary'], 2) }}</span>
-                                            @endif
-                                            @if($category === 'past')
-                                                @if($hasAttendance)
-                                                    <span class="badge bg-success-subtle text-success">Attendance logged</span>
-                                                @else
-                                                    <span class="badge bg-danger-subtle text-danger">Absent (no attendance)</span>
-                                                @endif
-                                            @endif
-                                            @if($recurringLabel)
-                                                <span class="badge bg-info-subtle text-info">Recurring: {{ $recurringLabel }}</span>
-                                            @endif
-                                            @if($occurrenceDates->isNotEmpty())
-                                                <span class="badge bg-light text-muted border">
-                                                    Dates: {{ $occurrenceDates->take(3)->implode(', ') }}@if($occurrenceDates->count() > 3)+{{ $occurrenceDates->count() - 3 }} more @endif
-                                                </span>
-                                            @endif
+                                        <div class="text-muted small">
+                                            {{ $detail['time_range'] ?? ($rangeStart !== 'N/A' ? trim($rangeStart . ($rangeEnd ? ' – ' . $rangeEnd : '')) : 'Schedule time not set') }}
                                         </div>
                                         @if($start || $end)
-                                            <span class="text-muted small d-block mt-1">
-                                                {{ $rangeStart }}
-                                                @if($rangeEnd)
-                                                    &ndash; {{ $rangeEnd }}
-                                                @endif
-                                            </span>
+                                            <div class="text-muted small">Series: {{ $rangeStart }} @if($rangeEnd)&ndash; {{ $rangeEnd }}@endif</div>
                                         @endif
                                     </div>
                                 </div>
-                                <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
+                                <div class="text-end">
+                                    <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
+                                    <div class="fw-bold {{ $category === 'past' ? 'text-danger' : 'text-primary' }}">
+                                        ₱{{ number_format($category === 'past' ? $payableSalary : $detail['display_salary'], 2) }}
+                                    </div>
+                                    <div class="text-muted small">
+                                        {{ $category === 'past' ? 'Payable (attendance captured)' : 'Projected (upcoming)' }}
+                                    </div>
+                                </div>
                             </div>
-                            <div class="mt-3">
-                                <span class="text-muted small text-uppercase fw-semibold">Students</span>
-                                @if($students->isNotEmpty())
-                                    <ul class="list-unstyled mb-0 small mt-1">
-                                        @foreach($students as $student)
-                                            <li>{{ $student }}</li>
-                                        @endforeach
-                                    </ul>
-                                @else
-                                    <p class="text-muted small mb-0">No students assigned.</p>
+
+                            <div class="d-flex flex-wrap gap-2 mt-2">
+                                @if(!empty($schedule->class_code))
+                                    <span class="meta-chip"><span class="dot"></span>Code: {{ $schedule->class_code }}</span>
+                                @endif
+                                @if($detail['hours'] > 0)
+                                    <span class="meta-chip"><i class="fa-solid fa-clock"></i> {{ number_format($detail['hours'], 2) }} hrs</span>
+                                @endif
+                                @if(!is_null($schedule->trainer_rate_per_hour))
+                                    <span class="meta-chip"><i class="fa-solid fa-peso-sign"></i> ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }}/hr</span>
+                                @endif
+                                @if($recurringLabel)
+                                    <span class="meta-chip"><i class="fa-solid fa-rotate"></i> {{ $recurringLabel }}</span>
+                                @endif
+                                @if($occurrenceDates->isNotEmpty())
+                                    <span class="meta-chip"><i class="fa-regular fa-calendar"></i> {{ $occurrenceDates->take(3)->implode(', ') }}@if($occurrenceDates->count() > 3)+{{ $occurrenceDates->count() - 3 }} more @endif</span>
+                                @endif
+                                @if($category === 'past')
+                                    <span class="meta-chip {{ $hasAttendance ? '' : 'text-danger' }}">
+                                        <i class="fa-solid fa-user-check"></i>
+                                        {{ $hasAttendance ? 'Attendance logged' : 'Absent / no attendance' }}
+                                    </span>
                                 @endif
                             </div>
-                            <div class="mt-3">
-                                <span class="text-muted small text-uppercase fw-semibold">Attendance</span>
-                                @if($attendanceRecords->isNotEmpty())
-                                    <ul class="list-unstyled mb-0 small mt-1">
-                                        @foreach($attendanceRecords as $record)
-                                            @php
-                                                $clockIn = $record['clockin_at'] ?? null;
-                                                $clockOut = $record['clockout_at'] ?? null;
-                                                $clockInLabel = $clockIn ? $clockIn->format('M d, Y g:i A') : '—';
-                                                $clockOutLabel = $clockOut ? $clockOut->format('M d, Y g:i A') : null;
-                                            @endphp
-                                            <li>
-                                                {{ $clockInLabel }}
-                                                @if($clockOutLabel)
-                                                    – {{ $clockOutLabel }}
-                                                @endif
-                                            </li>
-                                        @endforeach
-                                    </ul>
-                                @else
-                                    <p class="text-muted small mb-0">No attendance recorded for this schedule.</p>
-                                @endif
+
+                            <div class="row g-3 mt-3">
+                                <div class="col-12 col-md-6">
+                                    <div class="mini-card h-100">
+                                        <div class="text-muted small text-uppercase fw-semibold mb-1">Sessions</div>
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span>Upcoming</span>
+                                            <span class="fw-semibold">{{ $detail['future_occurrence_count'] ?? 0 }} • ₱{{ number_format((float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0), 2) }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between small mb-1">
+                                            <span>Completed</span>
+                                            <span class="fw-semibold">{{ $detail['past_occurrence_count'] ?? 0 }} • ₱{{ number_format((float) $payableSalary, 2) }}</span>
+                                        </div>
+                                        <div class="d-flex justify-content-between small">
+                                            <span>Paid sessions</span>
+                                            <span class="fw-semibold text-success">{{ $detail['past_paid_count'] ?? 0 }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <div class="mini-card h-100">
+                                    <div class="text-muted small text-uppercase fw-semibold mb-1">People & attendance</div>
+                                    <div class="small mb-2">
+                                        Students:
+                                        @if($students->isNotEmpty())
+                                            <span class="fw-semibold">{{ $students->count() }}</span>
+                                            <span class="text-muted">({{ $students->take(3)->implode(', ') }}@if($students->count() > 3) +{{ $students->count() - 3 }} more @endif)</span>
+                                        @else
+                                            <span class="text-muted">No students assigned</span>
+                                        @endif
+                                    </div>
+                                    <div class="small">
+                                        Attendance:
+                                        @if($attendanceRecords->isNotEmpty())
+                                            <span class="fw-semibold">{{ $attendanceRecords->count() }}</span>
+                                            <div class="text-muted small mt-1">
+                                                @foreach($attendanceRecords as $record)
+                                                    @php
+                                                        $clockIn = $record['clockin_at'] ?? null;
+                                                        $clockOut = $record['clockout_at'] ?? null;
+                                                        $clockInLabel = $clockIn ? $clockIn->format('M d, Y g:i A') : '—';
+                                                        $clockOutLabel = $clockOut ? $clockOut->format('M d, Y g:i A') : null;
+                                                    @endphp
+                                                    <div>{{ $clockInLabel }}@if($clockOutLabel) – {{ $clockOutLabel }}@endif</div>
+                                                @endforeach
+                                            </div>
+                                        @else
+                                            <span class="text-muted">No attendance captured.</span>
+                                        @endif
+                                    </div>
+                                    </div>
+                                </div>
                             </div>
+
                             @if($occurrenceTimeline->isNotEmpty())
                                 <div class="mt-3">
                                     <span class="text-muted small text-uppercase fw-semibold d-block mb-1">Series of sessions</span>
-                                    <div class="d-flex flex-column gap-2">
-                                        @foreach($occurrenceTimeline as $index => $session)
-                                            <div class="d-flex align-items-start gap-2" data-session-day="{{ $session['day'] ?? '' }}">
-                                                <div class="d-flex flex-column align-items-center me-1">
-                                                    <span class="rounded-circle bg-primary" style="width: 10px; height: 10px;"></span>
-                                                    @if($index < $occurrenceTimeline->count() - 1)
-                                                        <span class="mt-1" style="width: 2px; height: 20px; background-color: #e9ecef;"></span>
-                                                    @endif
-                                                </div>
-                                                <div>
-                                                    <div class="fw-semibold">{{ $session['label'] }}</div>
-                                                    <span class="badge {{ $session['status_class'] }} px-2 py-1">{{ $session['status'] }}</span>
-                                                    @if(!empty($session['processed']))
-                                                        <span class="badge bg-primary-subtle text-primary ms-1">{{ $session['processed_label'] ?? 'Processed' }}</span>
-                                                    @endif
-                                                </div>
+                                    @foreach($occurrenceTimeline as $index => $session)
+                                        <div class="timeline-entry" data-session-day="{{ $session['day'] ?? '' }}">
+                                            @php
+                                                $statusClass = $session['status_class'] ?? 'bg-secondary';
+                                                $dotColor = '#6c757d';
+                                                if (strpos($statusClass, 'warning') !== false) $dotColor = '#f59e0b';
+                                                if (strpos($statusClass, 'success') !== false) $dotColor = '#16a34a';
+                                                if (strpos($statusClass, 'danger') !== false) $dotColor = '#dc2626';
+                                            @endphp
+                                            <span class="timeline-dot" style="background: {{ $dotColor }};"></span>
+                                            <div>
+                                                <div class="fw-semibold">{{ $session['label'] }}</div>
+                                                <span class="timeline-status {{ $statusClass }}">{{ $session['status'] }}</span>
+                                                @if(!empty($session['processed']))
+                                                    <span class="timeline-status bg-primary text-white border-0">
+                                                        <i class="fa-solid fa-circle-check"></i>
+                                                        {{ $session['processed_label'] ?? 'Processed' }}
+                                                    </span>
+                                                @endif
                                             </div>
-                                        @endforeach
-                                    </div>
+                                        </div>
+                                    @endforeach
                                 </div>
                             @endif
                         </div>
@@ -1312,6 +1478,84 @@
         </div>
     </div>
 
+    {{-- Process confirmation modal --}}
+    <div class="modal fade" id="processConfirmModal" tabindex="-1" aria-labelledby="processConfirmModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-sm">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-semibold mb-0" id="processConfirmModalLabel">Confirm payroll processing</h5>
+                        <p class="text-muted small mb-0">Double-check the source data before saving this payroll run.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning d-none" data-confirm-pending-alert>
+                        <i class="fa-solid fa-triangle-exclamation me-2"></i>
+                        Some entries are still pending clock-out. Finalize attendance before proceeding.
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-12 col-md-7">
+                            <div class="border rounded-4 p-3 h-100 bg-light-subtle">
+                                <div class="text-muted small text-uppercase fw-semibold mb-1">Run summary</div>
+                                <ul class="list-unstyled small mb-0">
+                                    <li class="d-flex justify-content-between mb-1">
+                                        <span>Person</span>
+                                        <span class="fw-semibold" data-confirm-name>—</span>
+                                    </li>
+                                    <li class="d-flex justify-content-between mb-1">
+                                        <span>Role</span>
+                                        <span data-confirm-role>—</span>
+                                    </li>
+                                    <li class="d-flex justify-content-between mb-1">
+                                        <span>Period</span>
+                                        <span data-confirm-month>—</span>
+                                    </li>
+                                    <li class="d-flex justify-content-between mb-1">
+                                        <span>Basis</span>
+                                        <span data-confirm-basis>—</span>
+                                    </li>
+                                    <li class="d-flex justify-content-between mb-1">
+                                        <span>Pending entries</span>
+                                        <span data-confirm-pending>0</span>
+                                    </li>
+                                </ul>
+                                <p class="text-muted small mb-0 mt-2">
+                                    This will create a saved payroll run using the source data above. No deductions are changed here—use "Adjust deductions" if rates need updates.
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-12 col-md-5">
+                            <div class="border rounded-4 p-3 h-100 bg-white">
+                                <div class="text-muted small text-uppercase fw-semibold mb-2">Payout snapshot</div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted small">Hours</span>
+                                    <span class="fw-semibold" data-confirm-hours>0.00 hrs</span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-1">
+                                    <span class="text-muted small">Gross</span>
+                                    <span class="fw-semibold" data-confirm-gross>₱0.00</span>
+                                </div>
+                                <div class="d-flex justify-content-between">
+                                    <span class="text-muted small">Net (after deductions)</span>
+                                    <span class="fw-bold text-success" data-confirm-net>₱0.00</span>
+                                </div>
+                                <div class="bg-light-subtle rounded-3 p-2 mt-2">
+                                    <div class="text-muted small mb-1">Reminder</div>
+                                    <p class="text-muted small mb-0">Staff: based on clock-ins/outs. Trainers: based on paid class sessions with attendance.</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="process-confirm-submit">Process now</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     {{-- Process preview modal --}}
     <div class="modal fade" id="processPreviewModal" tabindex="-1" aria-labelledby="processPreviewModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
@@ -1319,7 +1563,7 @@
                 <div class="modal-header">
                     <div>
                         <h5 class="modal-title fw-semibold mb-0" id="processPreviewModalLabel">Assignments to be processed</h5>
-                        <p class="text-muted small mb-0">Filtered by processing day range.</p>
+                        <p class="text-muted small mb-0">Only class sessions with attendance inside the processing window are queued.</p>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -1375,6 +1619,8 @@
 @section('scripts')
 <script>
     document.addEventListener('DOMContentLoaded', () => {
+        const payrollMonthLabel = @json($monthLabel);
+        const payrollMonthValue = @json($month);
         const toggleButtons = document.querySelectorAll('[data-payroll-toggle]');
         const staffSection = document.getElementById('staff-payroll-section');
         const trainerSection = document.getElementById('trainer-payroll-section');
@@ -1510,6 +1756,54 @@
             return [...new Set([...explicitDays, ...rangeDays])];
         }
 
+        function parsePayrollMonth(value) {
+            if (!value || typeof value !== 'string') return null;
+            const [year, month] = value.split('-').map((v) => parseInt(v, 10));
+            if (Number.isNaN(year) || Number.isNaN(month)) return null;
+            return { year, monthIndex: month - 1 };
+        }
+
+        function computeNextProcessingDate() {
+            const allowedDays = getAllowedDays();
+            if (!allowedDays.length) return null;
+            const today = new Date();
+            const parsed = parsePayrollMonth(payrollMonthValue);
+            const baseYear = parsed ? parsed.year : today.getFullYear();
+            const baseMonth = parsed ? parsed.monthIndex : today.getMonth();
+            const candidates = [];
+
+            [0, 1].forEach((offset) => {
+                const base = new Date(baseYear, baseMonth + offset, 1);
+                allowedDays.forEach((day) => {
+                    let dayNum = null;
+                    if (day === 'eom') {
+                        dayNum = new Date(base.getFullYear(), base.getMonth() + 1, 0).getDate();
+                    } else {
+                        const parsedDay = parseInt(day, 10);
+                        if (Number.isNaN(parsedDay)) return;
+                        dayNum = parsedDay;
+                    }
+                    if (dayNum < 1 || dayNum > 31) return;
+                    candidates.push(new Date(base.getFullYear(), base.getMonth(), dayNum));
+                });
+            });
+
+            const future = candidates.filter((date) => date > today).sort((a, b) => a - b);
+            if (future.length) return future[0];
+            const ordered = candidates.sort((a, b) => a - b);
+            return ordered[0] ?? null;
+        }
+
+        function setCooldownDisplays() {
+            const nextDate = computeNextProcessingDate();
+            const label = nextDate
+                ? `Next payroll window: ${nextDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`
+                : 'Next payroll window is not configured yet.';
+            document.querySelectorAll('[data-cooldown-display]').forEach((el) => {
+                el.textContent = label;
+            });
+        }
+
         function isDayAllowed() {
             const allowedDays = getAllowedDays();
             if (!allowedDays.length) return false;
@@ -1572,6 +1866,7 @@
             });
 
             updateActivationStatusBadge(allowed, dayAllowed);
+            setCooldownDisplays();
         }
 
         normalizeActivationDays();
@@ -1813,6 +2108,67 @@
             modal?.hide();
         });
 
+        // Generic confirmation modal (staff + trainer without preview)
+        const confirmModalEl = document.getElementById('processConfirmModal');
+        const confirmSubmitBtn = document.getElementById('process-confirm-submit');
+        const confirmFields = {
+            name: document.querySelector('[data-confirm-name]'),
+            role: document.querySelector('[data-confirm-role]'),
+            month: document.querySelector('[data-confirm-month]'),
+            basis: document.querySelector('[data-confirm-basis]'),
+            hours: document.querySelector('[data-confirm-hours]'),
+            gross: document.querySelector('[data-confirm-gross]'),
+            net: document.querySelector('[data-confirm-net]'),
+            pending: document.querySelector('[data-confirm-pending]'),
+            pendingAlert: document.querySelector('[data-confirm-pending-alert]'),
+        };
+        let pendingConfirmForm = null;
+
+        function openConfirmModal(btn, form) {
+            if (!confirmModalEl) {
+                form?.submit();
+                return;
+            }
+
+            const role = (btn.dataset.role || '').toLowerCase() === 'trainer' ? 'trainer' : 'staff';
+            const basis = btn.dataset.basis
+                || (role === 'trainer' ? 'Classes + attendance per session' : 'Attendance clock-ins/outs');
+            const name = btn.dataset.name || 'Payroll run';
+            const month = btn.dataset.month || payrollMonthLabel || '';
+            const hours = Number(btn.dataset.hours || 0);
+            const gross = Number(btn.dataset.gross || 0);
+            const net = Number(btn.dataset.net || 0);
+            const pending = Number(btn.dataset.pending || 0);
+
+            pendingConfirmForm = form;
+
+            if (confirmFields.name) confirmFields.name.textContent = name;
+            if (confirmFields.role) {
+                confirmFields.role.textContent = role === 'trainer'
+                    ? 'Trainer (classes + attendance)'
+                    : 'Staff (attendance-based)';
+            }
+            if (confirmFields.month) confirmFields.month.textContent = month;
+            if (confirmFields.basis) confirmFields.basis.textContent = basis;
+            if (confirmFields.hours) confirmFields.hours.textContent = `${hours.toFixed(2)} hrs`;
+            if (confirmFields.gross) confirmFields.gross.textContent = formatPeso(gross);
+            if (confirmFields.net) confirmFields.net.textContent = formatPeso(net);
+            if (confirmFields.pending) confirmFields.pending.textContent = pending;
+
+            if (confirmFields.pendingAlert) {
+                confirmFields.pendingAlert.classList.toggle('d-none', pending <= 0);
+            }
+
+            const modalInstance = bootstrap.Modal.getOrCreateInstance(confirmModalEl);
+            modalInstance.show();
+        }
+
+        confirmSubmitBtn?.addEventListener('click', () => {
+            if (pendingConfirmForm) {
+                pendingConfirmForm.submit();
+            }
+        });
+
         // Process preview modal (trainer processing)
         const processModalEl = document.getElementById('processPreviewModal');
         const processRangeList = document.getElementById('process-range-list');
@@ -1990,6 +2346,16 @@
                 renderProcessAssignments();
                 const modal = bootstrap.Modal.getOrCreateInstance(processModalEl);
                 modal.show();
+            });
+        });
+
+        document.querySelectorAll('.process-payroll-btn').forEach((btn) => {
+            if (btn.dataset.rangeAssignments) return;
+            btn.addEventListener('click', (e) => {
+                if (btn.disabled) return;
+                const form = btn.closest('form');
+                e.preventDefault();
+                openConfirmModal(btn, form);
             });
         });
 

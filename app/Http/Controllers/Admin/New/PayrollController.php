@@ -399,12 +399,33 @@ class PayrollController extends Controller
         $search = $request->input('member_name');
         $searchColumn = $request->input('search_column');
         $period = $request->input('period_month');
+        $processedFromInput = $request->input('processed_from');
+        $processedToInput = $request->input('processed_to');
         $deductionSettings = $this->currentDeductionSettings();
         $appCutRate = max((float) $request->input('app_cut_rate', $deductionSettings['app_cut_rate']), 0);
 
         $allowedColumns = ['id', 'name', 'email', 'user_code', 'period_month', 'processed_at', 'created_at', 'updated_at'];
         if (!in_array($searchColumn, $allowedColumns, true)) {
             $searchColumn = null;
+        }
+
+        $processedFrom = null;
+        $processedTo = null;
+
+        try {
+            if (!empty($processedFromInput)) {
+                $processedFrom = Carbon::parse($processedFromInput)->startOfDay();
+            }
+        } catch (\Throwable $th) {
+            $processedFrom = null;
+        }
+
+        try {
+            if (!empty($processedToInput)) {
+                $processedTo = Carbon::parse($processedToInput)->endOfDay();
+            }
+        } catch (\Throwable $th) {
+            $processedTo = null;
         }
 
         $baseQuery = PayrollRun::with('user')
@@ -449,6 +470,27 @@ class PayrollController extends Controller
             })
             ->when($period, function ($query, $period) {
                 $query->where('period_month', $period);
+            })
+            ->when($processedFrom || $processedTo, function ($query) use ($processedFrom, $processedTo) {
+                $query->where(function ($dateQuery) use ($processedFrom, $processedTo) {
+                    if ($processedFrom) {
+                        $dateQuery->where(function ($sub) use ($processedFrom) {
+                            $sub->whereNotNull('processed_at')->where('processed_at', '>=', $processedFrom)
+                                ->orWhere(function ($fallback) use ($processedFrom) {
+                                    $fallback->whereNull('processed_at')->where('created_at', '>=', $processedFrom);
+                                });
+                        });
+                    }
+
+                    if ($processedTo) {
+                        $dateQuery->where(function ($sub) use ($processedTo) {
+                            $sub->whereNotNull('processed_at')->where('processed_at', '<=', $processedTo)
+                                ->orWhere(function ($fallback) use ($processedTo) {
+                                    $fallback->whereNull('processed_at')->where('created_at', '<=', $processedTo);
+                                });
+                        });
+                    }
+                });
             });
 
         $printAllRuns = (clone $baseQuery)

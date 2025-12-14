@@ -8,6 +8,8 @@
                 $searchTerm = request('member_name');
                 $searchColumn = request('search_column');
                 $periodMonth = request('period_month');
+                $processedFrom = request('processed_from');
+                $processedTo = request('processed_to');
                 $printSource = $runs;
                 $printAllSource = $printAllRuns ?? collect();
                 $mapRun = function ($run) {
@@ -48,6 +50,8 @@
                         'member_name' => $searchTerm,
                         'search_column' => $searchColumn,
                         'period_month' => $periodMonth,
+                        'processed_from' => $processedFrom,
+                        'processed_to' => $processedTo,
                     ],
                     'count' => $printRuns->count(),
                     'items' => $printRuns,
@@ -60,6 +64,8 @@
                         'member_name' => $searchTerm,
                         'search_column' => $searchColumn,
                         'period_month' => $periodMonth,
+                        'processed_from' => $processedFrom,
+                        'processed_to' => $processedTo,
                         'scope' => 'all',
                     ],
                     'count' => $printAllRuns->count(),
@@ -85,6 +91,8 @@
                         <input type="hidden" name="member_name" value="{{ $searchTerm }}">
                         <input type="hidden" name="search_column" value="{{ $searchColumn }}">
                         <input type="hidden" name="period_month" value="{{ $periodMonth }}">
+                        <input type="hidden" name="processed_from" value="{{ $processedFrom }}">
+                        <input type="hidden" name="processed_to" value="{{ $processedTo }}">
                         <button
                             type="submit"
                             class="btn btn-danger d-flex align-items-center gap-2"
@@ -108,7 +116,7 @@
                             <div>
                                 <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Filters</span>
                                 <h4 class="fw-semibold mb-1">Find a payroll run</h4>
-                                <p class="text-muted mb-0">Search by staff or period month to locate processed runs.</p>
+                                <p class="text-muted mb-0">Search by staff, period month, or processed date window to locate completed runs.</p>
                             </div>
                             <div class="text-end">
                                 <span class="d-block text-muted small">Showing {{ $runs->total() }} results</span>
@@ -167,7 +175,34 @@
                                 />
                             </div>
 
-                            <div class="col-12 col-md-4 col-lg-2 d-flex gap-2">
+                            <div class="col-12 col-md-6 col-lg-4">
+                                <label class="form-label text-muted small mb-1" for="processed_from">Processed date</label>
+                                <div class="row g-2">
+                                    <div class="col-6">
+                                        <input
+                                            type="date"
+                                            class="form-control rounded-3"
+                                            name="processed_from"
+                                            id="processed_from"
+                                            value="{{ $processedFrom }}"
+                                            aria-label="Filter payrolls processed from date"
+                                        />
+                                    </div>
+                                    <div class="col-6">
+                                        <input
+                                            type="date"
+                                            class="form-control rounded-3"
+                                            name="processed_to"
+                                            id="processed_to"
+                                            value="{{ $processedTo }}"
+                                            aria-label="Filter payrolls processed to date"
+                                        />
+                                    </div>
+                                </div>
+                                <small class="text-muted d-block mt-1">Matches processed date, falls back to created date if missing.</small>
+                            </div>
+
+                            <div class="col-12 col-md-4 col-lg-2 d-flex gap-2 justify-content-md-end">
                                 <a href="{{ route('admin.payrolls.index') }}" class="btn btn-link text-decoration-none text-muted px-0">
                                     Reset
                                 </a>
@@ -208,7 +243,7 @@
                                         <th scope="col">Hours</th>
                                         <th scope="col">Gross</th>
                                         <th scope="col">Net</th>
-                                        <th scope="col">Processed</th>
+                                        <th scope="col">Processed Date</th>
                                         <th scope="col">Processed Sessions</th>
                                         <th scope="col" class="text-center">Actions</th>
                                     </tr>
@@ -335,6 +370,11 @@
             const printLoader = document.getElementById('print-loader');
 
             function buildFilters(filters) {
+                const formatDate = (value) => {
+                    if (!value) return null;
+                    const parsed = new Date(value);
+                    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
+                };
                 const chips = [];
                 if (filters.member_name) {
                     chips.push({
@@ -343,6 +383,11 @@
                     });
                 }
                 if (filters.period_month) chips.push({ label: 'Period', value: filters.period_month });
+                if (filters.processed_from || filters.processed_to) {
+                    const from = formatDate(filters.processed_from) || 'Any';
+                    const to = formatDate(filters.processed_to) || 'Any';
+                    chips.push({ label: 'Processed', value: `${from} → ${to}` });
+                }
                 return chips;
             }
 
