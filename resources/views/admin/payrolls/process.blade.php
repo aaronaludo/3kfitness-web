@@ -1725,6 +1725,7 @@
         const processRangeSummary = document.getElementById('process-range-summary');
         const processRangeTotal = document.getElementById('process-range-total');
         const processRangeCount = document.getElementById('process-range-count');
+        const processDayFilter = document.getElementById('process-day-filter');
         const processConfirmBtn = document.getElementById('process-range-confirm');
         let pendingProcessForm = null;
         let pendingAssignments = [];
