@@ -19,6 +19,10 @@
                     $processedAt = $run->processed_at
                         ? $run->processed_at->format('M d, Y g:i A')
                         : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+                    $processedSessions = collect($run->processed_session_series ?? []);
+                    $processedSessionCount = $processedSessions->sum(function ($item) {
+                        return collect($item['sessions'] ?? [])->count();
+                    });
 
                     return [
                         'id' => $run->id,
@@ -30,6 +34,7 @@
                         'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
                         'net' => number_format((float) ($run->net_pay ?? 0), 2),
                         'processed_at' => $processedAt,
+                        'processed_sessions' => $processedSessionCount,
                     ];
                 };
 
@@ -204,6 +209,7 @@
                                         <th scope="col">Gross</th>
                                         <th scope="col">Net</th>
                                         <th scope="col">Processed</th>
+                                        <th scope="col">Processed Sessions</th>
                                         <th scope="col" class="text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -221,6 +227,10 @@
                                                 : null;
                                             $isTrainer = optional($staff)->role_id === 5;
                                             $payslipDetail = $payslipDetails[$run->id] ?? ['entries' => [], 'assignments' => []];
+                                            $processedSeries = collect($run->processed_session_series ?? []);
+                                            $processedSessionCount = $processedSeries->sum(function ($item) {
+                                                return collect($item['sessions'] ?? [])->count();
+                                            });
                                             $payslipData = [
                                                 'type' => $isTrainer ? 'trainer' : 'staff',
                                                 'name' => $name,
@@ -252,6 +262,21 @@
                                             <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
                                             <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
                                             <td>{{ $processedAt }}</td>
+                                            <td>
+                                                @if($processedSessionCount > 0)
+                                                    <button
+                                                        type="button"
+                                                        class="btn btn-outline-primary btn-sm processed-series-btn"
+                                                        data-series='@json($processedSeries->values())'
+                                                        data-run-name="{{ $name }}"
+                                                        data-period="{{ $periodLabel }}"
+                                                    >
+                                                        View ({{ $processedSessionCount }})
+                                                    </button>
+                                                @else
+                                                    <span class="text-muted small">—</span>
+                                                @endif
+                                            </td>
                                             <td class="text-center">
                                                 @if($staff)
                                                     <button
@@ -285,6 +310,24 @@
             </div>
         </div>
     </div>
+
+    <div class="modal fade" id="processedSeriesModal" tabindex="-1" aria-labelledby="processedSeriesModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-scrollable">
+            <div class="modal-content rounded-4 border-0 shadow-sm">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-semibold mb-0" id="processedSeriesModalLabel">Processed sessions</h5>
+                        <span class="text-muted small" id="processedSeriesSubtitle"></span>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="processed-series-body" class="d-flex flex-column gap-3"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const printButton = document.getElementById('print-submit-button');
@@ -313,6 +356,7 @@
                     `₱${item.gross || '0.00'}`,
                     `<span class="text-success fw-semibold">₱${item.net || '0.00'}</span>`,
                     item.processed_at || '—',
+                    (item.processed_sessions ?? 0).toString(),
                 ]));
             }
 
@@ -320,7 +364,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Staff', 'User Code', 'Period', 'Hours', 'Gross', 'Net', 'Processed'];
+                const headers = ['#', 'Staff', 'User Code', 'Period', 'Hours', 'Gross', 'Net', 'Processed', 'Processed Sessions'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview
@@ -536,6 +580,93 @@
                     printWindow.document.open();
                     printWindow.document.write(html);
                     printWindow.document.close();
+                });
+            });
+
+            const processedSeriesModal = document.getElementById('processedSeriesModal');
+            const processedSeriesBody = document.getElementById('processed-series-body');
+            const processedSeriesSubtitle = document.getElementById('processedSeriesSubtitle');
+            const processedSeriesTitle = document.getElementById('processedSeriesModalLabel');
+
+            function renderProcessedSeries(series, runName, period) {
+                if (processedSeriesSubtitle) {
+                    processedSeriesSubtitle.textContent = `${runName || '—'} • ${period || '—'}`;
+                }
+                if (processedSeriesBody) {
+                    processedSeriesBody.innerHTML = '';
+                    if (!series.length) {
+                        const empty = document.createElement('div');
+                        empty.className = 'text-muted text-center';
+                        empty.textContent = 'No processed sessions recorded for this run.';
+                        processedSeriesBody.appendChild(empty);
+                        return;
+                    }
+
+                    series.forEach((item) => {
+                        const sessions = Array.isArray(item.sessions) ? item.sessions : [];
+                        const sessionList = sessions.length
+                            ? sessions.map((session) => {
+                                const badge = document.createElement('span');
+                                badge.className = 'badge bg-success-subtle text-success border border-success-subtle';
+                                badge.textContent = session.status || 'Completed';
+
+                                const row = document.createElement('div');
+                                row.className = 'd-flex align-items-center justify-content-between border rounded-3 px-3 py-2 mb-1';
+                                row.innerHTML = `
+                                    <div>
+                                        <div class="fw-semibold">${session.label || session.date || '—'}</div>
+                                        ${session.day ? `<div class="text-muted small">Day ${session.day}</div>` : ''}
+                                    </div>
+                                    <div class="d-flex align-items-center gap-2">
+                                        ${badge.outerHTML}
+                                    </div>
+                                `;
+                                return row.outerHTML;
+                            }).join('')
+                            : '<div class="text-muted small">No session dates saved.</div>';
+
+                        const card = document.createElement('div');
+                        card.className = 'border rounded-4 p-3';
+                        card.innerHTML = `
+                            <div class="d-flex align-items-start justify-content-between">
+                                <div>
+                                    <div class="fw-semibold">${item.schedule_name || 'Class schedule'}</div>
+                                    ${item.class_code ? `<div class="text-muted small">Code: ${item.class_code}</div>` : ''}
+                                    ${item.time_range ? `<div class="text-muted small">Time: ${item.time_range}</div>` : ''}
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold">₱${Number(item.payroll_salary || 0).toFixed(2)}</div>
+                                    <div class="text-muted small">${Number(item.payroll_hours || 0).toFixed(2)} hrs</div>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                ${sessionList}
+                            </div>
+                        `;
+                        processedSeriesBody.appendChild(card);
+                    });
+                }
+
+                if (processedSeriesModal && typeof bootstrap !== 'undefined') {
+                    const modal = bootstrap.Modal.getOrCreateInstance(processedSeriesModal);
+                    modal.show();
+                }
+            }
+
+            document.querySelectorAll('.processed-series-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    let series = [];
+                    try {
+                        series = JSON.parse(btn.dataset.series || '[]');
+                    } catch (e) {
+                        series = [];
+                    }
+                    const runName = btn.dataset.runName || '';
+                    const period = btn.dataset.period || '';
+                    if (processedSeriesTitle) {
+                        processedSeriesTitle.textContent = 'Processed sessions';
+                    }
+                    renderProcessedSeries(Array.isArray(series) ? series : [], runName, period);
                 });
             });
         });

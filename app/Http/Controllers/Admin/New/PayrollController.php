@@ -347,6 +347,53 @@ class PayrollController extends Controller
             ->values()
             ->toArray();
     }
+
+    private function formatProcessedSessionSeries($scheduleDetails): array
+    {
+        return collect($scheduleDetails ?? [])
+            ->filter(function ($detail) {
+                return ($detail['salary_eligible'] ?? false) && ($detail['in_month'] ?? false);
+            })
+            ->map(function ($detail) {
+                $schedule = $detail['schedule'] ?? null;
+                $paidDates = collect($detail['paid_dates'] ?? [])->filter();
+                if ($paidDates->isEmpty()) {
+                    return null;
+                }
+
+                $sessions = $paidDates->map(function ($date) {
+                    try {
+                        $parsed = Carbon::parse($date);
+                        return [
+                            'date' => $parsed->toDateString(),
+                            'label' => $parsed->format('M j, Y'),
+                            'day' => $parsed->day,
+                            'status' => 'Completed (paid)',
+                        ];
+                    } catch (\Throwable $th) {
+                        return [
+                            'date' => $date,
+                            'label' => $date,
+                            'status' => 'Completed (paid)',
+                        ];
+                    }
+                })->filter()->values();
+
+                return [
+                    'schedule_id' => $schedule->id ?? null,
+                    'schedule_name' => $schedule->name ?? 'Class schedule',
+                    'class_code' => $schedule->class_code ?? null,
+                    'time_range' => $detail['time_range'] ?? null,
+                    'hours_per_session' => $detail['hours_per_occurrence'] ?? $detail['hours'] ?? 0,
+                    'payroll_hours' => $detail['payroll_hours'] ?? 0,
+                    'payroll_salary' => $detail['payroll_salary'] ?? 0,
+                    'sessions' => $sessions->toArray(),
+                ];
+            })
+            ->filter()
+            ->values()
+            ->toArray();
+    }
     public function index(Request $request)
     {
         $search = $request->input('member_name');
@@ -836,6 +883,7 @@ class PayrollController extends Controller
                 'deduction_app_cut' => $deductions['app_cut'],
                 'processed_by' => Auth::id(),
                 'processed_at' => Carbon::now(),
+                'processed_session_series' => null,
             ]
         );
 
@@ -1007,6 +1055,10 @@ class PayrollController extends Controller
 
         $net = max($gross - $deductions['total'], 0);
 
+        $processedSessionSeries = $this->formatProcessedSessionSeries(
+            $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth)
+        );
+
         PayrollRun::updateOrCreate(
             [
                 'user_id' => $trainer->id,
@@ -1022,6 +1074,7 @@ class PayrollController extends Controller
                 'deduction_app_cut' => $deductions['app_cut'],
                 'processed_by' => Auth::id(),
                 'processed_at' => Carbon::now(),
+                'processed_session_series' => $processedSessionSeries,
             ]
         );
 

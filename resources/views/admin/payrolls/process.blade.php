@@ -423,6 +423,7 @@
                                 $modalId = 'trainer-assignments-' . $trainer->id;
                                 $totals = $assignment['totals'];
                                 $processedRun = $assignment['processed_run'] ?? null;
+                                $isProcessed = !empty($processedRun);
                                 $trainerGross = $processedRun->gross_pay ?? ($assignment['payable_salary'] ?? 0);
                                 $trainerProjectedGross = $assignment['total_salary'] ?? 0;
                                 $trainerUpcoming = $totals['future_total'] ?? 0;
@@ -431,6 +432,8 @@
                                 $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
                                 $trainerAppCut = $assignment['deductions']['app_cut'] ?? 0;
                                 $trainerNet = $processedRun->net_pay ?? $assignment['net_pay'];
+                                $displayProjectedGross = $isProcessed ? max((float) $trainerUpcoming, 0) : (float) $trainerProjectedGross;
+                                $displayNet = $isProcessed ? max((float) $trainerUpcoming, 0) : (float) $trainerNet;
                                 $assignmentDetails = collect($assignment['details'] ?? collect())
                                     ->filter(function ($detail) {
                                         return ($detail['salary_eligible'] ?? false) && ($detail['in_month'] ?? false);
@@ -442,6 +445,10 @@
                                             : PHP_INT_MAX;
                                     })
                                     ->values();
+                                $processedSeries = collect(optional($processedRun)->processed_session_series ?? []);
+                                $processedLabel = $processedRun && $processedRun->processed_at
+                                    ? 'Processed ' . $processedRun->processed_at->format('M d, Y g:i A')
+                                    : 'Processed';
                                 $attendanceAssignments = $assignmentDetails
                                     ->filter(function ($detail) {
                                         $att = collect($detail['attendances'] ?? []);
@@ -516,32 +523,57 @@
                                 data-philhealth="{{ $trainerPhilhealth }}"
                                 data-pagibig="{{ $trainerPagibig }}"
                                 data-appcut="{{ $trainerAppCut }}"
-                                data-net="{{ $trainerNet }}"
+                                data-net="{{ $displayNet }}"
                             >
-                                <div class="card-body p-4">
-                                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-                                        <div>
-                                            <h5 class="fw-semibold mb-1">{{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
-                                            <div class="text-muted small">{{ $trainer->email }}</div>
-                                            <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2 mt-2">
-                                                Assignments: {{ $assignment['assignments_count'] }}
+                        <div class="card-body p-4">
+                            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                                <div>
+                                    <h5 class="fw-semibold mb-1">{{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
+                                    <div class="text-muted small">{{ $trainer->email }}</div>
+                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2 mt-2">
+                                        Assignments: {{ $assignment['assignments_count'] }}
+                                    </span>
+                                    @if($isProcessed)
+                                        <div class="mt-2">
+                                            <span class="badge bg-secondary text-white rounded-pill px-3 py-2">
+                                                Processed: {{ optional($processedRun->processed_at)->format('M d, Y g:i A') ?? 'Saved' }}
+                                            </span>
+                                            <span class="badge bg-dark text-white rounded-pill px-3 py-2">
+                                                Gross ₱{{ number_format((float) ($processedRun->gross_pay ?? 0), 2) }}
+                                            </span>
+                                            <span class="badge bg-success text-white rounded-pill px-3 py-2">
+                                                Net ₱{{ number_format((float) ($processedRun->net_pay ?? 0), 2) }}
                                             </span>
                                         </div>
-                                        <div class="d-flex flex-wrap align-items-center gap-3">
-                                            <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Payable classes</div>
-                                                <div class="fw-bold fs-5">{{ $assignment['payable_assignments_count'] }}</div>
-                                            </div>
-                                            <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Projected total (incl. upcoming)</div>
-                                                <div class="fw-bold fs-5">₱{{ number_format($trainerProjectedGross, 2) }}</div>
-                                                <div class="text-muted small">Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}</div>
-                                            </div>
-                                            <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Net (after deductions)</div>
-                                                <div class="fw-bold fs-6 text-success" data-net>₱{{ number_format($trainerNet, 2) }}</div>
-                                                <div class="text-muted small">Completed classes only</div>
-                                            </div>
+                                    @endif
+                                </div>
+                                <div class="d-flex flex-wrap align-items-center gap-3">
+                                    <div class="text-start">
+                                        <div class="text-muted small text-uppercase">Payable classes</div>
+                                        <div class="fw-bold fs-5">{{ $assignment['payable_assignments_count'] }}</div>
+                                    </div>
+                                    <div class="text-start">
+                                        <div class="text-muted small text-uppercase">Projected total (incl. upcoming)</div>
+                                        <div class="fw-bold fs-5">₱{{ number_format($displayProjectedGross, 2) }}</div>
+                                        <div class="text-muted small">
+                                            @if($isProcessed)
+                                                Processed excluded • Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}
+                                            @else
+                                                Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}
+                                            @endif
+                                        </div>
+                                    </div>
+                                    <div class="text-start">
+                                        <div class="text-muted small text-uppercase">Net (after deductions)</div>
+                                        <div class="fw-bold fs-6 text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
+                                        <div class="text-muted small">
+                                            @if($isProcessed)
+                                                Upcoming only (processed excluded)
+                                            @else
+                                                Completed classes only
+                                            @endif
+                                        </div>
+                                    </div>
                                             @php
                                                 $trainerProcessDisabled = !$canProcessTrainer;
                                                 $trainerProcessTitle = $canProcessTrainer
@@ -637,11 +669,30 @@
                                         </div>
                                         <div class="modal-body">
                                             <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                                                <span class="badge bg-dark text-white rounded-pill px-3 py-2">Payable gross: ₱{{ number_format($trainerGross, 2) }}</span>
-                                                <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">Upcoming estimate: ₱{{ number_format($trainerUpcoming, 2) }}</span>
-                                                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">Completed classes: {{ $assignment['payable_assignments_count'] }}</span>
-                                                <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">Projected classes: {{ $assignment['salary_assignments_count'] }}</span>
-                                                <span class="badge bg-light text-muted rounded-pill px-3 py-2">Hours (completed): {{ number_format($assignment['total_hours'], 2) }}</span>
+                                                @if($isProcessed)
+                                                    <span class="badge bg-dark text-white rounded-pill px-3 py-2">Processed gross: ₱{{ number_format((float) ($processedRun->gross_pay ?? 0), 2) }}</span>
+                                                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">Processed net: ₱{{ number_format((float) ($processedRun->net_pay ?? 0), 2) }}</span>
+                                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">Processed at: {{ optional($processedRun->processed_at)->format('M d, Y g:i A') ?? '—' }}</span>
+                                                @endif
+                                                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
+                                                    Projected total: ₱{{ number_format($displayProjectedGross, 2) }}
+                                                    @if($isProcessed)
+                                                        <small class="text-muted">(processed excluded)</small>
+                                                    @endif
+                                                </span>
+                                                <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">
+                                                    Net (est): ₱{{ number_format($displayNet, 2) }}
+                                                    @if($isProcessed)
+                                                        <small class="text-muted">(upcoming only)</small>
+                                                    @else
+                                                        <small class="text-muted">(after deductions)</small>
+                                                    @endif
+                                                </span>
+                                                @unless($isProcessed)
+                                                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">Completed classes: {{ $assignment['payable_assignments_count'] }}</span>
+                                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">Projected classes: {{ $assignment['salary_assignments_count'] }}</span>
+                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">Hours (completed): {{ number_format($assignment['total_hours'], 2) }}</span>
+                                                @endunless
                                             </div>
                                             <div class="row g-3 mb-3">
                                                 <div class="col-12 col-md-6">
@@ -712,7 +763,7 @@
                                                         </div>
                                                         <div class="d-flex justify-content-between mt-2">
                                                             <span class="fw-semibold">Net payable</span>
-                                                            <span class="fw-bold text-success" data-net>₱{{ number_format($trainerNet, 2) }}</span>
+                                                            <span class="fw-bold text-success" data-net>₱{{ number_format($displayNet, 2) }}</span>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -736,9 +787,13 @@
                                                                 <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="past">Completed</button>
                                                             </div>
                                                         </div>
-                                                        <div class="col-12 col-sm-4 col-lg-3">
+                                                        <div class="col-12 col-sm-6 col-lg-4">
                                                             <label class="form-label text-muted text-uppercase small mb-1">Month</label>
-                                                            <input type="month" class="form-control form-control-sm" data-filter-month>
+                                                            <div class="input-group input-group-sm">
+                                                                <input type="month" class="form-control" data-filter-month>
+                                                                <button class="btn btn-outline-primary" type="button" data-filter-month-apply>Load</button>
+                                                            </div>
+                                                            <small class="text-muted d-block mt-1">Loads this month from the server.</small>
                                                         </div>
                                                         <div class="col-12 col-sm-4 col-lg-3">
                                                             <label class="form-label text-muted text-uppercase small mb-1">Processing day range</label>
@@ -768,6 +823,26 @@
                     @foreach($assignmentDetails as $detail)
                         @php
                             $schedule = $detail['schedule'];
+                            $processedMatch = $processedSeries->first(function ($series) use ($schedule) {
+                                $sessions = $series['sessions'] ?? [];
+                                if (empty($sessions)) {
+                                    return false;
+                                }
+                                $matchId = isset($series['schedule_id'], $schedule->id) && (string) $series['schedule_id'] === (string) $schedule->id;
+                                $matchCode = !empty($series['class_code']) && !empty($schedule->class_code) && $series['class_code'] === $schedule->class_code;
+                                return $matchId || $matchCode;
+                            });
+                            $processedDates = collect($processedMatch['sessions'] ?? [])->map(function ($session) {
+                                $date = $session['date'] ?? null;
+                                if (!$date) {
+                                    return null;
+                                }
+                                try {
+                                    return \Carbon\Carbon::parse($date)->toDateString();
+                                } catch (\Throwable $th) {
+                                    return $date;
+                                }
+                            })->filter()->values();
                             $start = $detail['start'];
                             $end = $detail['end'];
                             $category = $detail['category'];
@@ -805,13 +880,14 @@
                         }
                     })->filter()->values();
                             $occurrenceTimeline = collect($detail['occurrence_dates'] ?? [])
-                                ->map(function ($date) use ($detail) {
+                                ->map(function ($date) use ($detail, $processedDates, $processedLabel) {
                                     try {
                                         $parsed = \Carbon\Carbon::parse($date);
                                     } catch (\Throwable $th) {
                                         return null;
                                     }
                                     $dateKey = $parsed->toDateString();
+                                    $isProcessed = $processedDates->contains($dateKey);
                                     $isPaid = collect($detail['paid_dates'] ?? [])->contains($dateKey);
                                     $isPast = collect($detail['past_dates'] ?? [])->contains($dateKey);
                                     $isFuture = collect($detail['future_dates'] ?? [])->contains($dateKey);
@@ -830,6 +906,8 @@
                                         'status' => $status,
                                         'status_class' => $statusClass,
                                         'day' => $parsed->day,
+                                        'processed' => $isProcessed,
+                                        'processed_label' => $isProcessed ? $processedLabel : null,
                                     ];
                                 })
                                 ->filter()
@@ -978,6 +1056,9 @@
                                                 <div>
                                                     <div class="fw-semibold">{{ $session['label'] }}</div>
                                                     <span class="badge {{ $session['status_class'] }} px-2 py-1">{{ $session['status'] }}</span>
+                                                    @if(!empty($session['processed']))
+                                                        <span class="badge bg-primary-subtle text-primary ms-1">{{ $session['processed_label'] ?? 'Processed' }}</span>
+                                                    @endif
                                                 </div>
                                             </div>
                                         @endforeach
@@ -1919,8 +2000,22 @@
             }
         });
 
+        // Auto-open modal when redirected with trainer_modal param
+        const params = new URLSearchParams(window.location.search);
+        const trainerModalId = params.get('trainer_modal');
+        if (trainerModalId) {
+            const targetModal = document.getElementById(trainerModalId);
+            if (targetModal) {
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(targetModal);
+                modalInstance.show();
+            }
+        }
+
         // Assignment modal filters
         document.querySelectorAll('.assignment-modal').forEach((modal) => {
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
             const cards = modal.querySelectorAll('[data-assignment-card]');
             const buttons = modal.querySelectorAll('[data-filter-button]');
             const resetBtn = modal.querySelector('[data-filter-reset]');
@@ -1929,6 +2024,7 @@
             const monthInput = modal.querySelector('[data-filter-month]');
             const rangeInput = modal.querySelector('[data-filter-range]');
             const processingRanges = Array.isArray(serverProcessingRanges) ? serverProcessingRanges : [];
+            const modalId = modal.getAttribute('id');
             let activeFilter = 'all';
             const detailPanel = modal.querySelector('[data-assignment-detail]');
             let selectedCard = null;
@@ -1972,27 +2068,27 @@
                         <span class="badge ${data.category === 'Upcoming' ? 'bg-success text-white' : 'bg-secondary'}">${data.category || ''}</span>
                     </div>
                     <div class="rounded-3 border p-2 mb-2 bg-white">
-                        <div class="text-muted small text-uppercase fw-semibold mb-1">Series</div>
-                        <div class="small mb-1">Start: ${series.start || '—'}</div>
-                        <div class="small mb-1">End: ${series.end || '—'}</div>
-                        <div class="small mb-1">Recurrence: ${series.recurrence || '—'}</div>
-                        <div class="small mb-0">Hours per session: ${Number(series.hours_per_occurrence || 0).toFixed(2)}</div>
-                    </div>
-                    <div class="row g-2 mb-2">
-                        <div class="col-6">
-                            <div class="rounded-3 border p-2 bg-white h-100">
-                                <div class="text-muted small text-uppercase fw-semibold mb-1">Upcoming</div>
-                                <div class="fw-bold">₱${Number(amounts.upcoming || 0).toFixed(2)}</div>
-                                <div class="text-muted small">${counts.upcoming || 0} session(s)</div>
-                            </div>
-                        </div>
-                        <div class="col-6">
-                            <div class="rounded-3 border p-2 bg-white h-100">
-                                <div class="text-muted small text-uppercase fw-semibold mb-1">Completed</div>
-                                <div class="fw-bold">₱${Number(amounts.completed || 0).toFixed(2)}</div>
-                                <div class="text-muted small">${counts.completed || 0} session(s), ${counts.paid || 0} paid</div>
-                            </div>
-                        </div>
+                                            <div class="text-muted small text-uppercase fw-semibold mb-1">Series</div>
+                                            <div class="small mb-1">Start: ${series.start || '—'}</div>
+                                            <div class="small mb-1">End: ${series.end || '—'}</div>
+                                            <div class="small mb-1">Recurrence: ${series.recurrence || '—'}</div>
+                                            <div class="small mb-0">Hours per session: ${Number(series.hours_per_occurrence || 0).toFixed(2)}</div>
+                                        </div>
+                                        <div class="row g-2 mb-2">
+                                            <div class="col-6">
+                                                <div class="rounded-3 border p-2 bg-white h-100">
+                                                    <div class="text-muted small text-uppercase fw-semibold mb-1">Upcoming</div>
+                                                    <div class="fw-bold">₱${Number(amounts.upcoming || 0).toFixed(2)}</div>
+                                                    <div class="text-muted small">${counts.upcoming || 0} session(s)</div>
+                                                </div>
+                                            </div>
+                                            <div class="col-6">
+                                                <div class="rounded-3 border p-2 bg-white h-100">
+                                                    <div class="text-muted small text-uppercase fw-semibold mb-1">Completed</div>
+                                                    <div class="fw-bold">₱${Number(amounts.completed || 0).toFixed(2)}</div>
+                                                    <div class="text-muted small">${counts.completed || 0} session(s), ${counts.paid || 0} paid</div>
+                                                </div>
+                                            </div>
                     </div>
                     <div class="mb-2">
                         <div class="text-muted small text-uppercase fw-semibold">Students</div>
@@ -2021,6 +2117,7 @@
                                         <div>
                                             <div class="fw-semibold">${session.label || '—'}</div>
                                             <span class="badge ${session.status_class || 'bg-secondary'} px-2 py-1">${session.status || ''}</span>
+                                            ${session.processed ? `<span class="badge bg-primary-subtle text-primary ms-1">${session.processed_label || 'Processed'}</span>` : ''}
                                         </div>
                                     </div>
                                 `).join('')}
@@ -2267,6 +2364,19 @@
 
             monthInput?.addEventListener('change', applyFilters);
             rangeInput?.addEventListener('change', applyFilters);
+            const monthApplyBtn = modal.querySelector('[data-filter-month-apply]');
+            monthApplyBtn?.addEventListener('click', () => {
+                if (!monthInput || !monthInput.value) return;
+                const url = new URL(window.location.href);
+                url.searchParams.set('month', monthInput.value);
+                url.searchParams.set('trainer_modal', modalId);
+                // Persist search input from the main form if present
+                const searchInput = document.querySelector('input[name="search"]');
+                if (searchInput && searchInput.value) {
+                    url.searchParams.set('search', searchInput.value);
+                }
+                window.location.href = url.toString();
+            });
 
             cards.forEach((card) => {
                 card.addEventListener('click', () => selectCard(card));

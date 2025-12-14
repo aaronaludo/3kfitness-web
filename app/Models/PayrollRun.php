@@ -21,10 +21,12 @@ class PayrollRun extends Model
         'deduction_app_cut',
         'processed_by',
         'processed_at',
+        'processed_session_series',
     ];
 
     protected $casts = [
         'processed_at' => 'datetime',
+        'processed_session_series' => 'array',
     ];
 
     public function user()

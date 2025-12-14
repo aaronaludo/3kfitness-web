@@ -28,6 +28,7 @@ class TrainerPayrollController extends Controller
                     'total_hours' => $run->total_hours,
                     'gross_pay' => $run->gross_pay,
                     'net_pay' => $run->net_pay,
+                    'processed_session_series' => $run->processed_session_series ?? [],
                     'deduction_sss' => $run->deduction_sss,
                     'deduction_philhealth' => $run->deduction_philhealth,
                     'deduction_pagibig' => $run->deduction_pagibig,
