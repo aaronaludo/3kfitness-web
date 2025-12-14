@@ -1254,13 +1254,27 @@
                         <div class="card-body d-flex flex-wrap gap-2 align-items-center justify-content-between">
                             <div>
                                 <div class="text-muted small text-uppercase fw-semibold">Processing day</div>
-                                <div class="text-muted small mb-0">Using today's date to select the matching processing range.</div>
+                                <div class="text-muted small mb-0">Choose a processing day range to preview what will be processed.</div>
                             </div>
                             <div class="d-flex flex-wrap gap-2 justify-content-end">
                                 <span class="pill-badge info" id="process-range-summary">Showing all scheduled days</span>
                                 <span class="pill-badge success" id="process-range-total">₱0.00 total</span>
                                 <span class="pill-badge" id="process-range-count">0 assignments</span>
                             </div>
+                        </div>
+                    </div>
+
+                    @php $ranges = $deductionSettings['processing_day_ranges'] ?? []; @endphp
+                    <div class="row g-2 mb-3">
+                        <div class="col-12 col-sm-6 col-lg-4">
+                            <label class="form-label text-muted text-uppercase small mb-1">Processing day range</label>
+                            <select class="form-select form-select-sm" id="process-day-filter" {{ empty($ranges) ? 'disabled' : '' }}>
+                                <option value="all">All scheduled days</option>
+                                @foreach($ranges as $idx => $range)
+                                    <option value="{{ $idx }}">{{ $range['from'] ?? '?' }}-{{ $range['to'] ?? '?' }} → process on day {{ $range['process'] ?? '?' }}</option>
+                                @endforeach
+                            </select>
+                            <div class="form-text">Pick a range to see included classes.</div>
                         </div>
                     </div>
 
@@ -1720,7 +1734,6 @@
 
         // Process preview modal (trainer processing)
         const processModalEl = document.getElementById('processPreviewModal');
-        const processRangeSelect = document.getElementById('process-range-select');
         const processRangeList = document.getElementById('process-range-list');
         const processRangeSummary = document.getElementById('process-range-summary');
         const processRangeTotal = document.getElementById('process-range-total');
@@ -1735,34 +1748,56 @@
             document.body.appendChild(processModalEl);
         }
 
+        function getSelectedRange() {
+            if (!processingRanges.length) return null;
+
+            if (processDayFilter) {
+                const value = processDayFilter.value;
+                if (value && value !== 'all') {
+                    const idx = Number(value);
+                    if (!Number.isNaN(idx) && processingRanges[idx]) {
+                        return processingRanges[idx];
+                    }
+                } else if (value === 'all') {
+                    return null;
+                }
+            }
+
+            return processingRanges.find((range) => {
+                const from = parseInt(range.from, 10);
+                const to = parseInt(range.to ?? 31, 10);
+                return Number.isInteger(from) && Number.isInteger(to) && todayDay >= from && todayDay <= to;
+            }) || null;
+        }
+
         function renderProcessAssignments() {
             if (!processRangeList) return;
             processRangeList.innerHTML = '';
-            const todayDayForProcessing = todayDay;
-            const selectedRange = processingRanges.find((range) => {
-                const from = parseInt(range.from, 10);
-                const to = parseInt(range.to ?? 31, 10);
-                return Number.isInteger(from) && Number.isInteger(to) && todayDayForProcessing >= from && todayDayForProcessing <= to;
-            });
+            const selectedRange = getSelectedRange();
+            const isCompletedSessionInRange = (session) => {
+                const status = (session.status || '').toLowerCase();
+                const isCompleted = status.includes('completed');
+                if (!isCompleted) return false;
+                if (!selectedRange) return true;
+                const day = parseInt(session.day, 10);
+                if (!Number.isInteger(day)) return true;
+                return day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31);
+            };
 
             const filtered = pendingAssignments.filter((item) => {
-                if (!selectedRange) return true;
-                const days = Array.isArray(item.timeline) ? item.timeline.map((t) => parseInt(t.day, 10)).filter((d) => Number.isInteger(d)) : [];
-                if (!days.length) return false;
-                return days.some((d) => d >= (selectedRange.from || 0) && d <= (selectedRange.to || 31));
+                const timeline = Array.isArray(item.timeline) ? item.timeline : [];
+                return timeline.some((session) => isCompletedSessionInRange(session));
             });
 
             if (processRangeSummary) {
-                if (selectedRange) {
-                    processRangeSummary.textContent = `Today (day ${todayDayForProcessing}) in range ${selectedRange.from}-${selectedRange.to} → process on day ${selectedRange.process}`;
-                } else {
-                    processRangeSummary.textContent = `Today (day ${todayDayForProcessing}) not in any range; no sessions to show`;
-                }
+                processRangeSummary.textContent = selectedRange
+                    ? `Range ${selectedRange.from}-${selectedRange.to} → process on day ${selectedRange.process}`
+                    : 'Showing all scheduled days';
             }
-            if (!selectedRange || !filtered.length) {
+            if (!filtered.length) {
                 const empty = document.createElement('div');
                 empty.className = 'text-center text-muted';
-                empty.textContent = 'No assignments match today’s processing range.';
+                empty.textContent = 'No assignments match the selected processing day range.';
                 processRangeList.appendChild(empty);
                 if (processRangeTotal) processRangeTotal.textContent = '₱0.00 total';
                 if (processRangeCount) processRangeCount.textContent = '0 assignments';
@@ -1773,17 +1808,11 @@
 
             filtered.forEach((item) => {
                 const timeline = Array.isArray(item.timeline) ? item.timeline : [];
-                const filteredTimeline = selectedRange
-                    ? timeline.filter((t) => {
-                        const day = parseInt(t.day, 10);
-                        if (!Number.isInteger(day)) return false;
-                        return day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31);
-                    })
-                    : timeline;
+                const filteredTimeline = timeline.filter((t) => isCompletedSessionInRange(t));
 
                 const dates = filteredTimeline.map((t) => t.label || '').filter(Boolean).join(', ');
                 const totalCompleted = timeline.filter((t) => (t.status || '').toLowerCase().includes('completed')).length;
-                const filteredCompleted = filteredTimeline.filter((t) => (t.status || '').toLowerCase().includes('completed')).length;
+                const filteredCompleted = filteredTimeline.length;
                 const completedAmount = Number(item.amounts?.completed || 0);
                 const amountShare = totalCompleted > 0 ? (filteredCompleted / totalCompleted) : 0;
                 const amount = Number(completedAmount * amountShare);
@@ -1792,12 +1821,24 @@
                 const timelineHtml = filteredTimeline.length
                     ? filteredTimeline.map((t) => {
                         const status = (t.status || '').toLowerCase();
+                        const isUpcoming = status.includes('upcoming');
+                        const isPaid = status.includes('paid');
+                        const isCompleted = status.includes('completed');
                         let cls = 'bg-secondary';
-                        if (status.includes('upcoming')) cls = 'bg-warning text-dark';
-                        else if (status.includes('paid') || status.includes('completed')) cls = 'bg-success';
+                        let dotColor = '#6c757d';
+                        if (isUpcoming) {
+                            cls = 'bg-warning text-dark';
+                            dotColor = '#f59e0b';
+                        } else if (isCompleted && !isPaid) {
+                            cls = 'bg-danger text-white';
+                            dotColor = '#dc3545';
+                        } else if (isPaid || isCompleted) {
+                            cls = 'bg-success';
+                            dotColor = '#198754';
+                        }
                         return `
                             <div class="d-flex align-items-center gap-2 mb-1">
-                                <span class="process-dot" style="background:#3b82f6;"></span>
+                                <span class="process-dot" style="background:${dotColor};"></span>
                                 <div class="flex-grow-1">
                                     <div class="fw-semibold small mb-0">${t.label || '—'}</div>
                                     <span class="badge ${cls} px-2 py-1">${t.status || ''}</span>
@@ -1818,7 +1859,7 @@
                         <div class="text-end">
                             <div class="fw-bold text-success">₱${amount.toFixed(2)}</div>
                             <div class="text-muted small">
-                                ${selectedRange ? `Processing on day ${selectedRange.process}` : 'Processing day not set for today'}
+                                ${selectedRange ? `Processing on day ${selectedRange.process}` : 'Processing day not set for this selection'}
                             </div>
                         </div>
                     </div>
@@ -1851,6 +1892,20 @@
                 e.preventDefault();
                 pendingProcessForm = form;
                 pendingAssignments = Array.isArray(data) ? data : [];
+                if (processDayFilter) {
+                    const matchingIndex = processingRanges.findIndex((range) => {
+                        const from = parseInt(range.from, 10);
+                        const to = parseInt(range.to ?? 31, 10);
+                        return Number.isInteger(from) && Number.isInteger(to) && todayDay >= from && todayDay <= to;
+                    });
+                    if (matchingIndex >= 0 && processDayFilter.querySelector(`option[value="${matchingIndex}"]`)) {
+                        processDayFilter.value = String(matchingIndex);
+                    } else if (processDayFilter.querySelector('option[value="all"]')) {
+                        processDayFilter.value = 'all';
+                    } else if (processDayFilter.options.length) {
+                        processDayFilter.selectedIndex = 0;
+                    }
+                }
                 renderProcessAssignments();
                 const modal = bootstrap.Modal.getOrCreateInstance(processModalEl);
                 modal.show();
