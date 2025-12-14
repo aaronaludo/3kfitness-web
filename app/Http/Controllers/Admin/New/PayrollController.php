@@ -18,6 +18,48 @@ class PayrollController extends Controller
     private function currentDeductionSettings(): array
     {
         $setting = DeductionSetting::orderByDesc('id')->first();
+        $processingDays = [];
+        $processingDayRanges = [];
+        if ($setting && is_array($setting->processing_days)) {
+            $processingDays = collect($setting->processing_days)
+                ->map(function ($day) {
+                    if (is_string($day) && strtolower($day) === 'eom') {
+                        return 'eom';
+                    }
+                    $int = (int) $day;
+                    return $int >= 1 && $int <= 31 ? $int : null;
+                })
+                ->filter()
+                ->unique()
+                ->values()
+                ->toArray();
+        }
+
+        if ($setting && is_array($setting->processing_day_ranges)) {
+            $processingDayRanges = collect($setting->processing_day_ranges)
+                ->map(function ($range) {
+                    $from = (int) ($range['from'] ?? 0);
+                    $to = (int) ($range['to'] ?? 0);
+                    $process = (int) ($range['process'] ?? 0);
+                    if ($from < 1 || $from > 31 || $process < 1 || $process > 31) {
+                        return null;
+                    }
+                    if ($to < 1 || $to > 31) {
+                        $to = 31;
+                    }
+                    if ($from > $to) {
+                        [$from, $to] = [$to, $from];
+                    }
+                    return [
+                        'from' => $from,
+                        'to' => $to,
+                        'process' => $process,
+                    ];
+                })
+                ->filter()
+                ->values()
+                ->toArray();
+        }
 
         return [
             'sss_rate' => (float) ($setting->sss_rate ?? 4.5),
@@ -25,6 +67,8 @@ class PayrollController extends Controller
             'pagibig_rate' => (float) ($setting->pagibig_rate ?? 2.0),
             'pagibig_cap' => (float) ($setting->pagibig_cap ?? 5000),
             'app_cut_rate' => (float) ($setting->app_cut_rate ?? 0),
+            'processing_days' => $processingDays,
+            'processing_day_ranges' => $processingDayRanges,
         ];
     }
 
@@ -458,15 +502,65 @@ class PayrollController extends Controller
             'pagibig_rate' => 'required|numeric|min:0',
             'pagibig_cap' => 'required|numeric|min:0',
             'app_cut_rate' => 'nullable|numeric|min:0',
+            'processing_days' => 'nullable|array',
+            'processing_days.*' => 'nullable',
+            'processing_day_ranges' => 'nullable|array',
+            'processing_day_ranges.from' => 'nullable|array',
+            'processing_day_ranges.to' => 'nullable|array',
+            'processing_day_ranges.process' => 'nullable|array',
         ]);
 
         $setting = DeductionSetting::orderByDesc('id')->first() ?? new DeductionSetting();
+        $processingDays = collect($data['processing_days'] ?? [])
+            ->map(function ($day) {
+                if (is_string($day) && strtolower($day) === 'eom') {
+                    return 'eom';
+                }
+                $int = (int) $day;
+                return $int >= 1 && $int <= 31 ? $int : null;
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+
+        $rangeInputs = $data['processing_day_ranges'] ?? ['from' => [], 'to' => [], 'process' => []];
+        $processingDayRanges = collect($rangeInputs['from'] ?? [])
+            ->map(function ($from, $index) use ($rangeInputs) {
+                $to = $rangeInputs['to'][$index] ?? null;
+                $process = $rangeInputs['process'][$index] ?? null;
+                $fromInt = (int) $from;
+                $toInt = is_null($to) ? 31 : (int) $to;
+                $processInt = (int) $process;
+
+                if ($fromInt < 1 || $fromInt > 31 || $processInt < 1 || $processInt > 31) {
+                    return null;
+                }
+                if ($toInt < 1 || $toInt > 31) {
+                    $toInt = 31;
+                }
+                if ($fromInt > $toInt) {
+                    [$fromInt, $toInt] = [$toInt, $fromInt];
+                }
+
+                return [
+                    'from' => $fromInt,
+                    'to' => $toInt,
+                    'process' => $processInt,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->toArray();
+
         $setting->fill([
             'sss_rate' => $data['sss_rate'],
             'philhealth_rate' => $data['philhealth_rate'],
             'pagibig_rate' => $data['pagibig_rate'],
             'pagibig_cap' => $data['pagibig_cap'],
             'app_cut_rate' => $data['app_cut_rate'] ?? 0,
+            'processing_days' => $processingDays,
+            'processing_day_ranges' => $processingDayRanges,
         ]);
         $setting->save();
 

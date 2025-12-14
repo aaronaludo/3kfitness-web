@@ -433,75 +433,80 @@
 
                                                     $now = \Carbon\Carbon::now();
 
-                                                    $scheduleDetails = $trainerSchedules->map(function ($schedule) use ($now) {
-                                                        $start = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
-                                                        $end = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+                                                    $scheduleDetails = $trainerSchedules
+                                                        ->map(function ($schedule) use ($now) {
+                                                            $start = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                                                            $end = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
 
-                                                        $hasValidWindow = $start && $end && $end->greaterThan($start);
-                                                        $hasRate = !is_null($schedule->trainer_rate_per_hour);
-                                                        $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
-                                                        $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
+                                                            $hasValidWindow = $start && $end && $end->greaterThan($start);
+                                                            $hasRate = !is_null($schedule->trainer_rate_per_hour);
+                                                            $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
+                                                            $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
 
-                                                        $hours = $hasValidWindow
-                                                            ? $end->diffInMinutes($start) / 60
-                                                            : 0;
+                                                            $hours = $hasValidWindow
+                                                                ? $end->diffInMinutes($start) / 60
+                                                                : 0;
 
-                                                        $displaySalary = $hasRate
-                                                            ? (float) $schedule->trainer_rate_per_hour * $hours
-                                                            : 0;
+                                                            $displaySalary = $hasRate
+                                                                ? (float) $schedule->trainer_rate_per_hour * $hours
+                                                                : 0;
 
-                                                        $summarySalary = $isSalaryEligible
-                                                            ? (float) $schedule->trainer_rate_per_hour * $hours
-                                                            : 0;
+                                                            $summarySalary = $isSalaryEligible
+                                                                ? (float) $schedule->trainer_rate_per_hour * $hours
+                                                                : 0;
 
-                                                        $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
-                                                            $user = $userSchedule->user ?? null;
-                                                            if (!$user) {
+                                                            $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
+                                                                $user = $userSchedule->user ?? null;
+                                                                if (!$user) {
+                                                                    return null;
+                                                                }
+
+                                                                $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                                                                $displayName = $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                                $memberCode = $user->user_code ?? null;
+
+                                                                if ($displayName && $memberCode) {
+                                                                    return "{$displayName} ({$memberCode})";
+                                                                }
+
+                                                                if ($displayName) {
+                                                                    return $displayName;
+                                                                }
+
+                                                                if ($memberCode) {
+                                                                    return $memberCode;
+                                                                }
+
                                                                 return null;
+                                                            })->filter()->unique()->values();
+
+                                                            $isPast = false;
+                                                            if ($end) {
+                                                                $isPast = $end->lt($now);
+                                                            } elseif ($start) {
+                                                                $isPast = $start->lt($now);
                                                             }
 
-                                                            $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
-                                                            $displayName = $fullName !== '' ? $fullName : ($user->email ?? null);
-                                                            $memberCode = $user->user_code ?? null;
+                                                            $category = $isPast ? 'past' : 'future';
 
-                                                            if ($displayName && $memberCode) {
-                                                                return "{$displayName} ({$memberCode})";
-                                                            }
-
-                                                            if ($displayName) {
-                                                                return $displayName;
-                                                            }
-
-                                                            if ($memberCode) {
-                                                                return $memberCode;
-                                                            }
-
-                                                            return null;
-                                                        })->filter()->unique()->values();
-
-                                                        $isPast = false;
-                                                        if ($end) {
-                                                            $isPast = $end->lt($now);
-                                                        } elseif ($start) {
-                                                            $isPast = $start->lt($now);
-                                                        }
-
-                                                        $category = $isPast ? 'past' : 'future';
-
-                                                        return [
-                                                            'schedule' => $schedule,
-                                                            'start' => $start,
-                                                            'end' => $end,
-                                                            'start_date' => $start ? $start->toDateString() : null,
-                                                            'end_date' => $end ? $end->toDateString() : null,
-                                                            'hours' => $hours,
-                                                            'display_salary' => $displaySalary,
-                                                            'summary_salary' => $summarySalary,
-                                                            'salary_eligible' => $isSalaryEligible,
-                                                            'students' => $students,
-                                                            'category' => $category,
-                                                        ];
-                                                    });
+                                                            return [
+                                                                'schedule' => $schedule,
+                                                                'start' => $start,
+                                                                'end' => $end,
+                                                                'start_date' => $start ? $start->toDateString() : null,
+                                                                'end_date' => $end ? $end->toDateString() : null,
+                                                                'hours' => $hours,
+                                                                'display_salary' => $displaySalary,
+                                                                'summary_salary' => $summarySalary,
+                                                                'salary_eligible' => $isSalaryEligible,
+                                                                'students' => $students,
+                                                                'category' => $category,
+                                                            ];
+                                                        })
+                                                        ->sortBy(function ($detail) {
+                                                            return $detail['start'] ? $detail['start']->getTimestamp() : PHP_INT_MAX;
+                                                        })
+                                                        ->values();
 
                                                     $futureScheduleDetails = $scheduleDetails->filter(function ($detail) {
                                                         return $detail['category'] === 'future';
@@ -897,75 +902,80 @@
 
                                                     $archivedNow = \Carbon\Carbon::now();
 
-                                                    $archivedScheduleDetails = $archivedSchedules->map(function ($schedule) use ($archivedNow) {
-                                                        $start = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
-                                                        $end = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+                                                    $archivedScheduleDetails = $archivedSchedules
+                                                        ->map(function ($schedule) use ($archivedNow) {
+                                                            $start = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
+                                                            $end = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
 
-                                                        $hasValidWindow = $start && $end && $end->greaterThan($start);
-                                                        $hasRate = !is_null($schedule->trainer_rate_per_hour);
-                                                        $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
-                                                        $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
+                                                            $hasValidWindow = $start && $end && $end->greaterThan($start);
+                                                            $hasRate = !is_null($schedule->trainer_rate_per_hour);
+                                                            $isArchived = isset($schedule->is_archieve) && (int) $schedule->is_archieve === 1;
+                                                            $isSalaryEligible = $hasValidWindow && $hasRate && !$isArchived;
 
-                                                        $hours = $hasValidWindow
-                                                            ? $end->diffInMinutes($start) / 60
-                                                            : 0;
+                                                            $hours = $hasValidWindow
+                                                                ? $end->diffInMinutes($start) / 60
+                                                                : 0;
 
-                                                        $displaySalary = $hasRate
-                                                            ? (float) $schedule->trainer_rate_per_hour * $hours
-                                                            : 0;
+                                                            $displaySalary = $hasRate
+                                                                ? (float) $schedule->trainer_rate_per_hour * $hours
+                                                                : 0;
 
-                                                        $summarySalary = $isSalaryEligible
-                                                            ? (float) $schedule->trainer_rate_per_hour * $hours
-                                                            : 0;
+                                                            $summarySalary = $isSalaryEligible
+                                                                ? (float) $schedule->trainer_rate_per_hour * $hours
+                                                                : 0;
 
-                                                        $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
-                                                            $user = $userSchedule->user ?? null;
-                                                            if (!$user) {
+                                                            $students = collect($schedule->user_schedules ?? [])->map(function ($userSchedule) {
+                                                                $user = $userSchedule->user ?? null;
+                                                                if (!$user) {
+                                                                    return null;
+                                                                }
+
+                                                                $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                                                                $displayName = $fullName !== '' ? $fullName : ($user->email ?? null);
+                                                                $memberCode = $user->user_code ?? null;
+
+                                                                if ($displayName && $memberCode) {
+                                                                    return "{$displayName} ({$memberCode})";
+                                                                }
+
+                                                                if ($displayName) {
+                                                                    return $displayName;
+                                                                }
+
+                                                                if ($memberCode) {
+                                                                    return $memberCode;
+                                                                }
+
                                                                 return null;
+                                                            })->filter()->unique()->values();
+
+                                                            $isPast = false;
+                                                            if ($end) {
+                                                                $isPast = $end->lt($archivedNow);
+                                                            } elseif ($start) {
+                                                                $isPast = $start->lt($archivedNow);
                                                             }
 
-                                                            $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
-                                                            $displayName = $fullName !== '' ? $fullName : ($user->email ?? null);
-                                                            $memberCode = $user->user_code ?? null;
+                                                            $category = $isPast ? 'past' : 'future';
 
-                                                            if ($displayName && $memberCode) {
-                                                                return "{$displayName} ({$memberCode})";
-                                                            }
-
-                                                            if ($displayName) {
-                                                                return $displayName;
-                                                            }
-
-                                                            if ($memberCode) {
-                                                                return $memberCode;
-                                                            }
-
-                                                            return null;
-                                                        })->filter()->unique()->values();
-
-                                                        $isPast = false;
-                                                        if ($end) {
-                                                            $isPast = $end->lt($archivedNow);
-                                                        } elseif ($start) {
-                                                            $isPast = $start->lt($archivedNow);
-                                                        }
-
-                                                        $category = $isPast ? 'past' : 'future';
-
-                                                        return [
-                                                            'schedule' => $schedule,
-                                                            'start' => $start,
-                                                            'end' => $end,
-                                                            'start_date' => $start ? $start->toDateString() : null,
-                                                            'end_date' => $end ? $end->toDateString() : null,
-                                                            'hours' => $hours,
-                                                            'display_salary' => $displaySalary,
-                                                            'summary_salary' => $summarySalary,
-                                                            'salary_eligible' => $isSalaryEligible,
-                                                            'students' => $students,
-                                                            'category' => $category,
-                                                        ];
-                                                    });
+                                                            return [
+                                                                'schedule' => $schedule,
+                                                                'start' => $start,
+                                                                'end' => $end,
+                                                                'start_date' => $start ? $start->toDateString() : null,
+                                                                'end_date' => $end ? $end->toDateString() : null,
+                                                                'hours' => $hours,
+                                                                'display_salary' => $displaySalary,
+                                                                'summary_salary' => $summarySalary,
+                                                                'salary_eligible' => $isSalaryEligible,
+                                                                'students' => $students,
+                                                                'category' => $category,
+                                                            ];
+                                                        })
+                                                        ->sortBy(function ($detail) {
+                                                            return $detail['start'] ? $detail['start']->getTimestamp() : PHP_INT_MAX;
+                                                        })
+                                                        ->values();
 
                                                     $archivedFutureDetails = $archivedScheduleDetails->filter(function ($detail) {
                                                         return $detail['category'] === 'future';

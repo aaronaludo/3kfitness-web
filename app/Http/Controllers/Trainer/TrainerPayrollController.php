@@ -31,6 +31,7 @@ class TrainerPayrollController extends Controller
                     'deduction_sss' => $run->deduction_sss,
                     'deduction_philhealth' => $run->deduction_philhealth,
                     'deduction_pagibig' => $run->deduction_pagibig,
+                    'deduction_app_cut' => $run->deduction_app_cut,
                     'processed_at' => optional($run->processed_at)->toIso8601String(),
                     'created_at' => optional($run->created_at)->toIso8601String(),
                     'updated_at' => optional($run->updated_at)->toIso8601String(),

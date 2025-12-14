@@ -9,6 +9,8 @@
             'pagibig_rate' => 2,
             'pagibig_cap' => 5000,
             'app_cut_rate' => 0,
+            'processing_days' => [],
+            'processing_day_ranges' => [],
         ];
     @endphp
     <div class="container-fluid">
@@ -100,6 +102,18 @@
                 </div>
             </div>
 
+            <div class="col-12 mb-3 d-flex justify-content-end">
+                <button
+                    type="button"
+                    class="btn btn-outline-secondary rounded-pill d-flex align-items-center gap-2"
+                    data-bs-toggle="modal"
+                    data-bs-target="#deductionModal"
+                >
+                    <i class="fa-solid fa-sliders"></i>
+                    Adjust deductions
+                </button>
+            </div>
+
             <section id="staff-payroll-section" class="payroll-section">
             <div class="col-12 mb-2">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
@@ -169,18 +183,6 @@
                 </div>
             </div>
 
-            <div class="col-12 mb-3 d-flex justify-content-end">
-                <button
-                    type="button"
-                    class="btn btn-outline-secondary rounded-pill d-flex align-items-center gap-2"
-                    data-bs-toggle="modal"
-                    data-bs-target="#deductionModal"
-                >
-                    <i class="fa-solid fa-sliders"></i>
-                    Adjust deductions
-                </button>
-            </div>
-
             <div class="col-12">
                 @forelse ($summaries as $summary)
                     @php
@@ -234,15 +236,23 @@
                                             </span>
                                         @endif
                                     </div>
+                                    @php
+                                        $staffProcessDisabled = $summary['pending_entries'] || !empty($summary['processed_run']);
+                                        $staffProcessTitle = $summary['pending_entries']
+                                            ? 'Clock-out pending entries before processing'
+                                            : (!empty($summary['processed_run']) ? 'Already processed for this period' : 'Process and save payroll');
+                                    @endphp
                                     <form action="{{ route('admin.payrolls.process-staff') }}" method="POST" class="d-inline">
                                         @csrf
                                         <input type="hidden" name="staff_id" value="{{ $staff->id }}">
                                         <input type="hidden" name="month" value="{{ $month }}">
                                         <button
                                             type="submit"
-                                            class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2"
-                                            {{ $summary['pending_entries'] || !empty($summary['processed_run']) ? 'disabled' : '' }}
-                                            title="{{ $summary['pending_entries'] ? 'Clock-out pending entries before processing' : (!empty($summary['processed_run']) ? 'Already processed for this period' : 'Process and save payroll') }}"
+                                            class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2 process-payroll-btn"
+                                            data-base-disabled="{{ $staffProcessDisabled ? '1' : '0' }}"
+                                            data-base-title="{{ $staffProcessTitle }}"
+                                            {{ $staffProcessDisabled ? 'disabled' : '' }}
+                                            title="{{ $staffProcessTitle }}"
                                         >
                                             <i class="fa-solid fa-circle-check"></i>
                                             {{ !empty($summary['processed_run']) ? 'Processed' : 'Process payroll' }}
@@ -421,7 +431,18 @@
                                 $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
                                 $trainerAppCut = $assignment['deductions']['app_cut'] ?? 0;
                                 $trainerNet = $processedRun->net_pay ?? $assignment['net_pay'];
-                                $attendanceAssignments = collect($assignment['details'] ?? collect())
+                                $assignmentDetails = collect($assignment['details'] ?? collect())
+                                    ->filter(function ($detail) {
+                                        return ($detail['salary_eligible'] ?? false) && ($detail['in_month'] ?? false);
+                                    })
+                                    ->sortBy(function ($detail) {
+                                        $start = $detail['start'] ?? null;
+                                        return $start instanceof \Carbon\CarbonInterface
+                                            ? $start->getTimestamp()
+                                            : PHP_INT_MAX;
+                                    })
+                                    ->values();
+                                $attendanceAssignments = $assignmentDetails
                                     ->filter(function ($detail) {
                                         $att = collect($detail['attendances'] ?? []);
                                         return $att->isNotEmpty() || ($detail['has_attendance'] ?? false);
@@ -521,15 +542,57 @@
                                                 <div class="fw-bold fs-6 text-success" data-net>₱{{ number_format($trainerNet, 2) }}</div>
                                                 <div class="text-muted small">Completed classes only</div>
                                             </div>
+                                            @php
+                                                $trainerProcessDisabled = !$canProcessTrainer;
+                                                $trainerProcessTitle = $canProcessTrainer
+                                                    ? 'Process and save payroll'
+                                                    : (!empty($processedRun) ? 'Already processed for this period' : 'No completed assignments for this period');
+                                            @endphp
                                             <form action="{{ route('admin.payrolls.process-trainer') }}" method="POST" class="d-inline">
                                                 @csrf
                                                 <input type="hidden" name="trainer_id" value="{{ $trainer->id }}">
                                                 <input type="hidden" name="month" value="{{ $month }}">
+                                                @php
+                                                    $rangeAssignments = $assignmentDetails->map(function ($detail) {
+                                                        $timeline = collect($detail['occurrence_dates'] ?? [])->map(function ($date) use ($detail) {
+                                                            try {
+                                                                $parsed = \Carbon\Carbon::parse($date);
+                                                            } catch (\Throwable $th) {
+                                                                return null;
+                                                            }
+                                                            $dateKey = $parsed->toDateString();
+                                                            $isPaid = collect($detail['paid_dates'] ?? [])->contains($dateKey);
+                                                            $isPast = collect($detail['past_dates'] ?? [])->contains($dateKey);
+                                                            $isFuture = collect($detail['future_dates'] ?? [])->contains($dateKey);
+                                                            $status = $isFuture ? 'Upcoming' : ($isPaid ? 'Completed (paid)' : ($isPast ? 'Completed' : '—'));
+
+                                                            return [
+                                                                'label' => $parsed->format('M j, Y'),
+                                                                'day' => $parsed->day,
+                                                                'status' => $status,
+                                                            ];
+                                                        })->filter()->values();
+
+                                                        return [
+                                                            'title' => $detail['schedule']->name ?? 'Unnamed Schedule',
+                                                            'code' => $detail['schedule']->class_code ?? null,
+                                                            'timeline' => $timeline,
+                                                            'amounts' => [
+                                                                'upcoming' => $detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0,
+                                                                'completed' => $detail['payroll_salary'] ?? 0,
+                                                            ],
+                                                        ];
+                                                    })->values();
+                                                    $rangeAssignmentsJson = json_encode($rangeAssignments, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
+                                                @endphp
                                                 <button
                                                     type="submit"
-                                                    class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2"
-                                                    {{ $canProcessTrainer ? '' : 'disabled' }}
-                                                    title="{{ $canProcessTrainer ? 'Process and save payroll' : (!empty($processedRun) ? 'Already processed for this period' : 'No completed assignments for this period') }}"
+                                                    class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2 process-payroll-btn"
+                                                    data-base-disabled="{{ $trainerProcessDisabled ? '1' : '0' }}"
+                                                    data-base-title="{{ $trainerProcessTitle }}"
+                                                    data-range-assignments='{{ $rangeAssignmentsJson }}'
+                                                    {{ $trainerProcessDisabled ? 'disabled' : '' }}
+                                                    title="{{ $trainerProcessTitle }}"
                                                 >
                                                     <i class="fa-solid fa-circle-check"></i>
                                                     {{ !empty($processedRun) ? 'Processed' : 'Process payroll' }}
@@ -582,36 +645,36 @@
                                             </div>
                                             <div class="row g-3 mb-3">
                                                 <div class="col-12 col-md-6">
-                                                    <div class="border rounded-4 p-3 h-100 bg-light">
-                                                        <div class="d-flex align-items-center justify-content-between">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <span class="badge bg-success text-white rounded-circle p-2"><i class="fa-solid fa-calendar-check"></i></span>
-                                                                <span class="text-muted small text-uppercase fw-semibold">Upcoming</span>
-                                                            </div>
-                                                            <span class="text-muted small">{{ $totals['future_count'] }} {{ $totals['future_count'] === 1 ? 'assignment' : 'assignments' }}</span>
-                                                        </div>
-                                                        <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                            <span class="fs-5 fw-semibold">₱{{ number_format($totals['future_total'], 2) }}</span>
-                                                            <span class="badge bg-success-subtle text-success rounded-pill px-3">{{ $totals['future_payroll_count'] }} payroll {{ $totals['future_payroll_count'] === 1 ? 'class' : 'classes' }}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12 col-md-6">
-                                                    <div class="border rounded-4 p-3 h-100 bg-light">
-                                                        <div class="d-flex align-items-center justify-content-between">
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <span class="badge bg-secondary text-white rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
-                                                                <span class="text-muted small text-uppercase fw-semibold">Past</span>
-                                                            </div>
-                                                            <span class="text-muted small">{{ $totals['past_count'] }} {{ $totals['past_count'] === 1 ? 'assignment' : 'assignments' }}</span>
-                                                        </div>
-                                                        <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                            <span class="fs-5 fw-semibold">₱{{ number_format($totals['past_total'], 2) }}</span>
-                                                            <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3">{{ $totals['past_payroll_count'] }} payroll {{ $totals['past_payroll_count'] === 1 ? 'class' : 'classes' }}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+                <div class="border rounded-4 p-3 h-100 bg-light">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-success text-white rounded-circle p-2"><i class="fa-solid fa-calendar-check"></i></span>
+                            <span class="text-muted small text-uppercase fw-semibold">Upcoming</span>
+                        </div>
+                        <span class="text-muted small" data-count-future="{{ $totals['future_count'] }}">{{ $totals['future_count'] }} {{ $totals['future_count'] === 1 ? 'assignment' : 'assignments' }}</span>
+                    </div>
+                    <div class="d-flex align-items-baseline justify-content-between mt-2">
+                        <span class="fs-5 fw-semibold" data-total-future>₱{{ number_format($totals['future_total'], 2) }}</span>
+                        <span class="badge bg-success-subtle text-success rounded-pill px-3" data-payroll-count-future>{{ $totals['future_payroll_count'] }} payroll {{ $totals['future_payroll_count'] === 1 ? 'class' : 'classes' }}</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-12 col-md-6">
+                <div class="border rounded-4 p-3 h-100 bg-light">
+                    <div class="d-flex align-items-center justify-content-between">
+                        <div class="d-flex align-items-center gap-2">
+                            <span class="badge bg-secondary text-white rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
+                            <span class="text-muted small text-uppercase fw-semibold">Completed</span>
+                        </div>
+                        <span class="text-muted small" data-count-past="{{ $totals['past_count'] }}">{{ $totals['past_count'] }} {{ $totals['past_count'] === 1 ? 'assignment' : 'assignments' }}</span>
+                    </div>
+                    <div class="d-flex align-items-baseline justify-content-between mt-2">
+                        <span class="fs-5 fw-semibold" data-total-past>₱{{ number_format($totals['past_total'], 2) }}</span>
+                        <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3" data-payroll-count-past>{{ $totals['past_payroll_count'] }} payroll {{ $totals['past_payroll_count'] === 1 ? 'class' : 'classes' }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
 
                                             <div class="row g-3 mb-3">
                                                 <div class="col-12 col-md-6">
@@ -670,8 +733,22 @@
                                                             <div class="btn-group btn-group-sm w-100" role="group">
                                                                 <button type="button" class="btn btn-outline-secondary active" data-filter-button data-filter="all">All</button>
                                                                 <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="future">Upcoming</button>
-                                                                <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="past">Past</button>
+                                                                <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="past">Completed</button>
                                                             </div>
+                                                        </div>
+                                                        <div class="col-12 col-sm-4 col-lg-3">
+                                                            <label class="form-label text-muted text-uppercase small mb-1">Month</label>
+                                                            <input type="month" class="form-control form-control-sm" data-filter-month>
+                                                        </div>
+                                                        <div class="col-12 col-sm-4 col-lg-3">
+                                                            <label class="form-label text-muted text-uppercase small mb-1">Processing day range</label>
+                                                            @php $ranges = $deductionSettings['processing_day_ranges'] ?? []; @endphp
+                                                            <select class="form-select form-select-sm" data-filter-range {{ empty($ranges) ? 'disabled' : '' }}>
+                                                                <option value="">All ranges</option>
+                                                                @foreach($ranges as $idx => $range)
+                                                                    <option value="{{ $idx }}">{{ $range['from'] ?? '?' }}-{{ $range['to'] ?? '?' }} → {{ $range['process'] ?? '?' }}</option>
+                                                                @endforeach
+                                                            </select>
                                                         </div>
                                                         <div class="col-12 col-sm-4 col-lg-3">
                                                             <label class="form-label text-muted text-uppercase small mb-1">From date</label>
@@ -685,127 +762,237 @@
                                                 </div>
                                             </div>
 
-        <div class="assignment-list">
-            @foreach($assignment['details'] as $detail)
-                @php
-                    $schedule = $detail['schedule'];
-                    $start = $detail['start'];
-                    $end = $detail['end'];
-                    $category = $detail['category'];
-                    $categoryLabel = $category === 'future' ? 'Upcoming' : 'Past';
-                    $badgeClass = $category === 'future' ? 'bg-success text-white' : 'bg-secondary';
-                    $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
-                    $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
-                    $students = $detail['students'];
-                    $hasAttendance = $detail['has_attendance'] ?? false;
-                    $attendanceRecords = collect($detail['attendances'] ?? collect());
-                    $payableSalary = $detail['payroll_salary'] ?? 0;
-                    $recurringLabel = $detail['recurring_label'] ?? '';
-                    $occurrenceDatesRaw = collect($detail['occurrence_dates'] ?? collect())->filter();
-                    $occurrenceDates = $occurrenceDatesRaw->map(function ($date) {
-                        try {
-                            return \Carbon\Carbon::parse($date)->format('M d');
-                        } catch (\Throwable $th) {
-                            return $date;
-                        }
-                    })->values();
+        <div class="row g-3">
+            <div class="col-12 col-lg-7">
+                <div class="assignment-list">
+                    @foreach($assignmentDetails as $detail)
+                        @php
+                            $schedule = $detail['schedule'];
+                            $start = $detail['start'];
+                            $end = $detail['end'];
+                            $category = $detail['category'];
+                            $categoryLabel = $category === 'future' ? 'Upcoming' : 'Completed';
+                            $badgeClass = $category === 'future' ? 'bg-success text-white' : 'bg-secondary';
+                            $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
+                            $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
+                            $students = $detail['students'];
+                            $hasAttendance = $detail['has_attendance'] ?? false;
+                            $attendanceRecords = collect($detail['attendances'] ?? collect());
+                            $attendanceList = $attendanceRecords->map(function ($record) {
+                                $clockIn = $record['clockin_at'] ?? null;
+                                $clockOut = $record['clockout_at'] ?? null;
+                                $clockInLabel = $clockIn ? $clockIn->format('M d, Y g:i A') : '—';
+                                $clockOutLabel = $clockOut ? $clockOut->format('M d, Y g:i A') : null;
+                                return $clockOutLabel ? $clockInLabel . ' – ' . $clockOutLabel : $clockInLabel;
+                            })->values();
+                            $payableSalary = $detail['payroll_salary'] ?? 0;
+                            $recurringLabel = $detail['recurring_label'] ?? '';
+                            $occurrenceDatesRaw = collect($detail['occurrence_dates'] ?? collect())->filter();
+                            $occurrenceDates = $occurrenceDatesRaw->map(function ($date) {
+                                try {
+                                    return \Carbon\Carbon::parse($date)->format('M d');
+                                } catch (\Throwable $th) {
+                                    return $date;
+                                }
+                            })->values();
                     $startFilterDate = $occurrenceDatesRaw->first() ?? ($detail['start_date'] ?? '');
                     $endFilterDate = $occurrenceDatesRaw->last() ?? ($detail['end_date'] ?? '');
-                @endphp
-                <div
-                    class="border rounded-3 p-3 mb-3"
-                    data-assignment-card
-                    data-category="{{ $category }}"
+                    $occurrenceDays = $occurrenceDatesRaw->map(function ($date) {
+                        try {
+                            return \Carbon\Carbon::parse($date)->day;
+                        } catch (\Throwable $th) {
+                            return null;
+                        }
+                    })->filter()->values();
+                            $occurrenceTimeline = collect($detail['occurrence_dates'] ?? [])
+                                ->map(function ($date) use ($detail) {
+                                    try {
+                                        $parsed = \Carbon\Carbon::parse($date);
+                                    } catch (\Throwable $th) {
+                                        return null;
+                                    }
+                                    $dateKey = $parsed->toDateString();
+                                    $isPaid = collect($detail['paid_dates'] ?? [])->contains($dateKey);
+                                    $isPast = collect($detail['past_dates'] ?? [])->contains($dateKey);
+                                    $isFuture = collect($detail['future_dates'] ?? [])->contains($dateKey);
+                                    $status = $isFuture ? 'Upcoming' : ($isPaid ? 'Completed (paid)' : ($isPast ? 'Completed' : '—'));
+                                    $statusClass = 'bg-secondary';
+                                    if ($isFuture) {
+                                        $statusClass = 'bg-warning text-dark';
+                                    } elseif ($isPaid) {
+                                        $statusClass = 'bg-success';
+                                    } elseif ($isPast) {
+                                        $statusClass = 'bg-danger-subtle text-danger';
+                                    }
+
+                                    return [
+                                        'label' => $parsed->format('M j, Y'),
+                                        'status' => $status,
+                                        'status_class' => $statusClass,
+                                        'day' => $parsed->day,
+                                    ];
+                                })
+                                ->filter()
+                                ->values();
+                            $detailPayload = [
+                                'title' => $schedule->name ?? 'Unnamed Schedule',
+                                'code' => $schedule->class_code ?? null,
+                                'category' => $categoryLabel,
+                                'time_range' => $detail['time_range'] ?? ($rangeStart !== 'N/A' ? trim($rangeStart . ($rangeEnd ? ' – ' . $rangeEnd : '')) : null),
+                                'series' => [
+                                    'start' => $rangeStart,
+                                    'end' => $rangeEnd,
+                                    'recurrence' => $recurringLabel,
+                                    'hours_per_occurrence' => $detail['hours'] ?? 0,
+                                ],
+                                'counts' => [
+                                    'upcoming' => $detail['future_occurrence_count'] ?? 0,
+                                    'completed' => $detail['past_occurrence_count'] ?? 0,
+                                    'paid' => $detail['past_paid_count'] ?? 0,
+                                ],
+                                'amounts' => [
+                                    'upcoming' => $detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0,
+                                    'completed' => $payableSalary,
+                                ],
+                                'rate' => $schedule->trainer_rate_per_hour ?? null,
+                                'students' => $students->values(),
+                                'attendance' => $attendanceList,
+                                'timeline' => $occurrenceTimeline->values(),
+                            ];
+                            $detailJson = json_encode($detailPayload, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
+                        @endphp
+                        <div
+                            class="border rounded-3 p-3 mb-3 assignment-card"
+                            style="cursor: pointer;"
+                            data-assignment-card
+                            data-category="{{ $category }}"
                     data-start-date="{{ $startFilterDate }}"
                     data-end-date="{{ $endFilterDate }}"
+                    data-future-salary="{{ (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0) }}"
+                    data-past-salary="{{ (float) $payableSalary }}"
+                    data-future-count="{{ (int) ($detail['future_occurrence_count'] ?? 0) }}"
+                    data-past-count="{{ (int) ($detail['past_occurrence_count'] ?? 0) }}"
+                    data-paid-count="{{ (int) ($detail['past_paid_count'] ?? 0) }}"
+                    data-future-amount="{{ (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0) }}"
+                    data-past-amount="{{ (float) ($detail['payroll_salary'] ?? 0) }}"
+                    data-occurrence-days="{{ $occurrenceDays->implode(',') }}"
+                    data-detail='{{ $detailJson }}'
                 >
-                    <div class="d-flex justify-content-between align-items-start gap-3">
-                        <div class="d-flex align-items-start gap-3">
-                            <span class="badge bg-dark-subtle text-dark rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
-                            <div>
-                                <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                <div class="d-flex flex-wrap gap-2 mt-1">
-                                    @if(!empty($schedule->class_code))
-                                        <span class="badge bg-light text-muted border">Code: {{ $schedule->class_code }}</span>
-                                    @endif
-                                    @if($detail['hours'] > 0)
-                                        <span class="badge bg-primary-subtle text-primary">Duration: {{ number_format($detail['hours'], 2) }} hrs</span>
-                                    @endif
-                                    @if(!is_null($schedule->trainer_rate_per_hour))
-                                        <span class="badge bg-success-subtle text-success">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }}/hr</span>
-                                    @endif
-                                    @if($category === 'past')
-                                        <span class="badge {{ $hasAttendance ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">
-                                            Payable: ₱{{ number_format($payableSalary, 2) }}
-                                        </span>
-                                    @elseif($detail['display_salary'] > 0)
-                                        <span class="badge bg-danger-subtle text-danger">Est. salary: ₱{{ number_format($detail['display_salary'], 2) }}</span>
-                                    @endif
-                                    @if($category === 'past')
-                                        @if($hasAttendance)
-                                            <span class="badge bg-success-subtle text-success">Attendance logged</span>
-                                        @else
-                                            <span class="badge bg-danger-subtle text-danger">Absent (no attendance)</span>
+                            <div class="d-flex justify-content-between align-items-start gap-3">
+                                <div class="d-flex align-items-start gap-3">
+                                    <span class="badge bg-dark-subtle text-dark rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
+                                    <div>
+                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
+                                        <div class="d-flex flex-wrap gap-2 mt-1">
+                                            @if(!empty($schedule->class_code))
+                                                <span class="badge bg-light text-muted border">Code: {{ $schedule->class_code }}</span>
+                                            @endif
+                                            @if($detail['hours'] > 0)
+                                                <span class="badge bg-primary-subtle text-primary">Duration: {{ number_format($detail['hours'], 2) }} hrs</span>
+                                            @endif
+                                            @if(!is_null($schedule->trainer_rate_per_hour))
+                                                <span class="badge bg-success-subtle text-success">Rate: ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }}/hr</span>
+                                            @endif
+                                            @if($category === 'past')
+                                                <span class="badge {{ $hasAttendance ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning' }}">
+                                                    Payable: ₱{{ number_format($payableSalary, 2) }}
+                                                </span>
+                                            @elseif($detail['display_salary'] > 0)
+                                                <span class="badge bg-danger-subtle text-danger">Est. salary: ₱{{ number_format($detail['display_salary'], 2) }}</span>
+                                            @endif
+                                            @if($category === 'past')
+                                                @if($hasAttendance)
+                                                    <span class="badge bg-success-subtle text-success">Attendance logged</span>
+                                                @else
+                                                    <span class="badge bg-danger-subtle text-danger">Absent (no attendance)</span>
+                                                @endif
+                                            @endif
+                                            @if($recurringLabel)
+                                                <span class="badge bg-info-subtle text-info">Recurring: {{ $recurringLabel }}</span>
+                                            @endif
+                                            @if($occurrenceDates->isNotEmpty())
+                                                <span class="badge bg-light text-muted border">
+                                                    Dates: {{ $occurrenceDates->take(3)->implode(', ') }}@if($occurrenceDates->count() > 3)+{{ $occurrenceDates->count() - 3 }} more @endif
+                                                </span>
+                                            @endif
+                                        </div>
+                                        @if($start || $end)
+                                            <span class="text-muted small d-block mt-1">
+                                                {{ $rangeStart }}
+                                                @if($rangeEnd)
+                                                    &ndash; {{ $rangeEnd }}
+                                                @endif
+                                            </span>
                                         @endif
-                                    @endif
-                                    @if($recurringLabel)
-                                        <span class="badge bg-info-subtle text-info">Recurring: {{ $recurringLabel }}</span>
-                                    @endif
-                                    @if($occurrenceDates->isNotEmpty())
-                                        <span class="badge bg-light text-muted border">
-                                            Dates: {{ $occurrenceDates->take(3)->implode(', ') }}@if($occurrenceDates->count() > 3)+{{ $occurrenceDates->count() - 3 }} more @endif
-                                        </span>
-                                    @endif
+                                    </div>
                                 </div>
-                                @if($start || $end)
-                                    <span class="text-muted small d-block mt-1">
-                                        {{ $rangeStart }}
-                                        @if($rangeEnd)
-                                            &ndash; {{ $rangeEnd }}
-                                        @endif
-                                    </span>
+                                <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
+                            </div>
+                            <div class="mt-3">
+                                <span class="text-muted small text-uppercase fw-semibold">Students</span>
+                                @if($students->isNotEmpty())
+                                    <ul class="list-unstyled mb-0 small mt-1">
+                                        @foreach($students as $student)
+                                            <li>{{ $student }}</li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <p class="text-muted small mb-0">No students assigned.</p>
                                 @endif
                             </div>
+                            <div class="mt-3">
+                                <span class="text-muted small text-uppercase fw-semibold">Attendance</span>
+                                @if($attendanceRecords->isNotEmpty())
+                                    <ul class="list-unstyled mb-0 small mt-1">
+                                        @foreach($attendanceRecords as $record)
+                                            @php
+                                                $clockIn = $record['clockin_at'] ?? null;
+                                                $clockOut = $record['clockout_at'] ?? null;
+                                                $clockInLabel = $clockIn ? $clockIn->format('M d, Y g:i A') : '—';
+                                                $clockOutLabel = $clockOut ? $clockOut->format('M d, Y g:i A') : null;
+                                            @endphp
+                                            <li>
+                                                {{ $clockInLabel }}
+                                                @if($clockOutLabel)
+                                                    – {{ $clockOutLabel }}
+                                                @endif
+                                            </li>
+                                        @endforeach
+                                    </ul>
+                                @else
+                                    <p class="text-muted small mb-0">No attendance recorded for this schedule.</p>
+                                @endif
+                            </div>
+                            @if($occurrenceTimeline->isNotEmpty())
+                                <div class="mt-3">
+                                    <span class="text-muted small text-uppercase fw-semibold d-block mb-1">Series of sessions</span>
+                                    <div class="d-flex flex-column gap-2">
+                                        @foreach($occurrenceTimeline as $index => $session)
+                                            <div class="d-flex align-items-start gap-2" data-session-day="{{ $session['day'] ?? '' }}">
+                                                <div class="d-flex flex-column align-items-center me-1">
+                                                    <span class="rounded-circle bg-primary" style="width: 10px; height: 10px;"></span>
+                                                    @if($index < $occurrenceTimeline->count() - 1)
+                                                        <span class="mt-1" style="width: 2px; height: 20px; background-color: #e9ecef;"></span>
+                                                    @endif
+                                                </div>
+                                                <div>
+                                                    <div class="fw-semibold">{{ $session['label'] }}</div>
+                                                    <span class="badge {{ $session['status_class'] }} px-2 py-1">{{ $session['status'] }}</span>
+                                                </div>
+                                            </div>
+                                        @endforeach
+                                    </div>
+                                </div>
+                            @endif
                         </div>
-                        <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
-                    </div>
-                    <div class="mt-3">
-                        <span class="text-muted small text-uppercase fw-semibold">Students</span>
-                        @if($students->isNotEmpty())
-                            <ul class="list-unstyled mb-0 small mt-1">
-                                @foreach($students as $student)
-                                    <li>{{ $student }}</li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p class="text-muted small mb-0">No students assigned.</p>
-                        @endif
-                    </div>
-                    <div class="mt-3">
-                        <span class="text-muted small text-uppercase fw-semibold">Attendance</span>
-                        @if($attendanceRecords->isNotEmpty())
-                            <ul class="list-unstyled mb-0 small mt-1">
-                                @foreach($attendanceRecords as $record)
-                                    @php
-                                        $clockIn = $record['clockin_at'] ?? null;
-                                        $clockOut = $record['clockout_at'] ?? null;
-                                        $clockInLabel = $clockIn ? $clockIn->format('M d, Y g:i A') : '—';
-                                        $clockOutLabel = $clockOut ? $clockOut->format('M d, Y g:i A') : null;
-                                    @endphp
-                                    <li>
-                                        {{ $clockInLabel }}
-                                        @if($clockOutLabel)
-                                            – {{ $clockOutLabel }}
-                                        @endif
-                                    </li>
-                                @endforeach
-                            </ul>
-                        @else
-                            <p class="text-muted small mb-0">No attendance recorded for this schedule.</p>
-                        @endif
-                    </div>
+                    @endforeach
                 </div>
-            @endforeach
+            </div>
+            <div class="col-12 col-lg-5">
+                <div class="border rounded-4 p-3 h-100 bg-light" data-assignment-detail>
+                    <p class="text-muted mb-0">Select a class/schedule to view full details.</p>
+                </div>
+            </div>
         </div>
                                         </div>
                                         <div class="modal-footer">
@@ -826,14 +1013,56 @@
 
     {{-- Deduction rules modal --}}
     <div class="modal fade" id="deductionModal" tabindex="-1" aria-labelledby="deductionModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
             <div class="modal-content rounded-4 border-0 shadow-sm">
                 <div class="modal-header">
                     <h5 class="modal-title fw-semibold" id="deductionModalLabel">Adjust deduction rules</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
+                    <style>
+                        .deduction-card {
+                            border: 1px solid #e5e7eb;
+                            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+                        }
+                        .pill-badge {
+                            display: inline-flex;
+                            align-items: center;
+                            gap: 6px;
+                            border-radius: 999px;
+                            padding: 6px 12px;
+                            background: #f3f4f6;
+                            color: #111827;
+                            font-weight: 600;
+                            font-size: 13px;
+                            white-space: normal;
+                            line-height: 1.3;
+                            max-width: 100%;
+                            word-break: break-word;
+                        }
+                        .pill-badge.block {
+                            display: block;
+                            width: 100%;
+                            text-align: left;
+                        }
+                        .pill-badge.danger { background: #fef2f2; color: #b91c1c; }
+                        .pill-badge.success { background: #ecfdf3; color: #166534; }
+                        .pill-badge.info { background: #eef2ff; color: #312e81; }
+                    </style>
                     <p class="text-muted small mb-3">Set the current government rates. Changes update the on-screen calculations and payslip printout.</p>
+                    <div class="rounded-4 deduction-card p-3 mb-3 bg-white">
+                        <div class="d-flex align-items-start gap-3 flex-wrap">
+                            <div class="rounded-circle bg-danger text-white d-flex align-items-center justify-content-center" style="width: 42px; height: 42px;">
+                                <i class="fa-solid fa-calendar-check"></i>
+                            </div>
+                            <div class="flex-grow-1">
+                                <div class="text-muted small text-uppercase fw-semibold mb-1">Payroll month</div>
+                                <div class="fw-bold">{{ $monthLabel }}</div>
+                                <div class="text-muted small mb-0">Process payroll is unlocked only on the processing days listed below.</div>
+                            </div>
+                            <span class="pill-badge info block flex-shrink-1" style="min-width: 220px;" data-activation-status>Processing enabled</span>
+                        </div>
+                    </div>
                     <form
                         id="deduction-form"
                         class="row g-3"
@@ -841,6 +1070,96 @@
                         action="{{ route('admin.payrolls.deductions.update') }}"
                     >
                         @csrf
+                        <div class="col-12">
+                            <div class="border rounded-4 p-3 bg-light-subtle">
+                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                    <div>
+                                        <label class="form-label text-muted text-uppercase small mb-1 mb-0">Processing day ranges</label>
+                                        <div class="text-muted small mb-0">Map day ranges to their processing day (e.g., 1-15 → 20, 21-31 → 5).</div>
+                                    </div>
+                                    <button type="button" class="btn btn-outline-primary btn-sm" id="add-range-row">
+                                        <i class="fa-solid fa-plus"></i>
+                                        Add range
+                                    </button>
+                                </div>
+                                @php
+                                    $processingRanges = $deductionSettings['processing_day_ranges'] ?? [];
+                                @endphp
+                                <div class="d-flex flex-column gap-2" id="range-list">
+                                    <div data-range-rows class="d-flex flex-column gap-2">
+                                        @forelse($processingRanges as $range)
+                                            <div class="row g-2 align-items-center range-row">
+                                                <div class="col-4">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[from][]" class="form-control" value="{{ $range['from'] ?? '' }}" placeholder="From day">
+                                                </div>
+                                                <div class="col-4">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[to][]" class="form-control" value="{{ $range['to'] ?? '' }}" placeholder="To day">
+                                                </div>
+                                                <div class="col-3">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[process][]" class="form-control" value="{{ $range['process'] ?? '' }}" placeholder="Process day">
+                                                </div>
+                                                <div class="col-1 d-flex justify-content-end">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" data-remove-range>
+                                                        <i class="fa-solid fa-xmark"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @empty
+                                            <div class="row g-2 align-items-center range-row">
+                                                <div class="col-4">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[from][]" class="form-control" value="1" placeholder="From day">
+                                                </div>
+                                                <div class="col-4">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[to][]" class="form-control" value="15" placeholder="To day">
+                                                </div>
+                                                <div class="col-3">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[process][]" class="form-control" value="20" placeholder="Process day">
+                                                </div>
+                                                <div class="col-1 d-flex justify-content-end">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" data-remove-range>
+                                                        <i class="fa-solid fa-xmark"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div class="row g-2 align-items-center range-row">
+                                                <div class="col-4">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[from][]" class="form-control" value="21" placeholder="From day">
+                                                </div>
+                                                <div class="col-4">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[to][]" class="form-control" value="31" placeholder="To day">
+                                                </div>
+                                                <div class="col-3">
+                                                    <input type="number" min="1" max="31" name="processing_day_ranges[process][]" class="form-control" value="5" placeholder="Process day">
+                                                </div>
+                                                <div class="col-1 d-flex justify-content-end">
+                                                    <button type="button" class="btn btn-outline-danger btn-sm" data-remove-range>
+                                                        <i class="fa-solid fa-xmark"></i>
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        @endforelse
+                                    </div>
+                                    <p class="text-muted small mb-0" data-range-empty>Add at least one range to control processing days per cutoff.</p>
+                                    <div class="d-flex flex-wrap gap-2 mt-2" id="range-preview"></div>
+                                </div>
+                                <template id="range-row-template">
+                                    <div class="row g-2 align-items-center range-row">
+                                        <div class="col-4">
+                                            <input type="number" min="1" max="31" name="processing_day_ranges[from][]" class="form-control" placeholder="From day">
+                                        </div>
+                                        <div class="col-4">
+                                            <input type="number" min="1" max="31" name="processing_day_ranges[to][]" class="form-control" placeholder="To day">
+                                        </div>
+                                        <div class="col-3">
+                                            <input type="number" min="1" max="31" name="processing_day_ranges[process][]" class="form-control" placeholder="Process day">
+                                        </div>
+                                        <div class="col-1 d-flex justify-content-end">
+                                            <button type="button" class="btn btn-outline-danger btn-sm" data-remove-range>
+                                                <i class="fa-solid fa-xmark"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
                         <div class="col-12 col-md-6">
                             <label class="form-label text-muted text-uppercase small mb-1">SSS (%)</label>
                             <input
@@ -911,6 +1230,51 @@
             </div>
         </div>
     </div>
+
+    {{-- Process preview modal --}}
+    <div class="modal fade" id="processPreviewModal" tabindex="-1" aria-labelledby="processPreviewModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-xl modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-sm">
+                <div class="modal-header">
+                    <div>
+                        <h5 class="modal-title fw-semibold mb-0" id="processPreviewModalLabel">Assignments to be processed</h5>
+                        <p class="text-muted small mb-0">Filtered by processing day range.</p>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <style>
+                        .process-list { max-height: 60vh; overflow-y: auto; }
+                        .process-card { border: 1px solid #e5e7eb; border-radius: 16px; padding: 14px 16px; background: #f8fafc; }
+                        .process-card + .process-card { margin-top: 10px; }
+                        .process-timeline { border-left: 2px solid #e5e7eb; padding-left: 10px; margin-left: 6px; }
+                        .process-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+                    </style>
+                    <div class="card border-0 bg-light rounded-4 mb-3">
+                        <div class="card-body d-flex flex-wrap gap-2 align-items-center justify-content-between">
+                            <div>
+                                <div class="text-muted small text-uppercase fw-semibold">Processing day</div>
+                                <div class="text-muted small mb-0">Using today's date to select the matching processing range.</div>
+                            </div>
+                            <div class="d-flex flex-wrap gap-2 justify-content-end">
+                                <span class="pill-badge info" id="process-range-summary">Showing all scheduled days</span>
+                                <span class="pill-badge success" id="process-range-total">₱0.00 total</span>
+                                <span class="pill-badge" id="process-range-count">0 assignments</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="assignment-list process-list" id="process-range-list">
+                        <div class="text-center text-muted">No assignments found.</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="process-range-confirm">Continue processing</button>
+                </div>
+            </div>
+        </div>
+    </div>
 @endsection
 
 @section('scripts')
@@ -940,6 +1304,198 @@
             btn.addEventListener('click', () => setSection(btn.dataset.payrollToggle || 'staff'));
         });
         setSection('staff');
+
+        const serverProcessingDays = @json($deductionSettings['processing_days'] ?? []);
+        const serverProcessingRanges = @json($deductionSettings['processing_day_ranges'] ?? []);
+        const today = new Date();
+        const todayDay = today.getDate();
+        const todayLabel = today.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+        const activationStatus = document.querySelector('[data-activation-status]');
+        const rangeRows = document.querySelector('[data-range-rows]');
+        const rangeTemplate = document.getElementById('range-row-template');
+        const addRangeBtn = document.getElementById('add-range-row');
+        const rangePreview = document.getElementById('range-preview');
+        const rangeEmpty = document.querySelector('[data-range-empty]');
+        let activationDays = []; // processing days UI removed; rely on ranges
+        let processingRanges = Array.isArray(serverProcessingRanges) ? serverProcessingRanges.slice() : [];
+
+        function normalizeActivationDays() {
+            activationDays = activationDays
+                .map((value) => {
+                    if (typeof value === 'string' && value.toLowerCase() === 'eom') return 'eom';
+                    const parsed = parseInt(value, 10);
+                    return Number.isInteger(parsed) ? parsed : '';
+                })
+                .filter((value) => value === 'eom' || (Number.isInteger(value) && value >= 1 && value <= 31))
+                .filter((value, index, arr) => arr.indexOf(value) === index);
+        }
+
+        function normalizeRanges() {
+            processingRanges = processingRanges
+                .map((range) => {
+                    const from = parseInt(range.from, 10);
+                    const to = parseInt(range.to ?? 31, 10);
+                    const process = parseInt(range.process, 10);
+                    if (!Number.isInteger(from) || !Number.isInteger(process)) return null;
+                    if (from < 1 || from > 31 || process < 1 || process > 31) return null;
+                    const toSafe = Number.isInteger(to) && to >= 1 && to <= 31 ? to : 31;
+                    const fromSafe = Math.min(from, toSafe);
+                    const toFinal = Math.max(from, toSafe);
+                    return { from: fromSafe, to: toFinal, process };
+                })
+                .filter(Boolean);
+        }
+
+        function defaultRanges() {
+            return [
+                { from: 1, to: 15, process: 20 },
+                { from: 21, to: 31, process: 5 },
+            ];
+        }
+
+        function renderRangeRows() {
+            if (!rangeRows || !rangeTemplate) return;
+            rangeRows.innerHTML = '';
+            const rows = processingRanges.length ? processingRanges : defaultRanges();
+            rows.forEach((range, index) => {
+                const node = rangeTemplate.content.firstElementChild.cloneNode(true);
+                const inputs = node.querySelectorAll('input');
+                inputs.forEach((input) => {
+                    if (input.name.includes('[from]')) input.value = range.from ?? '';
+                    if (input.name.includes('[to]')) input.value = range.to ?? '';
+                    if (input.name.includes('[process]')) input.value = range.process ?? '';
+                    input.addEventListener('change', () => {
+                        const fromVal = node.querySelector('input[name*="[from]"]')?.value;
+                        const toVal = node.querySelector('input[name*="[to]"]')?.value;
+                        const processVal = node.querySelector('input[name*="[process]"]')?.value;
+                        processingRanges[index] = { from: fromVal, to: toVal, process: processVal };
+                        normalizeRanges();
+                        renderRangeRows();
+                        renderRangePreview();
+                        updateProcessButtons();
+                    });
+                });
+                node.querySelector('[data-remove-range]')?.addEventListener('click', () => {
+                    processingRanges.splice(index, 1);
+                    normalizeRanges();
+                    renderRangeRows();
+                    renderRangePreview();
+                    updateProcessButtons();
+                });
+                rangeRows.appendChild(node);
+            });
+
+            if (rangeEmpty) {
+                rangeEmpty.classList.toggle('d-none', processingRanges.length > 0);
+            }
+        }
+
+        function renderRangePreview() {
+            if (!rangePreview) return;
+            rangePreview.innerHTML = '';
+            const ranges = processingRanges.length ? processingRanges : [];
+            if (!ranges.length) {
+                const span = document.createElement('span');
+                span.className = 'text-muted small';
+                span.textContent = 'No ranges set.';
+                rangePreview.appendChild(span);
+                return;
+            }
+            ranges.forEach((range) => {
+                const badge = document.createElement('span');
+                badge.className = 'pill-badge';
+                badge.textContent = `${range.from}-${range.to} → process on day ${range.process}`;
+                rangePreview.appendChild(badge);
+            });
+        }
+
+        function getAllowedDays() {
+            const rangeDays = processingRanges.map((r) => r.process).filter((v, i, arr) => arr.indexOf(v) === i);
+            const explicitDays = activationDays;
+            return [...new Set([...explicitDays, ...rangeDays])];
+        }
+
+        function isDayAllowed() {
+            const allowedDays = getAllowedDays();
+            if (!allowedDays.length) return false;
+            const lastDayOfMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
+            return allowedDays.some((value) => {
+                if (value === 'eom') {
+                    return todayDay === lastDayOfMonth;
+                }
+                return value === todayDay;
+            });
+        }
+
+        function updateActivationStatusBadge(allowed, dayAllowed) {
+            if (!activationStatus) return;
+
+            let text = '';
+            if (allowed) {
+                text = `Processing enabled today (${todayLabel}).`;
+            } else if (!getAllowedDays().length) {
+                text = 'Locked: add at least one allowed processing day.';
+            } else if (!dayAllowed) {
+                text = `Locked: today (${todayLabel}) is not in the allowed days list (including end-of-month if added).`;
+            } else {
+                text = 'Processing locked for this period.';
+            }
+
+            activationStatus.textContent = text;
+            activationStatus.className = allowed
+                ? 'badge bg-success-subtle text-success rounded-pill px-3 py-2'
+                : 'badge bg-warning-subtle text-warning rounded-pill px-3 py-2';
+        }
+
+        function updateProcessButtons() {
+            const dayAllowed = isDayAllowed();
+            const allowed = dayAllowed;
+            let lockMessage = 'Processing is locked for this period.';
+
+            const allowedDaysList = getAllowedDays();
+
+            if (!allowedDaysList.length) {
+                lockMessage = 'Processing allowed only on configured days. Add at least one processing day in Adjust deductions.';
+            } else if (!dayAllowed) {
+                const list = allowedDaysList.length
+                    ? allowedDaysList.map((value) => value === 'eom' ? 'End of month' : value).join(', ')
+                    : 'the allowed days list';
+                lockMessage = `Processing allowed only on days ${list}. Today (${todayLabel}) is not allowed.`;
+            }
+
+            document.querySelectorAll('.process-payroll-btn').forEach((btn) => {
+                const baseDisabled = btn.dataset.baseDisabled === '1';
+                const baseTitle = btn.dataset.baseTitle || btn.getAttribute('title') || '';
+
+                if (!allowed) {
+                    btn.disabled = true;
+                    btn.title = lockMessage;
+                } else {
+                    btn.disabled = baseDisabled;
+                    btn.title = baseTitle;
+                }
+            });
+
+            updateActivationStatusBadge(allowed, dayAllowed);
+        }
+
+        normalizeActivationDays();
+        normalizeRanges();
+        if (!processingRanges.length) {
+            processingRanges = defaultRanges();
+        }
+
+        addRangeBtn?.addEventListener('click', () => {
+            processingRanges.push({ from: '', to: '', process: '' });
+            normalizeRanges();
+            renderRangeRows();
+            renderRangePreview();
+            updateProcessButtons();
+        });
+
+        updateProcessButtons();
+        renderRangeRows();
+        renderRangePreview();
 
         const buttons = document.querySelectorAll('[data-payslip]');
 
@@ -1162,6 +1718,151 @@
             modal?.hide();
         });
 
+        // Process preview modal (trainer processing)
+        const processModalEl = document.getElementById('processPreviewModal');
+        const processRangeSelect = document.getElementById('process-range-select');
+        const processRangeList = document.getElementById('process-range-list');
+        const processRangeSummary = document.getElementById('process-range-summary');
+        const processRangeTotal = document.getElementById('process-range-total');
+        const processRangeCount = document.getElementById('process-range-count');
+        const processConfirmBtn = document.getElementById('process-range-confirm');
+        let pendingProcessForm = null;
+        let pendingAssignments = [];
+
+        // Ensure the preview modal lives under body to avoid overflow clipping
+        if (processModalEl && processModalEl.parentElement !== document.body) {
+            document.body.appendChild(processModalEl);
+        }
+
+        function renderProcessAssignments() {
+            if (!processRangeList) return;
+            processRangeList.innerHTML = '';
+            const todayDayForProcessing = todayDay;
+            const selectedRange = processingRanges.find((range) => {
+                const from = parseInt(range.from, 10);
+                const to = parseInt(range.to ?? 31, 10);
+                return Number.isInteger(from) && Number.isInteger(to) && todayDayForProcessing >= from && todayDayForProcessing <= to;
+            });
+
+            const filtered = pendingAssignments.filter((item) => {
+                if (!selectedRange) return true;
+                const days = Array.isArray(item.timeline) ? item.timeline.map((t) => parseInt(t.day, 10)).filter((d) => Number.isInteger(d)) : [];
+                if (!days.length) return false;
+                return days.some((d) => d >= (selectedRange.from || 0) && d <= (selectedRange.to || 31));
+            });
+
+            if (processRangeSummary) {
+                if (selectedRange) {
+                    processRangeSummary.textContent = `Today (day ${todayDayForProcessing}) in range ${selectedRange.from}-${selectedRange.to} → process on day ${selectedRange.process}`;
+                } else {
+                    processRangeSummary.textContent = `Today (day ${todayDayForProcessing}) not in any range; no sessions to show`;
+                }
+            }
+            if (!selectedRange || !filtered.length) {
+                const empty = document.createElement('div');
+                empty.className = 'text-center text-muted';
+                empty.textContent = 'No assignments match today’s processing range.';
+                processRangeList.appendChild(empty);
+                if (processRangeTotal) processRangeTotal.textContent = '₱0.00 total';
+                if (processRangeCount) processRangeCount.textContent = '0 assignments';
+                return;
+            }
+
+            let totalAmount = 0;
+
+            filtered.forEach((item) => {
+                const timeline = Array.isArray(item.timeline) ? item.timeline : [];
+                const filteredTimeline = selectedRange
+                    ? timeline.filter((t) => {
+                        const day = parseInt(t.day, 10);
+                        if (!Number.isInteger(day)) return false;
+                        return day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31);
+                    })
+                    : timeline;
+
+                const dates = filteredTimeline.map((t) => t.label || '').filter(Boolean).join(', ');
+                const totalCompleted = timeline.filter((t) => (t.status || '').toLowerCase().includes('completed')).length;
+                const filteredCompleted = filteredTimeline.filter((t) => (t.status || '').toLowerCase().includes('completed')).length;
+                const completedAmount = Number(item.amounts?.completed || 0);
+                const amountShare = totalCompleted > 0 ? (filteredCompleted / totalCompleted) : 0;
+                const amount = Number(completedAmount * amountShare);
+                totalAmount += amount;
+
+                const timelineHtml = filteredTimeline.length
+                    ? filteredTimeline.map((t) => {
+                        const status = (t.status || '').toLowerCase();
+                        let cls = 'bg-secondary';
+                        if (status.includes('upcoming')) cls = 'bg-warning text-dark';
+                        else if (status.includes('paid') || status.includes('completed')) cls = 'bg-success';
+                        return `
+                            <div class="d-flex align-items-center gap-2 mb-1">
+                                <span class="process-dot" style="background:#3b82f6;"></span>
+                                <div class="flex-grow-1">
+                                    <div class="fw-semibold small mb-0">${t.label || '—'}</div>
+                                    <span class="badge ${cls} px-2 py-1">${t.status || ''}</span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')
+                    : '<div class="text-muted small">No session dates listed.</div>';
+
+                const card = document.createElement('div');
+                card.className = 'process-card';
+                card.innerHTML = `
+                    <div class="d-flex align-items-start justify-content-between gap-2">
+                        <div>
+                            <div class="fw-semibold">${item.title || 'Unnamed Schedule'}</div>
+                            ${item.code ? `<div class="text-muted small">Code: ${item.code}</div>` : ''}
+                        </div>
+                        <div class="text-end">
+                            <div class="fw-bold text-success">₱${amount.toFixed(2)}</div>
+                            <div class="text-muted small">
+                                ${selectedRange ? `Processing on day ${selectedRange.process}` : 'Processing day not set for today'}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="text-muted small mt-1">${dates || 'No dates in this range'}</div>
+                    <div class="process-timeline mt-2">${timelineHtml}</div>
+                `;
+                processRangeList.appendChild(card);
+            });
+
+            if (processRangeTotal) {
+                processRangeTotal.textContent = `₱${totalAmount.toFixed(2)} total`;
+            }
+            if (processRangeCount) {
+                processRangeCount.textContent = `${filtered.length} ${filtered.length === 1 ? 'assignment' : 'assignments'}`;
+            }
+        }
+
+        document.querySelectorAll('.process-payroll-btn').forEach((btn) => {
+            if (!btn.dataset.rangeAssignments) return;
+            btn.addEventListener('click', (e) => {
+                const form = btn.closest('form');
+                let data = [];
+                try {
+                    data = JSON.parse(btn.dataset.rangeAssignments || '[]');
+                } catch (err) {
+                    data = [];
+                }
+
+                if (!processModalEl) return;
+                e.preventDefault();
+                pendingProcessForm = form;
+                pendingAssignments = Array.isArray(data) ? data : [];
+                renderProcessAssignments();
+                const modal = bootstrap.Modal.getOrCreateInstance(processModalEl);
+                modal.show();
+            });
+        });
+
+        processDayFilter?.addEventListener('change', renderProcessAssignments);
+        processConfirmBtn?.addEventListener('click', () => {
+            if (pendingProcessForm) {
+                pendingProcessForm.submit();
+            }
+        });
+
         // Assignment modal filters
         document.querySelectorAll('.assignment-modal').forEach((modal) => {
             const cards = modal.querySelectorAll('[data-assignment-card]');
@@ -1169,13 +1870,126 @@
             const resetBtn = modal.querySelector('[data-filter-reset]');
             const startInput = modal.querySelector('[data-filter-start]');
             const endInput = modal.querySelector('[data-filter-end]');
+            const monthInput = modal.querySelector('[data-filter-month]');
+            const rangeInput = modal.querySelector('[data-filter-range]');
+            const processingRanges = Array.isArray(serverProcessingRanges) ? serverProcessingRanges : [];
             let activeFilter = 'all';
+            const detailPanel = modal.querySelector('[data-assignment-detail]');
+            let selectedCard = null;
+            let selectedRange = null;
 
             function setActive(targetFilter) {
                 activeFilter = targetFilter;
                 buttons.forEach((btn) => {
                     btn.classList.toggle('active', btn.dataset.filter === targetFilter);
                 });
+            }
+
+            function renderDetail(data) {
+                if (!detailPanel) return;
+                if (!data) {
+                    detailPanel.innerHTML = '<p class="text-muted mb-0">Select a class/schedule to view full details.</p>';
+                    return;
+                }
+
+                let timeline = Array.isArray(data.timeline) ? data.timeline : [];
+                if (selectedRange) {
+                    timeline = timeline.filter((session) => {
+                        const day = parseInt(session.day, 10);
+                        if (!Number.isInteger(day)) return true;
+                        return day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31);
+                    });
+                }
+                const students = Array.isArray(data.students) ? data.students : [];
+                const attendance = Array.isArray(data.attendance) ? data.attendance : [];
+                const counts = data.counts || {};
+                const amounts = data.amounts || {};
+                const series = data.series || {};
+
+                detailPanel.innerHTML = `
+                    <div class="d-flex align-items-start justify-content-between gap-2 mb-2">
+                        <div>
+                            <div class="text-muted small text-uppercase fw-semibold">Class / Schedule</div>
+                            <div class="fw-bold">${data.title || 'Unnamed Schedule'}</div>
+                            ${data.code ? `<div class="text-muted small">Code: ${data.code}</div>` : ''}
+                        </div>
+                        <span class="badge ${data.category === 'Upcoming' ? 'bg-success text-white' : 'bg-secondary'}">${data.category || ''}</span>
+                    </div>
+                    <div class="rounded-3 border p-2 mb-2 bg-white">
+                        <div class="text-muted small text-uppercase fw-semibold mb-1">Series</div>
+                        <div class="small mb-1">Start: ${series.start || '—'}</div>
+                        <div class="small mb-1">End: ${series.end || '—'}</div>
+                        <div class="small mb-1">Recurrence: ${series.recurrence || '—'}</div>
+                        <div class="small mb-0">Hours per session: ${Number(series.hours_per_occurrence || 0).toFixed(2)}</div>
+                    </div>
+                    <div class="row g-2 mb-2">
+                        <div class="col-6">
+                            <div class="rounded-3 border p-2 bg-white h-100">
+                                <div class="text-muted small text-uppercase fw-semibold mb-1">Upcoming</div>
+                                <div class="fw-bold">₱${Number(amounts.upcoming || 0).toFixed(2)}</div>
+                                <div class="text-muted small">${counts.upcoming || 0} session(s)</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="rounded-3 border p-2 bg-white h-100">
+                                <div class="text-muted small text-uppercase fw-semibold mb-1">Completed</div>
+                                <div class="fw-bold">₱${Number(amounts.completed || 0).toFixed(2)}</div>
+                                <div class="text-muted small">${counts.completed || 0} session(s), ${counts.paid || 0} paid</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="mb-2">
+                        <div class="text-muted small text-uppercase fw-semibold">Students</div>
+                        ${students.length
+                            ? `<ul class="list-unstyled small mb-0 mt-1">${students.map((s) => `<li>${s}</li>`).join('')}</ul>`
+                            : '<p class="text-muted small mb-0">No students assigned.</p>'
+                        }
+                    </div>
+                    <div class="mb-2">
+                        <div class="text-muted small text-uppercase fw-semibold">Attendance</div>
+                        ${attendance.length
+                            ? `<ul class="list-unstyled small mb-0 mt-1">${attendance.map((a) => `<li>${a}</li>`).join('')}</ul>`
+                            : '<p class="text-muted small mb-0">No attendance recorded.</p>'
+                        }
+                    </div>
+                    ${timeline.length ? `
+                        <div>
+                            <div class="text-muted small text-uppercase fw-semibold mb-1">Series of sessions</div>
+                            <div class="d-flex flex-column gap-2">
+                                ${timeline.map((session, idx) => `
+                                    <div class="d-flex align-items-start gap-2">
+                                        <div class="d-flex flex-column align-items-center me-1">
+                                            <span class="rounded-circle bg-primary" style="width: 10px; height: 10px;"></span>
+                                            ${idx < timeline.length - 1 ? '<span class="mt-1" style="width: 2px; height: 20px; background-color: #e9ecef;"></span>' : ''}
+                                        </div>
+                                        <div>
+                                            <div class="fw-semibold">${session.label || '—'}</div>
+                                            <span class="badge ${session.status_class || 'bg-secondary'} px-2 py-1">${session.status || ''}</span>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    ` : ''}
+                `;
+            }
+
+            function selectCard(card) {
+                if (!card) {
+                    selectedCard = null;
+                    renderDetail(null);
+                    return;
+                }
+                selectedCard = card;
+                cards.forEach((c) => c.classList.remove('border-primary', 'shadow-sm'));
+                card.classList.add('border-primary', 'shadow-sm');
+                let data = null;
+                try {
+                    data = JSON.parse(card.dataset.detail || '{}');
+                } catch (e) {
+                    data = null;
+                }
+                renderDetail(data);
             }
 
             function parseDate(value) {
@@ -1210,16 +2024,126 @@
             }
 
             function applyFilters() {
+                // If month is chosen, sync start/end to that month
+                if (monthInput && monthInput.value) {
+                    const [year, month] = monthInput.value.split('-').map((v) => parseInt(v, 10));
+                    if (!Number.isNaN(year) && !Number.isNaN(month)) {
+                        const startDate = new Date(year, month - 1, 1);
+                        const endDate = new Date(year, month, 0);
+                        if (startInput) startInput.valueAsDate = startDate;
+                        if (endInput) endInput.valueAsDate = endDate;
+                    }
+                }
+
                 const filterStart = parseDate(startInput?.value);
                 const filterEnd = parseDate(endInput?.value);
+                const rangeIndex = rangeInput?.value;
+                selectedRange = (typeof rangeIndex !== 'undefined' && rangeIndex !== '') ? processingRanges?.[Number(rangeIndex)] : null;
                 let visible = 0;
+                const aggregates = {
+                    future: { salary: 0, count: 0, payrollCount: 0 },
+                    past: { salary: 0, count: 0, payrollCount: 0 },
+                };
+
                 cards.forEach((card) => {
                     const category = card.dataset.category || 'all';
-                    const categoryMatch = activeFilter === 'all' || category === activeFilter;
+                    const futureCount = Number(card.dataset.futureCount || 0);
+                    const pastCount = Number(card.dataset.pastCount || 0);
+                    const paidCount = Number(card.dataset.paidCount || 0);
+                    const hasFuture = futureCount > 0;
+                    const hasPast = pastCount > 0 || paidCount > 0;
+
+                    let categoryMatch = true;
+                    if (activeFilter === 'future') {
+                        categoryMatch = hasFuture;
+                    } else if (activeFilter === 'past') {
+                        categoryMatch = hasPast;
+                    }
+
                     const dateMatch = matchesDate(card, filterStart, filterEnd);
-                    const show = categoryMatch && dateMatch;
+                    let rangeMatch = true;
+                    if (selectedRange) {
+                        const days = (card.dataset.occurrenceDays || '')
+                            .split(',')
+                            .map((v) => parseInt(v, 10))
+                            .filter((v) => Number.isInteger(v));
+                        const fallbackDate = parseDate(card.dataset.startDate);
+                        const fallbackDay = fallbackDate ? fallbackDate.getDate() : null;
+                        const daysToCheck = days.length ? days : (fallbackDay ? [fallbackDay] : []);
+                        rangeMatch = daysToCheck.some((day) => day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31));
+                    }
+
+                    const show = categoryMatch && dateMatch && rangeMatch;
                     card.classList.toggle('d-none', !show);
-                    if (show) visible += 1;
+                    if (show) {
+                        visible += 1;
+                        let detailData = null;
+                        try {
+                            detailData = JSON.parse(card.dataset.detail || '{}');
+                        } catch (e) {
+                            detailData = null;
+                        }
+
+                        let timeline = Array.isArray(detailData?.timeline) ? detailData.timeline : [];
+                        const counts = detailData?.counts || {};
+                        const amounts = detailData?.amounts || {};
+                        if (selectedRange) {
+                            timeline = timeline.filter((session) => {
+                                const day = parseInt(session.day, 10);
+                                if (!Number.isInteger(day)) return true;
+                                return day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31);
+                            });
+                        }
+                        const filteredTimeline = selectedRange
+                            ? timeline.filter((session) => {
+                                const day = parseInt(session.day, 10);
+                                if (!Number.isInteger(day)) return true;
+                                return day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31);
+                            })
+                            : timeline;
+                        const upcomingSessions = filteredTimeline.filter((session) => (session.status || '').toLowerCase().includes('upcoming')).length;
+                        const completedSessions = filteredTimeline.filter((session) => (session.status || '').toLowerCase().includes('completed')).length;
+                        const paidSessions = filteredTimeline.filter((session) => (session.status || '').toLowerCase().includes('paid')).length;
+
+                        const upcomingTotal = Number(amounts.upcoming || 0);
+                        const completedTotal = Number(amounts.completed || 0);
+                        const totalUpcomingSessions = Number(counts.upcoming || 0);
+                        const totalCompletedSessions = Number(counts.completed || 0);
+
+                        const upcomingShare = totalUpcomingSessions > 0 ? (upcomingSessions / totalUpcomingSessions) : 0;
+                        const completedShare = totalCompletedSessions > 0 ? (completedSessions / totalCompletedSessions) : 0;
+
+                        const futureSalary = upcomingTotal * upcomingShare;
+                        const pastSalary = completedTotal * completedShare;
+
+                        if (upcomingSessions > 0) {
+                            aggregates.future.salary += futureSalary;
+                            aggregates.future.count += upcomingSessions;
+                            aggregates.future.payrollCount += upcomingSessions;
+                        }
+                        if (completedSessions > 0) {
+                            aggregates.past.salary += pastSalary;
+                            aggregates.past.count += completedSessions;
+                            aggregates.past.payrollCount += paidSessions || completedSessions;
+                        }
+                    }
+                });
+
+                // Hide session rows outside selected range in the timeline lists
+                cards.forEach((card) => {
+                    const timelineItems = card.querySelectorAll('[data-session-day]');
+                    if (!timelineItems.length) return;
+                    timelineItems.forEach((item) => {
+                        if (!selectedRange) {
+                            item.classList.remove('d-none');
+                            return;
+                        }
+                        const day = parseInt(item.dataset.sessionDay || item.getAttribute('data-session-day') || '', 10);
+                        const match = Number.isInteger(day)
+                            ? day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31)
+                            : true;
+                        item.classList.toggle('d-none', !match);
+                    });
                 });
 
                 // Show a helper message if nothing matches
@@ -1231,6 +2155,37 @@
                     modal.querySelector('.assignment-list')?.appendChild(empty);
                 }
                 empty.classList.toggle('d-none', visible > 0);
+
+                // Update totals per category
+                const futureTotalEl = modal.querySelector('[data-total-future]');
+                const futureCountEl = modal.querySelector('[data-count-future]');
+                const futurePayrollCountEl = modal.querySelector('[data-payroll-count-future]');
+                const pastTotalEl = modal.querySelector('[data-total-past]');
+                const pastCountEl = modal.querySelector('[data-count-past]');
+                const pastPayrollCountEl = modal.querySelector('[data-payroll-count-past]');
+
+                if (futureTotalEl) futureTotalEl.textContent = `₱${aggregates.future.salary.toFixed(2)}`;
+                if (futureCountEl) {
+                    futureCountEl.textContent = `${aggregates.future.count} ${aggregates.future.count === 1 ? 'assignment' : 'assignments'}`;
+                    futureCountEl.dataset.countFuture = aggregates.future.count;
+                }
+                if (futurePayrollCountEl) {
+                    futurePayrollCountEl.textContent = `${aggregates.future.payrollCount} payroll ${aggregates.future.payrollCount === 1 ? 'class' : 'classes'}`;
+                }
+
+                if (pastTotalEl) pastTotalEl.textContent = `₱${aggregates.past.salary.toFixed(2)}`;
+                if (pastCountEl) {
+                    pastCountEl.textContent = `${aggregates.past.count} ${aggregates.past.count === 1 ? 'assignment' : 'assignments'}`;
+                    pastCountEl.dataset.countPast = aggregates.past.count;
+                }
+                if (pastPayrollCountEl) {
+                    pastPayrollCountEl.textContent = `${aggregates.past.payrollCount} payroll ${aggregates.past.payrollCount === 1 ? 'class' : 'classes'}`;
+                }
+
+                if (!selectedCard || selectedCard.classList.contains('d-none')) {
+                    const firstVisible = Array.from(cards).find((card) => !card.classList.contains('d-none'));
+                    selectCard(firstVisible || null);
+                }
             }
 
             buttons.forEach((btn) => {
@@ -1249,11 +2204,22 @@
                 setActive('all');
                 if (startInput) startInput.value = '';
                 if (endInput) endInput.value = '';
+                if (monthInput) monthInput.value = '';
+                if (rangeInput) rangeInput.value = '';
                 applyFilters();
+            });
+
+            monthInput?.addEventListener('change', applyFilters);
+            rangeInput?.addEventListener('change', applyFilters);
+
+            cards.forEach((card) => {
+                card.addEventListener('click', () => selectCard(card));
             });
 
             // Default state
             applyFilters();
+            const firstVisible = Array.from(cards).find((card) => !card.classList.contains('d-none'));
+            selectCard(firstVisible || null);
         });
     });
 </script>
