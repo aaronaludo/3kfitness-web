@@ -584,6 +584,9 @@
                                 $trainerNoData = ($assignment['payable_assignments_count'] ?? 0) <= 0 && empty($processedRun);
                                 $canProcessTrainer = ($assignment['payable_assignments_count'] ?? 0) > 0 && empty($processedRun);
                             @endphp
+                            @php
+                                $trainerInitials = strtoupper(substr($trainer->first_name, 0, 1) . substr($trainer->last_name, 0, 1));
+                            @endphp
                             <div
                                 class="card border-0 shadow-sm rounded-4 mb-3"
                                 data-trainer-card
@@ -594,56 +597,68 @@
                                 data-appcut="{{ $trainerAppCut }}"
                                 data-net="{{ $displayNet }}"
                             >
-                        <div class="card-body p-4">
-                            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-                                <div>
-                                    <h5 class="fw-semibold mb-1">{{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
-                                    <div class="text-muted small">{{ $trainer->email }}</div>
-                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2 mt-2">
-                                        Assignments: {{ $assignment['assignments_count'] }}
-                                    </span>
-                                    @if($isProcessed)
-                                        <div class="mt-2">
-                                            <span class="badge bg-secondary text-white rounded-pill px-3 py-2">
-                                                Processed: {{ optional($processedRun->processed_at)->format('M d, Y g:i A') ?? 'Saved' }}
-                                            </span>
-                                            <div class="text-muted small mt-1" data-cooldown-display></div>
-                                            <span class="badge bg-dark text-white rounded-pill px-3 py-2">
-                                                Gross ₱{{ number_format((float) ($processedRun->gross_pay ?? 0), 2) }}
-                                            </span>
-                                            <span class="badge bg-success text-white rounded-pill px-3 py-2">
-                                                Net ₱{{ number_format((float) ($processedRun->net_pay ?? 0), 2) }}
-                                            </span>
+                                <div class="card-body p-4">
+                                    <div class="row g-3 align-items-center">
+                                        <div class="col-12 col-lg-4 d-flex align-items-start gap-3">
+                                            <div
+                                                class="rounded-circle bg-light d-flex align-items-center justify-content-center fw-bold text-danger flex-shrink-0"
+                                                style="width: 52px; height: 52px;"
+                                            >
+                                                {{ $trainerInitials }}
+                                            </div>
+                                            <div class="flex-grow-1">
+                                                <h5 class="fw-semibold mb-1">{{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
+                                                <div class="text-muted small">{{ $trainer->email }}</div>
+                                                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
+                                                        Assignments: {{ $assignment['assignments_count'] }}
+                                                    </span>
+                                                    @if($isProcessed)
+                                                        <span class="badge bg-secondary text-white rounded-pill px-3 py-2">
+                                                            Processed: {{ optional($processedRun->processed_at)->format('M d, Y g:i A') ?? 'Saved' }}
+                                                        </span>
+                                                        <span class="badge bg-dark text-white rounded-pill px-3 py-2">
+                                                            Gross ₱{{ number_format((float) ($processedRun->gross_pay ?? 0), 2) }}
+                                                        </span>
+                                                        <span class="badge bg-success text-white rounded-pill px-3 py-2">
+                                                            Net ₱{{ number_format((float) ($processedRun->net_pay ?? 0), 2) }}
+                                                        </span>
+                                                        <div class="text-muted small" data-cooldown-display></div>
+                                                    @endif
+                                                </div>
+                                            </div>
                                         </div>
-                                    @endif
-                                </div>
-                                <div class="d-flex flex-wrap align-items-center gap-3">
-                                    <div class="text-start">
-                                        <div class="text-muted small text-uppercase">Payable classes</div>
-                                        <div class="fw-bold fs-5">{{ $assignment['payable_assignments_count'] }}</div>
-                                    </div>
-                                    <div class="text-start">
-                                        <div class="text-muted small text-uppercase">Projected total (incl. upcoming)</div>
-                                        <div class="fw-bold fs-5">₱{{ number_format($displayProjectedGross, 2) }}</div>
-                                        <div class="text-muted small">
-                                            @if($isProcessed)
-                                                Processed excluded • Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}
-                                            @else
-                                                Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}
-                                            @endif
+                                        <div class="col-12 col-lg-5">
+                                            <div class="d-flex flex-column flex-lg-row gap-3 w-100">
+                                                <div class="text-center text-lg-start flex-fill">
+                                                    <div class="text-muted small text-uppercase">Payable classes</div>
+                                                    <div class="fw-bold fs-5">{{ $assignment['payable_assignments_count'] }}</div>
+                                                </div>
+                                                <div class="text-center text-lg-start flex-fill">
+                                                    <div class="text-muted small text-uppercase">Projected total (incl. upcoming)</div>
+                                                    <div class="fw-bold fs-5">₱{{ number_format($displayProjectedGross, 2) }}</div>
+                                                    <div class="text-muted small">
+                                                        @if($isProcessed)
+                                                            Processed excluded • Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}
+                                                        @else
+                                                            Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                                <div class="text-center text-lg-start flex-fill">
+                                                    <div class="text-muted small text-uppercase">Net (after deductions)</div>
+                                                    <div class="fw-bold fs-6 text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
+                                                    <div class="text-muted small">
+                                                        @if($isProcessed)
+                                                            Upcoming only (processed excluded)
+                                                        @else
+                                                            Completed classes only
+                                                        @endif
+                                                    </div>
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                    <div class="text-start">
-                                        <div class="text-muted small text-uppercase">Net (after deductions)</div>
-                                        <div class="fw-bold fs-6 text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
-                                        <div class="text-muted small">
-                                            @if($isProcessed)
-                                                Upcoming only (processed excluded)
-                                            @else
-                                                Completed classes only
-                                            @endif
-                                        </div>
-                                    </div>
+                                        <div class="col-12 col-lg-3 d-flex flex-wrap align-items-center gap-2 justify-content-lg-end text-lg-end">
                                             @php
                                                 $trainerProcessDisabled = !$canProcessTrainer;
                                                 $trainerProcessTitle = $canProcessTrainer
@@ -709,9 +724,6 @@
                                                     <i class="fa-solid fa-circle-check"></i>
                                                     {{ !empty($processedRun) ? 'Processed' : 'Process payroll' }}
                                                 </button>
-                                                @if($trainerNoData && empty($processedRun))
-                                                    <div class="text-muted small mt-1">Process is disabled because there is no class data with attendance yet.</div>
-                                                @endif
                                             </form>
                                             @if(empty($processedRun))
                                                 <button
@@ -738,6 +750,9 @@
                                             @endif
                                         </div>
                                     </div>
+                                    @if($trainerNoData && empty($processedRun))
+                                        <div class="text-muted small mt-2">Process is disabled because there is no class data with attendance yet.</div>
+                                    @endif
                                 </div>
                             </div>
                             <div class="modal fade assignment-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
