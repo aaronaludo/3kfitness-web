@@ -213,6 +213,30 @@
                     @endif
                 </div>
             </div>                            
+            @if (!$showArchived)
+                <div class="col-12 mb-3">
+                    <div class="row g-3">
+                        <div class="col-12 col-lg-6">
+                            <div class="tile tile-primary h-100">
+                                <div class="tile-heading">Total Classes Created by Admin</div>
+                                <div class="tile-body">
+                                    <i class="fa-solid fa-hashtag"></i>
+                                    <h2 class="float-end">{{ $classescreatedbyadmin }}</h2>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6">
+                            <div class="tile tile-primary h-100">
+                                <div class="tile-heading">Total Classes Created by Staff</div>
+                                <div class="tile-body">
+                                    <i class="fa-solid fa-hashtag"></i>
+                                    <h2 class="float-end">{{ $classescreatedbystaff }}</h2>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endif
             @php
                 $statusFilter = request('status', 'all');
                 if ($statusFilter === 'active') {
@@ -919,28 +943,6 @@
                 @endif
             </div>
             @if (!$showArchived)
-                <div class="col-lg-12">
-                    <div class="row">
-                        <div class="col-12 col-lg-6">
-                            <div class="tile tile-primary">
-                                <div class="tile-heading">Total Classes Created by Admin</div>
-                                <div class="tile-body">
-                                    <i class="fa-solid fa-hashtag"></i>
-                                    <h2 class="float-end">{{ $classescreatedbyadmin }}</h2>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="col-12 col-lg-6">
-                            <div class="tile tile-primary">
-                                <div class="tile-heading">Total Classes Created by Staff</div>
-                                <div class="tile-body">
-                                    <i class="fa-solid fa-hashtag"></i>
-                                    <h2 class="float-end">{{ $classescreatedbystaff }}</h2>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
                 <div class="col-lg-12">
                     <div class="box">
                     <div class="row">
