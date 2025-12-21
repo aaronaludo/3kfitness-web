@@ -436,6 +436,7 @@
                                                             2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
                                                         ];
                                                         $s = $statusMap[$item->isapproved] ?? $statusMap[0];
+                                                        $canReject = (int) $item->isapproved !== 1;
                                                     @endphp
                                                 
                                                     <div class="d-flex align-items-center gap-2">
@@ -459,15 +460,16 @@
                                                         <div class="modal-dialog">
                                                             <form
                                                                 method="POST"
-                                                                action="{{ route('admin.staff-account-management.membership-payments.isapprove') }}"
-                                                                class="modal-content"
-                                                                id="umStatusForm-{{ $item->id }}"
-                                                                {{-- Optional: if you have a related count (e.g., active usages), pass it here. If not present, guard stays hidden. --}}
-                                                                data-related-count="{{ $item->memberships_count ?? 0 }}"
-                                                            >
-                                                                @csrf
-                                                                {{-- Keep POST to match your current route; add @method('PUT') if your route expects PUT --}}
-                                                                {{-- @method('PUT') --}}
+                                                            action="{{ route('admin.staff-account-management.membership-payments.isapprove') }}"
+                                                            class="modal-content"
+                                                            id="umStatusForm-{{ $item->id }}"
+                                                            {{-- Optional: if you have a related count (e.g., active usages), pass it here. If not present, guard stays hidden. --}}
+                                                            data-related-count="{{ $item->memberships_count ?? 0 }}"
+                                                            data-can-reject="{{ $canReject ? 'true' : 'false' }}"
+                                                        >
+                                                            @csrf
+                                                            {{-- Keep POST to match your current route; add @method('PUT') if your route expects PUT --}}
+                                                            {{-- @method('PUT') --}}
                                                 
                                                                 <input type="hidden" name="id" value="{{ $item->id }}">
                                                 
@@ -483,7 +485,9 @@
                                                                         <select class="form-select" id="umStatusSelect-{{ $item->id }}" name="isapproved">
                                                                             <option value="0" {{ $item->isapproved == 0 ? 'selected' : '' }}>Pending</option>
                                                                             <option value="1" {{ $item->isapproved == 1 ? 'selected' : '' }}>Approve</option>
-                                                                            <option value="2" {{ $item->isapproved == 2 ? 'selected' : '' }}>Reject</option>
+                                                                            @if($canReject)
+                                                                                <option value="2" {{ $item->isapproved == 2 ? 'selected' : '' }}>Reject</option>
+                                                                            @endif
                                                                         </select>
                                                                     </div>
                                                 
@@ -527,18 +531,26 @@
                                                         const guardBox = document.getElementById('umRejectGuard-{{ $item->id }}');
                                                         const confirmC = document.getElementById('umRejectConfirm-{{ $item->id }}');
                                                         const saveBtn  = document.getElementById('umSaveStatusBtn-{{ $item->id }}');
-                                                
+                                                        const canReject = form.dataset.canReject === 'true';
+
                                                         // Interpret any positive integer as "has related records"
                                                         const relatedCount = parseInt(form.dataset.relatedCount, 10);
                                                         const hasRelated   = Number.isFinite(relatedCount) && relatedCount > 0;
-                                                
+
                                                         function updateGuard() {
+                                                            if (!canReject) {
+                                                                if (guardBox) {
+                                                                    guardBox.classList.add('d-none');
+                                                                }
+                                                                saveBtn.disabled = false;
+                                                                return;
+                                                            }
                                                             const rejectChosen = select.value === '2';
                                                             if (hasRelated && rejectChosen) {
-                                                                guardBox.classList.remove('d-none');
+                                                                guardBox && guardBox.classList.remove('d-none');
                                                                 saveBtn.disabled = !confirmC.checked;
                                                             } else {
-                                                                guardBox.classList.add('d-none');
+                                                                guardBox && guardBox.classList.add('d-none');
                                                                 saveBtn.disabled = false;
                                                                 if (confirmC) confirmC.checked = false;
                                                             }
