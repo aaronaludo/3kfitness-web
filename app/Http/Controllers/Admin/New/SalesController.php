@@ -63,26 +63,6 @@ class SalesController extends Controller
             $cursor->addDay();
         }
 
-        // Revenue by membership (for pie)
-        $byMembership = (clone $base)
-            ->select([
-                'membership_id',
-                DB::raw("SUM(COALESCE((SELECT price FROM memberships WHERE memberships.id = membership_payments.membership_id), 0)) as revenue")
-            ])
-            ->groupBy('membership_id')
-            ->get();
-
-        $membershipIds = $byMembership->pluck('membership_id')->filter()->values();
-        $membershipNames = Membership::whereIn('id', $membershipIds)->pluck('name', 'id');
-
-        $pieLabels = [];
-        $pieValues = [];
-        foreach ($byMembership as $row) {
-            $name = $row->membership_id ? ($membershipNames[$row->membership_id] ?? ('#' . $row->membership_id)) : 'No Plan';
-            $pieLabels[] = $name;
-            $pieValues[] = (float) $row->revenue;
-        }
-
         // Status tallies for the period (for quick insights)
         $statusTallies = [
             'approved' => MembershipPayment::where('is_archive', 0)->where('isapproved', 1)->whereBetween('created_at', [$start, $end])->count(),
@@ -122,6 +102,49 @@ class SalesController extends Controller
             'period_label' => $start->format('M d, Y') . ' → ' . $end->format('M d, Y'),
         ];
 
+        // Finished payrolls over time (net pay + app cut)
+        $payrollDaily = [];
+        $payrollRuns->each(function ($run) use (&$payrollDaily, $appCutRate) {
+            $timestamp = $run->processed_at ?? $run->created_at;
+            if (!$timestamp) {
+                return;
+            }
+
+            $dayKey = Carbon::parse($timestamp)->toDateString();
+            $roleId = optional($run->user)->role_id;
+            $isTrainer = $roleId === 5;
+
+            $appCut = $run->deduction_app_cut ?? null;
+            if (is_null($appCut) || (float) $appCut === 0.0) {
+                $gross = (float) ($run->gross_pay ?? 0);
+                $appCut = round($gross * ($appCutRate / 100), 2);
+            }
+
+            $bucket = $payrollDaily[$dayKey] ?? ['staff_net' => 0, 'trainer_net' => 0, 'app_cut' => 0];
+            $bucket['app_cut'] += (float) $appCut;
+            if ($isTrainer) {
+                $bucket['trainer_net'] += (float) ($run->net_pay ?? 0);
+            } else {
+                $bucket['staff_net'] += (float) ($run->net_pay ?? 0);
+            }
+            $payrollDaily[$dayKey] = $bucket;
+        });
+
+        $payrollLabels = [];
+        $payrollStaffSeries = [];
+        $payrollTrainerSeries = [];
+        $payrollAppCutSeries = [];
+        $cursor = $start->copy()->startOfDay();
+        while ($cursor->lte($end)) {
+            $dayKey = $cursor->toDateString();
+            $payrollLabels[] = $cursor->format('M d');
+            $bucket = $payrollDaily[$dayKey] ?? ['staff_net' => 0, 'trainer_net' => 0, 'app_cut' => 0];
+            $payrollStaffSeries[] = round($bucket['staff_net'], 2);
+            $payrollTrainerSeries[] = round($bucket['trainer_net'], 2);
+            $payrollAppCutSeries[] = round($bucket['app_cut'], 2);
+            $cursor->addDay();
+        }
+
         $payrollDetails = $payrollRuns->map(function ($run) use ($appCutRate) {
             $user = $run->user;
             $name = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : 'Unknown';
@@ -148,6 +171,14 @@ class SalesController extends Controller
             ];
         })->values();
 
+        // Pie chart: finished payroll breakdown
+        $pieLabels = ['Staff payroll (net)', 'Trainer payroll (net)', '3kfitness app cut'];
+        $pieValues = [
+            (float) ($payrollSummary['staff_net'] ?? 0),
+            (float) ($payrollSummary['trainer_net'] ?? 0),
+            (float) ($payrollSummary['app_cut'] ?? 0),
+        ];
+
         return view('admin.sales.index', [
             'start' => $start,
             'end' => $end,
@@ -161,6 +192,10 @@ class SalesController extends Controller
             'statusTallies' => $statusTallies,
             'payrollSummary' => $payrollSummary,
             'payrollDetails' => $payrollDetails,
+            'payrollLabels' => $payrollLabels,
+            'payrollStaffSeries' => $payrollStaffSeries,
+            'payrollTrainerSeries' => $payrollTrainerSeries,
+            'payrollAppCutSeries' => $payrollAppCutSeries,
         ]);
     }
 }

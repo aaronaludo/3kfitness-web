@@ -53,6 +53,12 @@
                         'run_count' => $payrollTotals['run_count'] ?? 0,
                         'period' => $payrollTotals['period_label'] ?? '',
                     ],
+                    'chart' => [
+                        'labels' => $payrollLabels ?? [],
+                        'staff' => $payrollStaffSeries ?? [],
+                        'trainer' => $payrollTrainerSeries ?? [],
+                        'app_cut' => $payrollAppCutSeries ?? [],
+                    ],
                     'payroll_runs' => $payrollRuns,
                     'currency' => $currency,
                 ];
@@ -174,7 +180,7 @@
                         <div class="card shadow-sm">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="fw-semibold">Revenue over time</div>
+                                    <div class="fw-semibold">Finished payrolls over time</div>
                                 </div>
                                 <canvas id="salesLine"></canvas>
                             </div>
@@ -184,7 +190,7 @@
                         <div class="card shadow-sm">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="fw-semibold">Revenue by membership</div>
+                                    <div class="fw-semibold">Finished payroll mix</div>
                                 </div>
                                 <canvas id="salesPie"></canvas>
                             </div>
@@ -203,15 +209,33 @@
                 const lineChart = new Chart(lineCtx, {
                     type: 'line',
                     data: {
-                        labels: @json($labels),
-                        datasets: [{
-                            label: 'Revenue ({{ $currency }})',
-                            data: @json($series),
-                            borderColor: '#dc3545',
-                            backgroundColor: 'rgba(220, 53, 69, 0.1)',
-                            tension: 0.3,
-                            fill: true,
-                        }]
+                        labels: @json($payrollLabels ?? []),
+                        datasets: [
+                            {
+                                label: 'Staff payroll (net, {{ $currency }})',
+                                data: @json($payrollStaffSeries ?? []),
+                                borderColor: '#0d6efd',
+                                backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                                tension: 0.3,
+                                fill: true,
+                            },
+                            {
+                                label: 'Trainer payroll (net, {{ $currency }})',
+                                data: @json($payrollTrainerSeries ?? []),
+                                borderColor: '#198754',
+                                backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                                tension: 0.3,
+                                fill: true,
+                            },
+                            {
+                                label: '3kfitness app cut',
+                                data: @json($payrollAppCutSeries ?? []),
+                                borderColor: '#dc3545',
+                                backgroundColor: 'rgba(220, 53, 69, 0.1)',
+                                tension: 0.3,
+                                fill: true,
+                            },
+                        ]
                     },
                     options: {
                         responsive: true,
@@ -229,12 +253,14 @@
                 const pieChart = new Chart(pieCtx, {
                     type: 'doughnut',
                     data: {
-                        labels: @json($pieLabels),
+                        labels: @json($pieLabels ?? []),
                         datasets: [{
-                            label: 'Revenue Share',
-                            data: @json($pieValues),
+                            label: 'Payroll mix ({{ $currency }})',
+                            data: @json($pieValues ?? []),
                             backgroundColor: [
-                                '#dc3545', '#0d6efd', '#198754', '#ffc107', '#20c997', '#6f42c1', '#6c757d', '#fd7e14'
+                                '#0d6efd',
+                                '#198754',
+                                '#dc3545',
                             ]
                         }]
                     },
@@ -269,6 +295,11 @@
                 const currency = payload.currency || '';
                 const payroll = payload.payroll || {};
                 const payrollRuns = payload.payroll_runs || [];
+                const chart = payload.chart || {};
+                const chartLabels = chart.labels || [];
+                const chartStaff = chart.staff || [];
+                const chartTrainer = chart.trainer || [];
+                const chartAppCut = chart.app_cut || [];
 
                 const payrollRows = (payrollRuns || []).map((run) => `
                     <tr>
@@ -284,6 +315,21 @@
                         <td>${run.net || currency + ' 0.00'}</td>
                     </tr>
                 `).join('');
+
+                function buildMiniBars(labels, values, color) {
+                    if (!values.length) {
+                        return '<div class="muted" style="font-size:12px;">No data</div>';
+                    }
+                    const maxVal = Math.max(...values.map((v) => Number(v) || 0), 0.01);
+                    const bars = values.map((val, idx) => {
+                        const safeVal = Number(val) || 0;
+                        const height = Math.max((safeVal / maxVal) * 60, 6);
+                        const label = labels[idx] || '';
+                        return `<div class="bar" title="${label}: ${currency} ${safeVal.toFixed(2)}" style="height:${height}px; background:${color};"></div>`;
+                    }).join('');
+                    return `<div class="bar-row">${bars}</div><div class="muted" style="font-size:11px; margin-top:4px;">${labels.join(' • ')}</div>`;
+                }
+
                 const html = `
                     <!doctype html>
                     <html>
@@ -309,6 +355,10 @@
                                 table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
                                 th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
                                 th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
+                                .chart-block { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; margin-top: 16px; }
+                                .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+                                .bar-row { display: flex; gap: 4px; align-items: flex-end; min-height: 72px; }
+                                .bar-row .bar { width: 14px; border-radius: 6px 6px 2px 2px; }
                             </style>
                         </head>
                         <body>
@@ -358,6 +408,13 @@
                                         <div class="value">${currency} ${payroll.app_cut || '0.00'}</div>
                                         <div class="muted">Runs: ${payroll.run_count ?? 0}</div>
                                     </div>
+                                </div>
+                                <div class="chart-block">
+                                    <div class="chart-title">Finished payrolls over time</div>
+                                    <div class="muted" style="font-size:11px;">Staff (blue), Trainer (green), App cut (red)</div>
+                                    ${buildMiniBars(chartLabels, chartStaff, '#0d6efd')}
+                                    ${buildMiniBars(chartLabels, chartTrainer, '#198754')}
+                                    ${buildMiniBars(chartLabels, chartAppCut, '#dc3545')}
                                 </div>
                                 <table>
                                     <thead>
