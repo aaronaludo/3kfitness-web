@@ -6,6 +6,8 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\MembershipPayment;
 use App\Models\Membership;
+use App\Models\PayrollRun;
+use App\Models\DeductionSetting;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 
@@ -95,6 +97,57 @@ class SalesController extends Controller
             $currency = $any->membership->currency;
         }
 
+        $payrollBase = PayrollRun::query()
+            ->with('user:id,role_id,first_name,last_name,email,user_code')
+            ->whereBetween(DB::raw('COALESCE(processed_at, created_at)'), [$start, $end]);
+
+        $payrollRuns = $payrollBase->get();
+        $deductions = DeductionSetting::orderByDesc('id')->first();
+        $appCutRate = (float) ($deductions->app_cut_rate ?? 0);
+        $payrollSummary = [
+            'app_cut' => round($payrollRuns->sum(function ($run) use ($appCutRate) {
+                $stored = $run->deduction_app_cut ?? null;
+                if (!is_null($stored) && (float) $stored !== 0.0) {
+                    return (float) $stored;
+                }
+
+                $gross = (float) ($run->gross_pay ?? 0);
+                return round($gross * ($appCutRate / 100), 2);
+            }), 2),
+            'trainer_net' => round($payrollRuns->filter(fn ($run) => optional($run->user)->role_id === 5)->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+            'staff_net' => round($payrollRuns->filter(fn ($run) => optional($run->user)->role_id === 2)->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+            'gross' => round($payrollRuns->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+            'net' => round($payrollRuns->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+            'run_count' => $payrollRuns->count(),
+            'period_label' => $start->format('M d, Y') . ' → ' . $end->format('M d, Y'),
+        ];
+
+        $payrollDetails = $payrollRuns->map(function ($run) use ($appCutRate) {
+            $user = $run->user;
+            $name = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : 'Unknown';
+            $processedAt = $run->processed_at
+                ? $run->processed_at->format('M d, Y g:i A')
+                : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+
+            $appCut = $run->deduction_app_cut ?? null;
+            if (is_null($appCut) || (float) $appCut === 0.0) {
+                $gross = (float) ($run->gross_pay ?? 0);
+                $appCut = round($gross * ($appCutRate / 100), 2);
+            }
+
+            return [
+                'id' => $run->id,
+                'name' => $name !== '' ? $name : '—',
+                'email' => $user->email ?? '—',
+                'user_code' => $user->user_code ?? '—',
+                'role' => optional($user)->role_id === 5 ? 'Trainer' : 'Staff',
+                'period' => $run->period_month ?? '—',
+                'processed_at' => $processedAt,
+                'net' => number_format((float) ($run->net_pay ?? 0), 2),
+                'app_cut' => number_format((float) $appCut, 2),
+            ];
+        })->values();
+
         return view('admin.sales.index', [
             'start' => $start,
             'end' => $end,
@@ -106,8 +159,8 @@ class SalesController extends Controller
             'pieLabels' => $pieLabels,
             'pieValues' => $pieValues,
             'statusTallies' => $statusTallies,
+            'payrollSummary' => $payrollSummary,
+            'payrollDetails' => $payrollDetails,
         ]);
     }
 }
-
-

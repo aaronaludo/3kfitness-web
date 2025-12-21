@@ -7,18 +7,25 @@
             @php
                 $filterStart = request('start_date', optional($start)->toDateString());
                 $filterEnd = request('end_date', optional($end)->toDateString());
-                $seriesItems = collect($labels)->zip($series ?? [])->map(function ($pair) use ($currency) {
+                $payrollTotals = $payrollSummary ?? [
+                    'app_cut' => 0,
+                    'trainer_net' => 0,
+                    'staff_net' => 0,
+                    'gross' => 0,
+                    'net' => 0,
+                    'run_count' => 0,
+                    'period_label' => '',
+                ];
+                $payrollRuns = collect($payrollDetails ?? [])->map(function ($run) use ($currency) {
                     return [
-                        'label' => $pair[0] ?? '',
-                        'value' => isset($pair[1]) ? number_format((float) $pair[1], 2) : '0.00',
-                        'currency' => $currency,
-                    ];
-                });
-                $pieItems = collect($pieLabels)->zip($pieValues ?? [])->map(function ($pair) use ($currency) {
-                    return [
-                        'label' => $pair[0] ?? '',
-                        'value' => isset($pair[1]) ? number_format((float) $pair[1], 2) : '0.00',
-                        'currency' => $currency,
+                        'id' => $run['id'] ?? '—',
+                        'name' => $run['name'] ?? '—',
+                        'email' => $run['email'] ?? '—',
+                        'user_code' => $run['user_code'] ?? '—',
+                        'role' => $run['role'] ?? '—',
+                        'period' => $run['period'] ?? '—',
+                        'processed_at' => $run['processed_at'] ?? '—',
+                        'net' => isset($run['net']) ? $currency . ' ' . $run['net'] : $currency . ' 0.00',
                     ];
                 });
                 $printPayload = [
@@ -27,9 +34,9 @@
                     'filters' => [
                         'start' => $filterStart,
                         'end' => $filterEnd,
+                        'payroll_period' => $payrollTotals['period_label'] ?? null,
                     ],
                     'totals' => [
-                        'revenue' => number_format((float) $totalRevenue, 2),
                         'sales' => $totalSales,
                         'status' => [
                             'approved' => $statusTallies['approved'] ?? 0,
@@ -37,8 +44,16 @@
                             'rejected' => $statusTallies['rejected'] ?? 0,
                         ],
                     ],
-                    'series' => $seriesItems,
-                    'pie' => $pieItems,
+                    'payroll' => [
+                        'staff_net' => number_format((float) ($payrollTotals['staff_net'] ?? 0), 2),
+                        'trainer_net' => number_format((float) ($payrollTotals['trainer_net'] ?? 0), 2),
+                        'app_cut' => number_format((float) ($payrollTotals['app_cut'] ?? 0), 2),
+                        'gross' => number_format((float) ($payrollTotals['gross'] ?? 0), 2),
+                        'net' => number_format((float) ($payrollTotals['net'] ?? 0), 2),
+                        'run_count' => $payrollTotals['run_count'] ?? 0,
+                        'period' => $payrollTotals['period_label'] ?? '',
+                    ],
+                    'payroll_runs' => $payrollRuns,
                     'currency' => $currency,
                 ];
             @endphp
@@ -92,8 +107,8 @@
                     <div class="col-12 col-md-4">
                         <div class="card shadow-sm">
                             <div class="card-body">
-                                <div class="text-muted small">Total Revenue</div>
-                                <div class="h4 mb-0">{{ $currency }} {{ number_format((float) $totalRevenue, 2) }}</div>
+                                <div class="text-muted small">Finished payroll net</div>
+                                <div class="h4 mb-0">{{ $currency }} {{ number_format((float) ($payrollTotals['net'] ?? 0), 2) }}</div>
                             </div>
                         </div>
                     </div>
@@ -118,6 +133,39 @@
                         </div>
                     </div>
                 </div>
+            </div>
+
+            <div class="col-12 mt-3">
+                <div class="row g-3">
+                    <div class="col-12 col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="text-muted small">Staff payroll (net)</div>
+                                <div class="h5 mb-0">{{ $currency }} {{ number_format((float) ($payrollTotals['staff_net'] ?? 0), 2) }}</div>
+                                <small class="text-muted">Period: {{ $payrollTotals['period_label'] }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="text-muted small">Trainer payroll (net)</div>
+                                <div class="h5 mb-0">{{ $currency }} {{ number_format((float) ($payrollTotals['trainer_net'] ?? 0), 2) }}</div>
+                                <small class="text-muted">Period: {{ $payrollTotals['period_label'] }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="text-muted small">3kfitness app cut</div>
+                                <div class="h5 mb-0">{{ $currency }} {{ number_format((float) ($payrollTotals['app_cut'] ?? 0), 2) }}</div>
+                                <small class="text-muted">Runs: {{ $payrollTotals['run_count'] ?? 0 }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <p class="text-muted small mb-0 mt-2">Payroll figures are pulled from processed runs dated within the selected window.</p>
             </div>
 
             <div class="col-12 mt-3">
@@ -209,33 +257,33 @@
                 if (filters.start || filters.end) {
                     chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
                 }
+                if (filters.payroll_period) {
+                    chips.push(`Payroll window: ${filters.payroll_period}`);
+                }
                 return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
-            }
-
-            function buildSeriesRows(items, currency) {
-                return items.map((item) => `
-                    <tr>
-                        <td>${item.label || '—'}</td>
-                        <td>${item.value ? currency + ' ' + item.value : currency + ' 0.00'}</td>
-                    </tr>
-                `).join('');
-            }
-
-            function buildPieRows(items, currency) {
-                return items.map((item) => `
-                    <tr>
-                        <td>${item.label || '—'}</td>
-                        <td>${item.value ? currency + ' ' + item.value : currency + ' 0.00'}</td>
-                    </tr>
-                `).join('');
             }
 
             function renderPrintWindow(payload) {
                 const filters = payload.filters || {};
                 const totals = payload.totals || {};
-                const series = payload.series || [];
-                const pie = payload.pie || [];
                 const currency = payload.currency || '';
+                const payroll = payload.payroll || {};
+                const payrollRuns = payload.payroll_runs || [];
+
+                const payrollRows = (payrollRuns || []).map((run) => `
+                    <tr>
+                        <td>${run.id ?? '—'}</td>
+                        <td>
+                            <div style="font-weight:600;">${run.name || '—'}</div>
+                            <div class="muted">${run.email || ''}</div>
+                            <div class="muted">${run.user_code || ''}</div>
+                        </td>
+                        <td>${run.role || '—'}</td>
+                        <td>${run.period || '—'}</td>
+                        <td>${run.processed_at || '—'}</td>
+                        <td>${run.net || currency + ' 0.00'}</td>
+                    </tr>
+                `).join('');
                 const html = `
                     <!doctype html>
                     <html>
@@ -258,7 +306,7 @@
                                 .badge.approved { background: #dcfce7; color: #166534; }
                                 .badge.pending { background: #fef9c3; color: #854d0e; }
                                 .badge.rejected { background: #fee2e2; color: #991b1b; }
-                                table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
+                                table { width: 100%; border-collapse: collapse; margin-top: 16px; font-size: 13px; }
                                 th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
                                 th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
                             </style>
@@ -274,8 +322,9 @@
                                 <div class="pill-row">${buildFilters(filters)}</div>
                                 <div class="cards">
                                     <div class="card">
-                                        <span class="label">Total revenue</span>
-                                        <div class="value">${currency} ${totals.revenue || '0.00'}</div>
+                                        <span class="label">Finished payroll runs</span>
+                                        <div class="value">${payroll.run_count ?? 0}</div>
+                                        <div class="muted">Period: ${payroll.period || '—'}</div>
                                     </div>
                                     <div class="card">
                                         <span class="label">Total sales</span>
@@ -289,33 +338,43 @@
                                             <span class="badge rejected">Rejected: ${totals.status?.rejected ?? 0}</span>
                                         </div>
                                     </div>
+                                    <div class="card">
+                                        <span class="label">Payroll totals</span>
+                                        <div class="value">${currency} ${payroll.net || '0.00'} <span class="muted" style="font-size:12px; font-weight:500;">net</span></div>
+                                        <div class="muted">Gross: ${currency} ${payroll.gross || '0.00'} • Runs: ${payroll.run_count ?? 0}</div>
+                                    </div>
+                                    <div class="card">
+                                        <span class="label">Staff payroll (net)</span>
+                                        <div class="value">${currency} ${payroll.staff_net || '0.00'}</div>
+                                        <div class="muted">Period: ${payroll.period || '—'}</div>
+                                    </div>
+                                    <div class="card">
+                                        <span class="label">Trainer payroll (net)</span>
+                                        <div class="value">${currency} ${payroll.trainer_net || '0.00'}</div>
+                                        <div class="muted">Period: ${payroll.period || '—'}</div>
+                                    </div>
+                                    <div class="card">
+                                        <span class="label">3kfitness app cut</span>
+                                        <div class="value">${currency} ${payroll.app_cut || '0.00'}</div>
+                                        <div class="muted">Runs: ${payroll.run_count ?? 0}</div>
+                                    </div>
                                 </div>
                                 <table>
                                     <thead>
                                         <tr>
-                                            <th colspan="2">Revenue over time</th>
+                                            <th colspan="6">Finished payroll runs</th>
                                         </tr>
                                         <tr>
-                                            <th>Date</th>
-                                            <th>Revenue</th>
+                                            <th>#</th>
+                                            <th>Staff/Trainer</th>
+                                            <th>Role</th>
+                                            <th>Period</th>
+                                            <th>Processed</th>
+                                            <th>Net pay</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${buildSeriesRows(series, currency) || '<tr><td colspan="2" style="text-align:center; padding:16px;">No data.</td></tr>'}
-                                    </tbody>
-                                </table>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th colspan="2">Revenue by membership</th>
-                                        </tr>
-                                        <tr>
-                                            <th>Membership</th>
-                                            <th>Revenue</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${buildPieRows(pie, currency) || '<tr><td colspan="2" style="text-align:center; padding:16px;">No data.</td></tr>'}
+                                        ${payrollRows || '<tr><td colspan="6" style="text-align:center; padding:16px;">No payroll runs found in this window.</td></tr>'}
                                     </tbody>
                                 </table>
                             </div>

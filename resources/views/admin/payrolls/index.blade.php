@@ -78,7 +78,14 @@
                     <h2 class="title mb-0">Payroll History</h2>
                     <p class="text-muted mb-0">Review processed payroll runs for staff.</p>
                 </div>
-                <div class="d-flex align-items-center">
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <a
+                        href="{{ route('admin.sales.index') }}"
+                        class="btn btn-outline-secondary d-flex align-items-center gap-2"
+                    >
+                        <i class="fa-solid fa-chart-line"></i>
+                        Sales overview
+                    </a>
                     <a
                         href="{{ route('admin.payrolls.process') }}"
                         class="btn btn-primary d-flex align-items-center gap-2"
@@ -86,7 +93,7 @@
                         <i class="fa-solid fa-gears"></i>
                         Process payroll
                     </a>
-                    <form action="#" method="POST" id="print-form" class="ms-2">
+                    <form action="#" method="POST" id="print-form">
                         @csrf
                         <input type="hidden" name="member_name" value="{{ $searchTerm }}">
                         <input type="hidden" name="search_column" value="{{ $searchColumn }}">
