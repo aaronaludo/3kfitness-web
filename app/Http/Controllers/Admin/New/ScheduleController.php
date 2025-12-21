@@ -254,6 +254,25 @@ class ScheduleController extends Controller
         );
     }
 
+    public function rescheduleRequests(Request $request)
+    {
+        $baseQuery = ScheduleRescheduleRequest::with(['schedule', 'trainer']);
+
+        $pendingCount = (clone $baseQuery)->where('status', 0)->count();
+        $resolvedCount = (clone $baseQuery)->where('status', '!=', 0)->count();
+
+        $rescheduleRequests = (clone $baseQuery)
+            ->orderByDesc('created_at')
+            ->paginate(10)
+            ->withQueryString();
+
+        return view('admin.gymmanagement.reschedule-requests', [
+            'rescheduleRequests' => $rescheduleRequests,
+            'pendingCount' => $pendingCount,
+            'resolvedCount' => $resolvedCount,
+        ]);
+    }
+
     public function view($id)
     {
         $data = Schedule::findOrFail($id);
@@ -545,10 +564,11 @@ class ScheduleController extends Controller
             'admin_comment' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $redirectUrl = $request->input('redirect_to') ?: route('admin.gym-management.schedules');
         $reschedule = ScheduleRescheduleRequest::with('schedule')->findOrFail($rescheduleId);
 
         if ((int) $reschedule->status !== 0) {
-            return redirect()->route('admin.gym-management.schedules')->with('error', 'This request has already been processed.');
+            return redirect($redirectUrl)->with('error', 'This request has already been processed.');
         }
 
         $reschedule->status = (int) $validated['status'];
@@ -588,16 +608,17 @@ class ScheduleController extends Controller
             }
         }
 
-        return redirect()->route('admin.gym-management.schedules')->with('success', 'Reschedule request updated.');
+        return redirect($redirectUrl)->with('success', 'Reschedule request updated.');
     }
 
-    public function deleteRescheduleRequest($rescheduleId)
+    public function deleteRescheduleRequest(Request $request, $rescheduleId)
     {
         $reschedule = ScheduleRescheduleRequest::with('schedule')->findOrFail($rescheduleId);
 
+        $redirectUrl = $request->input('redirect_to') ?: route('admin.gym-management.schedules');
         if ((int) $reschedule->status !== 1) {
             return redirect()
-                ->route('admin.gym-management.schedules')
+                ->to($redirectUrl)
                 ->with('error', 'Only approved requests can be deleted.');
         }
 
@@ -621,7 +642,7 @@ class ScheduleController extends Controller
         $reschedule->delete();
 
         return redirect()
-            ->route('admin.gym-management.schedules')
+            ->to($redirectUrl)
             ->with('success', 'Approved reschedule request removed.');
     }
     

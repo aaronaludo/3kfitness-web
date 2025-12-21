@@ -46,7 +46,7 @@
                     <p class="text-muted mb-0 small">Approved and rejected cadence changes from trainers.</p>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="{{ route('admin.gym-management.schedules') }}" class="btn btn-outline-secondary">
+                    <a href="{{ route('admin.gym-management.schedules.reschedule-requests') }}" class="btn btn-outline-secondary">
                         <i class="fa-solid fa-calendar-days me-2"></i>Current requests
                     </a>
                 </div>

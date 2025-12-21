@@ -107,6 +107,7 @@ Route::middleware(['auth:admin'])->group(function () {
 
     Route::get('/admin/classes', [Schedule::class, 'index'])->name('admin.gym-management.schedules');
     Route::get('/admin/classes/all', [Schedule::class, 'all'])->name('admin.gym-management.schedules.all');
+    Route::get('/admin/classes/reschedule-requests', [Schedule::class, 'rescheduleRequests'])->name('admin.gym-management.schedules.reschedule-requests');
     Route::get('/admin/classes/create', [Schedule::class, 'create'])->name('admin.gym-management.schedules.create');
     Route::get('/admin/classes/{id}/users', [Schedule::class, 'users'])->name('admin.gym-management.schedules.users');
     Route::get('/admin/classes/{id}', [Schedule::class, 'view'])->name('admin.gym-management.schedules.view');
