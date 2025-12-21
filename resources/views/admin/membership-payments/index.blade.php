@@ -617,14 +617,17 @@
                                                         <div class="action-button">
                                                             <a href="{{ route('admin.staff-account-management.membership-payments.receipt', $item->id) }}" title="Receipt"><i class="fa-solid fa-receipt text-primary"></i></a>
                                                         </div>
-                                                        <div class="action-button">
-                                                            <button type="button" data-bs-toggle="modal" data-bs-target="#membershipPaymentArchiveModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">
-                                                                <i class="fa-solid fa-box-archive text-danger"></i>
-                                                            </button>
-                                                        </div>
+                                                        @if((int) $item->isapproved !== 1)
+                                                            <div class="action-button">
+                                                                <button type="button" data-bs-toggle="modal" data-bs-target="#membershipPaymentArchiveModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                                    <i class="fa-solid fa-box-archive text-danger"></i>
+                                                                </button>
+                                                            </div>
+                                                        @endif
                                                     </div>
                                                 </td>
                                             </tr>
+                                        @if((int) $item->isapproved !== 1)
                                             <div class="modal fade" id="membershipPaymentArchiveModal-{{ $item->id }}" tabindex="-1" aria-labelledby="membershipPaymentArchiveModalLabel-{{ $item->id }}" aria-hidden="true">
                                                 <div class="modal-dialog modal-dialog-centered">
                                                     <div class="modal-content border-0 shadow rounded-4">
@@ -675,9 +678,10 @@
                                                     loader.classList.remove('d-none');
                                                 });
                                             </script>
-                                        @endforeach
-                                    </tbody>
-                                </table>
+                                        @endif
+                                    @endforeach
+                                </tbody>
+                            </table>
                                 {{ $activeMemberships->links() }}
                             </div>
                         </div>
