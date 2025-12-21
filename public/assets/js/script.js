@@ -2,6 +2,7 @@ var sidebar = document.getElementById('column-left');
 var content = document.getElementById('content');
 var showMenu = document.getElementById('button-menu');
 var closeMenu = document.getElementById('button-menu-close');
+var sidebarBrand = document.querySelector('.sidebar-brand');
 
 showMenu.addEventListener('click', function() {
     sidebar.classList.toggle("show");
@@ -20,3 +21,14 @@ window.addEventListener('resize', function() {
     closeMenu.classList.remove("d-block");
     showMenu.classList.remove('d-none');
 });
+
+var toggleSidebarBrand = function() {
+    if (!sidebarBrand) {
+        return;
+    }
+    var shouldShow = window.scrollY > 40;
+    sidebarBrand.classList.toggle('visible', shouldShow);
+};
+
+document.addEventListener('DOMContentLoaded', toggleSidebarBrand);
+window.addEventListener('scroll', toggleSidebarBrand);

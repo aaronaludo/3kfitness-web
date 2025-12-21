@@ -351,6 +351,15 @@
             </div>
         </header>
         <nav id="column-left">
+            <div class="sidebar-brand">
+                <div class="sidebar-brand__logo">
+                    <img src="{{ asset('assets/images/icon.png') }}" alt="3K Fitness logo" />
+                </div>
+                <div class="sidebar-brand__text">
+                    <span class="sidebar-brand__title">3K FITNESS</span>
+                    <span class="sidebar-brand__tagline">STRONGER EVERY SESSION</span>
+                </div>
+            </div>
             @php
                 $gymRoutes = [
                     'admin.gym-management.index',
