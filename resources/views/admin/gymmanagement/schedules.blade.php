@@ -984,69 +984,55 @@
                                                 } elseif ($item->class_start_time) {
                                                     $sessionTimeLabel = \Carbon\Carbon::parse($item->class_start_time)->format('g:i A');
                                                 }
-                                                $sessionOccurrences = [];
-                                                $maxSessions = 6;
-                                                $hasMoreSessions = false;
+                                                $allSessionOccurrences = [];
                                                 $nowSession = now();
                                                 $hasOngoingSession = false;
                                                 $hasFutureSession = false;
 
                                                 if ($seriesStart && $seriesEnd && count($recurringDayKeys)) {
                                                     $cursor = $seriesStart->copy();
-                                                    $occurrenceCount = 0;
                                                     while ($cursor->lte($seriesEnd)) {
                                                         $dayKey = strtolower(substr($cursor->format('D'), 0, 3));
                                                         if (in_array($dayKey, $recurringDayKeys, true)) {
-                                                            $occurrenceCount++;
-                                                            if (count($sessionOccurrences) < $maxSessions) {
-                                                                $sessionStart = $item->class_start_time
-                                                                    ? $cursor->copy()->setTimeFromTimeString($item->class_start_time)
-                                                                    : $cursor->copy()->startOfDay();
-                                                                $sessionEnd = $item->class_end_time
-                                                                    ? $cursor->copy()->setTimeFromTimeString($item->class_end_time)
-                                                                    : $cursor->copy()->endOfDay();
+                                                            $sessionStart = $item->class_start_time
+                                                                ? $cursor->copy()->setTimeFromTimeString($item->class_start_time)
+                                                                : $cursor->copy()->startOfDay();
+                                                            $sessionEnd = $item->class_end_time
+                                                                ? $cursor->copy()->setTimeFromTimeString($item->class_end_time)
+                                                                : $cursor->copy()->endOfDay();
 
-                                                                $sessionStatus = 'Upcoming';
-                                                                if ($nowSession->between($sessionStart, $sessionEnd, true)) {
-                                                                    $sessionStatus = 'Ongoing';
-                                                                    $hasOngoingSession = true;
-                                                                } elseif ($nowSession->gt($sessionEnd)) {
-                                                                    $sessionStatus = 'Completed';
-                                                                } else {
-                                                                    $hasFutureSession = true;
-                                                                }
-
-                                                                $statusClass = 'bg-secondary';
-                                                                if ($sessionStatus === 'Upcoming') {
-                                                                    $statusClass = 'bg-warning text-dark';
-                                                                } elseif ($sessionStatus === 'Ongoing') {
-                                                                    $statusClass = 'bg-info text-dark';
-                                                                } elseif ($sessionStatus === 'Completed') {
-                                                                    $statusClass = 'bg-success';
-                                                                }
-
-                                                                $sessionOccurrences[] = [
-                                                                    'label' => $cursor->format('M j, Y'),
-                                                                    'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
-                                                                    'time' => $sessionTimeLabel,
-                                                                    'status' => $sessionStatus,
-                                                                    'status_class' => $statusClass,
-                                                                ];
+                                                            $sessionStatus = 'Upcoming';
+                                                            if ($nowSession->between($sessionStart, $sessionEnd, true)) {
+                                                                $sessionStatus = 'Ongoing';
+                                                                $hasOngoingSession = true;
+                                                            } elseif ($nowSession->gt($sessionEnd)) {
+                                                                $sessionStatus = 'Completed';
+                                                            } else {
+                                                                $hasFutureSession = true;
                                                             }
 
-                                                            if ($occurrenceCount >= $maxSessions && $cursor->lt($seriesEnd)) {
-                                                                $hasMoreSessions = true;
-                                                                if ($hasOngoingSession || $hasFutureSession) {
-                                                                    // We already know there is a relevant upcoming/ongoing session; stop scanning.
-                                                                    break;
-                                                                }
+                                                            $statusClass = 'bg-secondary';
+                                                            if ($sessionStatus === 'Upcoming') {
+                                                                $statusClass = 'bg-warning text-dark';
+                                                            } elseif ($sessionStatus === 'Ongoing') {
+                                                                $statusClass = 'bg-info text-dark';
+                                                            } elseif ($sessionStatus === 'Completed') {
+                                                                $statusClass = 'bg-success';
                                                             }
+
+                                                            $allSessionOccurrences[] = [
+                                                                'label' => $cursor->format('M j, Y'),
+                                                                'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
+                                                                'time' => $sessionTimeLabel,
+                                                                'status' => $sessionStatus,
+                                                                'status_class' => $statusClass,
+                                                            ];
                                                         }
                                                         $cursor->addDay();
                                                     }
                                                 }
 
-                                                if (!count($sessionOccurrences) && $start_date) {
+                                                if (!count($allSessionOccurrences) && $start_date) {
                                                     $sessionStart = $start_date->copy();
                                                     $sessionEnd = $end_date ?: ($item->class_end_time
                                                         ? $sessionStart->copy()->setTimeFromTimeString($item->class_end_time)
@@ -1071,7 +1057,7 @@
                                                         $statusClass = 'bg-success';
                                                     }
 
-                                                    $sessionOccurrences[] = [
+                                                    $allSessionOccurrences[] = [
                                                         'label' => $sessionStart->format('M j, Y'),
                                                         'weekday' => $sessionStart->format('l'),
                                                         'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
@@ -1099,6 +1085,7 @@
                                                 $trainerCodeDisplay = ($item->trainer_id == 0 || $isTrainerArchived)
                                                     ? '—'
                                                     : ($trainer->user_code ?? '—');
+                                                $hasEnrolledUsers = ($item->user_schedules_count ?? 0) > 0;
                                             @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
@@ -1115,42 +1102,74 @@
                                                     </span>
                                                 </td>
                                                 <td class="small">
-                                                    <div class="fw-semibold">
-                                                        {{ $start_date ? $start_date->format('M j, Y g:iA') : 'Not set' }}
-                                                    </div>
-                                                    <div class="text-muted">
-                                                        {{ $end_date ? $end_date->format('M j, Y g:iA') : '—' }}
-                                                    </div>
-                                                    <div class="text-muted">
-                                                        Series end: {{ $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->format('M j, Y') : '—' }}
-                                                    </div>
-                                                    <div class="text-muted">Time: {{ $item->class_start_time && $item->class_end_time ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A') : '—' }}</div>
-                                                    <div class="text-muted">Cadence: {{ $dayLabel ?: 'One-time' }}</div>
-                                                    <div class="mt-1">
+                                                    <div class="d-flex justify-content-between align-items-start gap-2">
+                                                        <div class="d-flex flex-column gap-1">
+                                                            <div class="fw-semibold">
+                                                                @if($start_date || $end_date)
+                                                                    {{ $start_date ? $start_date->format('M j, Y g:i A') : 'Start not set' }}
+                                                                    @if($end_date)
+                                                                        <span class="text-muted small">→ {{ $end_date->format('M j, Y g:i A') }}</span>
+                                                                    @endif
+                                                                @else
+                                                                    <span class="text-muted">Schedule not set</span>
+                                                                @endif
+                                                            </div>
+                                                            <div class="text-muted small">
+                                                                <i class="fa-regular fa-clock me-1"></i>
+                                                                {{ $item->class_start_time && $item->class_end_time
+                                                                    ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
+                                                                    : 'Time not set' }}
+                                                            </div>
+                                                            <div class="text-muted small">
+                                                                <i class="fa-solid fa-rotate me-1"></i>{{ $dayLabel ?: 'One-time' }}
+                                                            </div>
+                                                            @if($seriesStart || $seriesEnd)
+                                                                <div class="text-muted small">
+                                                                    <i class="fa-regular fa-calendar-days me-1"></i>
+                                                                    Series: {{ $seriesStart ? $seriesStart->format('M j, Y') : '—' }} → {{ $seriesEnd ? $seriesEnd->format('M j, Y') : '—' }}
+                                                                </div>
+                                                            @endif
+                                                        </div>
                                                         <span class="badge rounded-pill {{ $scheduleBadgeClass }}">{{ $scheduleStatus }}</span>
                                                     </div>
                                                 </td>
                                                 <td class="small">
-                                                    @if(count($sessionOccurrences))
-                                                        <div class="d-flex flex-column gap-2">
-                                                            @foreach($sessionOccurrences as $index => $session)
-                                                                <div class="d-flex align-items-start gap-2">
-                                                                    <div class="d-flex flex-column align-items-center me-1">
-                                                                        <span class="rounded-circle bg-primary" style="width: 10px; height: 10px;"></span>
-                                                                        @if($index < count($sessionOccurrences) - 1)
-                                                                            <span class="mt-1" style="width: 2px; height: 20px; background-color: #e9ecef;"></span>
-                                                                        @endif
-                                                                    </div>
-                                                                    <div>
-                                                                        <div class="fw-semibold">{{ $session['label'] }}</div>
-                                                                        <div class="text-muted small">{{ $session['weekday'] }}{{ $session['time'] ? ' • ' . $session['time'] : '' }}</div>
-                                                                        <span class="badge {{ $session['status_class'] }} px-2 py-1">{{ $session['status'] }}</span>
-                                                                    </div>
+                                                    @if(count($allSessionOccurrences))
+                                                        <div class="d-flex align-items-center gap-2">
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-link btn-sm px-0 text-decoration-none"
+                                                                data-bs-toggle="collapse"
+                                                                data-bs-target="#session-series-{{ $item->id }}"
+                                                                aria-expanded="false"
+                                                                aria-controls="session-series-{{ $item->id }}"
+                                                                data-session-toggle
+                                                                data-collapsed-text="Show all sessions"
+                                                                data-expanded-text="Hide sessions"
+                                                            >
+                                                                Show all sessions
+                                                            </button>
+                                                        </div>
+                                                        <div class="collapse mt-2" id="session-series-{{ $item->id }}">
+                                                            <div class="border rounded-3 p-2 bg-light-subtle" style="max-height: 260px; overflow: auto;">
+                                                                <div class="d-flex flex-column gap-2">
+                                                                    @foreach($allSessionOccurrences as $fullIndex => $session)
+                                                                        <div class="d-flex align-items-start gap-2">
+                                                                            <div class="d-flex flex-column align-items-center me-1">
+                                                                                <span class="rounded-circle bg-primary" style="width: 10px; height: 10px;"></span>
+                                                                                @if($fullIndex < count($allSessionOccurrences) - 1)
+                                                                                    <span class="mt-1" style="width: 2px; height: 20px; background-color: #e9ecef;"></span>
+                                                                                @endif
+                                                                            </div>
+                                                                            <div>
+                                                                                <div class="fw-semibold">{{ $session['label'] }}</div>
+                                                                                <div class="text-muted small">{{ $session['weekday'] }}{{ $session['time'] ? ' • ' . $session['time'] : '' }}</div>
+                                                                                <span class="badge {{ $session['status_class'] }} px-2 py-1">{{ $session['status'] }}</span>
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
                                                                 </div>
-                                                            @endforeach
-                                                            @if($hasMoreSessions)
-                                                                <div class="text-muted small">More sessions in series…</div>
-                                                            @endif
+                                                            </div>
                                                         </div>
                                                     @else
                                                         <span class="text-muted">Series not set</span>
@@ -1330,70 +1349,76 @@
                                                                 <i class="fa-solid fa-eye"></i>
                                                             </a>
                                                         </div>
-                                                        <div class="action-button">
-                                                            <a href="{{ route('admin.gym-management.schedules.edit', $item->id) }}" title="Edit">
-                                                                <i class="fa-solid fa-pencil text-primary"></i>
-                                                            </a>
-                                                        </div>
-                                                        <div class="action-button">
-                                                            <button type="button" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">
-                                                                <i class="fa-solid fa-box-archive text-danger"></i>
-                                                            </button>
-                                                        </div> 
+                                                        @unless($hasEnrolledUsers)
+                                                            @if($scheduleStatus !== 'Completed')
+                                                                <div class="action-button">
+                                                                    <a href="{{ route('admin.gym-management.schedules.edit', $item->id) }}" title="Edit">
+                                                                        <i class="fa-solid fa-pencil text-primary"></i>
+                                                                    </a>
+                                                                </div>
+                                                            @endif
+                                                            <div class="action-button">
+                                                                <button type="button" data-bs-toggle="modal" data-bs-target="#deleteModal-{{ $item->id }}" data-id="{{ $item->id }}" title="Archive" style="background: none; border: none; padding: 0; cursor: pointer;">
+                                                                    <i class="fa-solid fa-box-archive text-danger"></i>
+                                                                </button>
+                                                            </div>
+                                                        @endunless
                                                     </div>
                                                 </td>
                                             </tr>
-                                            <div class="modal fade" id="deleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ $item->id }}" aria-hidden="true">
-                                                <div class="modal-dialog modal-dialog-centered">
-                                                    <div class="modal-content border-0 shadow rounded-4">
-                                                        <div class="modal-header border-0 pb-0">
-                                                            <div class="d-flex align-items-center gap-3">
-                                                                <div class="badge bg-danger bg-opacity-10 text-danger rounded-circle p-3">
-                                                                    <i class="fa-solid fa-triangle-exclamation"></i>
+                                            @unless($hasEnrolledUsers)
+                                                <div class="modal fade" id="deleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="deleteModalLabel-{{ $item->id }}" aria-hidden="true">
+                                                    <div class="modal-dialog modal-dialog-centered">
+                                                        <div class="modal-content border-0 shadow rounded-4">
+                                                            <div class="modal-header border-0 pb-0">
+                                                                <div class="d-flex align-items-center gap-3">
+                                                                    <div class="badge bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                                                                        <i class="fa-solid fa-triangle-exclamation"></i>
+                                                                    </div>
+                                                                    <div>
+                                                                        <p class="text-uppercase text-muted small mb-1">Archive class</p>
+                                                                        <h5 class="fw-semibold mb-0" id="deleteModalLabel-{{ $item->id }}">
+                                                                            {{ $item->name ?? 'Class' }} ({{ $item->class_code ?? '—' }})
+                                                                        </h5>
+                                                                    </div>
                                                                 </div>
-                                                                <div>
-                                                                    <p class="text-uppercase text-muted small mb-1">Archive class</p>
-                                                                    <h5 class="fw-semibold mb-0" id="deleteModalLabel-{{ $item->id }}">
-                                                                        {{ $item->name ?? 'Class' }} ({{ $item->class_code ?? '—' }})
-                                                                    </h5>
-                                                                </div>
+                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                                                             </div>
-                                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                            <form action="{{ route('admin.gym-management.schedules.delete') }}" method="POST" id="delete-modal-form-{{ $item->id }}">
+                                                                @csrf
+                                                                @method('DELETE')
+                                                                <input type="hidden" name="id" value="{{ $item->id }}">
+                                                                <div class="modal-body pt-3">
+                                                                    <div class="alert alert-danger bg-opacity-10 text-danger border-0 rounded-3">
+                                                                        Archiving will move this class{{ $item->user_schedules_count ? ' and its enrollments' : '' }} to the archived list. You can restore it later if needed.
+                                                                    </div>
+                                                                    <label class="form-label fw-semibold mt-2">Confirm with your password</label>
+                                                                    <div class="input-group">
+                                                                        <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                        <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                                    </div>
+                                                                </div>
+                                                                <div class="modal-footer border-0 pt-0">
+                                                                    <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                                                                    <button class="btn btn-danger" type="submit" id="delete-modal-submit-button-{{ $item->id }}">
+                                                                        <span id="delete-modal-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                        Archive class
+                                                                    </button>
+                                                                </div>
+                                                            </form>
                                                         </div>
-                                                        <form action="{{ route('admin.gym-management.schedules.delete') }}" method="POST" id="delete-modal-form-{{ $item->id }}">
-                                                            @csrf
-                                                            @method('DELETE')
-                                                            <input type="hidden" name="id" value="{{ $item->id }}">
-                                                            <div class="modal-body pt-3">
-                                                                <div class="alert alert-danger bg-opacity-10 text-danger border-0 rounded-3">
-                                                                    Archiving will move this class{{ $item->user_schedules_count ? ' and its enrollments' : '' }} to the archived list. You can restore it later if needed.
-                                                                </div>
-                                                                <label class="form-label fw-semibold mt-2">Confirm with your password</label>
-                                                                <div class="input-group">
-                                                                    <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
-                                                                    <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
-                                                                </div>
-                                                            </div>
-                                                            <div class="modal-footer border-0 pt-0">
-                                                                <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
-                                                                <button class="btn btn-danger" type="submit" id="delete-modal-submit-button-{{ $item->id }}">
-                                                                    <span id="delete-modal-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
-                                                                    Archive class
-                                                                </button>
-                                                            </div>
-                                                        </form>
                                                     </div>
                                                 </div>
-                                            </div>
-                                            <script>
-                                                document.getElementById('delete-modal-form-{{ $item->id }}').addEventListener('submit', function(e) {
-                                                    const submitButton = document.getElementById('delete-modal-submit-button-{{ $item->id }}');
-                                                    const loader = document.getElementById('delete-modal-loader-{{ $item->id }}');
-                                        
-                                                    submitButton.disabled = true;
-                                                    loader.classList.remove('d-none');
-                                                });
-                                            </script>
+                                                <script>
+                                                    document.getElementById('delete-modal-form-{{ $item->id }}').addEventListener('submit', function(e) {
+                                                        const submitButton = document.getElementById('delete-modal-submit-button-{{ $item->id }}');
+                                                        const loader = document.getElementById('delete-modal-loader-{{ $item->id }}');
+                                            
+                                                        submitButton.disabled = true;
+                                                        loader.classList.remove('d-none');
+                                                    });
+                                                </script>
+                                            @endunless
                                         @endforeach
                                     </tbody>
                                 </table>
@@ -1575,6 +1600,29 @@
             @endif
         </div>
     </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const toggles = document.querySelectorAll('[data-session-toggle]');
+            toggles.forEach(function (btn) {
+                const collapsedLabel = btn.dataset.collapsedText || 'Show all sessions';
+                const expandedLabel = btn.dataset.expandedText || 'Hide sessions';
+                const targetSelector = btn.getAttribute('data-bs-target');
+                const targetEl = targetSelector ? document.querySelector(targetSelector) : null;
+
+                btn.textContent = collapsedLabel;
+                if (!targetEl) {
+                    return;
+                }
+
+                targetEl.addEventListener('shown.bs.collapse', function () {
+                    btn.textContent = expandedLabel;
+                });
+                targetEl.addEventListener('hidden.bs.collapse', function () {
+                    btn.textContent = collapsedLabel;
+                });
+            });
+        });
+    </script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const feedbackModalEl = document.getElementById('actionFeedbackModal');
