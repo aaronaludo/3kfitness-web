@@ -78,6 +78,7 @@
                         'search' => request('name'),
                         'search_column' => request('search_column'),
                         'status' => request('status', 'all') ?: 'all',
+                        'month_filter' => request('month_filter'),
                         'start' => request('start_date'),
                         'end' => request('end_date'),
                         'show_archived' => $showArchived,
@@ -145,6 +146,7 @@
                         'search' => request('name'),
                         'search_column' => request('search_column'),
                         'status' => request('status', 'all') ?: 'all',
+                        'month_filter' => request('month_filter'),
                         'start' => request('start_date'),
                         'end' => request('end_date'),
                         'show_archived' => $showArchived,
@@ -170,6 +172,7 @@
                         <input type="hidden" name="name" value="{{ request('name') }}">
                         <input type="hidden" name="search_column" value="{{ request('search_column') }}">
                         <input type="hidden" name="status" value="{{ request('status', 'all') }}">
+                        <input type="hidden" name="month_filter" value="{{ request('month_filter') }}">
                           <input
                             type="hidden"
                             name="created_start"
@@ -273,6 +276,35 @@
                     ],
                 ];
                 $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
+
+                $monthFilterOptions = collect(range(0, 11))->map(function ($offset) {
+                    $month = now()->subMonths($offset);
+                    return [
+                        'value' => $month->format('Y-m'),
+                        'label' => $month->format('F Y'),
+                        'start' => $month->copy()->startOfMonth()->format('Y-m-d'),
+                        'end' => $month->copy()->endOfMonth()->format('Y-m-d'),
+                    ];
+                });
+                $monthFilterSelection = request('month_filter');
+                $startFilterValue = request('start_date');
+                $endFilterValue = request('end_date');
+
+                if (!$monthFilterSelection) {
+                    $matchedMonth = $monthFilterOptions->first(function ($option) use ($startFilterValue, $endFilterValue) {
+                        return $startFilterValue && $endFilterValue
+                            && $option['start'] === $startFilterValue
+                            && $option['end'] === $endFilterValue;
+                    });
+
+                    if ($matchedMonth) {
+                        $monthFilterSelection = $matchedMonth['value'];
+                    } elseif ($startFilterValue || $endFilterValue) {
+                        $monthFilterSelection = 'custom';
+                    } else {
+                        $monthFilterSelection = $monthFilterOptions->first()['value'] ?? null;
+                    }
+                }
             @endphp
 
             <div class="col-12 mb-20">
@@ -330,6 +362,28 @@
                                                 aria-label="Search"
                                             />
                                         </div>
+                                    </div>
+
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 200px;">
+                                        <select
+                                            class="form-select rounded-pill"
+                                            id="month-filter"
+                                            name="month_filter"
+                                            aria-label="Filter by month"
+                                        >
+                                            <option value="all" {{ $monthFilterSelection === 'all' ? 'selected' : '' }}>All months</option>
+                                            @foreach ($monthFilterOptions as $option)
+                                                <option
+                                                    value="{{ $option['value'] }}"
+                                                    data-start="{{ $option['start'] }}"
+                                                    data-end="{{ $option['end'] }}"
+                                                    {{ $monthFilterSelection === $option['value'] ? 'selected' : '' }}
+                                                >
+                                                    {{ $option['label'] }}
+                                                </option>
+                                            @endforeach
+                                            <option value="custom" {{ $monthFilterSelection === 'custom' ? 'selected' : '' }}>Custom range</option>
+                                        </select>
                                     </div>
 
                                     <a
@@ -553,12 +607,53 @@
                     const rangeButtons = form.querySelectorAll('.range-chip');
                     const startInput = document.getElementById('start-date');
                     const endInput = document.getElementById('end-date');
+                    const monthSelect = document.getElementById('month-filter');
+                    const searchColumnSelect = document.getElementById('search-column');
 
                     function formatDate(date) {
                         const year = date.getFullYear();
                         const month = String(date.getMonth() + 1).padStart(2, '0');
                         const day = String(date.getDate()).padStart(2, '0');
                         return `${year}-${month}-${day}`;
+                    }
+
+                    function syncMonthToDates() {
+                        if (!monthSelect || !startInput || !endInput) {
+                            return;
+                        }
+                        const selectedOption = monthSelect.options[monthSelect.selectedIndex];
+                        if (!selectedOption) {
+                            return;
+                        }
+
+                        const selectedValue = monthSelect.value;
+                        if (selectedValue === 'custom') {
+                            return;
+                        }
+
+                        if (selectedValue === 'all') {
+                            startInput.value = '';
+                            endInput.value = '';
+                            return;
+                        }
+
+                        const startValue = selectedOption.getAttribute('data-start');
+                        const endValue = selectedOption.getAttribute('data-end');
+                        if (startValue) startInput.value = startValue;
+                        if (endValue) endInput.value = endValue;
+
+                        if (searchColumnSelect && !searchColumnSelect.value) {
+                            searchColumnSelect.value = 'class_start_date';
+                        }
+                    }
+
+                    function submitWithMonthSync() {
+                        syncMonthToDates();
+                        if (typeof form.requestSubmit === 'function') {
+                            form.requestSubmit();
+                        } else {
+                            form.submit();
+                        }
                     }
 
                     function applyRange(range) {
@@ -576,7 +671,32 @@
 
                         if (startInput) startInput.value = formatDate(start);
                         if (endInput) endInput.value = formatDate(end);
-                        form.submit();
+                        if (monthSelect) {
+                            monthSelect.value = 'custom';
+                        }
+                        submitWithMonthSync();
+                    }
+
+                    if (form) {
+                        form.addEventListener('submit', function () {
+                            syncMonthToDates();
+                        });
+                    }
+
+                    [startInput, endInput].forEach(function (input) {
+                        if (!input) return;
+                        input.addEventListener('input', function () {
+                            if (monthSelect) {
+                                monthSelect.value = 'custom';
+                            }
+                        });
+                    });
+
+                    if (monthSelect) {
+                        monthSelect.addEventListener('change', function () {
+                            syncMonthToDates();
+                            submitWithMonthSync();
+                        });
                     }
 
                     const inlineRows = document.querySelectorAll('.resched-inline');
@@ -629,7 +749,7 @@
                             this.classList.remove('btn-outline-secondary');
                             this.classList.add('btn-dark', 'text-white', 'shadow-sm');
 
-                            form.submit();
+                            submitWithMonthSync();
                         });
                     });
 

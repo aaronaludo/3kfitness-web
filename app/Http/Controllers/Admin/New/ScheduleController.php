@@ -89,6 +89,27 @@ class ScheduleController extends Controller
         // Choose which date column to filter: default to created_at unless a date-type column is selected.
         $dateColumns = ['class_start_date', 'class_end_date', 'created_at'];
         $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
+
+        $now = Carbon::now();
+        $defaultMonthStart = $now->copy()->startOfMonth()->format('Y-m-d');
+        $defaultMonthEnd = $now->copy()->endOfMonth()->format('Y-m-d');
+        $defaultMonthValue = $now->format('Y-m');
+
+        if (
+            !$request->filled('start_date') &&
+            !$request->filled('end_date') &&
+            $request->input('month_filter') !== 'all' &&
+            $request->input('month_filter') !== 'custom'
+        ) {
+            $startDate = $defaultMonthStart;
+            $endDate = $defaultMonthEnd;
+            $rangeColumn = 'class_start_date';
+            $request->merge([
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+                'month_filter' => $request->input('month_filter', $defaultMonthValue),
+            ]);
+        }
     
         $classescreatedbyadmin = Schedule::where('created_role', 'Admin')
             ->where('is_archieve', 0)
@@ -96,7 +117,6 @@ class ScheduleController extends Controller
         $classescreatedbystaff = Schedule::where('created_role', 'Staff')
             ->where('is_archieve', 0)
             ->count();
-        $now = Carbon::now();
 
         $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn) {
             return $query
@@ -162,21 +182,6 @@ class ScheduleController extends Controller
             return $schedule;
         };
 
-        $statusTalliesCollection = Schedule::with(['activeUserSchedules.user', 'user'])
-            ->withActiveEnrollmentCount()
-            ->where('is_archieve', 0)
-            ->get()
-            ->map($mapSchedule)
-            ->map($attachComputedStatus);
-
-        $statusTallies = [
-            'all' => $statusTalliesCollection->count(),
-            'upcoming' => $statusTalliesCollection->where('computed_status', 'upcoming')->count(),
-            'ongoing' => $statusTalliesCollection->where('computed_status', 'ongoing')->count(),
-            'completed' => $statusTalliesCollection->where('computed_status', 'completed')->count(),
-        ];
-        $statusTallies['active'] = $statusTallies['ongoing'];
-
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
 
@@ -217,6 +222,18 @@ class ScheduleController extends Controller
             ->get()
             ->map($mapSchedule)
             ->map($attachComputedStatus);
+
+        $statusTalliesCollection = $request->boolean('show_archived')
+            ? $archivedCollection
+            : $activeCollection;
+
+        $statusTallies = [
+            'all' => $statusTalliesCollection->count(),
+            'upcoming' => $statusTalliesCollection->where('computed_status', 'upcoming')->count(),
+            'ongoing' => $statusTalliesCollection->where('computed_status', 'ongoing')->count(),
+            'completed' => $statusTalliesCollection->where('computed_status', 'completed')->count(),
+        ];
+        $statusTallies['active'] = $statusTallies['ongoing'];
 
         $activeCollection = $filterCollectionByStatus($activeCollection);
         $archivedCollection = $filterCollectionByStatus($archivedCollection);
