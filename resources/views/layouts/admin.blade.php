@@ -80,6 +80,51 @@
             row-gap: 10px;
         }
 
+        .datetime-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 12px;
+            border-radius: 14px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.88));
+            color: #273341;
+            font-size: 0.82rem;
+            font-weight: 700;
+            border: 1px solid rgba(255, 107, 107, 0.35);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
+        }
+
+        .datetime-chip__icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            background: rgba(255, 107, 107, 0.12);
+            color: #e24949;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.85rem;
+        }
+
+        .datetime-chip__meta {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+            gap: 2px;
+        }
+
+        .datetime-chip .live-clock {
+            letter-spacing: 0.04em;
+            font-weight: 800;
+        }
+
+        .datetime-chip .live-date {
+            font-weight: 600;
+            color: #5c6673;
+            font-size: 0.72rem;
+            text-transform: uppercase;
+        }
+
         .header-actions .navbar-nav {
             flex: 0 0 auto;
             margin-top: 0 !important;
@@ -287,6 +332,15 @@
                 <a href="#" id="button-menu-close"><i class="fa-solid fa-xmark"></i></a>
 
                 <div class="d-flex align-items-center ms-auto flex-wrap flex-lg-nowrap header-actions">
+                    <div class="datetime-chip mt-2 mt-lg-0 me-lg-2">
+                        <span class="datetime-chip__icon">
+                            <i class="fa-regular fa-clock"></i>
+                        </span>
+                        <div class="datetime-chip__meta">
+                            <span class="live-clock" data-format="with-seconds">--:-- --</span>
+                            <span class="live-date">---</span>
+                        </div>
+                    </div>
                     @if(auth()->guard('admin')->user()->role_id == 2)
                         @php
                             $currentUserId = auth()->guard('admin')->user()->id;
@@ -781,15 +835,26 @@
 
         document.addEventListener('DOMContentLoaded', function () {
             var liveClocks = document.querySelectorAll('.live-clock');
-            if (!liveClocks.length) {
+            var liveDates = document.querySelectorAll('.live-date');
+            if (!liveClocks.length && !liveDates.length) {
                 return;
             }
 
             var updateClock = function () {
                 var now = new Date();
-                var timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
                 liveClocks.forEach(function (el) {
-                    el.textContent = timeString;
+                    var format = el.getAttribute('data-format') || 'with-seconds';
+                    var options = { hour: '2-digit', minute: '2-digit', hour12: true };
+                    if (format === 'with-seconds') {
+                        options.second = '2-digit';
+                    }
+                    el.textContent = now.toLocaleTimeString('en-US', options);
+                });
+
+                liveDates.forEach(function (el) {
+                    var dateOptions = { weekday: 'short', month: 'short', day: 'numeric' };
+                    el.textContent = now.toLocaleDateString('en-US', dateOptions);
                 });
             };
 
