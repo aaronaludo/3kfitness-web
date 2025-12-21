@@ -97,49 +97,8 @@ class ScheduleController extends Controller
             ->where('is_archieve', 0)
             ->count();
         $now = Carbon::now();
-        $nowString = $now->toDateTimeString();
-        $todayDate = $now->toDateString();
-        $nowTime = $now->format('H:i:s');
-        $todayKey = strtolower($now->format('D'));
 
-        $recurringJson = "IF(JSON_VALID(recurring_days), recurring_days, JSON_ARRAY())";
-        $seriesStartExpr = "COALESCE(series_start_date, class_start_date)";
-        $seriesEndExpr = "COALESCE(series_end_date, class_end_date)";
-
-        $statusCase = "
-            CASE
-                WHEN {$seriesEndExpr} IS NOT NULL
-                     AND CONCAT({$seriesEndExpr}, ' 23:59:59') < '{$nowString}' THEN 'completed'
-                WHEN {$seriesStartExpr} IS NOT NULL
-                     AND CONCAT({$seriesStartExpr}, ' 00:00:00') > '{$nowString}' THEN 'upcoming'
-                WHEN JSON_CONTAINS({$recurringJson}, '\"{$todayKey}\"')
-                     AND {$seriesStartExpr} IS NOT NULL
-                     AND {$seriesEndExpr} IS NOT NULL
-                     AND '{$todayDate}' BETWEEN {$seriesStartExpr} AND {$seriesEndExpr}
-                     AND class_start_time IS NOT NULL
-                     AND class_end_time IS NOT NULL
-                     AND '{$nowTime}' BETWEEN class_start_time AND class_end_time THEN 'ongoing'
-                WHEN class_start_date IS NOT NULL
-                     AND class_end_date IS NOT NULL
-                     AND '{$nowString}' BETWEEN class_start_date AND class_end_date THEN 'ongoing'
-                WHEN {$seriesEndExpr} IS NOT NULL
-                     AND CONCAT({$seriesEndExpr}, ' 23:59:59') >= '{$nowString}' THEN 'upcoming'
-                ELSE 'upcoming'
-            END
-        ";
-        $statusTallies = [
-            'all' => Schedule::where('is_archieve', 0)->count(),
-            'upcoming' => Schedule::where('is_archieve', 0)
-                ->whereRaw("({$statusCase}) = 'upcoming'")->count(),
-            'ongoing' => Schedule::where('is_archieve', 0)
-                ->whereRaw("({$statusCase}) = 'ongoing'")->count(),
-            'completed' => Schedule::where('is_archieve', 0)
-                ->whereRaw("({$statusCase}) = 'completed'")->count(),
-        ];
-        // Maintain backward compatibility for legacy "active" key.
-        $statusTallies['active'] = $statusTallies['ongoing'];
-
-        $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn, $status, $statusCase, $now) {
+        $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn) {
             return $query
                 ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
                     if ($searchColumn === 'trainer_name') {
@@ -175,10 +134,6 @@ class ScheduleController extends Controller
                     if ($endDate) {
                         $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
                     }
-                })
-                ->when($status !== 'all', function ($query) use ($status, $statusCase) {
-                    $normalizedStatus = $status === 'active' ? 'ongoing' : $status;
-                    return $query->whereRaw("({$statusCase}) = ?", [$normalizedStatus]);
                 });
         };
 
@@ -202,6 +157,26 @@ class ScheduleController extends Controller
             return $schedule;
         };
 
+        $attachComputedStatus = function ($schedule) use ($now) {
+            $schedule->computed_status = $this->resolveScheduleStatus($schedule, $now);
+            return $schedule;
+        };
+
+        $statusTalliesCollection = Schedule::with(['activeUserSchedules.user', 'user'])
+            ->withActiveEnrollmentCount()
+            ->where('is_archieve', 0)
+            ->get()
+            ->map($mapSchedule)
+            ->map($attachComputedStatus);
+
+        $statusTallies = [
+            'all' => $statusTalliesCollection->count(),
+            'upcoming' => $statusTalliesCollection->where('computed_status', 'upcoming')->count(),
+            'ongoing' => $statusTalliesCollection->where('computed_status', 'ongoing')->count(),
+            'completed' => $statusTalliesCollection->where('computed_status', 'completed')->count(),
+        ];
+        $statusTallies['active'] = $statusTallies['ongoing'];
+
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
 
@@ -219,15 +194,32 @@ class ScheduleController extends Controller
 
         $shouldSortBySession = in_array($status, ['upcoming', 'ongoing', 'completed', 'active'], true);
 
+        $filterCollectionByStatus = function (Collection $collection) use ($status) {
+            if ($status === 'all') {
+                return $collection->values();
+            }
+            $normalizedStatus = $status === 'active' ? 'ongoing' : $status;
+            return $collection
+                ->filter(function ($schedule) use ($normalizedStatus) {
+                    return ($schedule->computed_status ?? 'upcoming') === $normalizedStatus;
+                })
+                ->values();
+        };
+
         $activeCollection = (clone $activeQuery)
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map($mapSchedule);
+            ->map($mapSchedule)
+            ->map($attachComputedStatus);
 
         $archivedCollection = (clone $archivedQuery)
             ->orderBy('created_at', 'desc')
             ->get()
-            ->map($mapSchedule);
+            ->map($mapSchedule)
+            ->map($attachComputedStatus);
+
+        $activeCollection = $filterCollectionByStatus($activeCollection);
+        $archivedCollection = $filterCollectionByStatus($archivedCollection);
 
         if ($shouldSortBySession) {
             $activeCollection = $this->sortSchedulesByNearestSession($activeCollection, $status, $now);
@@ -866,6 +858,55 @@ class ScheduleController extends Controller
         }
 
         return null;
+    }
+
+    /**
+     * Determine the schedule status (upcoming/ongoing/completed) based on real session windows.
+     */
+    private function resolveScheduleStatus(Schedule $schedule, Carbon $now): string
+    {
+        $lastEnd = $this->computeLastSessionEnd($schedule);
+        if ($lastEnd && $now->gt($lastEnd)) {
+            return 'completed';
+        }
+
+        $nextStart = $this->computeNextSessionStart($schedule, $now);
+        if ($nextStart) {
+            $sessionEnd = $this->computeSessionEndFromStart($schedule, $nextStart);
+            if ($sessionEnd && $now->between($nextStart, $sessionEnd, true)) {
+                return 'ongoing';
+            }
+            return 'upcoming';
+        }
+
+        return 'upcoming';
+    }
+
+    /**
+     * Given a session start, derive the matching end time for the same occurrence.
+     */
+    private function computeSessionEndFromStart(Schedule $schedule, Carbon $sessionStart): ?Carbon
+    {
+        try {
+            $end = $sessionStart->copy();
+
+            if ($schedule->class_end_time) {
+                $end->setTimeFromTimeString($schedule->class_end_time);
+                if ($schedule->class_start_time && $end->lt($sessionStart)) {
+                    // Crosses midnight; push to next day to keep ordering correct.
+                    $end->addDay();
+                }
+                return $end;
+            }
+
+            if ($schedule->class_start_time) {
+                return $end->setTimeFromTimeString($schedule->class_start_time);
+            }
+
+            return $end->endOfDay();
+        } catch (\Throwable $th) {
+            return null;
+        }
     }
 
     /**
