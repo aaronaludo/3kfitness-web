@@ -75,6 +75,10 @@
                         'trainer' => $payrollTrainerSeries ?? [],
                         'app_cut' => $payrollAppCutSeries ?? [],
                     ],
+                    'pie' => [
+                        'labels' => $pieLabels ?? [],
+                        'values' => $pieValues ?? [],
+                    ],
                     'payroll_runs' => $payrollRuns,
                     'currency' => $currency,
                 ];
@@ -411,6 +415,17 @@
                 const chartStaff = chart.staff || [];
                 const chartTrainer = chart.trainer || [];
                 const chartAppCut = chart.app_cut || [];
+                const piePayload = payload.pie || {};
+                const pieLabels = (piePayload.labels && piePayload.labels.length)
+                    ? piePayload.labels
+                    : ['Staff payroll (net)', 'Trainer payroll (net)', '3kfitness app cut'];
+                const pieValues = Array.isArray(piePayload.values) ? piePayload.values : [];
+                const financePieLabels = ['Revenue', 'Cost', 'Profit'];
+                const financePieValues = [
+                    finance.revenue_total,
+                    finance.cost_total,
+                    finance.profit_total,
+                ];
 
                 const payrollRows = (payrollRuns || []).map((run) => `
                     <tr>
@@ -427,19 +442,65 @@
                     </tr>
                 `).join('');
 
-                function buildMiniBars(labels, values, color) {
-                    if (!values.length) {
-                        return '<div class="muted" style="font-size:12px;">No data</div>';
+                function toNumber(val) {
+                    if (typeof val === 'number') return val;
+                    if (typeof val === 'string') {
+                        const parsed = Number(val.replace(/,/g, ''));
+                        return Number.isFinite(parsed) ? parsed : 0;
                     }
-                    const maxVal = Math.max(...values.map((v) => Number(v) || 0), 0.01);
-                    const bars = values.map((val, idx) => {
-                        const safeVal = Number(val) || 0;
-                        const height = Math.max((safeVal / maxVal) * 60, 6);
-                        const label = labels[idx] || '';
-                        return `<div class="bar" title="${label}: ${currency} ${safeVal.toFixed(2)}" style="height:${height}px; background:${color};"></div>`;
-                    }).join('');
-                    return `<div class="bar-row">${bars}</div><div class="muted" style="font-size:11px; margin-top:4px;">${labels.join(' • ')}</div>`;
+                    return 0;
                 }
+
+                function sumSeries(values) {
+                    return (values || []).reduce((sum, val) => sum + toNumber(val), 0);
+                }
+
+                function buildPieChart(labels, values, palette) {
+                    const colors = palette && palette.length
+                        ? palette
+                        : ['#0d6efd', '#198754', '#dc3545', '#fd7e14', '#6f42c1'];
+                    const slices = (labels || []).map((label, idx) => ({
+                        label: label || `Slice ${idx + 1}`,
+                        value: toNumber(values[idx]),
+                        color: colors[idx % colors.length],
+                    })).filter((slice) => slice.value > 0);
+
+                    const total = slices.reduce((sum, slice) => sum + slice.value, 0);
+                    if (!total) {
+                        return '<div class="muted" style="font-size:12px;">No data available</div>';
+                    }
+
+                    let currentAngle = 0;
+                    const gradients = slices.map((slice) => {
+                        const start = currentAngle;
+                        const angle = (slice.value / total) * 360;
+                        const end = start + angle;
+                        currentAngle = end;
+                        return `${slice.color} ${start}deg ${end}deg`;
+                    }).join(', ');
+
+                    const legend = slices.map((slice) => `
+                        <div class="legend-row">
+                            <span class="legend-swatch" style="background:${slice.color};"></span>
+                            <span>${slice.label}: ${currency} ${slice.value.toFixed(2)}</span>
+                        </div>
+                    `).join('');
+
+                    return `
+                        <div class="pie-wrapper">
+                            <div class="pie" style="background: conic-gradient(${gradients});"></div>
+                            <div class="legend">${legend}</div>
+                        </div>
+                    `;
+                }
+
+                const pieValuesToUse = pieValues.some((val) => toNumber(val) > 0)
+                    ? pieValues
+                    : [
+                        sumSeries(chartStaff) || toNumber(payroll.staff_net),
+                        sumSeries(chartTrainer) || toNumber(payroll.trainer_net),
+                        sumSeries(chartAppCut) || toNumber(payroll.app_cut),
+                    ];
 
                 const html = `
                     <!doctype html>
@@ -468,8 +529,11 @@
                                 th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
                                 .chart-block { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; margin-top: 16px; }
                                 .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
-                                .bar-row { display: flex; gap: 4px; align-items: flex-end; min-height: 72px; }
-                                .bar-row .bar { width: 14px; border-radius: 6px 6px 2px 2px; }
+                                .pie-wrapper { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+                                .pie { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle at center, #fff 45%, #f3f4f6 46%); box-shadow: inset 0 0 0 1px #e5e7eb; }
+                                .legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #374151; }
+                                .legend-row { display: flex; align-items: center; gap: 8px; }
+                                .legend-swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
                             </style>
                         </head>
                         <body>
@@ -541,11 +605,12 @@
                                     </div>
                                 </div>
                                 <div class="chart-block">
-                                    <div class="chart-title">Finished payrolls over time</div>
-                                    <div class="muted" style="font-size:11px;">Staff (blue), Trainer (green), App cut (red)</div>
-                                    ${buildMiniBars(chartLabels, chartStaff, '#0d6efd')}
-                                    ${buildMiniBars(chartLabels, chartTrainer, '#198754')}
-                                    ${buildMiniBars(chartLabels, chartAppCut, '#dc3545')}
+                                    <div class="chart-title">Revenue • Cost • Profit</div>
+                                    ${buildPieChart(financePieLabels, financePieValues, ['#0d6efd', '#dc3545', '#198754'])}
+                                </div>
+                                <div class="chart-block">
+                                    <div class="chart-title">Finished payroll mix</div>
+                                    ${buildPieChart(pieLabels, pieValuesToUse, ['#0d6efd', '#198754', '#dc3545'])}
                                 </div>
                                 <table>
                                     <thead>
