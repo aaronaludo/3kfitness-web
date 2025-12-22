@@ -80,13 +80,6 @@
                 </div>
                 <div class="d-flex align-items-center flex-wrap gap-2">
                     <a
-                        href="{{ route('admin.sales.index') }}"
-                        class="btn btn-outline-secondary d-flex align-items-center gap-2"
-                    >
-                        <i class="fa-solid fa-chart-line"></i>
-                        Sales overview
-                    </a>
-                    <a
                         href="{{ route('admin.payrolls.process') }}"
                         class="btn btn-primary d-flex align-items-center gap-2"
                     >

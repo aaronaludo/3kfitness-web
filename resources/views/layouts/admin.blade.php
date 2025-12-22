@@ -446,6 +446,7 @@
                 $adminManagementRoutes = ['admin.admins.*'];
                 $trainerRoutes = ['admin.trainer-management.*'];
                 $operationsRoutes = ['admin.banners.*', 'admin.trainer-banners.*', 'admin.logs.*'];
+                $salesRoutes = ['admin.sales.index'];
                 $payrollRoutes = ['admin.payrolls.*'];
             @endphp
             <ul id="menu">
@@ -628,6 +629,13 @@
                             <li><a href="{{ route('admin.trainer-banners.index') }}" class="{{ request()->routeIs('admin.trainer-banners.*') ? 'active' : '' }}">Trainers Banner</a></li>
                             <li><a href="{{ route('admin.logs.index') }}" class="{{ request()->routeIs('admin.logs.*') ? 'active' : '' }}">Logs</a></li>
                         </ul>
+                    </li>
+                @endif
+                @if(auth()->guard('admin')->user()->role_id != 2)
+                    <li>
+                        <a href="{{ route('admin.sales.index') }}" class="{{ request()->routeIs($salesRoutes) ? 'active' : '' }}">
+                            <i class="fa-solid fa-chart-line"></i> Sales Overview
+                        </a>
                     </li>
                 @endif
                 @if(auth()->guard('admin')->user()->role_id != 2)
