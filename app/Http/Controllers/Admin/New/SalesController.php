@@ -145,6 +145,29 @@ class SalesController extends Controller
             $cursor->addDay();
         }
 
+        // Revenue/Cost/Profit per day (membership revenue + app cut vs payroll cost)
+        $financeLabels = [];
+        $financeRevenueSeries = [];
+        $financeCostSeries = [];
+        $financeProfitSeries = [];
+        $cursor = $start->copy()->startOfDay();
+        while ($cursor->lte($end)) {
+            $dayKey = $cursor->toDateString();
+            $financeLabels[] = $cursor->format('M d');
+            $membershipRevenue = (float) optional($dailyRows->get($dayKey))->revenue ?: 0.0;
+            $payrollBucket = $payrollDaily[$dayKey] ?? ['staff_net' => 0, 'trainer_net' => 0, 'app_cut' => 0];
+            $dailyRevenue = round($membershipRevenue + (float) ($payrollBucket['app_cut'] ?? 0), 2);
+            $dailyCost = round(
+                (float) ($payrollBucket['staff_net'] ?? 0) + (float) ($payrollBucket['trainer_net'] ?? 0),
+                2
+            );
+            $dailyProfit = round($dailyRevenue - $dailyCost, 2);
+            $financeRevenueSeries[] = $dailyRevenue;
+            $financeCostSeries[] = $dailyCost;
+            $financeProfitSeries[] = $dailyProfit;
+            $cursor->addDay();
+        }
+
         $payrollDetails = $payrollRuns->map(function ($run) use ($appCutRate) {
             $user = $run->user;
             $name = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : 'Unknown';
@@ -179,6 +202,14 @@ class SalesController extends Controller
             (float) ($payrollSummary['app_cut'] ?? 0),
         ];
 
+        // Finance overview: revenue = membership revenue + app cut; cost = staff + trainer net; profit = revenue - cost
+        $revenueTotal = round((float) $totalRevenue + (float) ($payrollSummary['app_cut'] ?? 0), 2);
+        $costTotal = round(
+            (float) ($payrollSummary['staff_net'] ?? 0) + (float) ($payrollSummary['trainer_net'] ?? 0),
+            2
+        );
+        $profitTotal = round($revenueTotal - $costTotal, 2);
+
         return view('admin.sales.index', [
             'start' => $start,
             'end' => $end,
@@ -196,6 +227,13 @@ class SalesController extends Controller
             'payrollStaffSeries' => $payrollStaffSeries,
             'payrollTrainerSeries' => $payrollTrainerSeries,
             'payrollAppCutSeries' => $payrollAppCutSeries,
+            'revenueTotal' => $revenueTotal,
+            'costTotal' => $costTotal,
+            'profitTotal' => $profitTotal,
+            'financeLabels' => $financeLabels,
+            'financeRevenueSeries' => $financeRevenueSeries,
+            'financeCostSeries' => $financeCostSeries,
+            'financeProfitSeries' => $financeProfitSeries,
         ]);
     }
 }

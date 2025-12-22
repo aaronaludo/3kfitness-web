@@ -38,6 +38,22 @@
                     ],
                     'totals' => [
                         'sales' => $totalSales,
+                        'revenue' => number_format((float) ($totalRevenue ?? 0), 2),
+                        'revenue_period' => optional($start)->format('M d, Y') . ' → ' . optional($end)->format('M d, Y'),
+                        'finance' => [
+                            'revenue_total' => number_format((float) ($revenueTotal ?? 0), 2),
+                            'revenue_components' => [
+                                'membership' => number_format((float) ($totalRevenue ?? 0), 2),
+                                'app_cut' => number_format((float) ($payrollTotals['app_cut'] ?? 0), 2),
+                            ],
+                            'cost_total' => number_format((float) ($costTotal ?? 0), 2),
+                            'cost_components' => [
+                                'staff' => number_format((float) ($payrollTotals['staff_net'] ?? 0), 2),
+                                'trainer' => number_format((float) ($payrollTotals['trainer_net'] ?? 0), 2),
+                            ],
+                            'profit_total' => number_format((float) ($profitTotal ?? 0), 2),
+                            'period' => ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('M d, Y') . ' → ' . optional($end)->format('M d, Y')),
+                        ],
                         'status' => [
                             'approved' => $statusTallies['approved'] ?? 0,
                             'pending' => $statusTallies['pending'] ?? 0,
@@ -109,32 +125,44 @@
             </div>
 
             <div class="col-12">
-                <div class="row g-3">
-                    <div class="col-12 col-md-4">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
+                <div class="row g-3 align-items-stretch">
+                    <div class="col-12 col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body d-flex flex-column">
+                                <div class="text-muted small">Membership revenue (approved)</div>
+                                <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($totalRevenue ?? 0), 2) }}</div>
+                                <small class="text-muted mt-auto">Period: {{ optional($start)->format('M d, Y') }} → {{ optional($end)->format('M d, Y') }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body d-flex flex-column">
+                                <div class="text-muted small">Total sales (count)</div>
+                                <div class="h4 mb-2">{{ $totalSales }}</div>
+                                <small class="text-muted mt-auto">Approved payments in window</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body d-flex flex-column">
                                 <div class="text-muted small">Finished payroll net</div>
-                                <div class="h4 mb-0">{{ $currency }} {{ number_format((float) ($payrollTotals['net'] ?? 0), 2) }}</div>
+                                <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($payrollTotals['net'] ?? 0), 2) }}</div>
+                                <small class="text-muted mt-auto">Runs: {{ $payrollTotals['run_count'] ?? 0 }}</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-12 col-md-4">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
-                                <div class="text-muted small">Total Sales</div>
-                                <div class="h4 mb-0">{{ $totalSales }}</div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-4">
-                        <div class="card shadow-sm">
-                            <div class="card-body">
+                    <div class="col-12 col-md-3">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body d-flex flex-column">
                                 <div class="text-muted small mb-2">New Memberships (period)</div>
-                                <div class="d-flex gap-3">
+                                <div class="d-flex gap-2 flex-wrap">
                                     <span class="badge bg-success">Approved: {{ $statusTallies['approved'] ?? 0 }}</span>
                                     <span class="badge bg-warning text-dark">Pending: {{ $statusTallies['pending'] ?? 0 }}</span>
                                     <span class="badge bg-danger">Rejected: {{ $statusTallies['rejected'] ?? 0 }}</span>
                                 </div>
+                                <small class="text-muted mt-auto">Same date window as filters</small>
                             </div>
                         </div>
                     </div>
@@ -142,31 +170,92 @@
             </div>
 
             <div class="col-12 mt-3">
-                <div class="row g-3">
-                    <div class="col-12 col-md-3">
+                <div class="row g-3 align-items-stretch">
+                    <div class="col-12 col-lg-4">
                         <div class="card shadow-sm h-100">
-                            <div class="card-body">
+                            <div class="card-body d-flex flex-column">
+                                <div class="text-muted small">Revenue (membership + app cut)</div>
+                                <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($revenueTotal ?? 0), 2) }}</div>
+                                <small class="text-muted">Membership: {{ $currency }} {{ number_format((float) ($totalRevenue ?? 0), 2) }}</small>
+                                <small class="text-muted mb-2">App cut: {{ $currency }} {{ number_format((float) ($payrollTotals['app_cut'] ?? 0), 2) }}</small>
+                                <small class="text-muted mt-auto">Period: {{ ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('M d, Y') . ' → ' . optional($end)->format('M d, Y')) }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body d-flex flex-column">
+                                <div class="text-muted small">Cost (staff + trainer payroll)</div>
+                                <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($costTotal ?? 0), 2) }}</div>
+                                <small class="text-muted">Staff: {{ $currency }} {{ number_format((float) ($payrollTotals['staff_net'] ?? 0), 2) }}</small>
+                                <small class="text-muted mb-2">Trainer: {{ $currency }} {{ number_format((float) ($payrollTotals['trainer_net'] ?? 0), 2) }}</small>
+                                <small class="text-muted mt-auto">Period: {{ $payrollTotals['period_label'] }}</small>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-lg-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body d-flex flex-column">
+                                <div class="text-muted small">Profit (revenue − cost)</div>
+                                <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($profitTotal ?? 0), 2) }}</div>
+                                <small class="text-muted mt-auto">Period: {{ ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('M d, Y') . ' → ' . optional($end)->format('M d, Y')) }}</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mt-3">
+                <div class="card shadow-sm">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <div class="fw-semibold">Revenue • Cost • Profit</div>
+                            <small class="text-muted">Totals for the selected window</small>
+                        </div>
+                        <div class="row align-items-center">
+                            <div class="col-12 col-lg-6">
+                                <div class="d-flex justify-content-center">
+                                    <canvas id="financePie" style="max-width: 360px; max-height: 360px;"></canvas>
+                                </div>
+                            </div>
+                            <div class="col-12 col-lg-6">
+                                <ul class="list-unstyled mb-0 small text-muted">
+                                    <li class="mb-1"><span class="badge bg-primary me-2">&nbsp;</span>Revenue: {{ $currency }} {{ number_format((float) ($revenueTotal ?? 0), 2) }}</li>
+                                    <li class="mb-1"><span class="badge bg-danger me-2">&nbsp;</span>Cost: {{ $currency }} {{ number_format((float) ($costTotal ?? 0), 2) }}</li>
+                                    <li><span class="badge bg-success me-2">&nbsp;</span>Profit: {{ $currency }} {{ number_format((float) ($profitTotal ?? 0), 2) }}</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 mt-3">
+                <div class="row g-3 align-items-stretch">
+                    <div class="col-12 col-lg-4">
+                        <div class="card shadow-sm h-100">
+                            <div class="card-body d-flex flex-column">
                                 <div class="text-muted small">Staff payroll (net)</div>
-                                <div class="h5 mb-0">{{ $currency }} {{ number_format((float) ($payrollTotals['staff_net'] ?? 0), 2) }}</div>
-                                <small class="text-muted">Period: {{ $payrollTotals['period_label'] }}</small>
+                                <div class="h5 mb-2">{{ $currency }} {{ number_format((float) ($payrollTotals['staff_net'] ?? 0), 2) }}</div>
+                                <small class="text-muted mt-auto">Period: {{ $payrollTotals['period_label'] }}</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-lg-4">
                         <div class="card shadow-sm h-100">
-                            <div class="card-body">
+                            <div class="card-body d-flex flex-column">
                                 <div class="text-muted small">Trainer payroll (net)</div>
-                                <div class="h5 mb-0">{{ $currency }} {{ number_format((float) ($payrollTotals['trainer_net'] ?? 0), 2) }}</div>
-                                <small class="text-muted">Period: {{ $payrollTotals['period_label'] }}</small>
+                                <div class="h5 mb-2">{{ $currency }} {{ number_format((float) ($payrollTotals['trainer_net'] ?? 0), 2) }}</div>
+                                <small class="text-muted mt-auto">Period: {{ $payrollTotals['period_label'] }}</small>
                             </div>
                         </div>
                     </div>
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-lg-4">
                         <div class="card shadow-sm h-100">
-                            <div class="card-body">
+                            <div class="card-body d-flex flex-column">
                                 <div class="text-muted small">3kfitness app cut</div>
-                                <div class="h5 mb-0">{{ $currency }} {{ number_format((float) ($payrollTotals['app_cut'] ?? 0), 2) }}</div>
-                                <small class="text-muted">Runs: {{ $payrollTotals['run_count'] ?? 0 }}</small>
+                                <div class="h5 mb-2">{{ $currency }} {{ number_format((float) ($payrollTotals['app_cut'] ?? 0), 2) }}</div>
+                                <small class="text-muted mt-auto">Runs: {{ $payrollTotals['run_count'] ?? 0 }}</small>
                             </div>
                         </div>
                     </div>
@@ -204,6 +293,27 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function () {
+            const financePieCtx = document.getElementById('financePie');
+            if (financePieCtx) {
+                new Chart(financePieCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Revenue', 'Cost', 'Profit'],
+                        datasets: [{
+                            data: @json([($revenueTotal ?? 0), ($costTotal ?? 0), ($profitTotal ?? 0)]),
+                            backgroundColor: ['#0d6efd', '#dc3545', '#198754'],
+                        }],
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: { position: 'bottom' },
+                        },
+                    },
+                });
+            }
+
             const lineCtx = document.getElementById('salesLine');
             if (lineCtx) {
                 const lineChart = new Chart(lineCtx, {
@@ -294,6 +404,7 @@
                 const totals = payload.totals || {};
                 const currency = payload.currency || '';
                 const payroll = payload.payroll || {};
+                const finance = totals.finance || {};
                 const payrollRuns = payload.payroll_runs || [];
                 const chart = payload.chart || {};
                 const chartLabels = chart.labels || [];
@@ -379,6 +490,26 @@
                                     <div class="card">
                                         <span class="label">Total sales</span>
                                         <div class="value">${totals.sales ?? 0}</div>
+                                    </div>
+                                    <div class="card">
+                                        <span class="label">Membership revenue (approved)</span>
+                                        <div class="value">${currency} ${totals.revenue || '0.00'}</div>
+                                        <div class="muted">Period: ${totals.revenue_period || finance.period || '—'}</div>
+                                    </div>
+                                    <div class="card">
+                                        <span class="label">Revenue (membership + app cut)</span>
+                                        <div class="value">${currency} ${finance.revenue_total || '0.00'}</div>
+                                        <div class="muted">Membership: ${currency} ${finance.revenue_components?.membership || '0.00'} • App cut: ${currency} ${finance.revenue_components?.app_cut || '0.00'}</div>
+                                    </div>
+                                    <div class="card">
+                                        <span class="label">Cost (staff + trainer payroll)</span>
+                                        <div class="value">${currency} ${finance.cost_total || '0.00'}</div>
+                                        <div class="muted">Staff: ${currency} ${finance.cost_components?.staff || '0.00'} • Trainer: ${currency} ${finance.cost_components?.trainer || '0.00'}</div>
+                                    </div>
+                                    <div class="card">
+                                        <span class="label">Profit (revenue − cost)</span>
+                                        <div class="value">${currency} ${finance.profit_total || '0.00'}</div>
+                                        <div class="muted">Period: ${finance.period || '—'}</div>
                                     </div>
                                     <div class="card">
                                         <span class="label">Membership status (period)</span>
