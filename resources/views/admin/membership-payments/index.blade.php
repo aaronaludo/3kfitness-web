@@ -434,6 +434,7 @@
                                                         ];
                                                         $s = $statusMap[$item->isapproved] ?? $statusMap[0];
                                                         $canReject = (int) $item->isapproved !== 1;
+                                                        $isRejected = (int) $item->isapproved === 2;
                                                     @endphp
                                                 
                                                     <div class="d-flex align-items-center gap-2">
@@ -480,10 +481,14 @@
                                                                     <div class="mb-3">
                                                                         <label for="umStatusSelect-{{ $item->id }}" class="form-label fw-semibold">Select status</label>
                                                                         <select class="form-select" id="umStatusSelect-{{ $item->id }}" name="isapproved">
-                                                                            <option value="0" {{ $item->isapproved == 0 ? 'selected' : '' }}>Pending</option>
-                                                                            <option value="1" {{ $item->isapproved == 1 ? 'selected' : '' }}>Approve</option>
-                                                                            @if($canReject)
-                                                                                <option value="2" {{ $item->isapproved == 2 ? 'selected' : '' }}>Reject</option>
+                                                                            @if($isRejected)
+                                                                                <option value="2" selected>Reject</option>
+                                                                            @else
+                                                                                <option value="1" {{ $item->isapproved == 1 ? 'selected' : '' }}>Approve</option>
+                                                                                @if($canReject)
+                                                                                    <option value="0" {{ $item->isapproved == 0 ? 'selected' : '' }}>Pending</option>
+                                                                                    <option value="2" {{ $item->isapproved == 2 ? 'selected' : '' }}>Reject</option>
+                                                                                @endif
                                                                             @endif
                                                                         </select>
                                                                     </div>

@@ -987,17 +987,17 @@
                                                 <td class="small">
                                                     <div class="d-flex justify-content-between align-items-start gap-2">
                                                         <div class="d-flex flex-column gap-1">
-                                                            <div class="fw-semibold">
+                                                            {{-- <div class="fw-semibold">
                                                                 @if($start_date || $end_date)
-                                                                    {{ $start_date ? $start_date->format('M j, Y g:i A') : 'Start not set' }}
+                                                                    {{ $start_date ? $start_date->format('M j, Y') : 'Start not set' }}
                                                                     @if($end_date)
                                                                         <span class="text-muted small">→ {{ $end_date->format('M j, Y g:i A') }}</span>
                                                                     @endif
                                                                 @else
                                                                     <span class="text-muted">Schedule not set</span>
                                                                 @endif
-                                                            </div>
-                                                            <div class="text-muted small">
+                                                            </div> --}}
+                                                            <div class="fw-semibold">
                                                                 <i class="fa-regular fa-clock me-1"></i>
                                                                 {{ $item->class_start_time && $item->class_end_time
                                                                     ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
