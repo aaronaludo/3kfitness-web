@@ -343,8 +343,6 @@
                                     @endforelse
                                 </tbody>
                             </table>
-                        </div>
-                        <div class="p-3">
                             {{ $runs->links() }}
                         </div>
                     </div>
