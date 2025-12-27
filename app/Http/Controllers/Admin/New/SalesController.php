@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\MembershipPayment;
 use App\Models\Membership;
+use App\Models\User;
 use App\Models\PayrollRun;
 use App\Models\DeductionSetting;
 use Carbon\Carbon;
@@ -18,10 +19,24 @@ class SalesController extends Controller
         $request->validate([
             'start_date' => 'nullable|date_format:Y-m-d',
             'end_date'   => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'staff_id' => 'nullable|exists:users,id',
+            'trainer_id' => 'nullable|exists:users,id',
+            'membership_id' => 'nullable|exists:memberships,id',
+            'member_id' => 'nullable|exists:users,id',
+            'staff_sales_order' => 'nullable|in:most,least',
+            'trainer_sales_order' => 'nullable|in:most,least',
         ]);
 
         $startDate = $request->input('start_date');
         $endDate   = $request->input('end_date');
+        $filters = [
+            'staff_id' => $request->input('staff_id'),
+            'trainer_id' => $request->input('trainer_id'),
+            'membership_id' => $request->input('membership_id'),
+            'member_id' => $request->input('member_id'),
+            'staff_sales_order' => $request->input('staff_sales_order'),
+            'trainer_sales_order' => $request->input('trainer_sales_order'),
+        ];
 
         // Defaults: last 30 days
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : Carbon::now()->subDays(29)->startOfDay();
@@ -29,10 +44,21 @@ class SalesController extends Controller
 
         // Base scope: approved, not archived, with membership relation
         $base = MembershipPayment::query()
-            ->with(['membership:id,name,currency,price'])
+            ->with([
+                'membership:id,name,currency,price',
+                'user:id,first_name,last_name,user_code,role_id',
+            ])
             ->where('isapproved', 1)
             ->where('is_archive', 0)
             ->whereBetween('created_at', [$start, $end]);
+
+        if ($filters['membership_id']) {
+            $base->where('membership_id', $filters['membership_id']);
+        }
+
+        if ($filters['member_id']) {
+            $base->where('user_id', $filters['member_id']);
+        }
 
         // Totals
         $totalSales = (clone $base)->count();
@@ -64,10 +90,23 @@ class SalesController extends Controller
         }
 
         // Status tallies for the period (for quick insights)
+        $statusBase = MembershipPayment::where('is_archive', 0)->whereBetween('created_at', [$start, $end]);
+        if ($filters['membership_id']) {
+            $statusBase->where('membership_id', $filters['membership_id']);
+        }
+        if ($filters['member_id']) {
+            $statusBase->where('user_id', $filters['member_id']);
+        }
+
         $statusTallies = [
-            'approved' => MembershipPayment::where('is_archive', 0)->where('isapproved', 1)->whereBetween('created_at', [$start, $end])->count(),
-            'pending'  => MembershipPayment::where('is_archive', 0)->where('isapproved', 0)->whereBetween('created_at', [$start, $end])->count(),
-            'rejected' => MembershipPayment::where('is_archive', 0)->where('isapproved', 2)->whereBetween('created_at', [$start, $end])->count(),
+            'approved' => (clone $statusBase)->where('isapproved', 1)->count(),
+            'pending'  => (clone $statusBase)->where('isapproved', 0)->count(),
+            'rejected' => (clone $statusBase)->where('isapproved', 2)->count(),
+        ];
+        $statusTotal = array_sum($statusTallies);
+        $conversionRates = [
+            'approval' => $statusTotal > 0 ? round(($statusTallies['approved'] / $statusTotal) * 100, 1) : 0.0,
+            'rejection' => $statusTotal > 0 ? round(($statusTallies['rejected'] / $statusTotal) * 100, 1) : 0.0,
         ];
 
         // Currency display (fallback)
@@ -77,9 +116,40 @@ class SalesController extends Controller
             $currency = $any->membership->currency;
         }
 
+        $roleFilters = [];
+        if ($filters['staff_id']) {
+            $roleFilters[] = 2;
+        }
+        if ($filters['trainer_id']) {
+            $roleFilters[] = 5;
+        }
+        if (!$filters['staff_id'] && $filters['staff_sales_order']) {
+            $roleFilters[] = 2;
+        }
+        if (!$filters['trainer_id'] && $filters['trainer_sales_order']) {
+            $roleFilters[] = 5;
+        }
+
+        $payrollUserIds = collect([$filters['staff_id'], $filters['trainer_id']])
+            ->filter()
+            ->unique()
+            ->values();
+
         $payrollBase = PayrollRun::query()
             ->with('user:id,role_id,first_name,last_name,email,user_code')
-            ->whereBetween(DB::raw('COALESCE(processed_at, created_at)'), [$start, $end]);
+            ->whereBetween(DB::raw('COALESCE(processed_at, created_at)'), [$start, $end])
+            ->when($payrollUserIds->isNotEmpty(), fn ($query) => $query->whereIn('user_id', $payrollUserIds))
+            ->when(!empty($roleFilters), function ($query) use ($roleFilters) {
+                $query->whereHas('user', function ($sub) use ($roleFilters) {
+                    $sub->whereIn('role_id', array_unique($roleFilters));
+                });
+            });
+
+        if ($filters['staff_sales_order']) {
+            $payrollBase->orderBy('net_pay', $filters['staff_sales_order'] === 'least' ? 'asc' : 'desc');
+        } elseif ($filters['trainer_sales_order']) {
+            $payrollBase->orderBy('net_pay', $filters['trainer_sales_order'] === 'least' ? 'asc' : 'desc');
+        }
 
         $payrollRuns = $payrollBase->get();
         $deductions = DeductionSetting::orderByDesc('id')->first();
@@ -210,6 +280,67 @@ class SalesController extends Controller
         );
         $profitTotal = round($revenueTotal - $costTotal, 2);
 
+        $formatUserOption = function (User $user) {
+            $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+            $label = $name !== '' ? $name : 'Unnamed user';
+            $code = $user->user_code ?? null;
+            if ($code) {
+                $label .= ' (' . $code . ')';
+            }
+
+            return [
+                'id' => $user->id,
+                'label' => $label,
+            ];
+        };
+
+        $staffOptions = User::where('role_id', 2)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'user_code'])
+            ->map($formatUserOption);
+
+        $trainerOptions = User::where('role_id', 5)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'user_code'])
+            ->map($formatUserOption);
+
+        $memberOptions = User::where('role_id', 3)
+            ->orderBy('first_name')
+            ->orderBy('last_name')
+            ->get(['id', 'first_name', 'last_name', 'user_code'])
+            ->map($formatUserOption);
+
+        $membershipOptions = Membership::orderBy('name')
+            ->get(['id', 'name', 'price'])
+            ->map(function ($membership) {
+                $label = $membership->name ?? 'Membership';
+                if (!is_null($membership->price)) {
+                    $label .= ' (' . number_format((float) $membership->price, 2) . ')';
+                }
+                return [
+                    'id' => $membership->id,
+                    'label' => $label,
+                ];
+            });
+
+        $optionLookup = function ($options, $id) {
+            if (!$id) {
+                return null;
+            }
+            $collection = $options instanceof \Illuminate\Support\Collection ? $options : collect($options);
+            $match = $collection->firstWhere('id', (int) $id);
+            return is_array($match) ? ($match['label'] ?? null) : ($match->label ?? null);
+        };
+
+        $filterLabels = [
+            'staff' => $optionLookup($staffOptions, $filters['staff_id']),
+            'trainer' => $optionLookup($trainerOptions, $filters['trainer_id']),
+            'member' => $optionLookup($memberOptions, $filters['member_id']),
+            'membership' => $optionLookup($membershipOptions, $filters['membership_id']),
+        ];
+
         return view('admin.sales.index', [
             'start' => $start,
             'end' => $end,
@@ -234,6 +365,13 @@ class SalesController extends Controller
             'financeRevenueSeries' => $financeRevenueSeries,
             'financeCostSeries' => $financeCostSeries,
             'financeProfitSeries' => $financeProfitSeries,
+            'conversionRates' => $conversionRates,
+            'filters' => $filters,
+            'filterLabels' => $filterLabels,
+            'staffOptions' => $staffOptions,
+            'trainerOptions' => $trainerOptions,
+            'memberOptions' => $memberOptions,
+            'membershipOptions' => $membershipOptions,
         ]);
     }
 }

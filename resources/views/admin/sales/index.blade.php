@@ -5,8 +5,13 @@
     <div class="container-fluid">
         <div class="row">
             @php
+                $filters = $filters ?? [];
+                $filterLabels = $filterLabels ?? [];
+                $conversionRates = $conversionRates ?? ['approval' => 0, 'rejection' => 0];
                 $filterStart = request('start_date', optional($start)->toDateString());
                 $filterEnd = request('end_date', optional($end)->toDateString());
+                $staffOrder = $filters['staff_sales_order'] ?? null;
+                $trainerOrder = $filters['trainer_sales_order'] ?? null;
                 $payrollTotals = $payrollSummary ?? [
                     'app_cut' => 0,
                     'trainer_net' => 0,
@@ -35,6 +40,12 @@
                         'start' => $filterStart,
                         'end' => $filterEnd,
                         'payroll_period' => $payrollTotals['period_label'] ?? null,
+                        'staff' => $filterLabels['staff'] ?? null,
+                        'trainer' => $filterLabels['trainer'] ?? null,
+                        'member' => $filterLabels['member'] ?? null,
+                        'membership' => $filterLabels['membership'] ?? null,
+                        'staff_order' => $staffOrder,
+                        'trainer_order' => $trainerOrder,
                     ],
                     'totals' => [
                         'sales' => $totalSales,
@@ -58,6 +69,10 @@
                             'approved' => $statusTallies['approved'] ?? 0,
                             'pending' => $statusTallies['pending'] ?? 0,
                             'rejected' => $statusTallies['rejected'] ?? 0,
+                        ],
+                        'conversion' => [
+                            'approval' => number_format((float) ($conversionRates['approval'] ?? 0), 1),
+                            'rejection' => number_format((float) ($conversionRates['rejection'] ?? 0), 1),
                         ],
                     ],
                     'payroll' => [
@@ -110,18 +125,79 @@
             <div class="col-12 mb-3">
                 <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-body p-4">
+                        <p class="text-muted small mb-3">Filter by date, staff, trainer, membership plan, or member to focus profit and payroll slices.</p>
                         <form action="{{ route('admin.sales.index') }}" method="GET" class="row g-3 align-items-end">
-                            <div class="col-12 col-sm-4">
+                            <div class="col-12 col-lg-3">
                                 <label for="start-date" class="form-label small text-muted mb-1">Start date</label>
                                 <input type="date" id="start-date" name="start_date" class="form-control" value="{{ request('start_date', optional($start)->toDateString()) }}" />
                             </div>
-                            <div class="col-12 col-sm-4">
+                            <div class="col-12 col-lg-3">
                                 <label for="end-date" class="form-label small text-muted mb-1">End date</label>
                                 <input type="date" id="end-date" name="end_date" class="form-control" value="{{ request('end_date', optional($end)->toDateString()) }}" />
                             </div>
-                            <div class="col-12 col-sm-4 d-flex gap-2">
-                                <button type="submit" class="btn btn-danger mt-auto"><i class="fa-solid fa-magnifying-glass me-2"></i>Apply</button>
-                                <a href="{{ route('admin.sales.index') }}" class="btn btn-light mt-auto">Reset</a>
+                            <div class="col-12 col-lg-3">
+                                <label for="membership-id" class="form-label small text-muted mb-1">Membership plan</label>
+                                <select id="membership-id" name="membership_id" class="form-select">
+                                    <option value="">All plans</option>
+                                    @foreach($membershipOptions ?? [] as $option)
+                                        <option value="{{ $option['id'] }}" {{ (string) request('membership_id') === (string) $option['id'] ? 'selected' : '' }}>
+                                            {{ $option['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-12 col-lg-3">
+                                <label for="member-id" class="form-label small text-muted mb-1">Member sales</label>
+                                <select id="member-id" name="member_id" class="form-select">
+                                    <option value="">All members</option>
+                                    @foreach($memberOptions ?? [] as $option)
+                                        <option value="{{ $option['id'] }}" {{ (string) request('member_id') === (string) $option['id'] ? 'selected' : '' }}>
+                                            {{ $option['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-12 col-lg-3">
+                                <label for="staff-id" class="form-label small text-muted mb-1">Staff</label>
+                                <select id="staff-id" name="staff_id" class="form-select">
+                                    <option value="">All staff</option>
+                                    @foreach($staffOptions ?? [] as $option)
+                                        <option value="{{ $option['id'] }}" {{ (string) request('staff_id') === (string) $option['id'] ? 'selected' : '' }}>
+                                            {{ $option['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-12 col-lg-3">
+                                <label for="trainer-id" class="form-label small text-muted mb-1">Trainer</label>
+                                <select id="trainer-id" name="trainer_id" class="form-select">
+                                    <option value="">All trainers</option>
+                                    @foreach($trainerOptions ?? [] as $option)
+                                        <option value="{{ $option['id'] }}" {{ (string) request('trainer_id') === (string) $option['id'] ? 'selected' : '' }}>
+                                            {{ $option['label'] }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-12 col-lg-3">
+                                <label for="staff-sales-order" class="form-label small text-muted mb-1">Staff sales order</label>
+                                <select id="staff-sales-order" name="staff_sales_order" class="form-select">
+                                    <option value="">All staff</option>
+                                    <option value="most" {{ request('staff_sales_order') === 'most' ? 'selected' : '' }}>Most sales first</option>
+                                    <option value="least" {{ request('staff_sales_order') === 'least' ? 'selected' : '' }}>Least sales first</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-lg-3">
+                                <label for="trainer-sales-order" class="form-label small text-muted mb-1">Trainer sales order</label>
+                                <select id="trainer-sales-order" name="trainer_sales_order" class="form-select">
+                                    <option value="">All trainers</option>
+                                    <option value="most" {{ request('trainer_sales_order') === 'most' ? 'selected' : '' }}>Most sales first</option>
+                                    <option value="least" {{ request('trainer_sales_order') === 'least' ? 'selected' : '' }}>Least sales first</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-lg-3 d-flex gap-2 flex-wrap">
+                                <button type="submit" class="btn btn-danger mt-auto flex-fill"><i class="fa-solid fa-magnifying-glass me-2"></i>Apply</button>
+                                <a href="{{ route('admin.sales.index') }}" class="btn btn-light mt-auto flex-fill">Reset</a>
                             </div>
                         </form>
                     </div>
@@ -165,6 +241,10 @@
                                     <span class="badge bg-success">Approved: {{ $statusTallies['approved'] ?? 0 }}</span>
                                     <span class="badge bg-warning text-dark">Pending: {{ $statusTallies['pending'] ?? 0 }}</span>
                                     <span class="badge bg-danger">Rejected: {{ $statusTallies['rejected'] ?? 0 }}</span>
+                                </div>
+                                <div class="d-flex gap-3 flex-wrap align-items-center mt-2">
+                                    <span class="text-success small fw-semibold">Approval rate: {{ number_format((float) ($conversionRates['approval'] ?? 0), 1) }}%</span>
+                                    <span class="text-danger small fw-semibold">Rejection rate: {{ number_format((float) ($conversionRates['rejection'] ?? 0), 1) }}%</span>
                                 </div>
                                 <small class="text-muted mt-auto">Same date window as filters</small>
                             </div>
@@ -400,6 +480,24 @@
                 if (filters.payroll_period) {
                     chips.push(`Payroll window: ${filters.payroll_period}`);
                 }
+                if (filters.membership) {
+                    chips.push(`Plan: ${filters.membership}`);
+                }
+                if (filters.member) {
+                    chips.push(`Member: ${filters.member}`);
+                }
+                if (filters.staff) {
+                    chips.push(`Staff: ${filters.staff}`);
+                }
+                if (filters.trainer) {
+                    chips.push(`Trainer: ${filters.trainer}`);
+                }
+                if (filters.staff_order) {
+                    chips.push(`Staff rank: ${filters.staff_order === 'least' ? 'Least sales' : 'Most sales'}`);
+                }
+                if (filters.trainer_order) {
+                    chips.push(`Trainer rank: ${filters.trainer_order === 'least' ? 'Least sales' : 'Most sales'}`);
+                }
                 return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
             }
 
@@ -454,6 +552,10 @@
                 function sumSeries(values) {
                     return (values || []).reduce((sum, val) => sum + toNumber(val), 0);
                 }
+
+                const conversion = totals.conversion || {};
+                const approvalRate = toNumber(conversion.approval || 0);
+                const rejectionRate = toNumber(conversion.rejection || 0);
 
                 function buildPieChart(labels, values, palette) {
                     const colors = palette && palette.length
@@ -582,6 +684,7 @@
                                             <span class="badge pending">Pending: ${totals.status?.pending ?? 0}</span>
                                             <span class="badge rejected">Rejected: ${totals.status?.rejected ?? 0}</span>
                                         </div>
+                                        <div class="muted" style="margin-top:8px;">Approval rate: ${approvalRate.toFixed(1)}% • Rejection rate: ${rejectionRate.toFixed(1)}%</div>
                                     </div>
                                     <div class="card">
                                         <span class="label">Payroll totals</span>
