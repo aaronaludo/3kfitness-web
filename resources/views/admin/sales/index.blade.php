@@ -227,7 +227,7 @@
                     <div class="col-12 col-md-3">
                         <div class="card shadow-sm h-100">
                             <div class="card-body d-flex flex-column">
-                                <div class="text-muted small">Finished payroll net</div>
+                                <div class="text-muted small">Total Payouts (Net)</div>
                                 <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($payrollTotals['net'] ?? 0), 2) }}</div>
                                 <small class="text-muted mt-auto">Runs: {{ $payrollTotals['run_count'] ?? 0 }}</small>
                             </div>
@@ -258,7 +258,7 @@
                     <div class="col-12 col-lg-4">
                         <div class="card shadow-sm h-100">
                             <div class="card-body d-flex flex-column">
-                                <div class="text-muted small">Revenue (membership + app cut)</div>
+                                <div class="text-muted small">Gross Revenue</div>
                                 <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($revenueTotal ?? 0), 2) }}</div>
                                 <small class="text-muted">Membership: {{ $currency }} {{ number_format((float) ($totalRevenue ?? 0), 2) }}</small>
                                 <small class="text-muted mb-2">App cut: {{ $currency }} {{ number_format((float) ($payrollTotals['app_cut'] ?? 0), 2) }}</small>
@@ -663,7 +663,7 @@
                                         <div class="muted">Period: ${totals.revenue_period || finance.period || '—'}</div>
                                     </div>
                                     <div class="card">
-                                        <span class="label">Revenue (membership + app cut)</span>
+                                        <span class="label">Gross Revenue</span>
                                         <div class="value">${currency} ${finance.revenue_total || '0.00'}</div>
                                         <div class="muted">Membership: ${currency} ${finance.revenue_components?.membership || '0.00'} • App cut: ${currency} ${finance.revenue_components?.app_cut || '0.00'}</div>
                                     </div>
@@ -687,7 +687,7 @@
                                         <div class="muted" style="margin-top:8px;">Approval rate: ${approvalRate.toFixed(1)}% • Rejection rate: ${rejectionRate.toFixed(1)}%</div>
                                     </div>
                                     <div class="card">
-                                        <span class="label">Payroll totals</span>
+                                        <span class="label">Total Payouts (Net)</span>
                                         <div class="value">${currency} ${payroll.net || '0.00'} <span class="muted" style="font-size:12px; font-weight:500;">net</span></div>
                                         <div class="muted">Gross: ${currency} ${payroll.gross || '0.00'} • Runs: ${payroll.run_count ?? 0}</div>
                                     </div>
