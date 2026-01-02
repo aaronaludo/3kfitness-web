@@ -26,6 +26,7 @@ class TrainerClassController extends Controller
                 $class->trainer_name = 'No Trainer';
                 $class->trainer_is_archived = 0;
                 $class->type = 'availableclasses';
+                $class->session_overrides = $this->normalizeSessionOverrides($class);
                 return $class;
             });
         
@@ -42,6 +43,7 @@ class TrainerClassController extends Controller
                 $class->trainer_name = $class->trainer;
                 $class->trainer_is_archived = $trainerIsArchived ? 1 : 0;
                 $class->type = 'myclasses';
+                $class->session_overrides = $this->normalizeSessionOverrides($class);
                 return $class;
             });
         
@@ -58,6 +60,7 @@ class TrainerClassController extends Controller
                 $class->trainer_name = $class->trainer;
                 $class->trainer_is_archived = $trainerIsArchived ? 1 : 0;
                 $class->type = 'classesassignbyadmin';
+                $class->session_overrides = $this->normalizeSessionOverrides($class);
                 return $class;
             });
         
@@ -83,6 +86,7 @@ class TrainerClassController extends Controller
                 $class->trainer_name = 'No Trainer';
                 $class->trainer_is_archived = 0;
                 $class->type = 'availableclasses';
+                $class->session_overrides = $this->normalizeSessionOverrides($class);
                 return $class;
             });
         
@@ -108,6 +112,7 @@ class TrainerClassController extends Controller
                 $class->trainer_name = $class->trainer;
                 $class->trainer_is_archived = $trainerIsArchived ? 1 : 0;
                 $class->type = 'myclasses';
+                $class->session_overrides = $this->normalizeSessionOverrides($class);
                 return $class;
             });
         
@@ -133,6 +138,7 @@ class TrainerClassController extends Controller
                 $class->trainer_name = $class->trainer;
                 $class->trainer_is_archived = $trainerIsArchived ? 1 : 0;
                 $class->type = 'classesassignbyadmin';
+                $class->session_overrides = $this->normalizeSessionOverrides($class);
                 return $class;
             });
         $dataCount = Schedule::where('trainer_id', $user->id)->where('istrainerapproved', 0)->count();
@@ -586,5 +592,60 @@ class TrainerClassController extends Controller
             ->unique()
             ->values()
             ->all();
+    }
+
+    /**
+     * Normalize session override payloads for the mobile client.
+     */
+    private function normalizeSessionOverrides(Schedule $schedule): array
+    {
+        $raw = is_array($schedule->session_overrides)
+            ? $schedule->session_overrides
+            : json_decode($schedule->session_overrides ?? '[]', true);
+
+        return collect($raw ?? [])
+            ->map(function ($item, $key) use ($schedule) {
+                $original = $this->normalizeOverrideDate(
+                    $item['original_date']
+                        ?? $item['date']
+                        ?? $item['target_date']
+                        ?? (is_string($key) ? $key : null)
+                );
+                if (!$original) {
+                    return null;
+                }
+
+                $replacement = $this->normalizeOverrideDate(
+                    $item['new_date']
+                        ?? $item['proposed_date']
+                        ?? $item['date']
+                        ?? $original
+                ) ?? $original;
+
+                return [
+                    'original_date' => $original,
+                    'new_date' => $replacement,
+                    'start_time' => $item['start_time'] ?? $item['proposed_start_time'] ?? $schedule->class_start_time,
+                    'end_time' => $item['end_time'] ?? $item['proposed_end_time'] ?? $schedule->class_end_time,
+                    'request_id' => $item['request_id'] ?? ($item['id'] ?? null),
+                    'notes' => $item['notes'] ?? null,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeOverrideDate($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->toDateString();
+        } catch (\Throwable $th) {
+            return null;
+        }
     }
 }

@@ -435,7 +435,7 @@ class MemberClassController extends Controller
             'class_start_time' => $schedule->class_start_time,
             'class_end_time' => $schedule->class_end_time,
             'recurring_days' => $schedule->recurring_days,
-            'session_overrides' => $schedule->session_overrides,
+            'session_overrides' => $this->normalizeSessionOverrides($schedule),
             'class_status' => $status,
             'slots' => $schedule->slots,
             'user_schedules_count' => $joinedCount,
@@ -454,5 +454,60 @@ class MemberClassController extends Controller
             'created_at' => $schedule->created_at ? $schedule->created_at->toIso8601String() : null,
             'updated_at' => $schedule->updated_at ? $schedule->updated_at->toIso8601String() : null,
         ];
+    }
+
+    /**
+     * Ensure session overrides are consistently shaped for the mobile client.
+     */
+    private function normalizeSessionOverrides(Schedule $schedule): array
+    {
+        $raw = is_array($schedule->session_overrides)
+            ? $schedule->session_overrides
+            : json_decode($schedule->session_overrides ?? '[]', true);
+
+        return collect($raw ?? [])
+            ->map(function ($item, $key) use ($schedule) {
+                $original = $this->normalizeOverrideDate(
+                    $item['original_date']
+                        ?? $item['date']
+                        ?? $item['target_date']
+                        ?? (is_string($key) ? $key : null)
+                );
+                if (!$original) {
+                    return null;
+                }
+
+                $replacement = $this->normalizeOverrideDate(
+                    $item['new_date']
+                        ?? $item['proposed_date']
+                        ?? $item['date']
+                        ?? $original
+                ) ?? $original;
+
+                return [
+                    'original_date' => $original,
+                    'new_date' => $replacement,
+                    'start_time' => $item['start_time'] ?? $item['proposed_start_time'] ?? $schedule->class_start_time,
+                    'end_time' => $item['end_time'] ?? $item['proposed_end_time'] ?? $schedule->class_end_time,
+                    'request_id' => $item['request_id'] ?? ($item['id'] ?? null),
+                    'notes' => $item['notes'] ?? null,
+                ];
+            })
+            ->filter()
+            ->values()
+            ->all();
+    }
+
+    private function normalizeOverrideDate($value): ?string
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            return Carbon::parse($value)->toDateString();
+        } catch (\Throwable $th) {
+            return null;
+        }
     }
 }
