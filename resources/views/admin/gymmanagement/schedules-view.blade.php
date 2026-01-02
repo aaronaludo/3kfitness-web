@@ -85,17 +85,90 @@
         $recurringDayKeys = collect($dayKeys)->map(function ($d) {
             return strtolower($d);
         })->toArray();
+        $formatTimeLabel = function ($startTime, $endTime) {
+            try {
+                if ($startTime && $endTime) {
+                    return \Carbon\Carbon::parse($startTime)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($endTime)->format('g:i A');
+                }
+                if ($startTime) {
+                    return \Carbon\Carbon::parse($startTime)->format('g:i A');
+                }
+                if ($endTime) {
+                    return \Carbon\Carbon::parse($endTime)->format('g:i A');
+                }
+            } catch (\Throwable $th) {
+                return null;
+            }
+
+            return null;
+        };
+        $sessionOverridesRaw = is_array($data->session_overrides)
+            ? $data->session_overrides
+            : json_decode($data->session_overrides ?? '[]', true);
+        $sessionOverrides = collect($sessionOverridesRaw ?? [])
+            ->map(function ($override) {
+                try {
+                    $originalCarbon = isset($override['original_date'])
+                        ? \Carbon\Carbon::parse($override['original_date'])->startOfDay()
+                        : null;
+                } catch (\Throwable $th) {
+                    $originalCarbon = null;
+                }
+
+                if (! $originalCarbon) {
+                    return null;
+                }
+
+                try {
+                    $newCarbon = isset($override['new_date'])
+                        ? \Carbon\Carbon::parse($override['new_date'])->startOfDay()
+                        : null;
+                } catch (\Throwable $th) {
+                    $newCarbon = null;
+                }
+
+                return [
+                    'original_date' => $originalCarbon->toDateString(),
+                    'original_carbon' => $originalCarbon,
+                    'new_date' => $newCarbon ? $newCarbon->toDateString() : null,
+                    'new_carbon' => $newCarbon,
+                    'start_time' => $override['start_time'] ?? null,
+                    'end_time' => $override['end_time'] ?? null,
+                ];
+            })
+            ->filter()
+            ->keyBy('original_date');
         $sessionOccurrences = [];
         $nowSession = now();
         $sessionTimeLabel = $data->class_start_time && $data->class_end_time
             ? \Carbon\Carbon::parse($data->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($data->class_end_time)->format('g:i A')
             : ($data->class_start_time ? \Carbon\Carbon::parse($data->class_start_time)->format('g:i A') : null);
+        $computeStatus = function ($sessionStart, $sessionEnd) use ($nowSession) {
+            $status = 'Upcoming';
+            if ($nowSession->between($sessionStart, $sessionEnd, true)) {
+                $status = 'Ongoing';
+            } elseif ($nowSession->gt($sessionEnd)) {
+                $status = 'Completed';
+            }
+
+            $statusClass = 'bg-secondary';
+            if ($status === 'Upcoming') {
+                $statusClass = 'bg-warning text-dark';
+            } elseif ($status === 'Ongoing') {
+                $statusClass = 'bg-info text-dark';
+            } elseif ($status === 'Completed') {
+                $statusClass = 'bg-success';
+            }
+
+            return [$status, $statusClass];
+        };
 
         if ($seriesStart && $seriesEnd && count($recurringDayKeys)) {
             $cursor = $seriesStart->copy()->startOfDay();
             while ($cursor->lte($seriesEnd)) {
                 $dayKey = strtolower(substr($cursor->format('D'), 0, 3));
                 if (in_array($dayKey, $recurringDayKeys, true)) {
+                    $sessionDateKey = $cursor->toDateString();
                     $sessionStart = $data->class_start_time
                         ? $cursor->copy()->setTimeFromTimeString($data->class_start_time)
                         : $cursor->copy()->startOfDay();
@@ -103,29 +176,74 @@
                         ? $cursor->copy()->setTimeFromTimeString($data->class_end_time)
                         : $cursor->copy()->endOfDay();
 
-                    $sessionStatus = 'Upcoming';
-                    if ($nowSession->between($sessionStart, $sessionEnd, true)) {
-                        $sessionStatus = 'Ongoing';
-                    } elseif ($nowSession->gt($sessionEnd)) {
-                        $sessionStatus = 'Completed';
-                    }
+                    $override = $sessionOverrides[$sessionDateKey] ?? null;
 
-                    $statusClass = 'bg-secondary';
-                    if ($sessionStatus === 'Upcoming') {
-                        $statusClass = 'bg-warning text-dark';
-                    } elseif ($sessionStatus === 'Ongoing') {
-                        $statusClass = 'bg-info text-dark';
-                    } elseif ($sessionStatus === 'Completed') {
-                        $statusClass = 'bg-success';
-                    }
+                    if ($override) {
+                        $sessionOccurrences[] = [
+                            'label' => $cursor->format('M j, Y'),
+                            'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
+                            'time' => $sessionTimeLabel,
+                            'status' => 'Rescheduled',
+                            'status_class' => 'bg-secondary',
+                            'sort_key' => $sessionStart->timestamp,
+                            'is_rescheduled' => true,
+                            'is_override' => false,
+                            'reschedule_target_label' => $override['new_carbon']
+                                ? $override['new_carbon']->format('M j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
+                                : null,
+                        ];
 
-                    $sessionOccurrences[] = [
-                        'label' => $cursor->format('M j, Y'),
-                        'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
-                        'time' => $sessionTimeLabel,
-                        'status' => $sessionStatus,
-                        'status_class' => $statusClass,
-                    ];
+                        $overrideDate = $override['new_carbon'] ?: $cursor->copy();
+                        $overrideStart = $overrideDate->copy();
+                        $overrideEnd = $overrideDate->copy();
+                        $overrideStartTime = $override['start_time'] ?? $data->class_start_time;
+                        $overrideEndTime = $override['end_time'] ?? $data->class_end_time;
+
+                        if ($overrideStartTime) {
+                            $overrideStart->setTimeFromTimeString($overrideStartTime);
+                        } else {
+                            $overrideStart->startOfDay();
+                        }
+
+                        if ($overrideEndTime) {
+                            $overrideEnd->setTimeFromTimeString($overrideEndTime);
+                            if ($overrideStartTime && $overrideEnd->lt($overrideStart)) {
+                                $overrideEnd->addDay();
+                            }
+                        } elseif ($overrideStartTime) {
+                            $overrideEnd = $overrideStart->copy();
+                        } else {
+                            $overrideEnd->endOfDay();
+                        }
+
+                        [$overrideStatus, $overrideStatusClass] = $computeStatus($overrideStart, $overrideEnd);
+                        $overrideTimeLabel = $formatTimeLabel($overrideStartTime, $overrideEndTime) ?? $sessionTimeLabel;
+
+                        $sessionOccurrences[] = [
+                            'label' => $overrideDate->format('M j, Y'),
+                            'weekday' => $overrideDate->format('l'),
+                            'time' => $overrideTimeLabel,
+                            'status' => $overrideStatus,
+                            'status_class' => $overrideStatusClass,
+                            'sort_key' => $overrideStart->timestamp,
+                            'is_rescheduled' => false,
+                            'is_override' => true,
+                            'rescheduled_from' => $cursor->format('M j, Y'),
+                        ];
+                    } else {
+                        [$sessionStatus, $statusClass] = $computeStatus($sessionStart, $sessionEnd);
+
+                        $sessionOccurrences[] = [
+                            'label' => $cursor->format('M j, Y'),
+                            'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
+                            'time' => $sessionTimeLabel,
+                            'status' => $sessionStatus,
+                            'status_class' => $statusClass,
+                            'sort_key' => $sessionStart->timestamp,
+                            'is_rescheduled' => false,
+                            'is_override' => false,
+                        ];
+                    }
                 }
 
                 $cursor->addDay();
@@ -138,29 +256,80 @@
                 ? $sessionStart->copy()->setTimeFromTimeString($data->class_end_time)
                 : $sessionStart->copy()->endOfDay());
 
-            $sessionStatus = 'Upcoming';
-            if ($nowSession->between($sessionStart, $sessionEnd, true)) {
-                $sessionStatus = 'Ongoing';
-            } elseif ($nowSession->gt($sessionEnd)) {
-                $sessionStatus = 'Completed';
-            }
+            $override = $sessionOverrides[$sessionStart->toDateString()] ?? null;
 
-            $statusClass = 'bg-secondary';
-            if ($sessionStatus === 'Upcoming') {
-                $statusClass = 'bg-warning text-dark';
-            } elseif ($sessionStatus === 'Ongoing') {
-                $statusClass = 'bg-info text-dark';
-            } elseif ($sessionStatus === 'Completed') {
-                $statusClass = 'bg-success';
-            }
+            if ($override) {
+                $sessionOccurrences[] = [
+                    'label' => $sessionStart->format('M j, Y'),
+                    'weekday' => $sessionStart->format('l'),
+                    'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
+                    'status' => 'Rescheduled',
+                    'status_class' => 'bg-secondary',
+                    'sort_key' => $sessionStart->timestamp,
+                    'is_rescheduled' => true,
+                    'is_override' => false,
+                    'reschedule_target_label' => $override['new_carbon']
+                        ? $override['new_carbon']->format('M j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
+                        : null,
+                ];
 
-            $sessionOccurrences[] = [
-                'label' => $sessionStart->format('M j, Y'),
-                'weekday' => $sessionStart->format('l'),
-                'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
-                'status' => $sessionStatus,
-                'status_class' => $statusClass,
-            ];
+                $overrideDate = $override['new_carbon'] ?: $sessionStart->copy();
+                $overrideStart = $overrideDate->copy();
+                $overrideEnd = $overrideDate->copy();
+                $overrideStartTime = $override['start_time'] ?? $data->class_start_time;
+                $overrideEndTime = $override['end_time'] ?? $data->class_end_time;
+
+                if ($overrideStartTime) {
+                    $overrideStart->setTimeFromTimeString($overrideStartTime);
+                } else {
+                    $overrideStart->startOfDay();
+                }
+
+                if ($overrideEndTime) {
+                    $overrideEnd->setTimeFromTimeString($overrideEndTime);
+                    if ($overrideStartTime && $overrideEnd->lt($overrideStart)) {
+                        $overrideEnd->addDay();
+                    }
+                } elseif ($overrideStartTime) {
+                    $overrideEnd = $overrideStart->copy();
+                } else {
+                    $overrideEnd->endOfDay();
+                }
+
+                [$overrideStatus, $overrideStatusClass] = $computeStatus($overrideStart, $overrideEnd);
+                $overrideTimeLabel = $formatTimeLabel($overrideStartTime, $overrideEndTime) ?? $sessionTimeLabel ?? $sessionStart->format('g:i A');
+
+                $sessionOccurrences[] = [
+                    'label' => $overrideDate->format('M j, Y'),
+                    'weekday' => $overrideDate->format('l'),
+                    'time' => $overrideTimeLabel,
+                    'status' => $overrideStatus,
+                    'status_class' => $overrideStatusClass,
+                    'sort_key' => $overrideStart->timestamp,
+                    'is_rescheduled' => false,
+                    'is_override' => true,
+                    'rescheduled_from' => $sessionStart->format('M j, Y'),
+                ];
+            } else {
+                [$sessionStatus, $statusClass] = $computeStatus($sessionStart, $sessionEnd);
+
+                $sessionOccurrences[] = [
+                    'label' => $sessionStart->format('M j, Y'),
+                    'weekday' => $sessionStart->format('l'),
+                    'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
+                    'status' => $sessionStatus,
+                    'status_class' => $statusClass,
+                    'sort_key' => $sessionStart->timestamp,
+                    'is_rescheduled' => false,
+                    'is_override' => false,
+                ];
+            }
+        }
+        if (count($sessionOccurrences)) {
+            $sessionOccurrences = collect($sessionOccurrences)
+                ->sortBy('sort_key')
+                ->values()
+                ->all();
         }
     @endphp
 
@@ -346,10 +515,20 @@
                             </div>
                             <div class="flex-grow-1">
                                 <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
+                                    @php
+                                        $isRescheduled = !empty($session['is_rescheduled']);
+                                        $rescheduleTarget = $session['reschedule_target_label'] ?? null;
+                                        $rescheduledFrom = $session['rescheduled_from'] ?? null;
+                                    @endphp
                                     <div>
-                                        <div class="fw-semibold">{{ $session['label'] }}</div>
+                                        <div class="fw-semibold {{ $isRescheduled ? 'text-decoration-line-through text-muted' : '' }}">{{ $session['label'] }}</div>
                                         <div class="text-muted small">
                                             {{ $session['weekday'] }}{{ $session['time'] ? ' • ' . $session['time'] : '' }}
+                                            @if($isRescheduled && $rescheduleTarget)
+                                                <span class="ms-2 fst-italic">→ {{ $rescheduleTarget }}</span>
+                                            @elseif(!$isRescheduled && $rescheduledFrom)
+                                                <span class="ms-2 fst-italic">From {{ $rescheduledFrom }}</span>
+                                            @endif
                                         </div>
                                     </div>
                                     <span class="badge {{ $session['status_class'] }} px-3 py-2">{{ $session['status'] }}</span>

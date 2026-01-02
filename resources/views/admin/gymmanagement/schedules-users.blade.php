@@ -147,10 +147,12 @@
                 </div>
 
                 <div class="d-flex justify-content-between align-items-center mt-3 flex-wrap gap-2">
-                    <div class="text-muted small">
-                        Showing {{ $userSchedules->count() }} of {{ $userSchedules->total() }} enrolled users
+                    <div class="text-muted small mb-2 mb-md-0">
+                        Showing {{ $userSchedules->firstItem() ?? 0 }} to {{ $userSchedules->lastItem() ?? 0 }} of {{ $userSchedules->total() }} enrolled users
                     </div>
-                    {{ $userSchedules->links() }}
+                    <div class="ms-auto">
+                        {{ $userSchedules->links('pagination::bootstrap-5') }}
+                    </div>
                 </div>
             </div>
         </div>
