@@ -436,21 +436,23 @@
                                                         $canReject = (int) $item->isapproved !== 1;
                                                         $isRejected = (int) $item->isapproved === 2;
                                                     @endphp
-                                                
+                                                    
                                                     <div class="d-flex align-items-center gap-2">
                                                         <span class="badge {{ $s['class'] }} px-3 py-2">
                                                             {{ $s['label'] }}
                                                         </span>
-                                                
-                                                        <button
-                                                            type="button"
-                                                            class="btn btn-outline-primary btn-sm"
-                                                            data-bs-toggle="modal"
-                                                            data-bs-target="#umStatusModal-{{ $item->id }}"
-                                                            aria-label="Change Status"
-                                                        >
-                                                            Change
-                                                        </button>
+                                                    
+                                                        @if((int) $item->isapproved === 0)
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-outline-primary btn-sm"
+                                                                data-bs-toggle="modal"
+                                                                data-bs-target="#umStatusModal-{{ $item->id }}"
+                                                                aria-label="Change Status"
+                                                            >
+                                                                Change
+                                                            </button>
+                                                        @endif
                                                     </div>
                                                 
                                                     <!-- Status Change Modal -->
