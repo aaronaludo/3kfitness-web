@@ -826,6 +826,47 @@
             @if (!$showArchived)
                 <div class="col-lg-12">
                     <div class="box">
+                    <style>
+                        .pill-chip {
+                            display: inline-flex;
+                            align-items: center;
+                            justify-content: center;
+                            padding: 7px 14px;
+                            border-radius: 999px;
+                            border: 1px solid #c8d1e0;
+                            background: #e3e8f0;
+                            color: #1f2937;
+                            font-weight: 700;
+                            font-size: 0.9rem;
+                            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+                        }
+                        .pill-chip-success {
+                            background: #1f8f4d;
+                            border-color: #1f8f4d;
+                            color: #fff;
+                        }
+                        .pill-chip-warning {
+                            background: #f6c86e;
+                            border-color: #f1b64a;
+                            color: #7c2d12;
+                        }
+                        .pill-chip-info {
+                            background: #acd3ff;
+                            border-color: #7bb8f7;
+                            color: #0b3c6f;
+                        }
+                        .pill-chip-muted {
+                            background: #dbe2ee;
+                            border-color: #c8d1e0;
+                            color: #1f2937;
+                        }
+                        .resched-cell {
+                            display: flex;
+                            flex-direction: column;
+                            align-items: flex-start;
+                            gap: 8px;
+                        }
+                    </style>
                     <div class="row">
                         <div class="col-lg-12">
                             <div class="table-responsive mb-3">
@@ -1175,6 +1216,7 @@
                                                     ? '—'
                                                     : ($trainer->user_code ?? '—');
                                                 $hasEnrolledUsers = ($item->user_schedules_count ?? 0) > 0;
+                                                $isAwaitingAcceptance = (int) ($item->isadminapproved ?? 0) === 0;
                                             @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
@@ -1219,11 +1261,23 @@
                                                                 </div>
                                                             @endif
                                                         </div>
-                                                        <span class="badge rounded-pill {{ $scheduleBadgeClass }}">{{ $scheduleStatus }}</span>
                                                     </div>
                                                 </td>
                                                 <td class="small">
-                                                    @if(count($allSessionOccurrences))
+                                                    @if($isAwaitingAcceptance)
+                                                        <span class="pill-chip pill-chip-muted">Still waiting for acceptance</span>
+                                                    @elseif(count($allSessionOccurrences))
+                                                        @php
+                                                            $seriesPillClass = match ($scheduleStatus) {
+                                                                'Ongoing' => 'pill-chip-info',
+                                                                'Completed' => 'pill-chip-success',
+                                                                'Upcoming' => 'pill-chip-warning',
+                                                                default => 'pill-chip-muted',
+                                                            };
+                                                        @endphp
+                                                        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                                            <span class="pill-chip {{ $seriesPillClass }}">{{ $scheduleStatus }}</span>
+                                                        </div>
                                                         <div class="d-flex align-items-center gap-2">
                                                             <button
                                                                 type="button"
@@ -1291,7 +1345,7 @@
                                                 <td>
                                                     @php
                                                         $statusMap = [
-                                                            0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
+                                                            0 => ['label' => 'Still waiting for acceptance', 'class' => 'bg-warning text-dark'],
                                                             1 => ['label' => 'Approved', 'class' => 'bg-success'],
                                                             2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
                                                         ];
@@ -1439,13 +1493,13 @@
                                                         $rescheduleCount = $rescheduleTimeline->count();
                                                     @endphp
                                                     @if($rescheduleCount)
-                                                        <div class="d-flex flex-wrap align-items-center gap-2">
-                                                            <span class="badge bg-light text-dark px-3 py-2 border">
+                                                        <div class="resched-cell">
+                                                            <span class="pill-chip {{ $pendingCount ? 'pill-chip-warning' : 'pill-chip-muted' }}">
                                                                 {{ $pendingCount ? $pendingCount . ' pending' : 'No pending' }}
                                                             </span>
                                                             <button
                                                                 type="button"
-                                                                class="btn btn-link btn-sm px-0 text-decoration-none"
+                                                                class="btn btn-link btn-sm px-0 text-decoration-none fw-semibold"
                                                                 data-bs-toggle="collapse"
                                                                 data-bs-target="#reschedule-series-{{ $item->id }}"
                                                                 aria-expanded="false"
@@ -1492,8 +1546,8 @@
                                                             </div>
                                                         </div>
                                                     @else
-                                                        <div class="d-flex align-items-center">
-                                                            <span class="badge bg-light text-dark px-3 py-2 border">No pending</span>
+                                                        <div class="resched-cell">
+                                                            <span class="pill-chip pill-chip-muted">No pending</span>
                                                         </div>
                                                     @endif
                                                 </td>
