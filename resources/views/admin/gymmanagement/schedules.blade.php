@@ -855,7 +855,6 @@
                                                 })->implode(', ');
                                                 $pendingReschedules = $pendingRescheduleRequests->where('schedule_id', $item->id);
                                                 $pendingCount = $pendingReschedules->where('status', 0)->count();
-                                                $latestReschedule = $pendingReschedules->first();
                                                 $seriesStart = $item->series_start_date ? \Carbon\Carbon::parse($item->series_start_date)->startOfDay() : ($start_date ? $start_date->copy()->startOfDay() : null);
                                                 $seriesEnd = $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->endOfDay() : ($end_date ? $end_date->copy()->endOfDay() : null);
                                                 $recurringDayKeys = collect($dayKeys ?? [])->map(function ($d) {
@@ -888,6 +887,43 @@
 
                                                     return null;
                                                 };
+                                                $formatRescheduleDate = function ($date) {
+                                                    try {
+                                                        return \Carbon\Carbon::parse($date)->format('M j, Y');
+                                                    } catch (\Throwable $th) {
+                                                        return $date;
+                                                    }
+                                                };
+                                                $rescheduleTimeline = $pendingReschedules
+                                                    ->sortByDesc('created_at')
+                                                    ->values()
+                                                    ->map(function ($reschedule) use ($formatRescheduleDate, $formatTimeLabel) {
+                                                        $statusMap = [
+                                                            0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark', 'dot' => 'bg-warning'],
+                                                            1 => ['label' => 'Approved', 'class' => 'bg-success', 'dot' => 'bg-success'],
+                                                            2 => ['label' => 'Rejected', 'class' => 'bg-danger', 'dot' => 'bg-danger'],
+                                                        ];
+                                                        $statusKey = (int) ($reschedule->status ?? 0);
+                                                        $statusMeta = $statusMap[$statusKey] ?? $statusMap[0];
+
+                                                        $targetDates = collect($reschedule->target_session_dates ?? []);
+                                                        $proposedDates = collect($reschedule->proposed_session_dates ?? []);
+
+                                                        $targetLabel = $targetDates->map($formatRescheduleDate)->filter()->implode(', ');
+                                                        $proposedLabel = $proposedDates->map($formatRescheduleDate)->filter()->implode(', ');
+
+                                                        return [
+                                                            'target_label' => $targetLabel ?: 'Target dates not set',
+                                                            'proposed_label' => $proposedLabel ?: ($targetLabel ?: 'Same dates'),
+                                                            'time_label' => $formatTimeLabel($reschedule->proposed_start_time, $reschedule->proposed_end_time) ?: 'Time not set',
+                                                            'created_label' => optional($reschedule->created_at)->format('M j, Y') ?? null,
+                                                            'notes' => $reschedule->notes ?: null,
+                                                            'status_label' => $statusMeta['label'],
+                                                            'status_class' => $statusMeta['class'],
+                                                            'status_dot_class' => $statusMeta['dot'],
+                                                            'status_value' => $statusKey,
+                                                        ];
+                                                    });
                                                 $sessionOverridesRaw = is_array($item->session_overrides)
                                                     ? $item->session_overrides
                                                     : json_decode($item->session_overrides ?? '[]', true);
@@ -1399,12 +1435,66 @@
                                                     </script>
                                                 </td>
                                                 <td class="small">
-                                                    <div class="fw-semibold">
-                                                        {{ $pendingCount ? $pendingCount . ' pending' : 'No pending' }}
-                                                    </div>
-                                                    @if($latestReschedule)
-                                                        <div class="text-muted">Requested {{ $latestReschedule->created_at? $latestReschedule->created_at->format('M j, Y') : '' }}</div>
-                                                        <div class="text-muted">Notes: {{ $latestReschedule->notes ?: '—' }}</div>
+                                                    @php
+                                                        $rescheduleCount = $rescheduleTimeline->count();
+                                                    @endphp
+                                                    @if($rescheduleCount)
+                                                        <div class="d-flex flex-wrap align-items-center gap-2">
+                                                            <span class="badge bg-light text-dark px-3 py-2 border">
+                                                                {{ $pendingCount ? $pendingCount . ' pending' : 'No pending' }}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-link btn-sm px-0 text-decoration-none"
+                                                                data-bs-toggle="collapse"
+                                                                data-bs-target="#reschedule-series-{{ $item->id }}"
+                                                                aria-expanded="false"
+                                                                aria-controls="reschedule-series-{{ $item->id }}"
+                                                                data-session-toggle
+                                                                data-collapsed-text="Show reschedules"
+                                                                data-expanded-text="Hide reschedules"
+                                                            >
+                                                                Show reschedules
+                                                            </button>
+                                                        </div>
+                                                        <div class="collapse mt-2" id="reschedule-series-{{ $item->id }}">
+                                                            <div class="border rounded-3 p-2 bg-light-subtle" style="max-height: 260px; overflow: auto;">
+                                                                <div class="d-flex flex-column gap-2">
+                                                                    @foreach($rescheduleTimeline as $reschedIndex => $resched)
+                                                                        <div class="d-flex align-items-start gap-2">
+                                                                            <div class="d-flex flex-column align-items-center me-1">
+                                                                                <span class="rounded-circle {{ $resched['status_dot_class'] }}" style="width: 10px; height: 10px;"></span>
+                                                                                @if($reschedIndex < $rescheduleCount - 1)
+                                                                                    <span class="mt-1" style="width: 2px; height: 20px; background-color: #e9ecef;"></span>
+                                                                                @endif
+                                                                            </div>
+                                                                            <div class="flex-grow-1">
+                                                                                <div class="d-flex justify-content-between align-items-start gap-2 flex-wrap">
+                                                                                    <div>
+                                                                                        <div class="fw-semibold">Target: {{ $resched['target_label'] }}</div>
+                                                                                        <div class="fw-semibold text-success">Proposed: {{ $resched['proposed_label'] }}</div>
+                                                                                        <div class="text-muted small">
+                                                                                            {{ $resched['time_label'] }}
+                                                                                            @if($resched['created_label'])
+                                                                                                <span class="ms-2">Requested {{ $resched['created_label'] }}</span>
+                                                                                            @endif
+                                                                                        </div>
+                                                                                        @if($resched['notes'])
+                                                                                            <div class="text-muted small fst-italic">Notes: {{ $resched['notes'] }}</div>
+                                                                                        @endif
+                                                                                    </div>
+                                                                                    <span class="badge {{ $resched['status_class'] }} px-2 py-1">{{ $resched['status_label'] }}</span>
+                                                                                </div>
+                                                                            </div>
+                                                                        </div>
+                                                                    @endforeach
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    @else
+                                                        <div class="d-flex align-items-center">
+                                                            <span class="badge bg-light text-dark px-3 py-2 border">No pending</span>
+                                                        </div>
                                                     @endif
                                                 </td>
                                                 <td>
