@@ -10,6 +10,7 @@ use App\Models\User;
 use App\Models\PayrollRun;
 use App\Models\DeductionSetting;
 use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\DB;
 
 class SalesController extends Controller
@@ -60,13 +61,13 @@ class SalesController extends Controller
             $base->where('user_id', $filters['member_id']);
         }
 
+        $paymentRecords = (clone $base)->get();
+
         // Totals
-        $totalSales = (clone $base)->count();
-        $totalRevenue = (clone $base)
-            ->get()
-            ->sum(function ($um) {
-                return (float) optional($um->membership)->price ?: 0.0;
-            });
+        $totalSales = $paymentRecords->count();
+        $totalRevenue = $paymentRecords->sum(function ($um) {
+            return (float) optional($um->membership)->price ?: 0.0;
+        });
 
         // Daily revenue series
         $dailyRows = (clone $base)
@@ -154,15 +155,18 @@ class SalesController extends Controller
         $payrollRuns = $payrollBase->get();
         $deductions = DeductionSetting::orderByDesc('id')->first();
         $appCutRate = (float) ($deductions->app_cut_rate ?? 0);
-        $payrollSummary = [
-            'app_cut' => round($payrollRuns->sum(function ($run) use ($appCutRate) {
-                $stored = $run->deduction_app_cut ?? null;
-                if (!is_null($stored) && (float) $stored !== 0.0) {
-                    return (float) $stored;
-                }
-
+        $calculateAppCut = function ($run) use ($appCutRate) {
+            $appCut = $run->deduction_app_cut ?? null;
+            if (is_null($appCut) || (float) $appCut === 0.0) {
                 $gross = (float) ($run->gross_pay ?? 0);
                 return round($gross * ($appCutRate / 100), 2);
+            }
+
+            return (float) $appCut;
+        };
+        $payrollSummary = [
+            'app_cut' => round($payrollRuns->sum(function ($run) use ($calculateAppCut) {
+                return $calculateAppCut($run);
             }), 2),
             'trainer_net' => round($payrollRuns->filter(fn ($run) => optional($run->user)->role_id === 5)->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
             'staff_net' => round($payrollRuns->filter(fn ($run) => optional($run->user)->role_id === 2)->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
@@ -174,7 +178,7 @@ class SalesController extends Controller
 
         // Finished payrolls over time (net pay + app cut)
         $payrollDaily = [];
-        $payrollRuns->each(function ($run) use (&$payrollDaily, $appCutRate) {
+        $payrollRuns->each(function ($run) use (&$payrollDaily, $calculateAppCut) {
             $timestamp = $run->processed_at ?? $run->created_at;
             if (!$timestamp) {
                 return;
@@ -184,11 +188,7 @@ class SalesController extends Controller
             $roleId = optional($run->user)->role_id;
             $isTrainer = $roleId === 5;
 
-            $appCut = $run->deduction_app_cut ?? null;
-            if (is_null($appCut) || (float) $appCut === 0.0) {
-                $gross = (float) ($run->gross_pay ?? 0);
-                $appCut = round($gross * ($appCutRate / 100), 2);
-            }
+            $appCut = $calculateAppCut($run);
 
             $bucket = $payrollDaily[$dayKey] ?? ['staff_net' => 0, 'trainer_net' => 0, 'app_cut' => 0];
             $bucket['app_cut'] += (float) $appCut;
@@ -238,18 +238,14 @@ class SalesController extends Controller
             $cursor->addDay();
         }
 
-        $payrollDetails = $payrollRuns->map(function ($run) use ($appCutRate) {
+        $payrollDetails = $payrollRuns->map(function ($run) use ($calculateAppCut) {
             $user = $run->user;
             $name = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : 'Unknown';
             $processedAt = $run->processed_at
                 ? $run->processed_at->format('M d, Y g:i A')
                 : ($run->created_at?->format('M d, Y g:i A') ?? '—');
 
-            $appCut = $run->deduction_app_cut ?? null;
-            if (is_null($appCut) || (float) $appCut === 0.0) {
-                $gross = (float) ($run->gross_pay ?? 0);
-                $appCut = round($gross * ($appCutRate / 100), 2);
-            }
+            $appCut = $calculateAppCut($run);
 
             return [
                 'id' => $run->id,
@@ -279,6 +275,120 @@ class SalesController extends Controller
             2
         );
         $profitTotal = round($revenueTotal - $costTotal, 2);
+
+        $membershipPlanRows = $paymentRecords
+            ->groupBy('membership_id')
+            ->map(function ($group) {
+                $first = $group->first();
+                $membership = $first ? $first->membership : null;
+                $revenue = $group->sum(function ($payment) {
+                    return (float) optional($payment->membership)->price ?: 0.0;
+                });
+
+                return [
+                    'id' => $membership->id ?? null,
+                    'name' => $membership->name ?? 'Unknown membership',
+                    'price' => (float) optional($membership)->price ?: 0.0,
+                    'sales' => $group->count(),
+                    'revenue' => round($revenue, 2),
+                ];
+            })
+            ->values()
+            ->sortByDesc('sales')
+            ->values();
+
+        $memberSalesRows = $paymentRecords
+            ->groupBy('user_id')
+            ->map(function ($group) {
+                $latestPayment = $group->sortByDesc('created_at')->first();
+                $user = $latestPayment?->user;
+                $name = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '—';
+                $lastPaidAt = ($latestPayment && $latestPayment->created_at)
+                    ? $latestPayment->created_at->format('M d, Y')
+                    : '—';
+
+                return [
+                    'id' => $user->id ?? null,
+                    'name' => $name !== '' ? $name : '—',
+                    'user_code' => $user->user_code ?? '—',
+                    'sales' => $group->count(),
+                    'total' => round($group->sum(function ($payment) {
+                        return (float) optional($payment->membership)->price ?: 0.0;
+                    }), 2),
+                    'last_membership' => optional($latestPayment?->membership)->name ?? '—',
+                    'last_payment_at' => $lastPaidAt,
+                ];
+            })
+            ->values()
+            ->sortByDesc('sales')
+            ->values();
+
+        $payrollByUser = $payrollRuns
+            ->groupBy('user_id')
+            ->map(function ($runs) use ($calculateAppCut) {
+                $firstRun = $runs->first();
+                $user = $firstRun?->user;
+                $name = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '—';
+                $roleId = optional($user)->role_id;
+
+                return [
+                    'id' => $user->id ?? null,
+                    'name' => $name !== '' ? $name : '—',
+                    'user_code' => $user->user_code ?? '—',
+                    'email' => $user->email ?? '—',
+                    'role_id' => $roleId,
+                    'role' => $roleId === 5 ? 'Trainer' : 'Staff',
+                    'run_count' => $runs->count(),
+                    'gross' => round($runs->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+                    'net' => round($runs->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+                    'app_cut' => round($runs->sum(fn ($run) => $calculateAppCut($run)), 2),
+                ];
+            })
+            ->values();
+
+        $staffPayrollRows = $payrollByUser
+            ->filter(fn ($row) => (int) ($row['role_id'] ?? 0) === 2)
+            ->sortBy('name')
+            ->values();
+
+        $trainerPayrollRows = $payrollByUser
+            ->filter(fn ($row) => (int) ($row['role_id'] ?? 0) === 5)
+            ->sortBy('name')
+            ->values();
+
+        $staffSalesOrderRows = ($filters['staff_sales_order'] === 'least')
+            ? $staffPayrollRows->sortBy('net')->values()
+            : $staffPayrollRows->sortByDesc('net')->values();
+
+        $trainerSalesOrderRows = ($filters['trainer_sales_order'] === 'least')
+            ? $trainerPayrollRows->sortBy('net')->values()
+            : $trainerPayrollRows->sortByDesc('net')->values();
+
+        $perPage = max((int) $request->input('per_page', 10), 1);
+        $paginateCollection = function ($collection, string $pageName) use ($perPage, $request) {
+            $items = $collection instanceof \Illuminate\Support\Collection ? $collection : collect($collection);
+            $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+            $currentPageItems = $items->slice(($page - 1) * $perPage, $perPage)->values();
+            $paginator = new LengthAwarePaginator(
+                $currentPageItems,
+                $items->count(),
+                $perPage,
+                $page,
+                [
+                    'path' => $request->url(),
+                    'pageName' => $pageName,
+                ]
+            );
+
+            return $paginator->appends($request->query());
+        };
+
+        $membershipPlanTable = $paginateCollection($membershipPlanRows, 'membership_page');
+        $memberSalesTable = $paginateCollection($memberSalesRows, 'member_page');
+        $staffPayrollTable = $paginateCollection($staffPayrollRows, 'staff_page');
+        $trainerPayrollTable = $paginateCollection($trainerPayrollRows, 'trainer_page');
+        $staffSalesOrderTable = $paginateCollection($staffSalesOrderRows, 'staff_order_page');
+        $trainerSalesOrderTable = $paginateCollection($trainerSalesOrderRows, 'trainer_order_page');
 
         $formatUserOption = function (User $user) {
             $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
@@ -366,6 +476,18 @@ class SalesController extends Controller
             'financeCostSeries' => $financeCostSeries,
             'financeProfitSeries' => $financeProfitSeries,
             'conversionRates' => $conversionRates,
+            'membershipPlanTable' => $membershipPlanTable,
+            'memberSalesTable' => $memberSalesTable,
+            'staffPayrollTable' => $staffPayrollTable,
+            'trainerPayrollTable' => $trainerPayrollTable,
+            'staffSalesOrderTable' => $staffSalesOrderTable,
+            'trainerSalesOrderTable' => $trainerSalesOrderTable,
+            'membershipPlanAll' => $membershipPlanRows,
+            'memberSalesAll' => $memberSalesRows,
+            'staffPayrollAll' => $staffPayrollRows,
+            'trainerPayrollAll' => $trainerPayrollRows,
+            'staffSalesOrderAll' => $staffSalesOrderRows,
+            'trainerSalesOrderAll' => $trainerSalesOrderRows,
             'filters' => $filters,
             'filterLabels' => $filterLabels,
             'staffOptions' => $staffOptions,
