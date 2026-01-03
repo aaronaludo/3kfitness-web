@@ -507,7 +507,6 @@
                 const currency = payload.currency || '';
                 const payroll = payload.payroll || {};
                 const finance = totals.finance || {};
-                const payrollRuns = payload.payroll_runs || [];
                 const chart = payload.chart || {};
                 const chartLabels = chart.labels || [];
                 const chartStaff = chart.staff || [];
@@ -524,21 +523,6 @@
                     finance.cost_total,
                     finance.profit_total,
                 ];
-
-                const payrollRows = (payrollRuns || []).map((run) => `
-                    <tr>
-                        <td>${run.id ?? '—'}</td>
-                        <td>
-                            <div style="font-weight:600;">${run.name || '—'}</div>
-                            <div class="muted">${run.email || ''}</div>
-                            <div class="muted">${run.user_code || ''}</div>
-                        </td>
-                        <td>${run.role || '—'}</td>
-                        <td>${run.period || '—'}</td>
-                        <td>${run.processed_at || '—'}</td>
-                        <td>${run.net || currency + ' 0.00'}</td>
-                    </tr>
-                `).join('');
 
                 function toNumber(val) {
                     if (typeof val === 'number') return val;
@@ -667,11 +651,6 @@
                                 <div class="pill-row">${buildFilters(filters)}</div>
                                 <div class="cards">
                                     <div class="card">
-                                        <span class="label">Finished payroll runs</span>
-                                        <div class="value">${payroll.run_count ?? 0}</div>
-                                        <div class="muted">Period: ${payroll.period || '—'}</div>
-                                    </div>
-                                    <div class="card">
                                         <span class="label">Total sales</span>
                                         <div class="value">${totals.sales ?? 0}</div>
                                     </div>
@@ -733,24 +712,6 @@
                                     <div class="chart-title">Finished payroll mix</div>
                                     ${buildPieChart(pieLabels, pieValuesToUse, ['#0d6efd', '#198754', '#dc3545'])}
                                 </div>
-                                <table>
-                                    <thead>
-                                        <tr>
-                                            <th colspan="6">Finished payroll runs</th>
-                                        </tr>
-                                        <tr>
-                                            <th>#</th>
-                                            <th>Staff/Trainer</th>
-                                            <th>Role</th>
-                                            <th>Period</th>
-                                            <th>Processed</th>
-                                            <th>Net pay</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        ${payrollRows || '<tr><td colspan="6" style="text-align:center; padding:16px;">No payroll runs found in this window.</td></tr>'}
-                                    </tbody>
-                                </table>
                             </div>
                             <script>window.print();<\/script>
                         </body>
