@@ -22,11 +22,13 @@ class PayrollRun extends Model
         'processed_by',
         'processed_at',
         'processed_session_series',
+        'processed_membership_payments_approved',
     ];
 
     protected $casts = [
         'processed_at' => 'datetime',
         'processed_session_series' => 'array',
+        'processed_membership_payments_approved' => 'array',
     ];
 
     public function user()

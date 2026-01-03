@@ -66,6 +66,35 @@ class MembershipPaymentController extends Controller
         $printAllActive = (clone $activeQuery)->get();
         $printAllArchived = (clone $archivedQuery)->get();
 
+        $staffApprovers = User::where('role_id', 2)
+            ->get(['user_code', 'first_name', 'last_name'])
+            ->map(function ($user) {
+                $fullName = strtolower(trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')));
+                return [
+                    'code' => strtolower($user->user_code ?? ''),
+                    'name' => $fullName,
+                ];
+            });
+
+        $resolveApproverCode = function ($createdBy) use ($staffApprovers) {
+            $needle = strtolower(trim($createdBy ?? ''));
+            if ($needle === '') {
+                return '';
+            }
+
+            $byCode = $staffApprovers->firstWhere('code', $needle);
+            if ($byCode && !empty($byCode['code'])) {
+                return $byCode['code'];
+            }
+
+            $byName = $staffApprovers->firstWhere('name', $needle);
+            if ($byName && !empty($byName['code'])) {
+                return $byName['code'];
+            }
+
+            return $createdBy;
+        };
+
         $data = (clone $activeQuery)
             ->paginate(10)
             ->appends($queryParamsWithoutArchivePage);
@@ -80,6 +109,7 @@ class MembershipPaymentController extends Controller
             'statusTallies' => $statusTallies,
             'printAllActive' => $printAllActive,
             'printAllArchived' => $printAllArchived,
+            'resolveApproverCode' => $resolveApproverCode,
         ]);
     }
 
@@ -110,7 +140,7 @@ class MembershipPaymentController extends Controller
 
         $data = MembershipPayment::findOrFail($request->id);
         $data->isapproved = $request->isapproved;
-        $data->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
+        $data->created_by = $request->user()->user_code ?: trim($request->user()->first_name . " " .  $request->user()->last_name);
         $data->save();
 
         return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership Payment updated successfully');

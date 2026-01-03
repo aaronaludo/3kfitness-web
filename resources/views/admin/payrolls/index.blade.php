@@ -282,6 +282,7 @@
                                                     'app_cut' => (float) ($run->deduction_app_cut ?? 0),
                                                 ],
                                                 'entries' => $payslipDetail['entries'] ?? [],
+                                                'membership_payments' => $payslipDetail['membership_payments'] ?? ['count' => 0, 'total' => 0, 'currency' => 'PHP', 'items' => []],
                                                 'assignments' => $payslipDetail['assignments'] ?? [],
                                             ];
                                         @endphp
@@ -476,6 +477,7 @@
 
                     const entries = Array.isArray(data.entries) ? data.entries : [];
                     const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+                    const membershipPayments = Array.isArray(data.membership_payments?.items) ? data.membership_payments.items : [];
                     const isTrainer = data.type === 'trainer';
                     const style = `
                         <style>
@@ -575,12 +577,48 @@
                                             <th>Status</th>
                                         </tr>
                                     </thead>
-                                    <tbody>
-                                        ${rows || '<tr><td colspan="6" style="text-align:center;">No entries</td></tr>'}
-                                    </tbody>
-                                </table>
-                            </div>
-                        `;
+                                <tbody>
+                                    ${rows || '<tr><td colspan="6" style="text-align:center;">No entries</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="section">
+                            <strong>Membership payments approved (period)</strong>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Member</th>
+                                        <th>Membership</th>
+                                        <th>Amount</th>
+                                        <th>Created Date</th>
+                                        <th>Approved Date</th>
+                                        <th>Expires Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${
+                                        membershipPayments.length
+                                            ? membershipPayments.map((pay) => `
+                                                <tr>
+                                                    <td>#${pay.id ?? '—'}</td>
+                                                    <td>
+                                                        ${pay.member_name || '—'}
+                                                        <div class="muted">${pay.member_code ? `Code: ${pay.member_code}` : ''}</div>
+                                                    </td>
+                                                    <td>${pay.membership || '—'}</td>
+                                                    <td>${pay.currency || 'PHP'} ${Number(pay.price || 0).toFixed(2)}</td>
+                                                    <td>${pay.created_at || '—'}</td>
+                                                    <td>${pay.updated_at || '—'}</td>
+                                                    <td>${pay.expiration_at || '—'}</td>
+                                                </tr>
+                                            `).join('')
+                                            : '<tr><td colspan="7" style="text-align:center;">No approved membership payments for this period.</td></tr>'
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+                    `;
 
                     const html = `
                         <!doctype html>

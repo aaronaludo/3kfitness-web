@@ -10,7 +10,8 @@
                 $archivedMemberships = $archivedData;
                 $printSource = $showArchived ? $archivedMemberships : $activeMemberships;
                 $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
-                $printMemberships = collect($printSource->items() ?? [])->map(function ($item) {
+                $resolveApproverCode = $resolveApproverCode ?? null;
+                $printMemberships = collect($printSource->items() ?? [])->map(function ($item) use ($resolveApproverCode) {
                     $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
                     $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
                     $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
@@ -38,6 +39,9 @@
                         ];
                     })->filter()->unique('id')->values();
 
+                    $approvedByRaw = ((int) $item->isapproved === 1) ? ($item->created_by ?: '') : '';
+                    $approvedBy = $resolveApproverCode ? $resolveApproverCode($approvedByRaw) : $approvedByRaw;
+
                     return [
                         'number' => $item->id,
                         'id' => $item->id,
@@ -51,7 +55,7 @@
                         'status' => $statusMap[$item->isapproved] ?? 'Pending',
                         'amount' => trim(($currency ? $currency . ' ' : '') . number_format((float) $price, 2)),
                         'classes' => $classes->pluck('name')->all(),
-                        'created_by' => $item->created_by ?: '',
+                        'approved_by' => $approvedBy,
                     ];
                 })->values();
 
@@ -70,7 +74,7 @@
                     'items' => $printMemberships,
                 ];
 
-                $printAllMemberships = collect($printAllSource ?? [])->map(function ($item) {
+                $printAllMemberships = collect($printAllSource ?? [])->map(function ($item) use ($resolveApproverCode) {
                     $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
                     $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
                     $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
@@ -98,6 +102,9 @@
                         ];
                     })->filter()->unique('id')->values();
 
+                    $approvedByRaw = ((int) $item->isapproved === 1) ? ($item->created_by ?: '') : '';
+                    $approvedBy = $resolveApproverCode ? $resolveApproverCode($approvedByRaw) : $approvedByRaw;
+
                     return [
                         'number' => $item->id,
                         'id' => $item->id,
@@ -111,7 +118,7 @@
                         'status' => $statusMap[$item->isapproved] ?? 'Pending',
                         'amount' => trim(($currency ? $currency . ' ' : '') . number_format((float) $price, 2)),
                         'classes' => $classes->pluck('name')->all(),
-                        'created_by' => $item->created_by ?: '',
+                        'approved_by' => $approvedBy,
                     ];
                 })->values();
 
@@ -403,9 +410,9 @@
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="updated_date">Updated Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="status">Status <i class="fa fa-sort"></i></th>
+                                            <th>Approved By</th>
                                             <th class="sortable" data-column="amount">Amount <i class="fa fa-sort"></i></th>
                                             <th>Classes Enrolled</th>
-                                            <th>Created By</th>
                                             <th>Actions</th>
                                         </tr>
                                     </thead>
@@ -416,6 +423,9 @@
                                                 $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
                                                 $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
                                                 $updatedAt = $item->updated_at ? \Carbon\Carbon::parse($item->updated_at) : null;
+                                                $resolveApproverCode = $resolveApproverCode ?? null;
+                                                $approvedByRaw = (int) $item->isapproved === 1 ? ($item->created_by ?: '') : '';
+                                                $approvedBy = $approvedByRaw !== '' && $resolveApproverCode ? $resolveApproverCode($approvedByRaw) : ($approvedByRaw ?: '—');
                                             @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
@@ -575,6 +585,7 @@
                                                     })();
                                                     </script>
                                                 </td>
+                                                <td>{{ $approvedBy }}</td>
                                                 <td>
                                                     @php
                                                         $currency = optional($item->membership)->currency ?: 'PHP';
@@ -612,7 +623,6 @@
                                                         <span class="text-muted">No classes enrolled</span>
                                                     @endif
                                                 </td>
-                                                <td>{{ $item->created_by }}</td>
                                                 <td>
                                                     <div class="d-flex gap-2">
                                                         <div class="action-button">
@@ -709,6 +719,7 @@
                                             <th>User Code</th>
                                             <th>Membership</th>
                                             <th>Status</th>
+                                            <th>Approved By</th>
                                             <th>Expiration Date</th>
                                             <th>Updated Date</th>
                                             <th>Actions</th>
@@ -720,6 +731,7 @@
                                                 $archiveRowNumber = ($archivedMemberships->firstItem() ?? 0) + $loop->index;
                                                 $archiveExpiration = $archive->expiration_at ? \Carbon\Carbon::parse($archive->expiration_at) : null;
                                                 $archiveUpdated = $archive->updated_at ? \Carbon\Carbon::parse($archive->updated_at) : null;
+                                                $archiveApprovedBy = (int) $archive->isapproved === 1 ? ($archive->created_by ?: '—') : '—';
                                             @endphp
                                             <tr>
                                                 <td>{{ $archive->id }}</td>
@@ -739,6 +751,7 @@
                                                         {{ $archiveStatus['label'] }}
                                                     </span>
                                                 </td>
+                                                <td>{{ $archiveApprovedBy }}</td>
                                                 <td>{{ $archiveExpiration ? $archiveExpiration->format('F j, Y g:iA') : '' }}</td>
                                                 <td>{{ $archiveUpdated ? $archiveUpdated->format('F j, Y g:iA') : '' }}</td>
                                                 <td class="action-button">
@@ -882,7 +895,7 @@
                         `<div class="fw">${item.amount || 'PHP 0.00'}</div><div class="muted">Created: ${item.created || '—'}</div><div class="muted">Updated: ${item.updated || '—'}</div>`,
                         `<span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span>`,
                         classes,
-                        item.created_by || '—',
+                        item.approved_by || '—',
                     ];
                 });
             }
@@ -891,7 +904,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'User Code', 'Membership', 'Billing', 'Status', 'Classes', 'Created By'];
+                const headers = ['#', 'Member', 'User Code', 'Membership', 'Billing', 'Status', 'Classes', 'Approved By'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

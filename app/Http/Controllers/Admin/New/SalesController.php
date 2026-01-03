@@ -351,6 +351,73 @@ class SalesController extends Controller
             ->sortBy('name')
             ->values();
 
+        $staffMembershipPayments = $staffPayrollRows
+            ->mapWithKeys(function ($staffRow) use ($paymentRecords, $payrollRuns) {
+                $staffId = $staffRow['id'] ?? null;
+                $staffCode = strtolower($staffRow['user_code'] ?? '');
+
+                // Prefer processed (historical) membership payments saved with payroll runs
+                $storedItems = collect();
+                $runsForStaff = $payrollRuns->where('user_id', $staffId);
+                foreach ($runsForStaff as $run) {
+                    $stored = $run->processed_membership_payments_approved;
+                    if (is_array($stored) && !empty($stored['items'] ?? [])) {
+                        $storedItems = $storedItems->concat(collect($stored['items']));
+                    }
+                }
+
+                $items = $storedItems->isNotEmpty()
+                    ? $storedItems->values()
+                    : $paymentRecords
+                        ->filter(function ($payment) use ($staffCode) {
+                            $createdBy = strtolower(trim($payment->created_by ?? ''));
+                            return $staffCode !== '' && $createdBy === $staffCode;
+                        })
+                        ->map(function ($payment) {
+                            $member = $payment->user;
+                            $membership = $payment->membership;
+                            $currency = $membership->currency ?? 'PHP';
+                            $price = (float) ($membership->price ?? 0);
+
+                            return [
+                                'id' => $payment->id,
+                                'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
+                                'member_code' => $member->user_code ?? '—',
+                                'membership' => $membership->name ?? '—',
+                                'currency' => $currency,
+                                'price' => $price,
+                                'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
+                                'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
+                            ];
+                        })
+                        ->values();
+
+                $total = $items->sum(fn ($item) => $item['price'] ?? 0);
+                $firstItem = $items->first();
+                $currency = is_array($firstItem) && array_key_exists('currency', $firstItem)
+                    ? $firstItem['currency']
+                    : 'PHP';
+
+                return [
+                    $staffId => [
+                        'count' => $items->count(),
+                        'total' => round($total, 2),
+                        'currency' => $currency,
+                        'items' => $items,
+                    ],
+                ];
+            });
+
+        $staffPayrollRows = $staffPayrollRows->map(function ($row) use ($staffMembershipPayments) {
+            $row['membership_payments'] = $staffMembershipPayments->get($row['id'] ?? null, [
+                'count' => 0,
+                'total' => 0,
+                'currency' => 'PHP',
+                'items' => collect(),
+            ]);
+            return $row;
+        });
+
         $trainerPayrollRows = $payrollByUser
             ->filter(fn ($row) => (int) ($row['role_id'] ?? 0) === 5)
             ->sortBy('name')

@@ -258,6 +258,8 @@
                             0
                         );
                         $staffDeductionsForDisplay = array_merge($staffDeductions, ['app_cut' => 0]);
+                        $staffMembershipPayments = $summary['membership_payments'] ?? ['count' => 0, 'total' => 0, 'currency' => 'PHP', 'items' => collect()];
+                        $staffMembershipPaymentsItems = collect($staffMembershipPayments['items'] ?? []);
                     @endphp
                     <div
                         class="card border-0 shadow-sm rounded-4 mb-3"
@@ -297,6 +299,17 @@
                                             <div class="text-muted small">Processed: ₱{{ number_format($summary['processed_run']->net_pay, 2) }}</div>
                                         @endif
                                     </div>
+                                    <div class="text-start">
+                    <div class="text-muted small text-uppercase">Membership payments</div>
+                    @if(($staffMembershipPayments['count'] ?? 0) > 0)
+                        <div class="fw-bold fs-6">
+                            {{ $staffMembershipPayments['currency'] ?? 'PHP' }} {{ number_format((float) ($staffMembershipPayments['total'] ?? 0), 2) }}
+                        </div>
+                        <div class="text-muted small">{{ $staffMembershipPayments['count'] ?? 0 }} approved in this period</div>
+                    @else
+                        <span class="text-muted small">None</span>
+                    @endif
+                </div>
                                     <div>
                                         @if(!empty($summary['processed_run']))
                                             <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
@@ -364,6 +377,12 @@
                                             'deductions' => $staffDeductionsForDisplay,
                                             'month' => $monthLabel,
                                             'entries' => $printEntries,
+                                            'membership_payments' => [
+                                                'count' => $staffMembershipPayments['count'] ?? 0,
+                                                'total' => $staffMembershipPayments['total'] ?? 0,
+                                                'currency' => $staffMembershipPayments['currency'] ?? 'PHP',
+                                                'items' => $staffMembershipPaymentsItems,
+                                            ],
                                         ];
 
                                         $payslipJson = json_encode($payslipData);
@@ -468,6 +487,51 @@
                                                     @endforelse
                                                 </tbody>
                                             </table>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <div class="border rounded-4 p-3 h-100 bg-white">
+                                            <div class="d-flex align-items-center justify-content-between mb-2">
+                                                <h6 class="fw-semibold mb-0">Membership payments approved ({{ $monthLabel }})</h6>
+                                                @if(($staffMembershipPayments['count'] ?? 0) > 0)
+                                                    <span class="badge bg-light text-dark">Total: {{ $staffMembershipPayments['currency'] ?? 'PHP' }} {{ number_format((float) ($staffMembershipPayments['total'] ?? 0), 2) }}</span>
+                                                @endif
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table align-middle mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>#</th>
+                                                            <th>Member</th>
+                                                            <th>Membership</th>
+                                                            <th class="text-end">Amount</th>
+                                                            <th class="text-end">Approved</th>
+                                                            <th class="text-end">Updated</th>
+                                                            <th class="text-end">Expires</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @forelse($staffMembershipPaymentsItems as $payment)
+                                                            <tr>
+                                                                <td class="text-muted">#{{ $payment['id'] }}</td>
+                                                                <td>
+                                                                    <div class="fw-semibold">{{ $payment['member_name'] ?? '—' }}</div>
+                                                                    <div class="text-muted small">Code: {{ $payment['member_code'] ?? '—' }}</div>
+                                                                </td>
+                                                                <td>{{ $payment['membership'] ?? '—' }}</td>
+                                                                <td class="text-end">{{ $payment['currency'] ?? 'PHP' }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
+                                                                <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
+                                                                <td class="text-end">{{ $payment['updated_at'] ?? '—' }}</td>
+                                                                <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
+                                                            </tr>
+                                                        @empty
+                                                            <tr>
+                                                                <td colspan="7" class="text-center text-muted small">No approved membership payments for this staff in {{ $monthLabel }}.</td>
+                                                            </tr>
+                                                        @endforelse
+                                                    </tbody>
+                                                </table>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>
@@ -1283,10 +1347,10 @@
                             <div class="text-center text-muted">No trainer assignments found for this period.</div>
                         @endforelse
                     </div>
+                    </div>
                 </div>
             </div>
-        </div>
-        </section>
+            </section>
     </div>
 
     {{-- Deduction rules modal --}}
@@ -1932,6 +1996,7 @@
                 }
 
                 const entries = Array.isArray(data.entries) ? data.entries : [];
+                const membershipPayments = Array.isArray(data.membership_payments?.items) ? data.membership_payments.items : [];
                 const assignments = Array.isArray(data.assignments) ? data.assignments : [];
                 const isTrainer = data.type === 'trainer';
                 const style = `
@@ -2033,6 +2098,42 @@
                                 </thead>
                                 <tbody>
                                     ${rows || '<tr><td colspan="6" style="text-align:center;">No entries</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="section">
+                            <strong>Membership payments approved (period)</strong>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Member</th>
+                                        <th>Membership</th>
+                                        <th>Amount</th>
+                                        <th>Created Date</th>
+                                        <th>Approved Date</th>
+                                        <th>Expires Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${
+                                        membershipPayments.length
+                                            ? membershipPayments.map((pay) => `
+                                                <tr>
+                                                    <td>#${pay.id ?? '—'}</td>
+                                                    <td>
+                                                        ${pay.member_name || '—'}
+                                                        <div class="muted">${pay.member_code ? `Code: ${pay.member_code}` : ''}</div>
+                                                    </td>
+                                                    <td>${pay.membership || '—'}</td>
+                                                    <td>${pay.currency || 'PHP'} ${Number(pay.price || 0).toFixed(2)}</td>
+                                                    <td>${pay.created_at || '—'}</td>
+                                                    <td>${pay.updated_at || '—'}</td>
+                                                    <td>${pay.expiration_at || '—'}</td>
+                                                </tr>
+                                            `).join('')
+                                            : '<tr><td colspan="7" style="text-align:center;">No approved membership payments for this period.</td></tr>'
+                                    }
                                 </tbody>
                             </table>
                         </div>

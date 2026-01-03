@@ -10,6 +10,7 @@ use App\Models\PayrollRun;
 use App\Models\Schedule;
 use App\Models\Attendance2;
 use App\Models\DeductionSetting;
+use App\Models\MembershipPayment;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -521,7 +522,7 @@ class PayrollController extends Controller
             $endOfMonth = $targetMonth->copy()->endOfMonth();
 
             if ($user->role_id === 2) {
-                $entries = Attendance2::where('user_id', $user->id)
+                $attendanceRecords = Attendance2::where('user_id', $user->id)
                     ->where('is_archive', 0)
                     ->where(function ($query) use ($startOfMonth, $endOfMonth) {
                         $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
@@ -529,7 +530,38 @@ class PayrollController extends Controller
                             ->orWhereBetween('created_at', [$startOfMonth, $endOfMonth]);
                     })
                     ->orderBy('clockin_at')
-                    ->get()
+                    ->get();
+
+                $entryDateBounds = $attendanceRecords->reduce(function ($carry, $attendance) {
+                    $times = collect([$attendance->clockin_at ?? null, $attendance->clockout_at ?? null])
+                        ->filter()
+                        ->map(fn ($dt) => $dt instanceof Carbon ? $dt : Carbon::parse($dt));
+
+                    if ($times->isEmpty()) {
+                        return $carry;
+                    }
+
+                    $min = $times->min();
+                    $max = $times->max();
+
+                    if (is_null($carry['start']) || $min->lt($carry['start'])) {
+                        $carry['start'] = $min;
+                    }
+                    if (is_null($carry['end']) || $max->gt($carry['end'])) {
+                        $carry['end'] = $max;
+                    }
+
+                    return $carry;
+                }, ['start' => null, 'end' => null]);
+
+                $entryStart = $entryDateBounds['start']
+                    ? $entryDateBounds['start']->copy()
+                    : $startOfMonth;
+                $entryEnd = $entryDateBounds['end']
+                    ? $entryDateBounds['end']->copy()
+                    : $endOfMonth;
+
+                $entries = $attendanceRecords
                     ->map(function ($attendance) use ($user) {
                         $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
                         $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
@@ -550,8 +582,78 @@ class PayrollController extends Controller
                     ->values()
                     ->all();
 
+                $staffCodeKey = strtolower(trim($user->user_code ?? ''));
+                $membershipPayments = collect();
+                if ($staffCodeKey !== '') {
+                    $membershipPayments = MembershipPayment::where('isapproved', 1)
+                        ->where('is_archive', 0)
+                        ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+                        ->get()
+                        ->filter(function ($payment) use ($staffCodeKey, $entryStart, $entryEnd) {
+                            $createdBy = strtolower(trim($payment->created_by ?? ''));
+                            if ($createdBy !== $staffCodeKey) {
+                                return false;
+                            }
+
+                            $approvedAt = $payment->updated_at ?: $payment->created_at;
+                            if (!$approvedAt) {
+                                return false;
+                            }
+
+                            $approved = $approvedAt instanceof Carbon ? $approvedAt : Carbon::parse($approvedAt);
+                            return $approved->between($entryStart, $entryEnd);
+                        })
+                        ->map(function ($payment) {
+                            $member = $payment->user;
+                            $membership = $payment->membership;
+                            return [
+                                'id' => $payment->id,
+                                'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
+                                'member_code' => $member->user_code ?? '—',
+                                'membership' => $membership->name ?? '—',
+                                'currency' => $membership->currency ?? 'PHP',
+                                'price' => (float) ($membership->price ?? 0),
+                                'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
+                                'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
+                                'updated_at' => $payment->updated_at ? $payment->updated_at->format('M d, Y g:i A') : '—',
+                            ];
+                        })
+                        ->values();
+                }
+
+                $mpTotal = $membershipPayments->sum(fn ($item) => $item['price'] ?? 0);
+                $firstMembershipPayment = $membershipPayments->first();
+                $mpCurrency = is_array($firstMembershipPayment) && array_key_exists('currency', $firstMembershipPayment)
+                    ? $firstMembershipPayment['currency']
+                    : 'PHP';
+
+                $storedMembershipPayments = $run->processed_membership_payments_approved;
+                if (is_array($storedMembershipPayments) && !empty($storedMembershipPayments)) {
+                    $storedItems = collect($storedMembershipPayments['items'] ?? []);
+                    $storedFirstItem = $storedItems->first();
+
+                    $membershipPaymentPayload = [
+                        'count' => (int) ($storedMembershipPayments['count'] ?? $storedItems->count()),
+                        'total' => round(
+                            (float) ($storedMembershipPayments['total'] ?? $storedItems->sum(fn ($item) => $item['price'] ?? 0)),
+                            2
+                        ),
+                        'currency' => $storedMembershipPayments['currency']
+                            ?? (is_array($storedFirstItem) && array_key_exists('currency', $storedFirstItem) ? $storedFirstItem['currency'] : 'PHP'),
+                        'items' => $storedItems->values(),
+                    ];
+                } else {
+                    $membershipPaymentPayload = [
+                        'count' => $membershipPayments->count(),
+                        'total' => round($mpTotal, 2),
+                        'currency' => $mpCurrency,
+                        'items' => $membershipPayments,
+                    ];
+                }
+
                 $payslipDetails[$run->id] = [
                     'entries' => $entries,
+                    'membership_payments' => $membershipPaymentPayload,
                     'assignments' => [],
                 ];
             } elseif ($user->role_id === 5) {
@@ -560,6 +662,12 @@ class PayrollController extends Controller
 
                 $payslipDetails[$run->id] = [
                     'entries' => [],
+                    'membership_payments' => [
+                        'count' => 0,
+                        'total' => 0,
+                        'currency' => 'PHP',
+                        'items' => collect(),
+                    ],
                     'assignments' => $assignments,
                 ];
             }
@@ -686,6 +794,15 @@ class PayrollController extends Controller
         $staffMembers = $staffQuery->orderBy('first_name')->get();
         $staffIds = $staffMembers->pluck('id');
 
+        $staffPaymentLookup = MembershipPayment::where('isapproved', 1)
+            ->where('is_archive', 0)
+            ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+            ->with(['membership', 'user'])
+            ->get()
+            ->groupBy(function ($payment) {
+                return strtolower(trim($payment->created_by ?? ''));
+            });
+
         $attendanceByUser = Attendance2::whereIn('user_id', $staffIds)
             ->where('is_archive', 0)
             ->where(function ($query) use ($startOfMonth, $endOfMonth) {
@@ -701,7 +818,7 @@ class PayrollController extends Controller
             ->get()
             ->keyBy('user_id');
 
-        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser, $deductionSettings) {
+        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser, $deductionSettings, $staffPaymentLookup, $startOfMonth, $endOfMonth) {
             $entries = collect($attendanceByUser->get($staff->id) ?? [])->map(function ($attendance) use ($staff) {
                 $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
                 $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
@@ -729,6 +846,61 @@ class PayrollController extends Controller
             $deductions = $this->calculateDeductions($gross, $deductionSettings, false);
             $net = max($gross - $deductions['total'], 0);
 
+            $entryDateBounds = $entries->reduce(function ($carry, $entry) {
+                $times = collect([$entry['clockin_at'] ?? null, $entry['clockout_at'] ?? null])
+                    ->filter()
+                    ->map(fn ($dt) => $dt instanceof Carbon ? $dt : Carbon::parse($dt));
+                if ($times->isEmpty()) {
+                    return $carry;
+                }
+                $min = $times->min();
+                $max = $times->max();
+                if (is_null($carry['start']) || $min->lt($carry['start'])) {
+                    $carry['start'] = $min;
+                }
+                if (is_null($carry['end']) || $max->gt($carry['end'])) {
+                    $carry['end'] = $max;
+                }
+                return $carry;
+            }, ['start' => null, 'end' => null]);
+
+            $entryStart = $entryDateBounds['start']
+                ? $entryDateBounds['start']->copy()
+                : $startOfMonth;
+            $entryEnd = $entryDateBounds['end']
+                ? $entryDateBounds['end']->copy()
+                : $endOfMonth;
+
+            $staffCodeKey = strtolower(trim($staff->user_code ?? ''));
+            $matchedPayments = $staffCodeKey !== '' ? ($staffPaymentLookup->get($staffCodeKey) ?? collect()) : collect();
+            $membershipPaymentItems = $matchedPayments
+                ->filter(function ($payment) use ($entryStart, $entryEnd) {
+                    $approvedAt = $payment->updated_at ?: $payment->created_at;
+                    if (!$approvedAt) {
+                        return false;
+                    }
+                    $approved = $approvedAt instanceof Carbon ? $approvedAt : Carbon::parse($approvedAt);
+                    return $approved->between($entryStart, $entryEnd);
+                })
+                ->map(function ($payment) {
+                $member = $payment->user;
+                $membership = $payment->membership;
+                return [
+                    'id' => $payment->id,
+                    'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
+                    'member_code' => $member->user_code ?? '—',
+                    'membership' => $membership->name ?? '—',
+                    'currency' => $membership->currency ?? 'PHP',
+                    'price' => (float) ($membership->price ?? 0),
+                    'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
+                    'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
+                    'updated_at' => $payment->updated_at ? $payment->updated_at->format('M d, Y g:i A') : '—',
+                ];
+            })->values();
+
+            $membershipPaymentTotal = $membershipPaymentItems->sum(fn ($item) => $item['price'] ?? 0);
+            $membershipPaymentCurrency = $membershipPaymentItems->first()['currency'] ?? 'PHP';
+
             return [
                 'staff' => $staff,
                 'entries' => $entries,
@@ -738,6 +910,12 @@ class PayrollController extends Controller
                 'deductions' => $deductions,
                 'pending_entries' => $entries->where('status', 'pending')->count(),
                 'completed_entries' => $entries->where('status', 'complete')->count(),
+                'membership_payments' => [
+                    'count' => $membershipPaymentItems->count(),
+                    'total' => round($membershipPaymentTotal, 2),
+                    'currency' => $membershipPaymentCurrency,
+                    'items' => $membershipPaymentItems,
+                ],
             ];
         })->filter(fn ($summary) => $summary['entries']->count() > 0)->values()->map(function ($summary) use ($processedRuns, $month) {
             $staff = $summary['staff'];
@@ -873,7 +1051,7 @@ class PayrollController extends Controller
         $startOfMonth = $targetMonth->copy()->startOfMonth();
         $endOfMonth = $targetMonth->copy()->endOfMonth();
 
-        $entries = Attendance2::where('user_id', $staff->id)
+        $attendanceRecords = Attendance2::where('user_id', $staff->id)
             ->where('is_archive', 0)
             ->where(function ($query) use ($startOfMonth, $endOfMonth) {
                 $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
@@ -881,23 +1059,49 @@ class PayrollController extends Controller
                     ->orWhereBetween('created_at', [$startOfMonth, $endOfMonth]);
             })
             ->orderBy('clockin_at')
-            ->get()
-            ->map(function ($attendance) use ($staff) {
-                $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
-                $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
+            ->get();
 
-                $hours = null;
-                if ($clockIn && $clockOut && $clockOut->greaterThan($clockIn)) {
-                    $hours = round($clockOut->diffInMinutes($clockIn) / 60, 2);
-                }
+        $entryDateBounds = $attendanceRecords->reduce(function ($carry, $attendance) {
+            $times = collect([$attendance->clockin_at ?? null, $attendance->clockout_at ?? null])
+                ->filter()
+                ->map(fn ($dt) => $dt instanceof Carbon ? $dt : Carbon::parse($dt));
 
-                $amount = $hours ? round($hours * (float) ($staff->rate_per_hour ?? 0), 2) : 0;
+            if ($times->isEmpty()) {
+                return $carry;
+            }
 
-                return [
-                    'hours' => $hours ?? 0,
-                    'amount' => $amount,
-                ];
-            });
+            $min = $times->min();
+            $max = $times->max();
+
+            if (is_null($carry['start']) || $min->lt($carry['start'])) {
+                $carry['start'] = $min;
+            }
+            if (is_null($carry['end']) || $max->gt($carry['end'])) {
+                $carry['end'] = $max;
+            }
+
+            return $carry;
+        }, ['start' => null, 'end' => null]);
+
+        $entryStart = $entryDateBounds['start'] ? $entryDateBounds['start']->copy() : $startOfMonth;
+        $entryEnd = $entryDateBounds['end'] ? $entryDateBounds['end']->copy() : $endOfMonth;
+
+        $entries = $attendanceRecords->map(function ($attendance) use ($staff) {
+            $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
+            $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
+
+            $hours = null;
+            if ($clockIn && $clockOut && $clockOut->greaterThan($clockIn)) {
+                $hours = round($clockOut->diffInMinutes($clockIn) / 60, 2);
+            }
+
+            $amount = $hours ? round($hours * (float) ($staff->rate_per_hour ?? 0), 2) : 0;
+
+            return [
+                'hours' => $hours ?? 0,
+                'amount' => $amount,
+            ];
+        });
 
         if ($entries->isEmpty()) {
             return redirect()->back()->with('error', 'No payroll entries found for this staff and month.');
@@ -905,6 +1109,56 @@ class PayrollController extends Controller
 
         $totalHours = $entries->sum('hours');
         $gross = round($entries->sum('amount'), 2);
+
+        $staffCodeKey = strtolower(trim($staff->user_code ?? ''));
+        $membershipPayments = collect();
+        if ($staffCodeKey !== '') {
+            $membershipPayments = MembershipPayment::where('isapproved', 1)
+                ->where('is_archive', 0)
+                ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
+                ->with(['membership', 'user'])
+                ->get()
+                ->filter(function ($payment) use ($staffCodeKey, $entryStart, $entryEnd) {
+                    $createdBy = strtolower(trim($payment->created_by ?? ''));
+                    if ($createdBy !== $staffCodeKey) {
+                        return false;
+                    }
+
+                    $approvedAt = $payment->updated_at ?: $payment->created_at;
+                    if (!$approvedAt) {
+                        return false;
+                    }
+
+                    $approved = $approvedAt instanceof Carbon ? $approvedAt : Carbon::parse($approvedAt);
+                    return $approved->between($entryStart, $entryEnd);
+                })
+                ->map(function ($payment) {
+                    $member = $payment->user;
+                    $membership = $payment->membership;
+                    return [
+                        'id' => $payment->id,
+                        'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
+                        'member_code' => $member->user_code ?? '—',
+                        'membership' => $membership->name ?? '—',
+                        'currency' => $membership->currency ?? 'PHP',
+                        'price' => (float) ($membership->price ?? 0),
+                        'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
+                        'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
+                        'updated_at' => $payment->updated_at ? $payment->updated_at->format('M d, Y g:i A') : '—',
+                    ];
+                })
+                ->values();
+        }
+
+        $firstMembershipPayment = $membershipPayments->first();
+        $processedMembershipPayments = [
+            'count' => $membershipPayments->count(),
+            'total' => round($membershipPayments->sum(fn ($item) => $item['price'] ?? 0), 2),
+            'currency' => is_array($firstMembershipPayment) && array_key_exists('currency', $firstMembershipPayment)
+                ? $firstMembershipPayment['currency']
+                : 'PHP',
+            'items' => $membershipPayments,
+        ];
 
         $deductions = $this->calculateDeductions($gross, $deductionSettings, false);
 
@@ -926,10 +1180,11 @@ class PayrollController extends Controller
                 'processed_by' => Auth::id(),
                 'processed_at' => Carbon::now(),
                 'processed_session_series' => null,
+                'processed_membership_payments_approved' => $processedMembershipPayments,
             ]
         );
 
-        return redirect()->back()->with('success', 'Payroll processed and saved for ' . trim($staff->first_name . ' ' . $staff->last_name));
+        return redirect()->route('admin.payrolls.index')->with('success', 'Payroll processed and saved for ' . trim($staff->first_name . ' ' . $staff->last_name));
     }
 
     public function processTrainer(Request $request)
@@ -1117,12 +1372,13 @@ class PayrollController extends Controller
                 'processed_by' => Auth::id(),
                 'processed_at' => Carbon::now(),
                 'processed_session_series' => $processedSessionSeries,
+                'processed_membership_payments_approved' => null,
             ]
         );
 
         $trainerName = trim($trainer->first_name . ' ' . $trainer->last_name);
 
-        return redirect()->back()->with('success', 'Trainer payroll processed and saved for ' . ($trainerName !== '' ? $trainerName : 'trainer'));
+        return redirect()->route('admin.payrolls.index')->with('success', 'Trainer payroll processed and saved for ' . ($trainerName !== '' ? $trainerName : 'trainer'));
     }
     
     public function view($id)
