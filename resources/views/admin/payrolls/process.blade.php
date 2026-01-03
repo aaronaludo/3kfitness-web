@@ -12,6 +12,12 @@
             'processing_days' => [],
             'processing_day_ranges' => [],
         ];
+        $staffAppCutTotal = collect($summaries ?? collect())
+            ->sum(function ($summary) {
+                $deductions = $summary['deductions'] ?? [];
+                return $deductions['app_cut'] ?? 0;
+            });
+        $staffProjectedNet = ($stats['projected_net'] ?? 0) + $staffAppCutTotal;
     @endphp
     <div class="container-fluid">
         <div class="row">
@@ -37,7 +43,7 @@
                             </div>
                             <div class="text-end">
                                 <span class="badge bg-danger text-white fw-semibold rounded-pill px-3 py-2">{{ $monthLabel }}</span>
-                                <h3 class="display-6 fw-bold mb-1">₱{{ number_format($stats['projected_net'], 2) }}</h3>
+                                <h3 class="display-6 fw-bold mb-1">₱{{ number_format($staffProjectedNet, 2) }}</h3>
                                 <p class="text-white-50 mb-0">Projected payout for selected month</p>
                             </div>
                         </div>
@@ -71,7 +77,7 @@
                                     </div>
                                     <ul class="text-muted small mb-0 ps-3">
                                         <li>Uses Attendance2 clock-ins/outs within the selected month.</li>
-                                        <li>Net pay = hours × hourly rate minus deductions and app cut.</li>
+                                        <li>Net pay = hours × hourly rate minus statutory deductions (no app cut for staff).</li>
                                         <li>Pending entries (no clock-out) are blocked from processing.</li>
                                     </ul>
                                 </div>
@@ -227,7 +233,7 @@
                                 <div class="text-muted small text-uppercase fw-semibold">Net payout</div>
                                 <div class="d-flex align-items-center justify-content-between mt-2">
                                     <i class="fa-solid fa-peso-sign text-success fs-4"></i>
-                                    <span class="fs-4 fw-bold">₱{{ number_format($stats['projected_net'], 2) }}</span>
+                                    <span class="fs-4 fw-bold">₱{{ number_format($staffProjectedNet, 2) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -242,13 +248,23 @@
                         $collapseId = 'payroll-breakdown-' . $staff->id;
                         $hasStaffData = ($summary['entries'] ?? collect())->count() > 0;
                         $staffNoData = !$hasStaffData && empty($summary['processed_run']);
+                        $staffDeductions = $summary['deductions'] ?? [];
+                        $staffNetWithoutAppCut = max(
+                            round(
+                                ($summary['gross_pay'] ?? 0)
+                                - (($staffDeductions['sss'] ?? 0) + ($staffDeductions['philhealth'] ?? 0) + ($staffDeductions['pagibig'] ?? 0)),
+                                2
+                            ),
+                            0
+                        );
+                        $staffDeductionsForDisplay = array_merge($staffDeductions, ['app_cut' => 0]);
                     @endphp
                     <div
                         class="card border-0 shadow-sm rounded-4 mb-3"
                         data-payroll-card
                         data-gross="{{ $summary['gross_pay'] }}"
                         data-rate="{{ $staff->rate_per_hour ?? 0 }}"
-                        data-appcut="{{ $summary['deductions']['app_cut'] ?? 0 }}"
+                        data-appcut="0"
                     >
                         <div class="card-body p-4">
                             <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
@@ -276,7 +292,7 @@
                                     </div>
                                     <div class="text-start">
                                         <div class="text-muted small text-uppercase">Net</div>
-                                        <div class="fw-bold fs-5 text-success" data-net>₱{{ number_format($summary['net_pay'], 2) }}</div>
+                                        <div class="fw-bold fs-5 text-success" data-net>₱{{ number_format($staffNetWithoutAppCut, 2) }}</div>
                                         @if(!empty($summary['processed_run']))
                                             <div class="text-muted small">Processed: ₱{{ number_format($summary['processed_run']->net_pay, 2) }}</div>
                                         @endif
@@ -313,7 +329,7 @@
                                             data-month="{{ $monthLabel }}"
                                             data-hours="{{ number_format($summary['total_hours'], 2, '.', '') }}"
                                             data-gross="{{ number_format($summary['gross_pay'], 2, '.', '') }}"
-                                            data-net="{{ number_format($summary['net_pay'], 2, '.', '') }}"
+                                            data-net="{{ number_format($staffNetWithoutAppCut, 2, '.', '') }}"
                                             data-pending="{{ (int) $summary['pending_entries'] }}"
                                             data-basis="Attendance clock-ins/outs"
                                             {{ $staffProcessDisabled ? 'disabled' : '' }}
@@ -344,8 +360,8 @@
                                         'email' => $staff->email,
                                         'rate' => $staff->rate_per_hour ?? 0,
                                         'gross' => $summary['gross_pay'],
-                                        'net' => $summary['net_pay'],
-                                            'deductions' => $summary['deductions'],
+                                        'net' => $staffNetWithoutAppCut,
+                                            'deductions' => $staffDeductionsForDisplay,
                                             'month' => $monthLabel,
                                             'entries' => $printEntries,
                                         ];
@@ -380,32 +396,32 @@
                                     <div class="col-12 col-lg-4">
                                         <div class="border rounded-4 p-3 h-100 bg-light">
                                             <h6 class="fw-semibold mb-3">Payroll summary</h6>
-                                            <ul class="list-unstyled small mb-0">
-                                                <li class="d-flex justify-content-between mb-2">
-                                                    <span>Gross pay</span>
-                                                    <span>₱{{ number_format($summary['gross_pay'], 2) }}</span>
-                                                </li>
-                                                <li class="d-flex justify-content-between mb-2">
-                                                    <span>SSS</span>
-                                                    <span data-sss>₱{{ number_format($summary['deductions']['sss'], 2) }}</span>
-                                                </li>
-                                                <li class="d-flex justify-content-between mb-2">
-                                                    <span>PhilHealth</span>
-                                                    <span data-philhealth>₱{{ number_format($summary['deductions']['philhealth'], 2) }}</span>
-                                                </li>
-                                                <li class="d-flex justify-content-between mb-2">
-                                                    <span>Pag-IBIG</span>
-                                                    <span data-pagibig>₱{{ number_format($summary['deductions']['pagibig'], 2) }}</span>
-                                                </li>
-                                                <li class="d-flex justify-content-between mb-2">
-                                                    <span>3kfitness app cut</span>
-                                                    <span data-appcut>₱{{ number_format($summary['deductions']['app_cut'] ?? 0, 2) }}</span>
-                                                </li>
-                                                <li class="d-flex justify-content-between fw-semibold pt-2 border-top">
-                                                    <span>Net pay</span>
-                                                    <span data-net>₱{{ number_format($summary['net_pay'], 2) }}</span>
-                                                </li>
-                                            </ul>
+                                                <ul class="list-unstyled small mb-0">
+                                                    <li class="d-flex justify-content-between mb-2">
+                                                        <span>Gross pay</span>
+                                                        <span>₱{{ number_format($summary['gross_pay'], 2) }}</span>
+                                                    </li>
+                                                    <li class="d-flex justify-content-between mb-2">
+                                                        <span>SSS</span>
+                                                        <span data-sss>₱{{ number_format($staffDeductionsForDisplay['sss'] ?? 0, 2) }}</span>
+                                                    </li>
+                                                    <li class="d-flex justify-content-between mb-2">
+                                                        <span>PhilHealth</span>
+                                                        <span data-philhealth>₱{{ number_format($staffDeductionsForDisplay['philhealth'] ?? 0, 2) }}</span>
+                                                    </li>
+                                                    <li class="d-flex justify-content-between mb-2">
+                                                        <span>Pag-IBIG</span>
+                                                        <span data-pagibig>₱{{ number_format($staffDeductionsForDisplay['pagibig'] ?? 0, 2) }}</span>
+                                                    </li>
+                                                    <li class="d-flex justify-content-between mb-2">
+                                                        <span>3kfitness app cut</span>
+                                                        <span data-appcut>₱{{ number_format($staffDeductionsForDisplay['app_cut'] ?? 0, 2) }}</span>
+                                                    </li>
+                                                    <li class="d-flex justify-content-between fw-semibold pt-2 border-top">
+                                                        <span>Net pay</span>
+                                                        <span data-net>₱{{ number_format($staffNetWithoutAppCut, 2) }}</span>
+                                                    </li>
+                                                </ul>
                                         </div>
                                     </div>
                                     <div class="col-12 col-lg-8">
@@ -1469,6 +1485,7 @@
                                 name="app_cut_rate"
                                 value="{{ $deductionSettings['app_cut_rate'] ?? 0 }}"
                             >
+                            <p class="text-muted small mt-1 mb-0">Staff payroll uses a fixed 0% app cut; this rate applies to trainer calculations only.</p>
                         </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label text-muted text-uppercase small mb-1">Pag-IBIG max base (₱)</label>
@@ -2083,16 +2100,17 @@
             const philRate = Number(philhealthInput.value || 0) / 100;
             const pagibigRate = Number(pagibigInput.value || 0) / 100;
             const pagibigCap = Number(pagibigCapInput.value || 0);
-            const appCutRate = Number(appCutInput?.value || 0) / 100;
+            const appCutRateTrainer = Number(appCutInput?.value || 0) / 100;
 
             document.querySelectorAll('[data-payroll-card], [data-trainer-card]').forEach((card) => {
                 const gross = Number(card.dataset.gross || 0);
+                const isTrainer = card.hasAttribute('data-trainer-card');
 
                 const sss = +(gross * sssRate).toFixed(2);
                 const philhealth = +(gross * philRate).toFixed(2);
                 const pagibigBase = pagibigCap > 0 ? Math.min(gross, pagibigCap) : gross;
                 const pagibig = +(pagibigBase * pagibigRate).toFixed(2);
-                const appCut = +(gross * appCutRate).toFixed(2);
+                const appCut = isTrainer ? +(gross * appCutRateTrainer).toFixed(2) : 0;
                 const net = Math.max(gross - (sss + philhealth + pagibig + appCut), 0);
 
                 card.querySelectorAll('[data-sss]').forEach((el) => el.textContent = formatPeso(sss));
@@ -2138,6 +2156,10 @@
             pendingAlert: document.querySelector('[data-confirm-pending-alert]'),
         };
         let pendingConfirmForm = null;
+
+        if (confirmModalEl && confirmModalEl.parentElement !== document.body) {
+            document.body.appendChild(confirmModalEl);
+        }
 
         function openConfirmModal(btn, form) {
             if (!confirmModalEl) {
