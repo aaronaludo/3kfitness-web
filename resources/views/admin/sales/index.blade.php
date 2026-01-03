@@ -474,12 +474,13 @@
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
                                     <div class="fw-semibold">Staffs</div>
-                                    <small class="text-muted">Payroll totals</small>
+                                    <small class="text-muted">{{ ($filters['staff_sales_order'] ?? '') === 'least' ? 'Least net first' : 'Most net first' }}</small>
                                 </div>
                                 <div class="table-responsive">
                                     <table class="table table-sm align-middle mb-0">
                                         <thead>
                                             <tr>
+                                                <th>#</th>
                                                 <th>Staff</th>
                                                 <th class="text-end">Runs</th>
                                                 <th class="text-end">Gross</th>
@@ -488,8 +489,11 @@
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            @forelse($staffPayrollTable ?? [] as $staffRow)
+                                            @forelse($staffSalesOrderTable ?? [] as $staffRow)
                                                 <tr>
+                                                    <td class="text-muted">
+                                                        {{ $staffSalesOrderTable instanceof \Illuminate\Pagination\AbstractPaginator ? $staffSalesOrderTable->firstItem() + $loop->index : $loop->iteration }}
+                                                    </td>
                                                     <td>
                                                         <div class="fw-semibold">{{ $staffRow['name'] ?? '—' }}</div>
                                                         <div class="text-muted small">Code: {{ $staffRow['user_code'] ?? '—' }}</div>
@@ -501,97 +505,7 @@
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="5" class="text-center text-muted small">No staff payroll runs in this window.</td>
-                                                </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-                                @if($staffPayrollTable instanceof \Illuminate\Pagination\AbstractPaginator)
-                                    <div class="mt-2">
-                                        {{ $staffPayrollTable->links('pagination::bootstrap-5') }}
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-lg-6">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="fw-semibold">Trainers</div>
-                                    <small class="text-muted">Payroll totals</small>
-                                </div>
-                                <div class="table-responsive">
-                                    <table class="table table-sm align-middle mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>Trainer</th>
-                                                <th class="text-end">Runs</th>
-                                                <th class="text-end">Gross</th>
-                                                <th class="text-end">Net</th>
-                                                <th class="text-end">App cut</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @forelse($trainerPayrollTable ?? [] as $trainerRow)
-                                                <tr>
-                                                    <td>
-                                                        <div class="fw-semibold">{{ $trainerRow['name'] ?? '—' }}</div>
-                                                        <div class="text-muted small">Code: {{ $trainerRow['user_code'] ?? '—' }}</div>
-                                                    </td>
-                                                    <td class="text-end">{{ $trainerRow['run_count'] ?? 0 }}</td>
-                                                    <td class="text-end">{{ $currency }} {{ number_format((float) ($trainerRow['gross'] ?? 0), 2) }}</td>
-                                                    <td class="text-end">{{ $currency }} {{ number_format((float) ($trainerRow['net'] ?? 0), 2) }}</td>
-                                                    <td class="text-end">{{ $currency }} {{ number_format((float) ($trainerRow['app_cut'] ?? 0), 2) }}</td>
-                                                </tr>
-                                            @empty
-                                                <tr>
-                                                    <td colspan="5" class="text-center text-muted small">No trainer payroll runs in this window.</td>
-                                                </tr>
-                                            @endforelse
-                                        </tbody>
-                                    </table>
-                                </div>
-                                @if($trainerPayrollTable instanceof \Illuminate\Pagination\AbstractPaginator)
-                                    <div class="mt-2">
-                                        {{ $trainerPayrollTable->links('pagination::bootstrap-5') }}
-                                    </div>
-                                @endif
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-lg-6">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="fw-semibold">Staff sales order</div>
-                                    <small class="text-muted">{{ ($filters['staff_sales_order'] ?? '') === 'least' ? 'Least net first' : 'Most net first' }}</small>
-                                </div>
-                                <div class="table-responsive">
-                                    <table class="table table-sm align-middle mb-0">
-                                        <thead>
-                                            <tr>
-                                                <th>#</th>
-                                                <th>Staff</th>
-                                                <th class="text-end">Runs</th>
-                                                <th class="text-end">Net</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            @forelse($staffSalesOrderTable ?? [] as $staffRow)
-                                                <tr>
-                                                    <td class="text-muted">{{ $loop->iteration }}</td>
-                                                    <td>
-                                                        <div class="fw-semibold">{{ $staffRow['name'] ?? '—' }}</div>
-                                                        <div class="text-muted small">Code: {{ $staffRow['user_code'] ?? '—' }}</div>
-                                                    </td>
-                                                    <td class="text-end">{{ $staffRow['run_count'] ?? 0 }}</td>
-                                                    <td class="text-end">{{ $currency }} {{ number_format((float) ($staffRow['net'] ?? 0), 2) }}</td>
-                                                </tr>
-                                            @empty
-                                                <tr>
-                                                    <td colspan="4" class="text-center text-muted small">No staff payroll to order.</td>
+                                                    <td colspan="6" class="text-center text-muted small">No staff payroll runs in this window.</td>
                                                 </tr>
                                             @endforelse
                                         </tbody>
@@ -609,7 +523,7 @@
                         <div class="card shadow-sm h-100">
                             <div class="card-body">
                                 <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="fw-semibold">Trainer sales order</div>
+                                    <div class="fw-semibold">Trainers</div>
                                     <small class="text-muted">{{ ($filters['trainer_sales_order'] ?? '') === 'least' ? 'Least net first' : 'Most net first' }}</small>
                                 </div>
                                 <div class="table-responsive">
@@ -619,23 +533,29 @@
                                                 <th>#</th>
                                                 <th>Trainer</th>
                                                 <th class="text-end">Runs</th>
+                                                <th class="text-end">Gross</th>
                                                 <th class="text-end">Net</th>
+                                                <th class="text-end">App cut</th>
                                             </tr>
                                         </thead>
                                         <tbody>
                                             @forelse($trainerSalesOrderTable ?? [] as $trainerRow)
                                                 <tr>
-                                                    <td class="text-muted">{{ $loop->iteration }}</td>
+                                                    <td class="text-muted">
+                                                        {{ $trainerSalesOrderTable instanceof \Illuminate\Pagination\AbstractPaginator ? $trainerSalesOrderTable->firstItem() + $loop->index : $loop->iteration }}
+                                                    </td>
                                                     <td>
                                                         <div class="fw-semibold">{{ $trainerRow['name'] ?? '—' }}</div>
                                                         <div class="text-muted small">Code: {{ $trainerRow['user_code'] ?? '—' }}</div>
                                                     </td>
                                                     <td class="text-end">{{ $trainerRow['run_count'] ?? 0 }}</td>
+                                                    <td class="text-end">{{ $currency }} {{ number_format((float) ($trainerRow['gross'] ?? 0), 2) }}</td>
                                                     <td class="text-end">{{ $currency }} {{ number_format((float) ($trainerRow['net'] ?? 0), 2) }}</td>
+                                                    <td class="text-end">{{ $currency }} {{ number_format((float) ($trainerRow['app_cut'] ?? 0), 2) }}</td>
                                                 </tr>
                                             @empty
                                                 <tr>
-                                                    <td colspan="4" class="text-center text-muted small">No trainer payroll to order.</td>
+                                                    <td colspan="6" class="text-center text-muted small">No trainer payroll runs in this window.</td>
                                                 </tr>
                                             @endforelse
                                         </tbody>
@@ -824,6 +744,8 @@
                 const trainerPayroll = tables.trainer_payroll || [];
                 const staffSalesOrder = tables.staff_sales_order || [];
                 const trainerSalesOrder = tables.trainer_sales_order || [];
+                const staffRows = (staffSalesOrder && staffSalesOrder.length) ? staffSalesOrder : staffPayroll;
+                const trainerRows = (trainerSalesOrder && trainerSalesOrder.length) ? trainerSalesOrder : trainerPayroll;
 
                 const conversion = totals.conversion || {};
                 const approvalRate = toNumber(conversion.approval || 0);
@@ -940,8 +862,9 @@
                 );
 
                 const staffTable = buildTable(
-                    ['Staff', 'Code', 'Runs', 'Gross', 'Net', 'App cut'],
-                    (staffPayroll || []).map((row) => [
+                    ['#', 'Staff', 'Code', 'Runs', 'Gross', 'Net', 'App cut'],
+                    (staffRows || []).map((row, idx) => [
+                        idx + 1,
                         row.name || '—',
                         row.user_code || '—',
                         row.run_count ?? 0,
@@ -953,8 +876,9 @@
                 );
 
                 const trainerTable = buildTable(
-                    ['Trainer', 'Code', 'Runs', 'Gross', 'Net', 'App cut'],
-                    (trainerPayroll || []).map((row) => [
+                    ['#', 'Trainer', 'Code', 'Runs', 'Gross', 'Net', 'App cut'],
+                    (trainerRows || []).map((row, idx) => [
+                        idx + 1,
                         row.name || '—',
                         row.user_code || '—',
                         row.run_count ?? 0,
@@ -963,30 +887,6 @@
                         formatMoney(row.app_cut),
                     ]),
                     'No trainer payroll runs in this window.'
-                );
-
-                const staffOrderTable = buildTable(
-                    ['#', 'Staff', 'Code', 'Runs', 'Net'],
-                    (staffSalesOrder || []).map((row, idx) => [
-                        idx + 1,
-                        row.name || '—',
-                        row.user_code || '—',
-                        row.run_count ?? 0,
-                        formatMoney(row.net),
-                    ]),
-                    'No staff payroll to order.'
-                );
-
-                const trainerOrderTable = buildTable(
-                    ['#', 'Trainer', 'Code', 'Runs', 'Net'],
-                    (trainerSalesOrder || []).map((row, idx) => [
-                        idx + 1,
-                        row.name || '—',
-                        row.user_code || '—',
-                        row.run_count ?? 0,
-                        formatMoney(row.net),
-                    ]),
-                    'No trainer payroll to order.'
                 );
 
                 const html = `
@@ -1109,20 +1009,12 @@
                                     ${memberTable}
                                 </div>
                                 <div class="section">
-                                    <div class="section-title">Staffs</div>
+                                    <div class="section-title">Staffs (${filters.staff_order === 'least' ? 'Least net first' : 'Most net first'})</div>
                                     ${staffTable}
                                 </div>
                                 <div class="section">
-                                    <div class="section-title">Trainers</div>
+                                    <div class="section-title">Trainers (${filters.trainer_order === 'least' ? 'Least net first' : 'Most net first'})</div>
                                     ${trainerTable}
-                                </div>
-                                <div class="section">
-                                    <div class="section-title">Staff sales order (${filters.staff_order === 'least' ? 'Least net first' : 'Most net first'})</div>
-                                    ${staffOrderTable}
-                                </div>
-                                <div class="section">
-                                    <div class="section-title">Trainer sales order (${filters.trainer_order === 'least' ? 'Least net first' : 'Most net first'})</div>
-                                    ${trainerOrderTable}
                                 </div>
                             </div>
                             <script>window.print();<\/script>
