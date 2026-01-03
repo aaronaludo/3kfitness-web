@@ -561,6 +561,7 @@
                     const colors = palette && palette.length
                         ? palette
                         : ['#0d6efd', '#198754', '#dc3545', '#fd7e14', '#6f42c1'];
+
                     const slices = (labels || []).map((label, idx) => ({
                         label: label || `Slice ${idx + 1}`,
                         value: toNumber(values[idx]),
@@ -572,14 +573,26 @@
                         return '<div class="muted" style="font-size:12px;">No data available</div>';
                     }
 
-                    let currentAngle = 0;
-                    const gradients = slices.map((slice) => {
-                        const start = currentAngle;
-                        const angle = (slice.value / total) * 360;
-                        const end = start + angle;
-                        currentAngle = end;
-                        return `${slice.color} ${start}deg ${end}deg`;
-                    }).join(', ');
+                    const radius = 80;
+                    const circumference = 2 * Math.PI * radius;
+                    let offset = 0;
+
+                    const arcs = slices.map((slice) => {
+                        const length = (slice.value / total) * circumference;
+                        const arc = `
+                            <circle
+                                class="pie-slice"
+                                r="${radius}"
+                                cx="100"
+                                cy="100"
+                                stroke="${slice.color}"
+                                stroke-dasharray="${length} ${circumference - length}"
+                                stroke-dashoffset="-${offset}"
+                            ></circle>
+                        `;
+                        offset += length;
+                        return arc;
+                    }).join('');
 
                     const legend = slices.map((slice) => `
                         <div class="legend-row">
@@ -590,7 +603,10 @@
 
                     return `
                         <div class="pie-wrapper">
-                            <div class="pie" style="background: conic-gradient(${gradients});"></div>
+                            <svg class="pie-svg" viewBox="0 0 200 200" role="img" aria-label="Pie chart">
+                                <circle class="pie-ring" r="${radius}" cx="100" cy="100"></circle>
+                                ${arcs}
+                            </svg>
                             <div class="legend">${legend}</div>
                         </div>
                     `;
@@ -632,7 +648,9 @@
                                 .chart-block { border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; margin-top: 16px; }
                                 .chart-title { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
                                 .pie-wrapper { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-                                .pie { width: 180px; height: 180px; border-radius: 50%; background: radial-gradient(circle at center, #fff 45%, #f3f4f6 46%); box-shadow: inset 0 0 0 1px #e5e7eb; }
+                                .pie-svg { width: 180px; height: 180px; transform: rotate(-90deg); }
+                                .pie-ring { fill: none; stroke: #e5e7eb; stroke-width: 28; }
+                                .pie-slice { fill: none; stroke-width: 28; stroke-linecap: butt; }
                                 .legend { display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #374151; }
                                 .legend-row { display: flex; align-items: center; gap: 8px; }
                                 .legend-swatch { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
