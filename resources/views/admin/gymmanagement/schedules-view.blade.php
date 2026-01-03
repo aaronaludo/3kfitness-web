@@ -331,6 +331,8 @@
                 ->values()
                 ->all();
         }
+        $sessionCount = is_array($sessionOccurrences) ? count($sessionOccurrences) : 0;
+        $sessionLimit = 10;
     @endphp
 
     <div class="container-fluid">
@@ -366,9 +368,11 @@
                         {{ $adminStatus }}
                     </span>
                     <div class="d-flex flex-wrap gap-2 justify-content-end">
-                        <a href="{{ route('admin.gym-management.schedules.edit', $data->id) }}" class="btn btn-light text-danger fw-semibold">
-                            <i class="fa-solid fa-pen-to-square me-1"></i>Edit
-                        </a>
+                        @if($sessionCount > $sessionLimit)
+                            <a href="#session-series" class="btn btn-light">
+                                <i class="fa-solid fa-calendar-week me-1"></i>Show more sessions
+                            </a>
+                        @endif
                         <a href="{{ route('admin.gym-management.schedules.users', $data->id) }}" class="btn btn-outline-light">
                             <i class="fa-solid fa-users me-1"></i>Enrollees
                         </a>
@@ -489,7 +493,7 @@
             </div>
         </div>
 
-        <div class="detail-card mt-4">
+        <div class="detail-card mt-4" id="session-series">
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
                 <div>
                     <h5 class="mb-1">Series of sessions</h5>
@@ -504,9 +508,12 @@
             </div>
 
             @if(count($sessionOccurrences))
-                <div class="d-flex flex-column gap-3">
+                <div class="d-flex flex-column gap-3 session-list">
                     @foreach($sessionOccurrences as $index => $session)
-                        <div class="d-flex align-items-start gap-3">
+                        @php
+                            $isHiddenSession = $sessionCount > $sessionLimit && $index >= $sessionLimit;
+                        @endphp
+                        <div class="d-flex align-items-start gap-3 {{ $isHiddenSession ? 'd-none extra-session' : '' }}">
                             <div class="d-flex flex-column align-items-center">
                                 <span class="rounded-circle bg-danger" style="width: 10px; height: 10px;"></span>
                                 @if($index < count($sessionOccurrences) - 1)
@@ -536,10 +543,57 @@
                             </div>
                         </div>
                     @endforeach
+                    @if($sessionCount > $sessionLimit)
+                        <button
+                            type="button"
+                            class="btn btn-outline-secondary btn-sm align-self-start"
+                            id="session-toggle-btn"
+                            data-expanded-text="Show less sessions"
+                            data-collapsed-text="Show more sessions"
+                        >
+                            <i class="fa-solid fa-ellipsis-h me-1"></i><span class="label-text">Show more sessions</span>
+                        </button>
+                    @endif
                 </div>
             @else
                 <div class="text-muted">No sessions generated yet. Add a series window and cadence to preview occurrences.</div>
             @endif
         </div>
     </div>
+@endsection
+
+@section('scripts')
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var toggleBtn = document.getElementById('session-toggle-btn');
+            if (!toggleBtn) {
+                return;
+            }
+
+            var hiddenItems = document.querySelectorAll('.session-list .extra-session');
+            var labelEl = toggleBtn.querySelector('.label-text');
+            var expandedText = toggleBtn.getAttribute('data-expanded-text') || 'Show less sessions';
+            var collapsedText = toggleBtn.getAttribute('data-collapsed-text') || 'Show more sessions';
+            var expanded = false;
+
+            var setState = function (show) {
+                hiddenItems.forEach(function (item) {
+                    item.classList.toggle('d-none', !show);
+                });
+
+                if (labelEl) {
+                    labelEl.textContent = show ? expandedText : collapsedText;
+                } else {
+                    toggleBtn.textContent = show ? expandedText : collapsedText;
+                }
+            };
+
+            setState(expanded);
+
+            toggleBtn.addEventListener('click', function () {
+                expanded = !expanded;
+                setState(expanded);
+            });
+        });
+    </script>
 @endsection
