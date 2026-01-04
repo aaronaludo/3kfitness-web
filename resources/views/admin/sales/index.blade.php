@@ -188,7 +188,7 @@
                                 </select>
                             </div>
                             <div class="col-12 col-lg-3">
-                                <label for="staff-sales-order" class="form-label small text-muted mb-1">Staff sales order</label>
+                                <label for="staff-sales-order" class="form-label small text-muted mb-1">Staff memberships payment order</label>
                                 <select id="staff-sales-order" name="staff_sales_order" class="form-select">
                                     <option value="">All staff</option>
                                     <option value="most" {{ request('staff_sales_order') === 'most' ? 'selected' : '' }}>Most sales first</option>
@@ -196,11 +196,11 @@
                                 </select>
                             </div>
                             <div class="col-12 col-lg-3">
-                                <label for="trainer-sales-order" class="form-label small text-muted mb-1">Trainer sales order</label>
+                                <label for="trainer-sales-order" class="form-label small text-muted mb-1">Trainer app cut order</label>
                                 <select id="trainer-sales-order" name="trainer_sales_order" class="form-select">
                                     <option value="">All trainers</option>
-                                    <option value="most" {{ request('trainer_sales_order') === 'most' ? 'selected' : '' }}>Most sales first</option>
-                                    <option value="least" {{ request('trainer_sales_order') === 'least' ? 'selected' : '' }}>Least sales first</option>
+                                    <option value="most" {{ request('trainer_sales_order') === 'most' ? 'selected' : '' }}>Highest app cut first</option>
+                                    <option value="least" {{ request('trainer_sales_order') === 'least' ? 'selected' : '' }}>Lowest app cut first</option>
                                 </select>
                             </div>
                             <div class="col-12 col-lg-3 d-flex gap-2 flex-wrap">
@@ -470,12 +470,12 @@
                         </div>
                     </div>
                     <div class="col-12 col-lg-6">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="fw-semibold">Staffs</div>
-                                    <small class="text-muted">{{ ($filters['staff_sales_order'] ?? '') === 'least' ? 'Least net first' : 'Most net first' }}</small>
-                                </div>
+                                <div class="card shadow-sm h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <div class="fw-semibold">Staffs</div>
+                                            <small class="text-muted">{{ ($filters['staff_sales_order'] ?? '') === 'least' ? 'Lowest membership payments first' : 'Highest membership payments first' }}</small>
+                                        </div>
                                 @php $staffPaymentModals = []; @endphp
                                 <div class="table-responsive">
                                     <table class="table table-sm align-middle mb-0">
@@ -603,12 +603,12 @@
                         @endforeach
                     </div>
                     <div class="col-12 col-lg-6">
-                        <div class="card shadow-sm h-100">
-                            <div class="card-body">
-                                <div class="d-flex justify-content-between align-items-center mb-2">
-                                    <div class="fw-semibold">Trainers</div>
-                                    <small class="text-muted">{{ ($filters['trainer_sales_order'] ?? '') === 'least' ? 'Least net first' : 'Most net first' }}</small>
-                                </div>
+                                <div class="card shadow-sm h-100">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between align-items-center mb-2">
+                                            <div class="fw-semibold">Trainers</div>
+                                            <small class="text-muted">{{ ($filters['trainer_sales_order'] ?? '') === 'least' ? 'Lowest app cut first' : 'Highest app cut first' }}</small>
+                                        </div>
                                 <div class="table-responsive">
                                     <table class="table table-sm align-middle mb-0">
                                         <thead>
@@ -776,10 +776,10 @@
                     chips.push(`Trainer: ${filters.trainer}`);
                 }
                 if (filters.staff_order) {
-                    chips.push(`Staff rank: ${filters.staff_order === 'least' ? 'Least sales' : 'Most sales'}`);
+                    chips.push(`Staff membership payments: ${filters.staff_order === 'least' ? 'Lowest first' : 'Highest first'}`);
                 }
                 if (filters.trainer_order) {
-                    chips.push(`Trainer rank: ${filters.trainer_order === 'least' ? 'Least sales' : 'Most sales'}`);
+                    chips.push(`Trainer app cut: ${filters.trainer_order === 'least' ? 'Lowest first' : 'Highest first'}`);
                 }
                 return chips.map((chip) => `<span class="pill">${chip}</span>`).join('') || '<span class="muted">No filters applied</span>';
             }
@@ -1092,11 +1092,11 @@
                                     ${memberTable}
                                 </div>
                                 <div class="section">
-                                    <div class="section-title">Staffs (${filters.staff_order === 'least' ? 'Least net first' : 'Most net first'})</div>
+                                    <div class="section-title">Staffs (${filters.staff_order === 'least' ? 'Lowest membership payments first' : 'Highest membership payments first'})</div>
                                     ${staffTable}
                                 </div>
                                 <div class="section">
-                                    <div class="section-title">Trainers (${filters.trainer_order === 'least' ? 'Least net first' : 'Most net first'})</div>
+                                    <div class="section-title">Trainers (${filters.trainer_order === 'least' ? 'Lowest app cut first' : 'Highest app cut first'})</div>
                                     ${trainerTable}
                                 </div>
                             </div>

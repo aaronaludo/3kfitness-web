@@ -444,13 +444,25 @@ class SalesController extends Controller
             ->sortBy('name')
             ->values();
 
-        $staffSalesOrderRows = ($filters['staff_sales_order'] === 'least')
-            ? $staffPayrollRows->sortBy('net')->values()
-            : $staffPayrollRows->sortByDesc('net')->values();
+        $staffSalesOrderRows = $staffPayrollRows
+            ->sortBy(
+                function ($row) {
+                    return (float) ($row['membership_payments']['total'] ?? 0);
+                },
+                SORT_REGULAR,
+                ($filters['staff_sales_order'] ?? '') !== 'least'
+            )
+            ->values();
 
-        $trainerSalesOrderRows = ($filters['trainer_sales_order'] === 'least')
-            ? $trainerPayrollRows->sortBy('net')->values()
-            : $trainerPayrollRows->sortByDesc('net')->values();
+        $trainerSalesOrderRows = $trainerPayrollRows
+            ->sortBy(
+                function ($row) {
+                    return (float) ($row['app_cut'] ?? 0);
+                },
+                SORT_REGULAR,
+                ($filters['trainer_sales_order'] ?? '') !== 'least'
+            )
+            ->values();
 
         $perPage = max((int) $request->input('per_page', 10), 1);
         $paginateCollection = function ($collection, string $pageName) use ($perPage, $request) {
