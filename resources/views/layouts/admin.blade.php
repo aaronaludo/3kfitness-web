@@ -20,6 +20,13 @@
             background: linear-gradient(135deg, #ff6b6b 0%, #ff8787 45%, #ffe066 100%);
             box-shadow: 0 12px 30px rgba(255, 118, 118, 0.25);
             border-bottom: none;
+            position: sticky !important;
+            top: 0;
+            z-index: 1030;
+        }
+
+        #wrapper {
+            overflow: visible !important; /* allow sticky header to work while sidebar stays fixed */
         }
 
         #header-logo-img {
@@ -405,15 +412,6 @@
             </div>
         </header>
         <nav id="column-left">
-            <div class="sidebar-brand">
-                <div class="sidebar-brand__logo">
-                    <img src="{{ asset('assets/images/icon.png') }}" alt="3K Fitness logo" />
-                </div>
-                <div class="sidebar-brand__text">
-                    <span class="sidebar-brand__title">3K FITNESS</span>
-                    <span class="sidebar-brand__tagline">STRONGER EVERY SESSION</span>
-                </div>
-            </div>
             @php
                 $gymRoutes = [
                     'admin.gym-management.index',

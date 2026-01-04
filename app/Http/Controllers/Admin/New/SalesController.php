@@ -38,6 +38,7 @@ class SalesController extends Controller
             'staff_sales_order' => $request->input('staff_sales_order'),
             'trainer_sales_order' => $request->input('trainer_sales_order'),
         ];
+        $hasMembershipFilter = !empty($filters['membership_id']);
 
         // Defaults: last 30 days
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : Carbon::now()->subDays(29)->startOfDay();
@@ -352,7 +353,7 @@ class SalesController extends Controller
             ->values();
 
         $staffMembershipPayments = $staffPayrollRows
-            ->mapWithKeys(function ($staffRow) use ($paymentRecords, $payrollRuns) {
+            ->mapWithKeys(function ($staffRow) use ($paymentRecords, $payrollRuns, $filters, $hasMembershipFilter) {
                 $staffId = $staffRow['id'] ?? null;
                 $staffCode = strtolower($staffRow['user_code'] ?? '');
 
@@ -366,31 +367,51 @@ class SalesController extends Controller
                     }
                 }
 
-                $items = $storedItems->isNotEmpty()
-                    ? $storedItems->values()
-                    : $paymentRecords
-                        ->filter(function ($payment) use ($staffCode) {
-                            $createdBy = strtolower(trim($payment->created_by ?? ''));
-                            return $staffCode !== '' && $createdBy === $staffCode;
-                        })
-                        ->map(function ($payment) {
-                            $member = $payment->user;
-                            $membership = $payment->membership;
-                            $currency = $membership->currency ?? 'PHP';
-                            $price = (float) ($membership->price ?? 0);
+                // Ensure stored items carry membership_id when available so filters can apply
+                $storedItems = $storedItems->map(function ($item) use ($paymentRecords) {
+                    if (!isset($item['membership_id']) && isset($item['id'])) {
+                        $match = $paymentRecords->firstWhere('id', $item['id']);
+                        if ($match) {
+                            $item['membership_id'] = $match->membership_id;
+                        }
+                    }
+                    return $item;
+                });
 
-                            return [
-                                'id' => $payment->id,
-                                'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
-                                'member_code' => $member->user_code ?? '—',
-                                'membership' => $membership->name ?? '—',
-                                'currency' => $currency,
-                                'price' => $price,
-                                'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
-                                'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
-                            ];
-                        })
-                        ->values();
+                $filteredStoredItems = $hasMembershipFilter
+                    ? $storedItems->filter(function ($item) use ($filters) {
+                        return isset($item['membership_id']) && (string) $item['membership_id'] === (string) $filters['membership_id'];
+                    })->values()
+                    : $storedItems->values();
+
+                $fallbackItems = $paymentRecords
+                    ->filter(function ($payment) use ($staffCode) {
+                        $createdBy = strtolower(trim($payment->created_by ?? ''));
+                        return $staffCode !== '' && $createdBy === $staffCode;
+                    })
+                    ->map(function ($payment) {
+                        $member = $payment->user;
+                        $membership = $payment->membership;
+                        $currency = $membership->currency ?? 'PHP';
+                        $price = (float) ($membership->price ?? 0);
+
+                        return [
+                            'id' => $payment->id,
+                            'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
+                            'member_code' => $member->user_code ?? '—',
+                            'membership' => $membership->name ?? '—',
+                            'membership_id' => $membership->id ?? null,
+                            'currency' => $currency,
+                            'price' => $price,
+                            'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
+                            'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
+                        ];
+                    })
+                    ->values();
+
+                $items = $hasMembershipFilter
+                    ? ($filteredStoredItems->isNotEmpty() ? $filteredStoredItems : $fallbackItems)
+                    : ($storedItems->isNotEmpty() ? $storedItems->values() : $fallbackItems);
 
                 $total = $items->sum(fn ($item) => $item['price'] ?? 0);
                 $firstItem = $items->first();
