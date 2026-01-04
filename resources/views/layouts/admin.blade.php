@@ -298,12 +298,61 @@
                 width: 100%;
             }
 
+            #header.admin-header {
+                padding: 8px 10px;
+            }
+
+            #header > .container-fluid {
+                flex-wrap: nowrap;
+                align-items: center;
+                gap: 8px;
+            }
+
             .header-actions {
-                width: 100%;
-                margin-top: 10px;
-                flex-direction: column;
-                align-items: flex-start;
+                width: auto;
+                margin-top: 0;
+                flex-direction: row;
+                flex-wrap: nowrap;
+                align-items: center;
                 justify-content: flex-start;
+                gap: 8px;
+                white-space: nowrap;
+            }
+
+            .datetime-chip {
+                padding: 6px 10px;
+                font-size: 0.75rem;
+            }
+
+            .datetime-chip__icon {
+                width: 22px;
+                height: 22px;
+                font-size: 0.75rem;
+            }
+
+            .datetime-chip .live-clock {
+                font-size: 0.9rem;
+            }
+
+            .datetime-chip .live-date {
+                font-size: 0.7rem;
+            }
+
+            .header-actions .nav-link {
+                font-size: 0.9rem;
+                padding: 0;
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+            }
+
+            .header-actions img.rounded-circle {
+                width: 28px;
+                height: 28px;
+            }
+
+            .header-actions .badge {
+                font-size: 0.75rem;
             }
         }
 
