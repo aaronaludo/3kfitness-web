@@ -277,18 +277,23 @@
                 ];
                 $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
 
-                $monthFilterOptions = collect(range(0, 11))->map(function ($offset) {
-                    $month = now()->subMonths($offset);
-                    return [
-                        'value' => $month->format('Y-m'),
-                        'label' => $month->format('F Y'),
-                        'start' => $month->copy()->startOfMonth()->format('Y-m-d'),
-                        'end' => $month->copy()->endOfMonth()->format('Y-m-d'),
-                    ];
-                });
+                $baseMonth = now()->startOfMonth();
+                $monthFilterOptions = collect(range(-12, 24))
+                    ->map(function ($offset) use ($baseMonth) {
+                        $month = $baseMonth->copy()->addMonths($offset);
+                        return [
+                            'value' => $month->format('Y-m'),
+                            'label' => $month->format('F Y'),
+                            'start' => $month->copy()->startOfMonth()->format('Y-m-d'),
+                            'end' => $month->copy()->endOfMonth()->format('Y-m-d'),
+                        ];
+                    })
+                    ->sortByDesc('start')
+                    ->values();
                 $monthFilterSelection = request('month_filter');
                 $startFilterValue = request('start_date');
                 $endFilterValue = request('end_date');
+                $currentMonthValue = $baseMonth->format('Y-m');
 
                 if (!$monthFilterSelection) {
                     $matchedMonth = $monthFilterOptions->first(function ($option) use ($startFilterValue, $endFilterValue) {
@@ -302,7 +307,7 @@
                     } elseif ($startFilterValue || $endFilterValue) {
                         $monthFilterSelection = 'custom';
                     } else {
-                        $monthFilterSelection = $monthFilterOptions->first()['value'] ?? null;
+                        $monthFilterSelection = $currentMonthValue;
                     }
                 }
             @endphp

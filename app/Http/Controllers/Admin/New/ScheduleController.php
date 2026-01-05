@@ -71,6 +71,7 @@ class ScheduleController extends Controller
         $startDate     = $request->input('start_date');
         $endDate       = $request->input('end_date');
         $status        = $request->input('status', 'all');
+        $monthFilter   = $request->input('month_filter');
 
         if (empty($status)) {
             $status = 'all';
@@ -111,6 +112,8 @@ class ScheduleController extends Controller
             ]);
         }
     
+        $useMonthOverlap = $monthFilter && $monthFilter !== 'all' && $monthFilter !== 'custom';
+
         $classescreatedbyadmin = Schedule::where('created_role', 'Admin')
             ->where('is_archieve', 0)
             ->count();
@@ -118,7 +121,7 @@ class ScheduleController extends Controller
             ->where('is_archieve', 0)
             ->count();
 
-        $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn) {
+        $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn, $useMonthOverlap) {
             return $query
                 ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
                     if ($searchColumn === 'trainer_name') {
@@ -147,7 +150,12 @@ class ScheduleController extends Controller
                     }
                     return $query->where($searchColumn, 'like', "%{$search}%");
                 })
-                ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
+                ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn, $useMonthOverlap) {
+                    // When month overlap is on, we filter by date range later in-memory to include reschedules.
+                    if ($useMonthOverlap) {
+                        return $query;
+                    }
+
                     if ($startDate) {
                         $query->whereDate($rangeColumn, '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
                     }
@@ -222,6 +230,11 @@ class ScheduleController extends Controller
             ->get()
             ->map($mapSchedule)
             ->map($attachComputedStatus);
+
+        if ($useMonthOverlap && ($startDate || $endDate)) {
+            $activeCollection = $this->filterSchedulesByDateRange($activeCollection, $startDate, $endDate);
+            $archivedCollection = $this->filterSchedulesByDateRange($archivedCollection, $startDate, $endDate);
+        }
 
         $statusTalliesCollection = $request->boolean('show_archived')
             ? $archivedCollection
@@ -943,6 +956,98 @@ class ScheduleController extends Controller
             }
 
             return $end->endOfDay();
+        } catch (\Throwable $th) {
+            return null;
+        }
+    }
+
+    /**
+     * Filter schedules by a date window, considering series/class dates and reschedule overrides.
+     */
+    private function filterSchedulesByDateRange(Collection $collection, ?string $startDate, ?string $endDate): Collection
+    {
+        if (!$startDate && !$endDate) {
+            return $collection->values();
+        }
+
+        $start = $startDate ? $this->safeParseDate($startDate, true) : null;
+        $end = $endDate ? $this->safeParseDate($endDate, false) : null;
+
+        return $collection
+            ->filter(function ($schedule) use ($start, $end) {
+                [$windowStart, $windowEnd] = $this->computeScheduleWindowWithOverrides($schedule);
+
+                if ($start && $windowEnd && $windowEnd->lt($start)) {
+                    return false;
+                }
+
+                if ($end && $windowStart && $windowStart->gt($end)) {
+                    return false;
+                }
+
+                return true;
+            })
+            ->values();
+    }
+
+    /**
+     * Compute a schedule's earliest and latest relevant dates, including reschedule overrides.
+     */
+    private function computeScheduleWindowWithOverrides(Schedule $schedule): array
+    {
+        $dates = [];
+
+        $seriesStart = $schedule->series_start_date ?? $schedule->class_start_date;
+        $seriesEnd = $schedule->series_end_date ?? ($schedule->class_end_date ?? $schedule->class_start_date);
+
+        $dates[] = $this->safeParseDate($seriesStart, true);
+        $dates[] = $this->safeParseDate($seriesEnd, false);
+
+        $overridesRaw = is_array($schedule->session_overrides)
+            ? $schedule->session_overrides
+            : json_decode($schedule->session_overrides ?? '[]', true);
+
+        foreach ($overridesRaw as $override) {
+            if (is_object($override)) {
+                $override = (array) $override;
+            }
+
+            if (!is_array($override)) {
+                continue;
+            }
+
+            foreach (['original_date', 'new_date'] as $dateKey) {
+                $dates[] = $this->safeParseDate($override[$dateKey] ?? null, $dateKey === 'original_date');
+            }
+        }
+
+        $dates = collect($dates)->filter()->values();
+
+        if ($dates->isEmpty()) {
+            return [null, null];
+        }
+
+        $min = $dates->min();
+        $max = $dates->max();
+
+        return [
+            $min ? $min->copy()->startOfDay() : null,
+            $max ? $max->copy()->endOfDay() : null,
+        ];
+    }
+
+    /**
+     * Safely parse a date value.
+     */
+    private function safeParseDate($value, bool $startOfDay = true): ?Carbon
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            $dt = Carbon::parse($value);
+            return $startOfDay ? $dt->startOfDay() : $dt->endOfDay();
         } catch (\Throwable $th) {
             return null;
         }
