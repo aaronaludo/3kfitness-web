@@ -524,7 +524,8 @@ class ScheduleController extends Controller
         $data->trainer_id = $request->trainer_id;
         $data->class_code = $request->class_code;
         $data->trainer_rate_per_hour = $trainerRate;
-        $data->isadminapproved = $request->trainer_id == 0 ? 0 : 1;
+        $data->isadminapproved = 1;
+        $data->istrainerapproved = 0;
     
         if ($request->hasFile('image')) {
             $image = $request->file('image');

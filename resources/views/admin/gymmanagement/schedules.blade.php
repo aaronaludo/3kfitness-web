@@ -855,6 +855,11 @@
                             border-color: #7bb8f7;
                             color: #0b3c6f;
                         }
+                        .pill-chip-danger {
+                            background: #f8d7da;
+                            border-color: #f5c2c7;
+                            color: #842029;
+                        }
                         .pill-chip-muted {
                             background: #dbe2ee;
                             border-color: #c8d1e0;
@@ -1216,7 +1221,13 @@
                                                     ? '—'
                                                     : ($trainer->user_code ?? '—');
                                                 $hasEnrolledUsers = ($item->user_schedules_count ?? 0) > 0;
-                                                $isAwaitingAcceptance = (int) ($item->isadminapproved ?? 0) === 0;
+                                                $trainerAcceptanceStatus = (int) ($item->istrainerapproved ?? 0);
+                                                $trainerAcceptanceMap = [
+                                                    0 => ['label' => "Waiting for the acceptance of the trainer", 'class' => 'pill-chip-muted'],
+                                                    1 => ['label' => "Trainer's approved", 'class' => 'pill-chip-success'],
+                                                    2 => ['label' => "Trainer's rejected", 'class' => 'pill-chip-danger'],
+                                                ];
+                                                $trainerAcceptancePill = $trainerAcceptanceMap[$trainerAcceptanceStatus] ?? $trainerAcceptanceMap[0];
                                             @endphp
                                             <tr>
                                                 <td>{{ $item->id }}</td>
@@ -1264,71 +1275,75 @@
                                                     </div>
                                                 </td>
                                                 <td class="small">
-                                                    @if($isAwaitingAcceptance)
-                                                        <span class="pill-chip pill-chip-muted">Still waiting for acceptance</span>
-                                                    @elseif(count($allSessionOccurrences))
-                                                        @php
-                                                            $seriesPillClass = match ($scheduleStatus) {
-                                                                'Ongoing' => 'pill-chip-info',
-                                                                'Completed' => 'pill-chip-success',
-                                                                'Upcoming' => 'pill-chip-warning',
-                                                                default => 'pill-chip-muted',
-                                                            };
-                                                        @endphp
-                                                        <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
-                                                            <span class="pill-chip {{ $seriesPillClass }}">{{ $scheduleStatus }}</span>
-                                                        </div>
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-link btn-sm px-0 text-decoration-none"
-                                                                data-bs-toggle="collapse"
-                                                                data-bs-target="#session-series-{{ $item->id }}"
-                                                                aria-expanded="false"
-                                                                aria-controls="session-series-{{ $item->id }}"
-                                                                data-session-toggle
-                                                                data-collapsed-text="Show all sessions"
-                                                                data-expanded-text="Hide sessions"
-                                                            >
-                                                                Show all sessions
-                                                            </button>
-                                                        </div>
-                                                        <div class="collapse mt-2" id="session-series-{{ $item->id }}">
-                                                            <div class="border rounded-3 p-2 bg-light-subtle" style="max-height: 260px; overflow: auto;">
-                                                                <div class="d-flex flex-column gap-2">
-                                                                    @foreach($allSessionOccurrences as $fullIndex => $session)
-                                                                        <div class="d-flex align-items-start gap-2">
-                                                                            <div class="d-flex flex-column align-items-center me-1">
-                                                                                <span class="rounded-circle bg-primary" style="width: 10px; height: 10px;"></span>
-                                                                                @if($fullIndex < count($allSessionOccurrences) - 1)
-                                                                                    <span class="mt-1" style="width: 2px; height: 20px; background-color: #e9ecef;"></span>
-                                                                                @endif
-                                                                            </div>
-                                                                            <div>
-                                                                                @php
-                                                                                    $isRescheduled = !empty($session['is_rescheduled']);
-                                                                                    $rescheduleTarget = $session['reschedule_target_label'] ?? null;
-                                                                                    $rescheduledFrom = $session['rescheduled_from'] ?? null;
-                                                                                @endphp
-                                                                                <div class="fw-semibold {{ $isRescheduled ? 'text-decoration-line-through text-muted' : '' }}">{{ $session['label'] }}</div>
-                                                                                <div class="text-muted small">
-                                                                                    {{ $session['weekday'] }}{{ $session['time'] ? ' • ' . $session['time'] : '' }}
-                                                                                    @if($isRescheduled && $rescheduleTarget)
-                                                                                        <span class="ms-2 fst-italic">→ {{ $rescheduleTarget }}</span>
-                                                                                    @elseif(!$isRescheduled && $rescheduledFrom)
-                                                                                        <span class="ms-2 fst-italic">From {{ $rescheduledFrom }}</span>
+                                                    <div class="d-flex flex-column gap-2">
+                                                        <span class="pill-chip {{ $trainerAcceptancePill['class'] }}">{{ $trainerAcceptancePill['label'] }}</span>
+
+                                                        @if($trainerAcceptanceStatus === 0)
+                                                            {{-- Waiting for trainer acceptance; hide session details until decided --}}
+                                                        @elseif(count($allSessionOccurrences))
+                                                            @php
+                                                                $seriesPillClass = match ($scheduleStatus) {
+                                                                    'Ongoing' => 'pill-chip-info',
+                                                                    'Completed' => 'pill-chip-success',
+                                                                    'Upcoming' => 'pill-chip-warning',
+                                                                    default => 'pill-chip-muted',
+                                                                };
+                                                            @endphp
+                                                            <div class="d-flex align-items-center gap-2 flex-wrap mb-2">
+                                                                <span class="pill-chip {{ $seriesPillClass }}">{{ $scheduleStatus }}</span>
+                                                            </div>
+                                                            <div class="d-flex align-items-center gap-2">
+                                                                <button
+                                                                    type="button"
+                                                                    class="btn btn-link btn-sm px-0 text-decoration-none"
+                                                                    data-bs-toggle="collapse"
+                                                                    data-bs-target="#session-series-{{ $item->id }}"
+                                                                    aria-expanded="false"
+                                                                    aria-controls="session-series-{{ $item->id }}"
+                                                                    data-session-toggle
+                                                                    data-collapsed-text="Show all sessions"
+                                                                    data-expanded-text="Hide sessions"
+                                                                >
+                                                                    Show all sessions
+                                                                </button>
+                                                            </div>
+                                                            <div class="collapse mt-2" id="session-series-{{ $item->id }}">
+                                                                <div class="border rounded-3 p-2 bg-light-subtle" style="max-height: 260px; overflow: auto;">
+                                                                    <div class="d-flex flex-column gap-2">
+                                                                        @foreach($allSessionOccurrences as $fullIndex => $session)
+                                                                            <div class="d-flex align-items-start gap-2">
+                                                                                <div class="d-flex flex-column align-items-center me-1">
+                                                                                    <span class="rounded-circle bg-primary" style="width: 10px; height: 10px;"></span>
+                                                                                    @if($fullIndex < count($allSessionOccurrences) - 1)
+                                                                                        <span class="mt-1" style="width: 2px; height: 20px; background-color: #e9ecef;"></span>
                                                                                     @endif
                                                                                 </div>
-                                                                                <span class="badge {{ $session['status_class'] }} px-2 py-1">{{ $session['status'] }}</span>
+                                                                                <div>
+                                                                                    @php
+                                                                                        $isRescheduled = !empty($session['is_rescheduled']);
+                                                                                        $rescheduleTarget = $session['reschedule_target_label'] ?? null;
+                                                                                        $rescheduledFrom = $session['rescheduled_from'] ?? null;
+                                                                                    @endphp
+                                                                                    <div class="fw-semibold {{ $isRescheduled ? 'text-decoration-line-through text-muted' : '' }}">{{ $session['label'] }}</div>
+                                                                                    <div class="text-muted small">
+                                                                                        {{ $session['weekday'] }}{{ $session['time'] ? ' • ' . $session['time'] : '' }}
+                                                                                        @if($isRescheduled && $rescheduleTarget)
+                                                                                            <span class="ms-2 fst-italic">→ {{ $rescheduleTarget }}</span>
+                                                                                        @elseif(!$isRescheduled && $rescheduledFrom)
+                                                                                            <span class="ms-2 fst-italic">From {{ $rescheduledFrom }}</span>
+                                                                                        @endif
+                                                                                    </div>
+                                                                                    <span class="badge {{ $session['status_class'] }} px-2 py-1">{{ $session['status'] }}</span>
+                                                                                </div>
                                                                             </div>
-                                                                        </div>
-                                                                    @endforeach
+                                                                        @endforeach
+                                                                    </div>
                                                                 </div>
                                                             </div>
-                                                        </div>
-                                                    @else
-                                                        <span class="text-muted">Series not set</span>
-                                                    @endif
+                                                        @else
+                                                            <span class="text-muted">Series not set</span>
+                                                        @endif
+                                                    </div>
                                                 </td>
                                                 <td class="small">
                                                     <div class="fw-semibold">{{ $item->slots }} slots</div>

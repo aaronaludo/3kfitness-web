@@ -283,7 +283,6 @@
                                     <label for="trainer_id" class="col-sm-12 col-lg-2 col-form-label">Trainer: <span class="required">*</span></label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
                                         <select class="form-control" id="trainer_id" name="trainer_id" required>
-                                            <option value="0" {{ old('trainer_id', '0') == '0' ? 'selected' : '' }}>No Trainer for Now</option>
                                             @foreach($trainers as $trainer)
                                                 @php
                                                     $trainerIsArchived = (int) ($trainer->is_archive ?? 0) === 1;

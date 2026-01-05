@@ -374,7 +374,6 @@
                                             $selectedTrainerId = old('trainer_id', $data->trainer_id);
                                         @endphp
                                         <select class="form-control" id="trainer_id" name="trainer_id" required>
-                                            <option value="0" {{ (string) $selectedTrainerId === '0' ? 'selected' : '' }}>No Trainer for Now</option>
                                             @foreach($trainers as $trainer)
                                                 @php
                                                     $trainerIsArchived = (int) ($trainer->is_archive ?? 0) === 1;

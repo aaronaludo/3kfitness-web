@@ -481,7 +481,7 @@ class TrainerClassController extends Controller
     {
         $class->istrainerapproved = 2;
         $class->trainer_id = 0;
-        $class->isadminapproved = 0;
+        $class->isadminapproved = 1;
         $class->trainer_class_start_date = null;
         $class->save();
 
