@@ -278,9 +278,9 @@
                 $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
 
                 $baseMonth = now()->startOfMonth();
-                $monthFilterOptions = collect(range(-12, 24))
+                $monthFilterOptions = collect(range(0, 36)) // current month + past 36 months
                     ->map(function ($offset) use ($baseMonth) {
-                        $month = $baseMonth->copy()->addMonths($offset);
+                        $month = $baseMonth->copy()->subMonths($offset);
                         return [
                             'value' => $month->format('Y-m'),
                             'label' => $month->format('F Y'),
