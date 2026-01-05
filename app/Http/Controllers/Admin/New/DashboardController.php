@@ -125,6 +125,7 @@ class DashboardController extends Controller
         $classes_count = Schedule::count();
         $membership_payment_count = MembershipPayment::where('isapproved', 0)->count();
         $upcomingClasses = Schedule::where('is_archieve', 0)
+            ->where('istrainerapproved', 1)
             ->with('user')
             ->where(function ($query) use ($now) {
                 $query->whereNotNull('class_start_date')

@@ -112,6 +112,7 @@ class ScheduleController extends Controller
             ]);
         }
     
+        $monthFilter = $request->input('month_filter', $monthFilter);
         $useMonthOverlap = $monthFilter && $monthFilter !== 'all' && $monthFilter !== 'custom';
 
         $classescreatedbyadmin = Schedule::where('created_role', 'Admin')
