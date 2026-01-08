@@ -683,11 +683,21 @@ class PayrollController extends Controller
             return round($gross * ($appCutRate / 100), 2);
         });
 
+        $totals = [
+            'gross' => round($printAllRuns->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+            'net' => round($printAllRuns->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+            'sss' => round($printAllRuns->sum(fn ($run) => (float) ($run->deduction_sss ?? 0)), 2),
+            'philhealth' => round($printAllRuns->sum(fn ($run) => (float) ($run->deduction_philhealth ?? 0)), 2),
+            'pagibig' => round($printAllRuns->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
+            'app_cut' => round($appCutTotal, 2),
+        ];
+
         return view('admin.payrolls.index', [
             'runs' => $runs,
             'printAllRuns' => $printAllRuns,
             'deductionSettings' => $deductionSettings,
             'payslipDetails' => $payslipDetails,
+            'totals' => $totals,
         ]);
     }
 

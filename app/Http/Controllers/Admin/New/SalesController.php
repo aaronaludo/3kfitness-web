@@ -596,4 +596,98 @@ class SalesController extends Controller
             'membershipOptions' => $membershipOptions,
         ]);
     }
+
+    public function reports(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date'   => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+        ]);
+
+        $startInput = $request->input('start_date');
+        $endInput   = $request->input('end_date');
+
+        $start = $startInput
+            ? Carbon::createFromFormat('Y-m-d', $startInput)->startOfDay()
+            : Carbon::now()->subDays(29)->startOfDay();
+        $end = $endInput
+            ? Carbon::createFromFormat('Y-m-d', $endInput)->endOfDay()
+            : Carbon::now()->endOfDay();
+        $startValue = $start->toDateString();
+        $endValue = $end->toDateString();
+
+        $paymentsQuery = MembershipPayment::query()
+            ->with([
+                'membership:id,name,price,currency',
+                'user:id,first_name,last_name,user_code',
+            ])
+            ->where('isapproved', 1)
+            ->where('is_archive', 0)
+            ->whereBetween('created_at', [$start, $end])
+            ->orderByDesc('created_at');
+
+        $paymentsPage = $paymentsQuery->paginate(10)->withQueryString();
+
+        $allPayments = (clone $paymentsQuery)->get();
+        $currency = optional($allPayments->first()?->membership)->currency ?: 'PHP';
+        $revenue = $allPayments->sum(function ($payment) {
+            return (float) optional($payment->membership)->price ?: 0.0;
+        });
+
+        $payrollRuns = PayrollRun::query()
+            ->with('user:id,first_name,last_name,user_code,role_id')
+            ->whereBetween(DB::raw('COALESCE(processed_at, created_at)'), [$start, $end])
+            ->get();
+
+        $cost = $payrollRuns->sum(function ($run) {
+            return (float) ($run->net_pay ?? 0);
+        });
+
+        $profit = round($revenue - $cost, 2);
+
+        $mapPayment = function ($payment) use ($currency) {
+            $member = $payment->user;
+            $membership = $payment->membership;
+
+            return [
+                'id' => $payment->id,
+                'member' => $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : '—',
+                'user_code' => $member->user_code ?? '—',
+                'membership' => $membership->name ?? '—',
+                'amount' => number_format((float) ($membership->price ?? 0), 2),
+                'currency' => $membership->currency ?? $currency,
+                'created_at' => optional($payment->created_at)->format('M d, Y g:i A') ?? '—',
+            ];
+        };
+
+        $mappedPage = $paymentsPage->getCollection()->map($mapPayment);
+        $membershipPayments = new LengthAwarePaginator(
+            $mappedPage,
+            $paymentsPage->total(),
+            $paymentsPage->perPage(),
+            $paymentsPage->currentPage(),
+            [
+                'path' => $paymentsPage->path(),
+                'pageName' => $paymentsPage->getPageName(),
+            ]
+        );
+
+        $printAllPayments = $allPayments->map($mapPayment)->values();
+
+        $summary = [
+            'revenue' => round($revenue, 2),
+            'cost' => round($cost, 2),
+            'profit' => $profit,
+            'currency' => $currency,
+            'period_label' => $start->format('M d, Y') . ' → ' . $end->format('M d, Y'),
+        ];
+
+        return view('admin.sales.reports', [
+            'summary' => $summary,
+            'membershipPayments' => $membershipPayments,
+            'membershipPaymentsAll' => $printAllPayments,
+            'startDate' => $startValue,
+            'endDate' => $endValue,
+        ]);
+    }
 }

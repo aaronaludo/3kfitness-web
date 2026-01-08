@@ -109,6 +109,59 @@
                 </div>
             </div>
 
+            <div class="col-12 mb-3">
+                <div class="row g-3">
+                    <div class="col-12 col-md-4 col-xl-2">
+                        <div class="card shadow-sm border-0 rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted text-uppercase small fw-semibold mb-1">Gross</div>
+                                <h4 class="mb-0">₱{{ number_format($totals['gross'] ?? 0, 2) }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 col-xl-2">
+                        <div class="card shadow-sm border-0 rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted text-uppercase small fw-semibold mb-1">Net</div>
+                                <h4 class="mb-0 text-success">₱{{ number_format($totals['net'] ?? 0, 2) }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 col-xl-2">
+                        <div class="card shadow-sm border-0 rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted text-uppercase small fw-semibold mb-1">SSS</div>
+                                <h4 class="mb-0">₱{{ number_format($totals['sss'] ?? 0, 2) }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 col-xl-2">
+                        <div class="card shadow-sm border-0 rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted text-uppercase small fw-semibold mb-1">PhilHealth</div>
+                                <h4 class="mb-0">₱{{ number_format($totals['philhealth'] ?? 0, 2) }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 col-xl-2">
+                        <div class="card shadow-sm border-0 rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted text-uppercase small fw-semibold mb-1">Pag-IBIG</div>
+                                <h4 class="mb-0">₱{{ number_format($totals['pagibig'] ?? 0, 2) }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-4 col-xl-2">
+                        <div class="card shadow-sm border-0 rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted text-uppercase small fw-semibold mb-1">3K Fitness App Cut</div>
+                                <h4 class="mb-0">₱{{ number_format($totals['app_cut'] ?? 0, 2) }}</h4>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="col-12 mb-20">
                 <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-body p-4">

@@ -151,6 +151,7 @@ Route::middleware(['auth:admin'])->group(function () {
     
     // Sales Module
     Route::get('/admin/sales', [Sales::class, 'index'])->name('admin.sales.index');
+    Route::get('/admin/sales/reports', [Sales::class, 'reports'])->name('admin.sales.reports');
 
     Route::get('/admin/staff-account-management/attendances', [Attendance::class, 'index'])->name('admin.staff-account-management.attendances');
     Route::get('/admin/staff-account-management/attendances/scanner', [Attendance::class, 'scanner'])->name('admin.staff-account-management.attendances.scanner');

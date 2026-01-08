@@ -493,7 +493,7 @@
                 $adminManagementRoutes = ['admin.admins.*'];
                 $trainerRoutes = ['admin.trainer-management.*'];
                 $operationsRoutes = ['admin.banners.*', 'admin.trainer-banners.*', 'admin.logs.*'];
-                $salesRoutes = ['admin.sales.index'];
+                $salesRoutes = ['admin.sales.index', 'admin.sales.reports'];
                 $payrollRoutes = ['admin.payrolls.*'];
             @endphp
             <ul id="menu">
@@ -680,9 +680,28 @@
                 @endif
                 @if(auth()->guard('admin')->user()->role_id != 2)
                     <li>
-                        <a href="{{ route('admin.sales.index') }}" class="{{ request()->routeIs($salesRoutes) ? 'active' : '' }}">
+                        <a
+                            class="collapsed {{ request()->routeIs($salesRoutes) ? 'active' : '' }}"
+                            data-bs-toggle="collapse"
+                            href="#sales-menu"
+                            role="button"
+                            aria-expanded="{{ request()->routeIs($salesRoutes) ? 'true' : 'false' }}"
+                            aria-controls="sales-menu"
+                        >
                             <i class="fa-solid fa-chart-line"></i> Sales Overview
                         </a>
+                        <ul id="sales-menu" class="collapse {{ request()->routeIs($salesRoutes) ? 'show' : '' }}">
+                            <li>
+                                <a href="{{ route('admin.sales.index') }}" class="{{ request()->routeIs('admin.sales.index') ? 'active' : '' }}">
+                                    Overview
+                                </a>
+                            </li>
+                            <li>
+                                <a href="{{ route('admin.sales.reports') }}" class="{{ request()->routeIs('admin.sales.reports') ? 'active' : '' }}">
+                                    Detailed Reports
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                 @endif
                 @if(auth()->guard('admin')->user()->role_id != 2)
