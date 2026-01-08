@@ -101,8 +101,8 @@
         padding-left: 38px;
     }
     .table thead th {
-        border: none;
-        color: #5b6470;
+        background: #f8fafc;
+        color: #4b5563;
         font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.04em;
@@ -110,6 +110,9 @@
     }
     .table tbody td {
         vertical-align: middle;
+    }
+    .table-meta {
+        color: #6b7280;
     }
     .badge-soft {
         background: rgba(12, 108, 178, 0.08);
@@ -290,7 +293,7 @@
     <div class="filter-card mb-4 p-4">
         <div class="card-body">
             <form action="{{ route('admin.sales.report') }}" method="GET" class="row g-3 align-items-end">
-                <div class="col-12 col-lg-4">
+                <div class="col-12 col-lg-5">
                     <label for="search" class="form-label">Search for all</label>
                     <div class="position-relative">
                         <i class="fa-solid fa-magnifying-glass input-icon"></i>
@@ -305,9 +308,9 @@
                     </div>
                 </div>
                 <div class="col-12 col-lg-3">
-                    <label class="form-label">Filter dropdown</label>
+                    <label class="form-label">Filter preset</label>
                     <div class="filter-menu">
-                        <button type="button" class="btn btn-outline-secondary filter-menu__toggle" id="filter-menu-toggle">
+                        <button type="button" class="btn btn-outline-secondary w-100 filter-menu__toggle" id="filter-menu-toggle">
                             <span id="filter-menu-label">
                                 @if(in_array($focus, ['member','trainer','staff']))
                                     {{ ucfirst($focus) }} — {{ $order === 'least' ? 'Least Sales' : 'Most Sales' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
@@ -369,27 +372,28 @@
                         <input type="hidden" name="date_preset" id="date-preset-field" value="{{ $datePreset }}">
                     </div>
                 </div>
-                <div class="col-12 {{ $datePreset === 'custom' ? '' : 'd-none' }}" id="custom-date-row">
+                <div class="col-12 col-lg-4 {{ $datePreset === 'custom' ? '' : 'd-none' }}" id="custom-date-row">
                     <div class="row g-3">
-                        <div class="col-12 col-md-3">
+                        <div class="col-6 col-md-6">
                             <label for="start-date" class="form-label">Start date</label>
                             <input type="date" id="start-date" name="start_date" class="form-control" value="{{ $datePreset === 'custom' ? ($startDate ?? '') : '' }}">
                         </div>
-                        <div class="col-12 col-md-3">
+                        <div class="col-6 col-md-6">
                             <label for="start-time" class="form-label">Start time</label>
                             <input type="time" id="start-time" name="start_time" class="form-control" value="{{ $datePreset === 'custom' ? ($startTime ?? '') : '' }}">
                         </div>
-                        <div class="col-12 col-md-3">
+                        <div class="col-6 col-md-6">
                             <label for="end-date" class="form-label">End date</label>
                             <input type="date" id="end-date" name="end_date" class="form-control" value="{{ $datePreset === 'custom' ? ($endDate ?? '') : '' }}">
                         </div>
-                        <div class="col-12 col-md-3">
+                        <div class="col-6 col-md-6">
                             <label for="end-time" class="form-label">End time</label>
                             <input type="time" id="end-time" name="end_time" class="form-control" value="{{ $datePreset === 'custom' ? ($endTime ?? '') : '' }}">
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-lg-auto">
+                <div class="col-12 col-lg-auto d-flex gap-3">
+                    <a href="{{ route('admin.sales.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
                     <button type="submit" class="btn btn-primary w-100 w-lg-auto">
                         <i class="fa-solid fa-filter me-2"></i>Apply filters
                     </button>
@@ -406,11 +410,11 @@
                         <h5 class="mb-0">Results</h5>
                         <small class="text-muted">Sorted by {{ $order === 'least' ? 'lowest' : 'highest' }} revenue.</small>
                     </div>
-                    <div class="badge-soft">{{ $currency }} currency</div>
+                    <div class="badge-soft"><i class="fa-solid fa-coins me-1"></i> {{ $currency }} currency</div>
                 </div>
                 <div class="table-responsive">
-                    <table class="table mb-0">
-                        <thead>
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
                             <tr>
                                 <th>Focus</th>
                                 <th>Type</th>
@@ -437,6 +441,14 @@
                             @endforelse
                         </tbody>
                     </table>
+                </div>
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3 table-meta">
+                    <span>Showing {{ count($focusRows) }} record{{ count($focusRows) === 1 ? '' : 's' }}</span>
+                    @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
+                        <div class="ms-auto">
+                            {{ $focusRows->withQueryString()->links() }}
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
