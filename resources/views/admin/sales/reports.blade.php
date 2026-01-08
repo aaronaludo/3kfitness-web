@@ -1,6 +1,167 @@
 @extends('layouts.admin')
 @section('title', 'Sales Detailed Reports')
 
+@section('styles')
+<style>
+    /* Minimal summary cards */
+    .report-summary {
+        --border: #e7e7ea;
+        --text: #1f2933;
+        --muted: #6b7280;
+    }
+    .summary-card {
+        --accent: #d63e4b;
+        --accent-soft: #fff5f5;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 18px;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.05);
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+    }
+    .summary-card.cost {
+        --accent: #c2395a;
+        --accent-soft: #fff4f8;
+    }
+    .summary-card.profit {
+        --accent: #2f7a48;
+        --accent-soft: #eef7f1;
+    }
+    .summary-card__header {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    .summary-card__title {
+        font-weight: 700;
+        margin: 2px 0 2px;
+        color: var(--text);
+    }
+    .summary-card__subtitle {
+        color: var(--muted);
+        font-size: 0.9rem;
+    }
+    .summary-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid var(--border);
+    }
+    .pill-soft {
+        margin-bottom: 10px;
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .pill-ghost {
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        background: #fff;
+        font-weight: 600;
+    }
+    .summary-amount {
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: var(--text);
+    }
+    .summary-card__value {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+    .summary-card__math {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        background: var(--accent-soft);
+        border: 1px dashed rgba(0, 0, 0, 0.05);
+        border-radius: 12px;
+        padding: 10px;
+    }
+    .math-chip {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        min-width: 160px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.03);
+    }
+    .math-chip__icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .math-chip__label {
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.2;
+    }
+    .math-chip__value {
+        color: var(--muted);
+        font-weight: 600;
+    }
+    .math-symbol {
+        font-weight: 800;
+        color: var(--accent);
+    }
+    .summary-card__footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: var(--muted);
+        gap: 10px;
+    }
+    .summary-card__link {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 700;
+    }
+    .summary-card__link i {
+        font-size: 0.95rem;
+    }
+    @media (max-width: 575.98px) {
+        .summary-card__value {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .math-chip {
+            min-width: auto;
+            flex: 1 1 100%;
+        }
+    }
+</style>
+@endsection
+
 @section('content')
 <div class="container-fluid">
     @php
@@ -62,42 +223,152 @@
         </div>
     </div>
 
-        <div class="row g-3 mb-4">
+    <div class="row g-3 mb-4 report-summary">
         <div class="col-12 col-lg-4">
-            <div class="tile tile-primary h-100 mb-0">
-                <div class="tile-heading">Memberships Revenue</div>
-                <div class="tile-body">
-                    <i class="fa-solid fa-wallet"></i>
-                    <h2 class="float-end mb-0">{{ $summary['currency'] }} {{ number_format($summary['revenue'], 2) }}</h2>
+            <div class="summary-card revenue">
+                <div class="summary-card__header">
+                    <div>
+                        <span class="pill-soft">Revenue mix</span>
+                        <div class="summary-card__title h5 mb-1">Total revenue</div>
+                        <div class="summary-card__subtitle">Memberships + App cut</div>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fa-solid fa-sack-dollar fa-fw fa-lg"></i>
+                    </div>
+                </div>
+                <div class="summary-card__value">
+                    <div class="summary-amount mb-0">{{ $summary['currency'] }} {{ number_format($summary['total_revenue'] ?? 0, 2) }}</div>
+                    <span class="pill-ghost">All channels</span>
+                </div>
+                <div class="summary-card__math">
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-wallet fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">Memberships</div>
+                            <div class="math-chip__value">{{ $summary['currency'] }} {{ number_format($summary['membership_revenue'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
+                    <span class="math-symbol">+</span>
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-scissors fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">App cut</div>
+                            <div class="math-chip__value">{{ $summary['currency'] }} {{ number_format($summary['app_cut_revenue'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
+                    <span class="math-symbol">=</span>
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-sack-dollar fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">Total</div>
+                            <div class="math-chip__value">{{ $summary['currency'] }} {{ number_format($summary['total_revenue'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
         <div class="col-12 col-lg-4">
-            <div class="tile tile-primary h-100 mb-0">
-                <div class="tile-heading">Cost</div>
-                <div class="tile-body">
-                    <i class="fa-solid fa-hand-holding-dollar"></i>
-                    <h2 class="float-end mb-0">{{ $summary['currency'] }} {{ number_format($summary['cost'], 2) }}</h2>
+            <div class="summary-card cost">
+                <div class="summary-card__header">
+                    <div>
+                        <span class="pill-soft">Cost</span>
+                        <div class="summary-card__title h5 mb-1">Total cost</div>
+                        <div class="summary-card__subtitle">Payrolls and other payouts</div>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fa-solid fa-hand-holding-dollar fa-fw fa-lg"></i>
+                    </div>
                 </div>
-                 <div class="tile-footer"><a href="{{ route('admin.payrolls.index', ['processed_from' => $startDate, 'processed_to' => $endDate]) }}">Go to payrolls...</a></div>
-                {{-- <div class="tile-footer d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <span class="text-muted small mb-0">Payroll payouts within range</span>
-                    <a href="{{ route('admin.payrolls.index', ['processed_from' => $startDate, 'processed_to' => $endDate]) }}">
-                        View payrolls...
+                <div class="summary-card__value">
+                    <div class="summary-amount mb-0">{{ $summary['currency'] }} {{ number_format($summary['cost'] ?? 0, 2) }}</div>
+                    <span class="pill-ghost">Payouts</span>
+                </div>
+                <div class="summary-card__footer">
+                    <span class="summary-card__subtitle mb-0">Track all outgoing payouts</span>
+                    <a class="summary-card__link d-inline-flex align-items-center gap-2" href="{{ route('admin.payrolls.index', ['processed_from' => $startDate, 'processed_to' => $endDate]) }}">
+                        <i class="fa-solid fa-arrow-up-right-from-square fa-fw"></i>
+                        <span>View payrolls</span>
                     </a>
-                </div> --}}
+                </div>
             </div>
         </div>
         <div class="col-12 col-lg-4">
-            <div class="tile tile-primary h-100 mb-0">
-                <div class="tile-heading">Profit</div>
-                <div class="tile-body">
-                    <i class="fa-solid fa-chart-line"></i>
-                    <h2 class="float-end mb-0">{{ $summary['currency'] }} {{ number_format($summary['profit'], 2) }}</h2>
+            <div class="summary-card profit">
+                <div class="summary-card__header">
+                    <div>
+                        <span class="pill-soft">Net profit</span>
+                        <div class="summary-card__title h5 mb-1">Profit</div>
+                        <div class="summary-card__subtitle">Total revenue - Cost</div>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fa-solid fa-chart-line fa-fw fa-lg"></i>
+                    </div>
+                </div>
+                <div class="summary-card__value">
+                    <div class="summary-amount mb-0">{{ $summary['currency'] }} {{ number_format($summary['profit'] ?? 0, 2) }}</div>
+                    <span class="pill-ghost">After costs</span>
+                </div>
+                <div class="summary-card__math">
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-sack-dollar fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">Total revenue</div>
+                            <div class="math-chip__value">{{ $summary['currency'] }} {{ number_format($summary['total_revenue'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
+                    <span class="math-symbol">−</span>
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-hand-holding-dollar fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">Cost</div>
+                            <div class="math-chip__value">{{ $summary['currency'] }} {{ number_format($summary['cost'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
+                    <span class="math-symbol">=</span>
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-chart-line fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">Profit</div>
+                            <div class="math-chip__value">{{ $summary['currency'] }} {{ number_format($summary['profit'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
+
+    {{-- <div class="row g-3 mb-4">
+        <div class="col-12 col-lg-6">
+            <div class="tile tile-primary h-100 mb-0">
+                <div class="tile-heading">Memberships Revenue</div>
+                <div class="tile-body">
+                    <i class="fa-solid fa-wallet"></i>
+                    <h2 class="float-end mb-0">{{ $summary['currency'] }} {{ number_format($summary['membership_revenue'], 2) }}</h2>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-6">
+            <div class="tile tile-primary h-100 mb-0">
+                <div class="tile-heading">App Cut Revenue</div>
+                <div class="tile-body">
+                    <i class="fa-solid fa-scissors"></i>
+                    <h2 class="float-end mb-0">{{ $summary['currency'] }} {{ number_format($summary['app_cut_revenue'], 2) }}</h2>
+                </div>
+            </div>
+        </div>
+    </div> --}}
 
     <div class="row g-3 mb-3">
         <div class="col-12">
@@ -145,7 +416,7 @@
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                         <div>
-                            <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">Membership payments</span>
+                            <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">Members</span>
                             <div class="text-muted small">Approved payments in the selected date range</div>
                         </div>
                         <div class="text-muted small">

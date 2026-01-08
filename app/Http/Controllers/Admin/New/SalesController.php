@@ -630,7 +630,7 @@ class SalesController extends Controller
 
         $allPayments = (clone $paymentsQuery)->get();
         $currency = optional($allPayments->first()?->membership)->currency ?: 'PHP';
-        $revenue = $allPayments->sum(function ($payment) {
+        $membershipRevenue = $allPayments->sum(function ($payment) {
             return (float) optional($payment->membership)->price ?: 0.0;
         });
 
@@ -643,7 +643,19 @@ class SalesController extends Controller
             return (float) ($run->net_pay ?? 0);
         });
 
-        $profit = round($revenue - $cost, 2);
+        $deductions = DeductionSetting::orderByDesc('id')->first();
+        $appCutRate = (float) ($deductions->app_cut_rate ?? 0);
+        $appCutRevenue = $payrollRuns->sum(function ($run) use ($appCutRate) {
+            $stored = $run->deduction_app_cut ?? null;
+            if (!is_null($stored) && (float) $stored !== 0.0) {
+                return (float) $stored;
+            }
+            $gross = (float) ($run->gross_pay ?? 0);
+            return round($gross * ($appCutRate / 100), 2);
+        });
+
+        $totalRevenue = round($membershipRevenue + $appCutRevenue, 2);
+        $profit = round($totalRevenue - $cost, 2);
 
         $mapPayment = function ($payment) use ($currency) {
             $member = $payment->user;
@@ -675,7 +687,9 @@ class SalesController extends Controller
         $printAllPayments = $allPayments->map($mapPayment)->values();
 
         $summary = [
-            'revenue' => round($revenue, 2),
+            'total_revenue' => $totalRevenue,
+            'membership_revenue' => round($membershipRevenue, 2),
+            'app_cut_revenue' => round($appCutRevenue, 2),
             'cost' => round($cost, 2),
             'profit' => $profit,
             'currency' => $currency,
