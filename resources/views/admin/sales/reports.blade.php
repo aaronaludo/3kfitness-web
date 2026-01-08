@@ -381,8 +381,18 @@
                             <p class="text-muted mb-0">Pick a date window to refresh revenue, cost, profit, and payment details.</p>
                         </div>
                         <div class="text-end">
+                            @php
+                                $tableCounts = [
+                                    'payments' => $membershipPayments->total(),
+                                    'members' => $memberSalesTable->total(),
+                                    'trainers' => $trainerSalesOrderTable->total(),
+                                    'staffs' => $staffSalesOrderTable->total(),
+                                    'memberships' => $membershipPlanTable->total(),
+                                ];
+                                $filtersTableCount = $tableCounts[$tableScope ?? 'payments'] ?? $membershipPayments->total();
+                            @endphp
                             <span class="d-block text-muted small">{{ $summary['period_label'] }}</span>
-                            <span class="d-block text-muted small">Showing {{ $membershipPayments->total() }} payments</span>
+                            <span class="d-block text-muted small">Showing {{ $filtersTableCount }} record{{ $filtersTableCount === 1 ? '' : 's' }}</span>
                         </div>
                     </div>
 
@@ -394,6 +404,16 @@
                         <div class="col-12 col-md-4">
                             <label class="form-label text-muted small mb-1" for="end_date">End date</label>
                             <input type="date" id="end_date" name="end_date" class="form-control rounded-pill" value="{{ $endDate }}">
+                        </div>
+                        <div class="col-12 col-md-4">
+                            <label class="form-label text-muted small mb-1" for="table_scope">Table view</label>
+                            <select id="table_scope" name="table_scope" class="form-select rounded-pill">
+                                <option value="payments" {{ ($tableScope ?? 'payments') === 'payments' ? 'selected' : '' }}>Membership payments</option>
+                                <option value="members" {{ ($tableScope ?? '') === 'members' ? 'selected' : '' }}>Members</option>
+                                <option value="trainers" {{ ($tableScope ?? '') === 'trainers' ? 'selected' : '' }}>Trainers</option>
+                                <option value="staffs" {{ ($tableScope ?? '') === 'staffs' ? 'selected' : '' }}>Staffs</option>
+                                <option value="memberships" {{ ($tableScope ?? '') === 'memberships' ? 'selected' : '' }}>Memberships</option>
+                            </select>
                         </div>
                         <div class="col-12 col-md-4 d-flex gap-2 justify-content-md-end">
                             <a href="{{ route('admin.sales.reports') }}" class="btn btn-link text-decoration-none text-muted px-0">
@@ -416,47 +436,301 @@
                 <div class="card-body p-4">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
                         <div>
-                            <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">Members</span>
-                            <div class="text-muted small">Approved payments in the selected date range</div>
+                            @php
+                                $tableTitles = [
+                                    'payments' => 'Membership payments',
+                                    'members' => 'Members',
+                                    'trainers' => 'Trainers',
+                                    'staffs' => 'Staffs',
+                                    'memberships' => 'Memberships',
+                                ];
+                                $currentTable = $tableTitles[$tableScope ?? 'payments'] ?? 'Membership payments';
+                                $recordCounts = [
+                                    'payments' => $membershipPayments->total(),
+                                    'members' => $memberSalesTable->total(),
+                                    'trainers' => $trainerSalesOrderTable->total(),
+                                    'staffs' => $staffSalesOrderTable->total(),
+                                    'memberships' => $membershipPlanTable->total(),
+                                ];
+                                $currentCount = $recordCounts[$tableScope ?? 'payments'] ?? $membershipPayments->total();
+                            @endphp
+                            <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ $currentTable }}</span>
+                            <div class="text-muted small">Showing data for the selected view and date range</div>
                         </div>
                         <div class="text-muted small">
-                            Showing {{ $membershipPayments->total() }} record{{ $membershipPayments->total() === 1 ? '' : 's' }}
+                            Showing {{ $currentCount }} record{{ $currentCount === 1 ? '' : 's' }}
                         </div>
                     </div>
-                    <div class="table-responsive">
-                        <table class="table table-hover align-middle mb-0">
-                            <thead class="table-light">
-                                <tr>
-                                    <th>#</th>
-                                    <th>Member</th>
-                                    <th>Membership</th>
-                                    <th class="text-end">Amount</th>
-                                    <th class="text-end">Approved Date</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                @forelse ($membershipPayments as $payment)
+                    @if(($tableScope ?? 'payments') === 'memberships')
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
                                     <tr>
-                                        <td>{{ $payment['id'] }}</td>
-                                        <td>
-                                            <div class="fw-semibold">{{ $payment['member'] }}</div>
-                                            <div class="text-muted small">{{ $payment['user_code'] }}</div>
-                                        </td>
-                                        <td>{{ $payment['membership'] }}</td>
-                                        <td class="text-end">{{ $payment['currency'] }} {{ $payment['amount'] }}</td>
-                                        <td class="text-end">{{ $payment['created_at'] }}</td>
+                                        <th>Plan</th>
+                                        <th class="text-end">Price</th>
+                                        <th class="text-end">Sales</th>
+                                        <th class="text-end">Revenue</th>
                                     </tr>
-                                @empty
-                                    <tr>
-                                        <td colspan="5" class="text-center text-muted">No payments found for this range.</td>
-                                    </tr>
-                                @endforelse
-                            </tbody>
-                        </table>
-                        <div class="mt-3">
-                            {{ $membershipPayments->links() }}
+                                </thead>
+                                <tbody>
+                                    @forelse($membershipPlanTable ?? [] as $planRow)
+                                        <tr>
+                                            <td>{{ $planRow['name'] ?? '—' }}</td>
+                                            <td class="text-end">{{ $summary['currency'] ?? 'PHP' }} {{ number_format((float) ($planRow['price'] ?? 0), 2) }}</td>
+                                            <td class="text-end">{{ $planRow['sales'] ?? 0 }}</td>
+                                            <td class="text-end">{{ $summary['currency'] ?? 'PHP' }} {{ number_format((float) ($planRow['revenue'] ?? 0), 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted">No membership sales in this period.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
                         </div>
-                    </div>
+                        @if($membershipPlanTable instanceof \Illuminate\Pagination\AbstractPaginator)
+                            <div class="mt-3">
+                                {{ $membershipPlanTable->links() }}
+                            </div>
+                        @endif
+                    @elseif(($tableScope ?? 'payments') === 'members')
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Member</th>
+                                        <th class="text-end">Sales</th>
+                                        <th class="text-end">Total</th>
+                                        <th>Last plan</th>
+                                        <th class="text-end">Last sale</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($memberSalesTable ?? [] as $memberRow)
+                                        <tr>
+                                            <td>
+                                                <div class="fw-semibold">{{ $memberRow['name'] ?? '—' }}</div>
+                                                <div class="text-muted small">Code: {{ $memberRow['user_code'] ?? '—' }}</div>
+                                            </td>
+                                            <td class="text-end">{{ $memberRow['sales'] ?? 0 }}</td>
+                                            <td class="text-end">{{ $summary['currency'] ?? 'PHP' }} {{ number_format((float) ($memberRow['total'] ?? 0), 2) }}</td>
+                                            <td>{{ $memberRow['last_membership'] ?? '—' }}</td>
+                                            <td class="text-end">{{ $memberRow['last_payment_at'] ?? '—' }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No member sales found for this window.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                        @if($memberSalesTable instanceof \Illuminate\Pagination\AbstractPaginator)
+                            <div class="mt-3">
+                                {{ $memberSalesTable->links('pagination::bootstrap-5') }}
+                            </div>
+                        @endif
+                    @elseif(($tableScope ?? 'payments') === 'staffs')
+                        @php $staffPaymentModals = []; @endphp
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Staff</th>
+                                        <th class="text-end">Runs</th>
+                                        <th class="text-end">Gross</th>
+                                        <th class="text-end">Net</th>
+                                        <th class="text-end">Membership payments</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($staffSalesOrderTable ?? [] as $staffRow)
+                                        @php
+                                            $mp = $staffRow['membership_payments'] ?? ['count' => 0, 'total' => 0, 'currency' => $summary['currency'] ?? 'PHP', 'items' => collect()];
+                                            $mpItems = collect($mp['items'] ?? []);
+                                            $mpId = 'staff-mp-report-' . ($staffRow['id'] ?? $loop->iteration);
+                                            $staffPaymentModals[] = [
+                                                'id' => $mpId,
+                                                'name' => $staffRow['name'] ?? 'Staff',
+                                                'currency' => $mp['currency'] ?? ($summary['currency'] ?? 'PHP'),
+                                                'count' => $mp['count'] ?? 0,
+                                                'total' => $mp['total'] ?? 0,
+                                                'items' => $mpItems,
+                                            ];
+                                        @endphp
+                                        <tr>
+                                            <td class="text-muted">
+                                                {{ $staffSalesOrderTable instanceof \Illuminate\Pagination\AbstractPaginator ? $staffSalesOrderTable->firstItem() + $loop->index : $loop->iteration }}
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">{{ $staffRow['name'] ?? '—' }}</div>
+                                                <div class="text-muted small">Code: {{ $staffRow['user_code'] ?? '—' }}</div>
+                                            </td>
+                                            <td class="text-end">{{ $staffRow['run_count'] ?? 0 }}</td>
+                                            <td class="text-end">{{ $summary['currency'] ?? 'PHP' }} {{ number_format((float) ($staffRow['gross'] ?? 0), 2) }}</td>
+                                            <td class="text-end">{{ $summary['currency'] ?? 'PHP' }} {{ number_format((float) ($staffRow['net'] ?? 0), 2) }}</td>
+                                            <td class="text-end">
+                                                @if(($mp['count'] ?? 0) > 0)
+                                                    <div>{{ $mp['currency'] ?? ($summary['currency'] ?? 'PHP') }} {{ number_format((float) ($mp['total'] ?? 0), 2) }}</div>
+                                                    <button type="button" class="btn btn-sm btn-outline-primary mt-1" data-bs-toggle="modal" data-bs-target="#{{ $mpId }}">
+                                                        View {{ $mp['count'] ?? 0 }}
+                                                    </button>
+                                                @else
+                                                    <span class="text-muted">—</span>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">No staff payroll runs in this window.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                        @if($staffSalesOrderTable instanceof \Illuminate\Pagination\AbstractPaginator)
+                            <div class="mt-3">
+                                {{ $staffSalesOrderTable->links('pagination::bootstrap-5') }}
+                            </div>
+                        @endif
+                        @foreach($staffPaymentModals as $modal)
+                            @php $modalItems = collect($modal['items'] ?? []); @endphp
+                            <div class="modal fade" id="{{ $modal['id'] ?? '' }}" tabindex="-1" aria-labelledby="{{ $modal['id'] ?? '' }}-label" aria-hidden="true">
+                                <div class="modal-dialog modal-lg modal-dialog-centered">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header">
+                                            <div>
+                                                <h5 class="modal-title fw-semibold mb-0" id="{{ $modal['id'] ?? '' }}-label">Membership payments approved by {{ $modal['name'] ?? 'Staff' }}</h5>
+                                                <p class="text-muted small mb-0">Approved payments within the selected window</p>
+                                            </div>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                                <span class="badge bg-light text-dark">Count: {{ $modal['count'] ?? 0 }}</span>
+                                                @if(($modal['count'] ?? 0) > 0)
+                                                    <span class="badge bg-success-subtle text-success">Total: {{ $modal['currency'] ?? ($summary['currency'] ?? 'PHP') }} {{ number_format((float) ($modal['total'] ?? 0), 2) }}</span>
+                                                @endif
+                                            </div>
+                                            <div class="table-responsive">
+                                                <table class="table table-sm align-middle mb-0">
+                                                    <thead class="table-light">
+                                                        <tr>
+                                                            <th>#</th>
+                                                            <th>Member</th>
+                                                            <th>Membership</th>
+                                                            <th class="text-end">Amount</th>
+                                                            <th class="text-end">Approved</th>
+                                                            <th class="text-end">Expires</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        @forelse($modalItems as $payment)
+                                                            <tr>
+                                                                <td class="text-muted">#{{ $payment['id'] }}</td>
+                                                                <td>
+                                                                    <div class="fw-semibold">{{ $payment['member_name'] ?? '—' }}</div>
+                                                                    <div class="text-muted small">Code: {{ $payment['member_code'] ?? '—' }}</div>
+                                                                </td>
+                                                                <td>{{ $payment['membership'] ?? '—' }}</td>
+                                                                <td class="text-end">{{ $payment['currency'] ?? ($summary['currency'] ?? 'PHP') }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
+                                                                <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
+                                                                <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
+                                                            </tr>
+                                                        @empty
+                                                            <tr>
+                                                                <td colspan="6" class="text-center text-muted small">No approved membership payments for this staff.</td>
+                                                            </tr>
+                                                        @endforelse
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer">
+                                            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        @endforeach
+                    @elseif(($tableScope ?? 'payments') === 'trainers')
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Trainer</th>
+                                        <th class="text-end">Runs</th>
+                                        <th class="text-end">Gross</th>
+                                        <th class="text-end">Net</th>
+                                        <th class="text-end">App cut</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($trainerSalesOrderTable ?? [] as $trainerRow)
+                                        <tr>
+                                            <td class="text-muted">
+                                                {{ $trainerSalesOrderTable instanceof \Illuminate\Pagination\AbstractPaginator ? $trainerSalesOrderTable->firstItem() + $loop->index : $loop->iteration }}
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">{{ $trainerRow['name'] ?? '—' }}</div>
+                                                <div class="text-muted small">Code: {{ $trainerRow['user_code'] ?? '—' }}</div>
+                                            </td>
+                                            <td class="text-end">{{ $trainerRow['run_count'] ?? 0 }}</td>
+                                            <td class="text-end">{{ $summary['currency'] ?? 'PHP' }} {{ number_format((float) ($trainerRow['gross'] ?? 0), 2) }}</td>
+                                            <td class="text-end">{{ $summary['currency'] ?? 'PHP' }} {{ number_format((float) ($trainerRow['net'] ?? 0), 2) }}</td>
+                                            <td class="text-end">{{ $summary['currency'] ?? 'PHP' }} {{ number_format((float) ($trainerRow['app_cut'] ?? 0), 2) }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="6" class="text-center text-muted">No trainer payroll runs in this window.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                        </div>
+                        @if($trainerSalesOrderTable instanceof \Illuminate\Pagination\AbstractPaginator)
+                            <div class="mt-3">
+                                {{ $trainerSalesOrderTable->links('pagination::bootstrap-5') }}
+                            </div>
+                        @endif
+                    @else
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Member</th>
+                                        <th>Membership</th>
+                                        <th class="text-end">Amount</th>
+                                        <th class="text-end">Approved Date</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($membershipPayments as $payment)
+                                        <tr>
+                                            <td>{{ $payment['id'] }}</td>
+                                            <td>
+                                                <div class="fw-semibold">{{ $payment['member'] }}</div>
+                                                <div class="text-muted small">{{ $payment['user_code'] }}</div>
+                                            </td>
+                                            <td>{{ $payment['membership'] }}</td>
+                                            <td class="text-end">{{ $payment['currency'] }} {{ $payment['amount'] }}</td>
+                                            <td class="text-end">{{ $payment['created_at'] }}</td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted">No payments found for this range.</td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                            <div class="mt-3">
+                                {{ $membershipPayments->links() }}
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>

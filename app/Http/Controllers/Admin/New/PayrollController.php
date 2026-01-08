@@ -675,7 +675,7 @@ class PayrollController extends Controller
 
         $appCutTotal = $printAllRuns->sum(function ($run) use ($appCutRate) {
             $stored = $run->deduction_app_cut ?? null;
-            if (!is_null($stored) && (float) $stored !== 0.0) {
+            if (!is_null($stored)) {
                 return (float) $stored;
             }
 

@@ -34,6 +34,10 @@
                         'period' => $periodLabel,
                         'hours' => number_format((float) ($run->total_hours ?? 0), 2),
                         'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
+                        'sss' => number_format((float) ($run->deduction_sss ?? 0), 2),
+                        'philhealth' => number_format((float) ($run->deduction_philhealth ?? 0), 2),
+                        'pagibig' => number_format((float) ($run->deduction_pagibig ?? 0), 2),
+                        'app_cut' => number_format((float) ($run->deduction_app_cut ?? 0), 2),
                         'net' => number_format((float) ($run->net_pay ?? 0), 2),
                         'processed_at' => $processedAt,
                         'processed_sessions' => $processedSessionCount,
@@ -295,6 +299,10 @@
                                         <th scope="col">Period</th>
                                         <th scope="col">Hours</th>
                                         <th scope="col">Gross</th>
+                                        <th scope="col">SSS</th>
+                                        <th scope="col">PhilHealth</th>
+                                        <th scope="col">Pag-IBIG</th>
+                                        <th scope="col">App cut</th>
                                         <th scope="col">Net</th>
                                         <th scope="col">Processed Date</th>
                                         <th scope="col">Processed Sessions</th>
@@ -349,6 +357,10 @@
                                             <td>{{ $periodLabel }}</td>
                                             <td><span class="fw-semibold">{{ number_format((float) ($run->total_hours ?? 0), 2) }}</span> hrs</td>
                                             <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
+                                            <td>₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</td>
+                                            <td>₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</td>
+                                            <td>₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</td>
+                                            <td>₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</td>
                                             <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
                                             <td>{{ $processedAt }}</td>
                                             <td>
@@ -383,7 +395,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="9" class="text-center text-muted py-4">
+                                            <td colspan="14" class="text-center text-muted py-4">
                                                 No payroll runs found. Adjust your filters or check back later.
                                             </td>
                                         </tr>
@@ -451,6 +463,10 @@
                     item.period || '—',
                     `${item.hours || '0.00'} hrs`,
                     `₱${item.gross || '0.00'}`,
+                    `₱${item.sss || '0.00'}`,
+                    `₱${item.philhealth || '0.00'}`,
+                    `₱${item.pagibig || '0.00'}`,
+                    `₱${item.app_cut || '0.00'}`,
                     `<span class="text-success fw-semibold">₱${item.net || '0.00'}</span>`,
                     item.processed_at || '—',
                     (item.processed_sessions ?? 0).toString(),
@@ -461,7 +477,21 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Staff', 'User Code', 'Period', 'Hours', 'Gross', 'Net', 'Processed', 'Processed Sessions'];
+                const headers = [
+                    '#',
+                    'Staff',
+                    'User Code',
+                    'Period',
+                    'Hours',
+                    'Gross',
+                    'SSS',
+                    'PhilHealth',
+                    'Pag-IBIG',
+                    'App cut',
+                    'Net',
+                    'Processed',
+                    'Processed Sessions'
+                ];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

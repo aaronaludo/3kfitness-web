@@ -597,6 +597,151 @@ class SalesController extends Controller
         ]);
     }
 
+    public function report(Request $request)
+    {
+        $request->validate([
+            'start_date' => 'nullable|date_format:Y-m-d',
+            'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'search' => 'nullable|string|max:255',
+            'focus' => 'nullable|in:member,trainer,staff,membership,date',
+            'order' => 'nullable|in:most,least',
+            'plan_tier' => 'nullable|in:premium,half',
+            'membership_id' => 'nullable|exists:memberships,id',
+            'date_preset' => 'nullable|in:today,yesterday,last_7,last_30,this_week,last_week,this_month,last_month,this_quarter,last_quarter,this_year,last_year,all_time,custom',
+        ]);
+
+        $startInput = $request->input('start_date');
+        $endInput = $request->input('end_date');
+        [$start, $end, $datePreset] = $this->resolveDateRange(
+            $request->input('date_preset'),
+            $startInput,
+            $endInput
+        );
+
+        $search = trim((string) $request->input('search', ''));
+        $focus = $request->input('focus', 'member');
+        $focusSupportsOrder = in_array($focus, ['member', 'trainer', 'staff'], true);
+        $orderInput = $request->input('order', 'most');
+        $order = $focusSupportsOrder && $orderInput === 'least' ? 'least' : ($focusSupportsOrder ? 'most' : null);
+        $planTier = $request->input('plan_tier');
+        $membershipId = $request->input('membership_id');
+
+        $paymentsQuery = MembershipPayment::query()
+            ->with([
+                'membership:id,name,currency,price',
+                'user:id,first_name,last_name,user_code,role_id',
+            ])
+            ->where('isapproved', 1)
+            ->where('is_archive', 0)
+            ->whereBetween('created_at', [$start, $end]);
+
+        if ($membershipId) {
+            $paymentsQuery->where('membership_id', $membershipId);
+        }
+
+        if ($search) {
+            $paymentsQuery->where(function ($query) use ($search) {
+                $query
+                    ->whereHas('user', function ($sub) use ($search) {
+                        $sub->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                            ->orWhere('user_code', 'like', "%{$search}%");
+                    })
+                    ->orWhereHas('membership', function ($sub) use ($search) {
+                        $sub->where('name', 'like', "%{$search}%");
+                    });
+            });
+        }
+
+        if ($planTier) {
+            $paymentsQuery->whereHas('membership', function ($sub) use ($planTier) {
+                $keyword = $planTier === 'half' ? 'half' : 'premium';
+                $sub->whereRaw('LOWER(name) LIKE ?', ['%' . strtolower($keyword) . '%']);
+            });
+        }
+
+        $payments = $paymentsQuery->get();
+        $currency = 'PHP';
+        $firstPayment = $payments->first();
+        if ($firstPayment && optional($firstPayment->membership)->currency) {
+            $currency = $firstPayment->membership->currency;
+        }
+
+        $membershipRevenue = $payments->sum(function ($payment) {
+            return (float) optional($payment->membership)->price ?: 0.0;
+        });
+        $membershipCount = $payments->count();
+
+        $payrollBase = PayrollRun::query()
+            ->with('user:id,role_id,first_name,last_name,user_code')
+            ->whereBetween(DB::raw('COALESCE(processed_at, created_at)'), [$start, $end]);
+
+        if ($search) {
+            $payrollBase->whereHas('user', function ($query) use ($search) {
+                $query->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
+                    ->orWhere('user_code', 'like', "%{$search}%");
+            });
+        }
+
+        $classCommission = (clone $payrollBase)
+            ->whereHas('user', fn ($query) => $query->where('role_id', 5))
+            ->sum('net_pay');
+        $classCommission = round((float) $classCommission, 2);
+
+        $totalSales = round($membershipRevenue + $classCommission, 2);
+
+        $focusRows = $this->buildSalesReportRows($focus, $order ?? 'most', $payments, $payrollBase);
+
+        $rangeLabel = $start->format('Y') === $end->format('Y')
+            ? $start->format('Y')
+            : $start->format('M d, Y') . ' → ' . $end->format('M d, Y');
+
+        $membershipOptions = Membership::orderBy('name')->get(['id', 'name']);
+        $membershipLabel = optional($membershipOptions->firstWhere('id', (int) $membershipId))->name ?? 'All Memberships';
+
+        $datePresetLabels = [
+            'today' => 'Today',
+            'yesterday' => 'Yesterday',
+            'last_7' => 'Last 7 Days',
+            'last_30' => 'Last 30 Days',
+            'this_week' => 'This Week',
+            'last_week' => 'Last Week',
+            'this_month' => 'This Month',
+            'last_month' => 'Last Month',
+            'this_quarter' => 'This Quarter',
+            'last_quarter' => 'Last Quarter',
+            'this_year' => 'This Year',
+            'last_year' => 'Last Year',
+            'all_time' => 'All Time',
+            'custom' => 'Custom Date Range',
+        ];
+        $datePresetLabel = $datePresetLabels[$datePreset] ?? 'Custom Date Range';
+
+        return view('admin.sales.report', [
+            'rangeLabel' => $rangeLabel,
+            'rangeYear' => $start->format('Y'),
+            'startDate' => $start->toDateString(),
+            'endDate' => $end->toDateString(),
+            'searchTerm' => $search,
+            'focus' => $focus,
+            'order' => $order,
+            'planTier' => $planTier,
+            'currency' => $currency,
+            'summary' => [
+                'membership_revenue' => round($membershipRevenue, 2),
+                'membership_count' => $membershipCount,
+                'class_commission' => $classCommission,
+                'total_sales' => $totalSales,
+            ],
+            'focusRows' => $focusRows,
+            'membershipOptions' => $membershipOptions,
+            'selectedMembershipId' => $membershipId,
+            'selectedMembershipLabel' => $membershipLabel,
+            'datePreset' => $datePreset,
+            'datePresetLabel' => $datePresetLabel,
+            'datePresetLabels' => $datePresetLabels,
+        ]);
+    }
+
     public function reports(Request $request)
     {
         $request->validate([
@@ -645,14 +790,16 @@ class SalesController extends Controller
 
         $deductions = DeductionSetting::orderByDesc('id')->first();
         $appCutRate = (float) ($deductions->app_cut_rate ?? 0);
-        $appCutRevenue = $payrollRuns->sum(function ($run) use ($appCutRate) {
+        $calculateAppCut = function ($run) use ($appCutRate) {
             $stored = $run->deduction_app_cut ?? null;
-            if (!is_null($stored) && (float) $stored !== 0.0) {
+            if (!is_null($stored)) {
                 return (float) $stored;
             }
+
             $gross = (float) ($run->gross_pay ?? 0);
             return round($gross * ($appCutRate / 100), 2);
-        });
+        };
+        $appCutRevenue = $payrollRuns->sum(fn ($run) => $calculateAppCut($run));
 
         $totalRevenue = round($membershipRevenue + $appCutRevenue, 2);
         $profit = round($totalRevenue - $cost, 2);
@@ -696,12 +843,360 @@ class SalesController extends Controller
             'period_label' => $start->format('M d, Y') . ' → ' . $end->format('M d, Y'),
         ];
 
+        // Build grouped tables for quick switching in the reports view
+        $tableScope = $request->input('table_scope', 'payments');
+        $paymentRecords = $allPayments;
+
+        $membershipPlanRows = $paymentRecords
+            ->groupBy('membership_id')
+            ->map(function ($group) {
+                $first = $group->first();
+                $membership = $first ? $first->membership : null;
+                $revenue = $group->sum(function ($payment) {
+                    return (float) optional($payment->membership)->price ?: 0.0;
+                });
+
+                return [
+                    'id' => $membership->id ?? null,
+                    'name' => $membership->name ?? 'Unknown membership',
+                    'price' => (float) optional($membership)->price ?: 0.0,
+                    'sales' => $group->count(),
+                    'revenue' => round($revenue, 2),
+                ];
+            })
+            ->values()
+            ->sortByDesc('sales')
+            ->values();
+
+        $memberSalesRows = $paymentRecords
+            ->groupBy('user_id')
+            ->map(function ($group) {
+                $latestPayment = $group->sortByDesc('created_at')->first();
+                $user = $latestPayment?->user;
+                $name = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '—';
+                $lastPaidAt = ($latestPayment && $latestPayment->created_at)
+                    ? $latestPayment->created_at->format('M d, Y')
+                    : '—';
+
+                return [
+                    'id' => $user->id ?? null,
+                    'name' => $name !== '' ? $name : '—',
+                    'user_code' => $user->user_code ?? '—',
+                    'sales' => $group->count(),
+                    'total' => round($group->sum(function ($payment) {
+                        return (float) optional($payment->membership)->price ?: 0.0;
+                    }), 2),
+                    'last_membership' => optional($latestPayment?->membership)->name ?? '—',
+                    'last_payment_at' => $lastPaidAt,
+                ];
+            })
+            ->values()
+            ->sortByDesc('sales')
+            ->values();
+
+        $payrollByUser = $payrollRuns
+            ->groupBy('user_id')
+            ->map(function ($runs) use ($calculateAppCut) {
+                $firstRun = $runs->first();
+                $user = $firstRun?->user;
+                $name = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '—';
+                $roleId = optional($user)->role_id;
+
+                return [
+                    'id' => $user->id ?? null,
+                    'name' => $name !== '' ? $name : '—',
+                    'user_code' => $user->user_code ?? '—',
+                    'email' => $user->email ?? '—',
+                    'role_id' => $roleId,
+                    'role' => $roleId === 5 ? 'Trainer' : 'Staff',
+                    'run_count' => $runs->count(),
+                    'gross' => round($runs->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+                    'net' => round($runs->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+                    'app_cut' => round($runs->sum(fn ($run) => $calculateAppCut($run)), 2),
+                ];
+            })
+            ->values();
+
+        $staffPayrollRows = $payrollByUser
+            ->filter(fn ($row) => (int) ($row['role_id'] ?? 0) === 2)
+            ->sortBy('name')
+            ->values();
+
+        $staffMembershipPayments = $staffPayrollRows
+            ->mapWithKeys(function ($staffRow) use ($paymentRecords) {
+                $staffId = $staffRow['id'] ?? null;
+                $staffCode = strtolower(trim($staffRow['user_code'] ?? ''));
+
+                $items = $paymentRecords
+                    ->filter(function ($payment) use ($staffCode) {
+                        $createdBy = strtolower(trim($payment->created_by ?? ''));
+                        return $staffCode !== '' && $createdBy === $staffCode;
+                    })
+                    ->map(function ($payment) {
+                        $member = $payment->user;
+                        $membership = $payment->membership;
+                        $currency = $membership->currency ?? 'PHP';
+                        $price = (float) ($membership->price ?? 0);
+
+                        return [
+                            'id' => $payment->id,
+                            'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
+                            'member_code' => $member->user_code ?? '—',
+                            'membership' => $membership->name ?? '—',
+                            'currency' => $currency,
+                            'price' => $price,
+                            'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
+                            'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
+                            'membership_id' => $membership->id ?? null,
+                        ];
+                    })
+                    ->values();
+
+                $total = $items->sum(fn ($item) => $item['price'] ?? 0);
+                $firstItem = $items->first();
+                $currency = is_array($firstItem) && array_key_exists('currency', $firstItem)
+                    ? $firstItem['currency']
+                    : 'PHP';
+
+                return [
+                    $staffId => [
+                        'count' => $items->count(),
+                        'total' => round($total, 2),
+                        'currency' => $currency,
+                        'items' => $items,
+                    ],
+                ];
+            });
+
+        $staffPayrollRows = $staffPayrollRows->map(function ($row) use ($staffMembershipPayments, $currency) {
+            $row['membership_payments'] = $staffMembershipPayments->get($row['id'] ?? null, [
+                'count' => 0,
+                'total' => 0,
+                'currency' => $currency,
+                'items' => collect(),
+            ]);
+            return $row;
+        });
+
+        $trainerPayrollRows = $payrollByUser
+            ->filter(fn ($row) => (int) ($row['role_id'] ?? 0) === 5)
+            ->sortBy('name')
+            ->values();
+
+        $staffSalesOrderRows = $staffPayrollRows
+            ->sortBy(
+                fn ($row) => (float) ($row['membership_payments']['total'] ?? 0),
+                SORT_REGULAR,
+                true
+            )
+            ->values();
+
+        $trainerSalesOrderRows = $trainerPayrollRows
+            ->sortBy(
+                fn ($row) => (float) ($row['app_cut'] ?? 0),
+                SORT_REGULAR,
+                true
+            )
+            ->values();
+
+        $perPage = max((int) $request->input('per_page', 10), 1);
+        $paginateCollection = function ($collection, string $pageName) use ($perPage, $request) {
+            $items = $collection instanceof \Illuminate\Support\Collection ? $collection : collect($collection);
+            $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+            $currentPageItems = $items->slice(($page - 1) * $perPage, $perPage)->values();
+            $paginator = new LengthAwarePaginator(
+                $currentPageItems,
+                $items->count(),
+                $perPage,
+                $page,
+                [
+                    'path' => $request->url(),
+                    'pageName' => $pageName,
+                ]
+            );
+
+            return $paginator->appends($request->query());
+        };
+
+        $membershipPlanTable = $paginateCollection($membershipPlanRows, 'membership_page');
+        $memberSalesTable = $paginateCollection($memberSalesRows, 'member_page');
+        $staffSalesOrderTable = $paginateCollection($staffSalesOrderRows, 'staff_order_page');
+        $trainerSalesOrderTable = $paginateCollection($trainerSalesOrderRows, 'trainer_order_page');
+
         return view('admin.sales.reports', [
             'summary' => $summary,
             'membershipPayments' => $membershipPayments,
             'membershipPaymentsAll' => $printAllPayments,
             'startDate' => $startValue,
             'endDate' => $endValue,
+            'tableScope' => $tableScope,
+            'membershipPlanTable' => $membershipPlanTable,
+            'memberSalesTable' => $memberSalesTable,
+            'staffSalesOrderTable' => $staffSalesOrderTable,
+            'trainerSalesOrderTable' => $trainerSalesOrderTable,
         ]);
+    }
+
+    protected function buildSalesReportRows(string $focus, string $order, $payments, $payrollBase)
+    {
+        $orderDirection = $order === 'least' ? 'asc' : 'desc';
+        $rows = collect();
+
+        if ($focus === 'trainer' || $focus === 'staff') {
+            $roleId = $focus === 'trainer' ? 5 : 2;
+            $runs = (clone $payrollBase)
+                ->whereHas('user', fn ($query) => $query->where('role_id', $roleId))
+                ->get();
+
+            $rows = $runs->groupBy('user_id')->map(function ($group) use ($focus) {
+                $latest = $group->sortByDesc(function ($run) {
+                    return $run->processed_at ?? $run->created_at;
+                })->first();
+
+                $user = $latest?->user;
+                $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                $label = $name ?: 'Unknown ' . ($focus === 'trainer' ? 'trainer' : 'staff');
+                $code = $user->user_code ?? null;
+                $lastDate = $latest?->processed_at ?? $latest?->created_at;
+
+                return [
+                    'label' => $code ? "{$label} ({$code})" : $label,
+                    'type' => ucfirst($focus),
+                    'sales' => $group->count(),
+                    'revenue' => round($group->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+                    'last_sale' => $lastDate ? Carbon::parse($lastDate)->format('M d, Y') : '—',
+                ];
+            });
+        } elseif ($focus === 'membership') {
+            $rows = $payments->groupBy('membership_id')->map(function ($group) {
+                $membership = $group->first()?->membership;
+                $label = $membership?->name ?: 'Unassigned membership';
+
+                return [
+                    'label' => $label,
+                    'type' => 'Membership',
+                    'sales' => $group->count(),
+                    'revenue' => round($group->sum(function ($payment) {
+                        return (float) optional($payment->membership)->price ?: 0.0;
+                    }), 2),
+                    'last_sale' => optional($group->sortByDesc('created_at')->first()?->created_at)->format('M d, Y') ?: '—',
+                ];
+            });
+        } elseif ($focus === 'date') {
+            $rows = $payments->groupBy(function ($payment) {
+                return Carbon::parse($payment->created_at)->format('Y-m');
+            })->map(function ($group, $monthKey) {
+                $label = Carbon::createFromFormat('Y-m', $monthKey)->format('M Y');
+
+                return [
+                    'label' => $label,
+                    'type' => 'Month',
+                    'sales' => $group->count(),
+                    'revenue' => round($group->sum(function ($payment) {
+                        return (float) optional($payment->membership)->price ?: 0.0;
+                    }), 2),
+                    'last_sale' => optional($group->sortByDesc('created_at')->first()?->created_at)->format('M d, Y') ?: '—',
+                ];
+            });
+        } else {
+            $rows = $payments->groupBy('user_id')->map(function ($group) {
+                $user = $group->first()?->user;
+                $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                $label = $name ?: 'Member';
+                $code = $user->user_code ?? null;
+
+                return [
+                    'label' => $code ? "{$label} ({$code})" : $label,
+                    'type' => 'Member',
+                    'sales' => $group->count(),
+                    'revenue' => round($group->sum(function ($payment) {
+                        return (float) optional($payment->membership)->price ?: 0.0;
+                    }), 2),
+                    'last_sale' => optional($group->sortByDesc('created_at')->first()?->created_at)->format('M d, Y') ?: '—',
+                ];
+            });
+        }
+
+        return $orderDirection === 'asc'
+            ? $rows->sortBy('revenue')->values()
+            : $rows->sortByDesc('revenue')->values();
+    }
+
+    protected function resolveDateRange(?string $preset, ?string $startInput, ?string $endInput): array
+    {
+        $today = Carbon::now();
+        $preset = $preset ?: 'this_year';
+        $start = $today->copy()->startOfYear();
+        $end = $today->copy()->endOfDay();
+
+        switch ($preset) {
+            case 'today':
+                $start = $today->copy()->startOfDay();
+                $end = $today->copy()->endOfDay();
+                break;
+            case 'yesterday':
+                $start = $today->copy()->subDay()->startOfDay();
+                $end = $today->copy()->subDay()->endOfDay();
+                break;
+            case 'last_7':
+                $start = $today->copy()->subDays(6)->startOfDay();
+                $end = $today->copy()->endOfDay();
+                break;
+            case 'last_30':
+                $start = $today->copy()->subDays(29)->startOfDay();
+                $end = $today->copy()->endOfDay();
+                break;
+            case 'this_week':
+                $start = $today->copy()->startOfWeek();
+                $end = $today->copy()->endOfWeek();
+                break;
+            case 'last_week':
+                $start = $today->copy()->subWeek()->startOfWeek();
+                $end = $today->copy()->subWeek()->endOfWeek();
+                break;
+            case 'this_month':
+                $start = $today->copy()->startOfMonth();
+                $end = $today->copy()->endOfMonth();
+                break;
+            case 'last_month':
+                $lastMonth = $today->copy()->subMonth();
+                $start = $lastMonth->copy()->startOfMonth();
+                $end = $lastMonth->copy()->endOfMonth();
+                break;
+            case 'this_quarter':
+                $start = $today->copy()->firstOfQuarter()->startOfDay();
+                $end = $today->copy()->lastOfQuarter()->endOfDay();
+                break;
+            case 'last_quarter':
+                $lastQuarter = $today->copy()->subQuarter();
+                $start = $lastQuarter->copy()->firstOfQuarter()->startOfDay();
+                $end = $lastQuarter->copy()->lastOfQuarter()->endOfDay();
+                break;
+            case 'this_year':
+                $start = $today->copy()->startOfYear();
+                $end = $today->copy()->endOfDay();
+                break;
+            case 'last_year':
+                $lastYear = $today->copy()->subYear();
+                $start = $lastYear->copy()->startOfYear();
+                $end = $lastYear->copy()->endOfYear();
+                break;
+            case 'all_time':
+                $start = Carbon::create(2000, 1, 1, 0, 0, 0);
+                $end = $today->copy()->endOfDay();
+                break;
+            case 'custom':
+            default:
+                $preset = 'custom';
+                $start = $startInput
+                    ? Carbon::createFromFormat('Y-m-d', $startInput)->startOfDay()
+                    : $today->copy()->startOfYear();
+                $end = $endInput
+                    ? Carbon::createFromFormat('Y-m-d', $endInput)->endOfDay()
+                    : $today->copy()->endOfDay();
+                break;
+        }
+
+        return [$start, $end, $preset];
     }
 }
