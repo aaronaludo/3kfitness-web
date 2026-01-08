@@ -150,6 +150,17 @@
         font-size: 0.95rem;
     }
     .table-meta { color: #6b7280; }
+    .table thead th {
+        border: none;
+        color: #5b6470;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        font-size: 0.78rem;
+    }
+    .table tbody td {
+        vertical-align: middle;
+    }
     .badge-soft {
         background: rgba(12, 108, 178, 0.08);
         color: #0c6cb2;
@@ -528,22 +539,28 @@
         </div>
     </div>
 
-    <div class="card shadow-sm border-0 rounded-4 mb-4">
-        <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+    @php
+        $rowsTotal = $focusRows instanceof \Illuminate\Pagination\AbstractPaginator
+            ? $focusRows->total()
+            : (is_countable($focusRows) ? count($focusRows) : 0);
+    @endphp
+
+    <div class="card shadow-sm border-0 rounded-4 overflow-hidden p-3 mb-4">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2 border-0">
             <div>
                 <h5 class="mb-0">Results</h5>
-                <small class="text-muted">Sorted by {{ $order === 'least' ? 'lowest' : 'highest' }} revenue.</small>
+                <small class="text-muted">Consistent table styling with Sales Profit Report.</small>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ ucfirst($focus) }}</span>
                 <span class="badge-soft"><i class="fa-solid fa-coins me-1"></i> {{ $currency }} currency</span>
-                <span class="table-meta">Showing {{ count($focusRows) }} record{{ count($focusRows) === 1 ? '' : 's' }}</span>
+                <span class="table-meta">Showing {{ $rowsTotal }} record{{ $rowsTotal === 1 ? '' : 's' }}</span>
             </div>
         </div>
-        <div class="card-body p-3">
+        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover align-middle mb-0">
-                    <thead class="table-light">
+                <table class="table mb-0">
+                    <thead>
                         <tr>
                             <th>Focus</th>
                             <th>Type</th>
@@ -572,11 +589,8 @@
                 </table>
             </div>
             @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
-                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3 table-meta">
-                    <span>Showing {{ count($focusRows) }} record{{ count($focusRows) === 1 ? '' : 's' }}</span>
-                    <div class="ms-auto">
-                        {{ $focusRows->withQueryString()->links() }}
-                    </div>
+                <div class="p-3">
+                    {{ $focusRows->withQueryString()->links('pagination::bootstrap-5') }}
                 </div>
             @endif
         </div>

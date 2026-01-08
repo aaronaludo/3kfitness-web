@@ -691,11 +691,11 @@
                             <i class="fa-solid fa-chart-line"></i> Sales Overview
                         </a>
                         <ul id="sales-menu" class="collapse {{ request()->routeIs($salesRoutes) ? 'show' : '' }}">
-                            <li>
+                            {{-- <li>
                                 <a href="{{ route('admin.sales.index') }}" class="{{ request()->routeIs('admin.sales.index') ? 'active' : '' }}">
                                     Overview
                                 </a>
-                            </li>
+                            </li> --}}
                             <li>
                                 <a href="{{ route('admin.sales.report') }}" class="{{ request()->routeIs('admin.sales.report') ? 'active' : '' }}">
                                     Sales Report

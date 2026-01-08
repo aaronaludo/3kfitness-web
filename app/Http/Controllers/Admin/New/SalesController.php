@@ -696,6 +696,22 @@ class SalesController extends Controller
         $totalSales = round($membershipRevenue + $classCommission, 2);
 
         $focusRows = $this->buildSalesReportRows($focus, $order ?? 'most', $payments, $payrollBase);
+        $perPage = 10;
+        if (!($focusRows instanceof LengthAwarePaginator)) {
+            $items = $focusRows instanceof \Illuminate\Support\Collection ? $focusRows : collect($focusRows ?? []);
+            $page = LengthAwarePaginator::resolveCurrentPage('page');
+            $paginator = new LengthAwarePaginator(
+                $items->slice(($page - 1) * $perPage, $perPage)->values(),
+                $items->count(),
+                $perPage,
+                $page,
+                [
+                    'path' => $request->url(),
+                    'pageName' => 'page',
+                ]
+            );
+            $focusRows = $paginator->appends($request->query());
+        }
 
         $rangeLabel = $start->format('Y') === $end->format('Y')
             ? $start->format('Y')
@@ -836,6 +852,7 @@ class SalesController extends Controller
                 'pageName' => $paymentsPage->getPageName(),
             ]
         );
+        $membershipPayments->appends($request->query());
 
         $printAllPayments = $allPayments->map($mapPayment)->values();
 
