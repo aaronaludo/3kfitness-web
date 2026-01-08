@@ -3,117 +3,153 @@
 
 @section('styles')
 <style>
-    .report-hero {
-        background: linear-gradient(135deg, #0f4c75 0%, #1b6ca8 45%, #3282b8 100%);
-        color: #f5fbff;
-        border-radius: 20px;
-        padding: 24px 26px;
-        box-shadow: 0 18px 45px rgba(15, 76, 117, 0.25);
-        position: relative;
-        overflow: hidden;
-    }
-    .report-hero::after {
-        content: "";
-        position: absolute;
-        inset: 10% -10% -40% 50%;
-        background: radial-gradient(circle at top left, rgba(255,255,255,0.18), transparent 55%);
-        transform: rotate(-8deg);
-    }
-    .report-hero h2 {
-        font-weight: 800;
-        letter-spacing: 0.5px;
-        margin-bottom: 6px;
-    }
-    .report-hero .eyebrow {
-        text-transform: uppercase;
-        letter-spacing: 0.12em;
-        font-weight: 700;
-        font-size: 0.8rem;
-        opacity: 0.85;
-    }
-    .pill {
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.15);
-        color: #f5fbff;
-        font-weight: 700;
-        border: 1px solid rgba(255, 255, 255, 0.25);
-    }
-    .pill i {
-        font-size: 0.9rem;
+    /* Minimal summary cards (copied from sales detailed reports) */
+    .report-summary {
+        --border: #e7e7ea;
+        --text: #1f2933;
+        --muted: #6b7280;
     }
     .summary-card {
-        border-radius: 16px;
-        border: 1px solid rgba(0,0,0,0.05);
+        --accent: #d63e4b;
+        --accent-soft: #fff5f5;
         background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 16px;
         padding: 18px;
-        box-shadow: 0 14px 38px rgba(0, 0, 0, 0.05);
-        height: 100%;
-        position: relative;
-        overflow: hidden;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.05);
+        min-height: 100%;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
     }
-    .summary-card .eyebrow {
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
+    .summary-card.cost {
+        --accent: #c2395a;
+        --accent-soft: #fff4f8;
+    }
+    .summary-card.profit {
+        --accent: #2f7a48;
+        --accent-soft: #eef7f1;
+    }
+    .summary-card__header {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: flex-start;
+    }
+    .summary-card__title {
         font-weight: 700;
-        font-size: 0.82rem;
-        color: #5b6470;
+        margin: 2px 0 2px;
+        color: var(--text);
     }
-    .summary-value {
-        font-size: 1.8rem;
-        font-weight: 800;
-        margin: 6px 0;
-        color: #1f2a37;
-    }
-    .summary-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 10px;
-        border-radius: 10px;
-        background: rgba(15, 76, 117, 0.06);
-        color: #0f4c75;
-        font-weight: 700;
-        font-size: 0.85rem;
-    }
-    .filter-card {
-        border-radius: 16px;
-        border: 1px solid rgba(0,0,0,0.05);
-        background: #fff;
-        box-shadow: 0 10px 28px rgba(0,0,0,0.06);
-    }
-    .form-label {
-        font-weight: 700;
-        color: #4b5563;
+    .summary-card__subtitle {
+        color: var(--muted);
         font-size: 0.9rem;
     }
-    .input-icon {
-        position: absolute;
-        left: 12px;
-        top: 50%;
-        transform: translateY(-50%);
-        color: #6b7280;
+    .summary-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 12px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid var(--border);
     }
-    .search-input {
-        padding-left: 38px;
-    }
-    .table thead th {
-        background: #f8fafc;
-        color: #4b5563;
-        font-weight: 700;
+    .pill-soft {
+        margin-bottom: 10px;
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 0.75rem;
+        font-weight: 600;
         text-transform: uppercase;
-        letter-spacing: 0.04em;
-        font-size: 0.78rem;
+        letter-spacing: 0.02em;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid rgba(0, 0, 0, 0.04);
     }
-    .table tbody td {
-        vertical-align: middle;
+    .pill-ghost {
+        padding: 6px 12px;
+        border-radius: 999px;
+        border: 1px solid var(--border);
+        color: var(--muted);
+        background: #fff;
+        font-weight: 600;
     }
-    .table-meta {
-        color: #6b7280;
+    .summary-amount {
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: var(--text);
     }
+    .summary-card__value {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+    }
+    .summary-card__math {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+        background: var(--accent-soft);
+        border: 1px dashed rgba(0, 0, 0, 0.05);
+        border-radius: 12px;
+        padding: 10px;
+    }
+    .math-chip {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 12px;
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        min-width: 160px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.03);
+    }
+    .math-chip__icon {
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        background: var(--accent-soft);
+        color: var(--accent);
+        border: 1px solid rgba(0, 0, 0, 0.04);
+    }
+    .math-chip__label {
+        font-weight: 700;
+        color: var(--text);
+        line-height: 1.2;
+    }
+    .math-chip__value {
+        color: var(--muted);
+        font-weight: 600;
+    }
+    .math-symbol {
+        font-weight: 800;
+        color: var(--accent);
+    }
+    .summary-card__footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-weight: 600;
+        color: var(--muted);
+        gap: 10px;
+    }
+    .summary-card__link {
+        color: var(--accent);
+        text-decoration: none;
+        font-weight: 700;
+    }
+    .summary-card__link i {
+        font-size: 0.95rem;
+    }
+    .table-meta { color: #6b7280; }
     .badge-soft {
         background: rgba(12, 108, 178, 0.08);
         color: #0c6cb2;
@@ -127,14 +163,17 @@
         text-align: center;
         color: #6b7280;
     }
-    .note-box {
-        border-radius: 14px;
-        border: 1px dashed rgba(12, 108, 178, 0.25);
-        background: rgba(12, 108, 178, 0.05);
-        padding: 12px 14px;
-        color: #0f4c75;
-        font-weight: 600;
+    @media (max-width: 575.98px) {
+        .summary-card__value {
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .math-chip {
+            min-width: auto;
+            flex: 1 1 100%;
+        }
     }
+    /* Filter menu (kept from original) */
     .filter-menu {
         position: relative;
     }
@@ -155,66 +194,87 @@
         background: #fff;
         border-radius: 14px;
         box-shadow: 0 14px 32px rgba(0, 0, 0, 0.12);
-        min-width: 260px;
+        min-width: 680px;
         border: 1px solid rgba(0,0,0,0.08);
         display: none;
     }
     .filter-menu__panel.show {
         display: grid;
-        grid-template-columns: 1fr 1fr;
+        grid-template-columns: 180px 220px 1fr;
+        grid-template-rows: 1fr;
+        align-items: start;
+        gap: 0;
     }
     .filter-menu__list {
         list-style: none;
         margin: 0;
         padding: 8px;
         border-right: 1px solid rgba(0,0,0,0.06);
+        grid-column: 1;
+        grid-row: 1;
     }
     .filter-menu__item {
         width: 100%;
         text-align: left;
         border: none;
         background: transparent;
-        padding: 10px 10px;
-        border-radius: 10px;
+        padding: 10px 12px;
+        border-radius: 12px;
         font-weight: 700;
         color: #1f2a37;
+        transition: background 0.15s ease, color 0.15s ease;
     }
     .filter-menu__item.active, .filter-menu__item:hover {
-        background: rgba(15, 76, 117, 0.08);
+        background: #e9f0f7;
         color: #0f4c75;
     }
     .filter-menu__sub {
         list-style: none;
         margin: 0;
-        padding: 8px;
+        padding: 10px;
+        grid-column: 2;
+        grid-row: 1;
+        display: grid;
+        gap: 8px;
     }
     .filter-menu__sub li {
         margin-bottom: 6px;
     }
     .filter-menu__sub button {
         width: 100%;
-        border: none;
-        background: rgba(15, 76, 117, 0.06);
+        border: 1px solid rgba(0,0,0,0.05);
+        background: #edf2f7;
         color: #0f4c75;
-        border-radius: 10px;
-        padding: 8px 10px;
-        font-weight: 700;
+        border-radius: 12px;
+        padding: 12px 12px;
+        font-weight: 800;
+        text-align: center;
+        box-shadow: 0 6px 12px rgba(0,0,0,0.05);
     }
     .filter-menu__sub button.active {
         background: #0f4c75;
         color: #fff;
+        box-shadow: 0 10px 20px rgba(15, 76, 117, 0.25);
     }
     .filter-menu__sub.disabled {
         opacity: 0.45;
         pointer-events: none;
     }
     .filter-menu__sub.scrollable {
-        max-height: calc(6 * 52px); /* show up to ~6 options before scrolling */
+        max-height: calc(7 * 48px);
         overflow-y: auto;
     }
     .filter-menu__sub--dates {
-        grid-column: 1 / -1;
-        border-top: 1px solid rgba(0,0,0,0.06);
+        grid-column: 3;
+        grid-row: 1;
+        max-height: 420px;
+        overflow-y: auto;
+        background: #f8fafc;
+        border-left: 1px solid rgba(0,0,0,0.06);
+        border-radius: 0 14px 14px 0;
+        padding: 12px;
+        display: grid;
+        gap: 10px;
     }
     @media (max-width: 575.98px) {
         .report-hero {
@@ -223,75 +283,141 @@
         .summary-value {
             font-size: 1.5rem;
         }
-        .filter-menu__panel.show {
-            grid-template-columns: 1fr;
-            width: 100%;
-        }
-        .filter-menu__list {
-            border-right: none;
-            border-bottom: 1px solid rgba(0,0,0,0.06);
-        }
+    .filter-menu__panel.show {
+        grid-template-columns: 1fr;
+        width: 100%;
+    }
+    .filter-menu__list {
+        border-right: none;
+        border-bottom: 1px solid rgba(0,0,0,0.06);
+    }
+    .filter-menu__sub {
+        grid-column: 1;
+    }
+    .filter-menu__sub--dates {
+        grid-column: 1;
+        grid-row: 3;
+        border-left: none;
+        border-top: 1px solid rgba(0,0,0,0.06);
+        border-radius: 0 0 14px 14px;
+    }
     }
 </style>
 @endsection
 
 @section('content')
 <div class="container-fluid">
-    <div class="report-hero mb-4">
-        <div class="row align-items-center">
-            <div class="col-lg-8 position-relative" style="z-index: 1;">
-                <p class="eyebrow mb-1">Sales Overview</p>
-                <h2>Sales Reports</h2>
-                <p class="mb-3">Default view loads the current year. Adjust dates to see past years or custom ranges.</p>
-                <div class="d-flex flex-wrap gap-2">
-                    <span class="pill"><i class="fa-solid fa-calendar"></i> Year {{ $rangeYear }}</span>
-                    <span class="pill"><i class="fa-solid fa-clock"></i> Range {{ $rangeLabel }}</span>
+    <div class="row">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
+            <div>
+                <h2 class="title mb-0">Sales Reports</h2>
+                <p class="text-muted mb-0">Default view loads the current year. Adjust dates to see past years or custom ranges.</p>
+            </div>
+            <div class="d-flex gap-2 flex-wrap">
+                <span class="pill-soft">Year {{ $rangeYear }}</span>
+                <span class="pill-soft">Range {{ $rangeLabel }}</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-3 mb-4 report-summary">
+        <div class="col-12 col-lg-4">
+            <div class="summary-card">
+                <div class="summary-card__header">
+                    <div>
+                        <span class="pill-soft">Memberships</span>
+                        <div class="summary-card__title h5 mb-1">Membership revenue</div>
+                        <div class="summary-card__subtitle">Total membership sales</div>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fa-solid fa-wallet fa-fw fa-lg"></i>
+                    </div>
+                </div>
+                <div class="summary-card__value">
+                    <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['membership_revenue'] ?? 0, 2) }}</div>
+                    <span class="pill-ghost">{{ $summary['membership_count'] ?? 0 }} sales</span>
                 </div>
             </div>
-            <div class="col-lg-4 text-lg-end text-start position-relative" style="z-index: 1;">
-                <div class="note-box">
-                    <i class="fa-solid fa-circle-info me-2"></i>
-                    Edit the dates any time; by default we pull {{ $rangeYear }} year-to-date results.
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="summary-card cost">
+                <div class="summary-card__header">
+                    <div>
+                        <span class="pill-soft">Commission</span>
+                        <div class="summary-card__title h5 mb-1">Class commission</div>
+                        <div class="summary-card__subtitle">Trainer commissions for the period</div>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fa-solid fa-ranking-star fa-fw fa-lg"></i>
+                    </div>
+                </div>
+                <div class="summary-card__value">
+                    <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
+                    <span class="pill-ghost">Included in totals</span>
+                </div>
+            </div>
+        </div>
+        <div class="col-12 col-lg-4">
+            <div class="summary-card profit">
+                <div class="summary-card__header">
+                    <div>
+                        <span class="pill-soft">Total</span>
+                        <div class="summary-card__title h5 mb-1">Total sales</div>
+                        <div class="summary-card__subtitle">Memberships + commissions</div>
+                    </div>
+                    <div class="summary-icon">
+                        <i class="fa-solid fa-layer-group fa-fw fa-lg"></i>
+                    </div>
+                </div>
+                <div class="summary-card__math">
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-wallet fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">Memberships</div>
+                            <div class="math-chip__value">{{ $currency }} {{ number_format($summary['membership_revenue'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
+                    <span class="math-symbol">+</span>
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-ranking-star fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">Commissions</div>
+                            <div class="math-chip__value">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
+                    <span class="math-symbol">=</span>
+                    <div class="math-chip">
+                        <span class="math-chip__icon">
+                            <i class="fa-solid fa-sack-dollar fa-fw fa-lg"></i>
+                        </span>
+                        <div>
+                            <div class="math-chip__label">Total</div>
+                            <div class="math-chip__value">{{ $currency }} {{ number_format($summary['total_sales'] ?? 0, 2) }}</div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <div class="row g-3 mb-3">
-        <div class="col-md-4">
-            <div class="summary-card h-100">
-                <p class="eyebrow mb-1">Total Membership Sales</p>
-                <div class="summary-value">{{ $currency }} {{ number_format($summary['membership_revenue'] ?? 0, 2) }}</div>
-                <div class="summary-chip">
-                    <i class="fa-solid fa-user-group"></i>
-                    {{ $summary['membership_count'] ?? 0 }} sales
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+                <div>
+                    <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Filters</span>
+                    <h4 class="fw-semibold mb-1">Sales report filters</h4>
+                    <p class="text-muted mb-0">Adjust focus, membership, and date range. Default is current year.</p>
+                </div>
+                <div class="text-end">
+                    <span class="d-block text-muted small">Year {{ $rangeYear }}</span>
+                    <span class="d-block text-muted small">Range {{ $rangeLabel }}</span>
                 </div>
             </div>
-        </div>
-        <div class="col-md-4">
-            <div class="summary-card h-100">
-                <p class="eyebrow mb-1">Class Commission</p>
-                <div class="summary-value">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
-                <div class="summary-chip">
-                    <i class="fa-solid fa-ranking-star"></i>
-                    Trainer commissions for the period
-                </div>
-            </div>
-        </div>
-        <div class="col-md-4">
-            <div class="summary-card h-100">
-                <p class="eyebrow mb-1">Total Sales</p>
-                <div class="summary-value">{{ $currency }} {{ number_format($summary['total_sales'] ?? 0, 2) }}</div>
-                <div class="summary-chip">
-                    <i class="fa-solid fa-layer-group"></i>
-                    Memberships + commissions
-                </div>
-            </div>
-        </div>
-    </div>
 
-    <div class="filter-card mb-4 p-4">
-        <div class="card-body">
             <form action="{{ route('admin.sales.report') }}" method="GET" class="row g-3 align-items-end">
                 <div class="col-12 col-lg-5">
                     <label for="search" class="form-label">Search for all</label>
@@ -402,55 +528,57 @@
         </div>
     </div>
 
-    <div class="row g-3">
-        <div class="col-lg-12">
-            <div class="card shadow-sm border-0 rounded-4 overflow-hidden p-3">
-                <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
-                    <div>
-                        <h5 class="mb-0">Results</h5>
-                        <small class="text-muted">Sorted by {{ $order === 'least' ? 'lowest' : 'highest' }} revenue.</small>
-                    </div>
-                    <div class="badge-soft"><i class="fa-solid fa-coins me-1"></i> {{ $currency }} currency</div>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle mb-0">
-                        <thead class="table-light">
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
+            <div>
+                <h5 class="mb-0">Results</h5>
+                <small class="text-muted">Sorted by {{ $order === 'least' ? 'lowest' : 'highest' }} revenue.</small>
+            </div>
+            <div class="d-flex align-items-center gap-2 flex-wrap">
+                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ ucfirst($focus) }}</span>
+                <span class="badge-soft"><i class="fa-solid fa-coins me-1"></i> {{ $currency }} currency</span>
+                <span class="table-meta">Showing {{ count($focusRows) }} record{{ count($focusRows) === 1 ? '' : 's' }}</span>
+            </div>
+        </div>
+        <div class="card-body p-3">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Focus</th>
+                            <th>Type</th>
+                            <th class="text-center">Sales</th>
+                            <th class="text-end">Revenue</th>
+                            <th class="text-end">Last Sale</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($focusRows as $row)
                             <tr>
-                                <th>Focus</th>
-                                <th>Type</th>
-                                <th class="text-center">Sales</th>
-                                <th class="text-end">Revenue</th>
-                                <th class="text-end">Last Sale</th>
+                                <td>{{ $row['label'] }}</td>
+                                <td><span class="badge-soft">{{ $row['type'] }}</span></td>
+                                <td class="text-center fw-bold">{{ $row['sales'] }}</td>
+                                <td class="text-end fw-bold">{{ $currency }} {{ number_format($row['revenue'], 2) }}</td>
+                                <td class="text-end text-muted">{{ $row['last_sale'] }}</td>
                             </tr>
-                        </thead>
-                        <tbody>
-                            @forelse ($focusRows as $row)
-                                <tr>
-                                    <td>{{ $row['label'] }}</td>
-                                    <td><span class="badge-soft">{{ $row['type'] }}</span></td>
-                                    <td class="text-center fw-bold">{{ $row['sales'] }}</td>
-                                    <td class="text-end fw-bold">{{ $currency }} {{ number_format($row['revenue'], 2) }}</td>
-                                    <td class="text-end text-muted">{{ $row['last_sale'] }}</td>
-                                </tr>
-                            @empty
-                                <tr>
-                                    <td colspan="5" class="empty-state">
-                                        <i class="fa-regular fa-circle-question me-2"></i>No data for this view. Try widening your date range or clearing filters.
-                                    </td>
-                                </tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
+                        @empty
+                            <tr>
+                                <td colspan="5" class="empty-state">
+                                    <i class="fa-regular fa-circle-question me-2"></i>No data for this view. Try widening your date range or clearing filters.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3 table-meta">
                     <span>Showing {{ count($focusRows) }} record{{ count($focusRows) === 1 ? '' : 's' }}</span>
-                    @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
-                        <div class="ms-auto">
-                            {{ $focusRows->withQueryString()->links() }}
-                        </div>
-                    @endif
+                    <div class="ms-auto">
+                        {{ $focusRows->withQueryString()->links() }}
+                    </div>
                 </div>
-            </div>
+            @endif
         </div>
     </div>
 </div>
