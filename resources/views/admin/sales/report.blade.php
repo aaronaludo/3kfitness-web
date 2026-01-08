@@ -848,16 +848,23 @@
             return chips;
         };
 
-        var buildSummaryChips = function (summary, currency) {
+        var buildSummaryChips = function (summary, currency, focus) {
             var chips = [];
             if (!summary) return chips;
             var formatMoney = function (value) {
                 var num = Number(value) || 0;
                 return currency + ' ' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             };
-            if (summary.membership_revenue !== undefined) chips.push({ label: 'Membership revenue', value: formatMoney(summary.membership_revenue) });
-            if (summary.total_sales_count !== undefined) chips.push({ label: 'Total sales', value: (summary.total_sales_count || 0).toString() });
-            if (summary.class_commission !== undefined && summary.class_commission !== null) chips.push({ label: 'Class commission', value: formatMoney(summary.class_commission) });
+            var isTrainer = (focus || '').toLowerCase() === 'trainer';
+            if (!isTrainer && summary.membership_revenue !== undefined) {
+                chips.push({ label: 'Membership revenue', value: formatMoney(summary.membership_revenue) });
+            }
+            if (!isTrainer && summary.total_sales_count !== undefined) {
+                chips.push({ label: 'Total sales', value: (summary.total_sales_count || 0).toString() });
+            }
+            if (summary.class_commission !== undefined && summary.class_commission !== null) {
+                chips.push({ label: 'Class commission', value: formatMoney(summary.class_commission) });
+            }
             return chips;
         };
 
@@ -928,7 +935,7 @@
 
             if (payloadToUse && window.PrintPreview && typeof window.PrintPreview.tryOpen === 'function') {
                 var chips = buildFilterChips(payloadToUse.filters || {});
-                var summaryChips = buildSummaryChips(payloadToUse.summary, payloadToUse.currency);
+                var summaryChips = buildSummaryChips(payloadToUse.summary, payloadToUse.currency, payloadToUse.focus);
                 chips = chips.concat(summaryChips);
                 var built = buildRows(payloadToUse);
                 handled = window.PrintPreview.tryOpen(payloadToUse, built.headers, built.rows, chips);
