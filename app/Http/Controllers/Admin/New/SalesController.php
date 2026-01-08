@@ -755,17 +755,15 @@ class SalesController extends Controller
         $request->validate([
             'start_date' => 'nullable|date_format:Y-m-d',
             'end_date'   => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'date_preset' => 'nullable|in:today,yesterday,last_7,last_30,this_week,last_week,this_month,last_month,this_quarter,last_quarter,this_year,last_year,all_time,custom',
         ]);
 
         $startInput = $request->input('start_date');
         $endInput   = $request->input('end_date');
+        $presetInput = $request->input('date_preset');
+        $preset = $presetInput ?: (($startInput || $endInput) ? 'custom' : 'last_30');
 
-        $start = $startInput
-            ? Carbon::createFromFormat('Y-m-d', $startInput)->startOfDay()
-            : Carbon::now()->subDays(29)->startOfDay();
-        $end = $endInput
-            ? Carbon::createFromFormat('Y-m-d', $endInput)->endOfDay()
-            : Carbon::now()->endOfDay();
+        [$start, $end, $datePreset] = $this->resolveDateRange($preset, $startInput, $endInput);
         $startValue = $start->toDateString();
         $endValue = $end->toDateString();
 
@@ -1035,6 +1033,7 @@ class SalesController extends Controller
             'summary' => $summary,
             'membershipPayments' => $membershipPayments,
             'membershipPaymentsAll' => $printAllPayments,
+            'datePreset' => $datePreset,
             'startDate' => $startValue,
             'endDate' => $endValue,
             'tableScope' => $tableScope,

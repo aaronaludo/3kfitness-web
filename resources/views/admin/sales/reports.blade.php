@@ -397,15 +397,26 @@
                     </div>
 
                     <form action="{{ route('admin.sales.reports') }}" method="GET" class="row g-3 align-items-end">
-                        <div class="col-12 col-md-4">
-                            <label class="form-label text-muted small mb-1" for="start_date">Start date</label>
-                            <input type="date" id="start_date" name="start_date" class="form-control rounded-pill" value="{{ $startDate }}">
+                        <div class="col-12 col-lg-4">
+                            <label class="form-label text-muted small mb-1" for="date_preset">Date range</label>
+                            <select id="date_preset" name="date_preset" class="form-select rounded-pill">
+                                <option value="today" {{ ($datePreset ?? 'last_30') === 'today' ? 'selected' : '' }}>Today</option>
+                                <option value="yesterday" {{ ($datePreset ?? 'last_30') === 'yesterday' ? 'selected' : '' }}>Yesterday</option>
+                                <option value="last_7" {{ ($datePreset ?? 'last_30') === 'last_7' ? 'selected' : '' }}>Last 7 Days</option>
+                                <option value="last_30" {{ ($datePreset ?? 'last_30') === 'last_30' ? 'selected' : '' }}>Last 30 Days</option>
+                                <option value="this_week" {{ ($datePreset ?? 'last_30') === 'this_week' ? 'selected' : '' }}>This Week</option>
+                                <option value="last_week" {{ ($datePreset ?? 'last_30') === 'last_week' ? 'selected' : '' }}>Last Week</option>
+                                <option value="this_month" {{ ($datePreset ?? 'last_30') === 'this_month' ? 'selected' : '' }}>This Month</option>
+                                <option value="last_month" {{ ($datePreset ?? 'last_30') === 'last_month' ? 'selected' : '' }}>Last Month</option>
+                                <option value="this_quarter" {{ ($datePreset ?? 'last_30') === 'this_quarter' ? 'selected' : '' }}>This Quarter</option>
+                                <option value="last_quarter" {{ ($datePreset ?? 'last_30') === 'last_quarter' ? 'selected' : '' }}>Last Quarter</option>
+                                <option value="this_year" {{ ($datePreset ?? 'last_30') === 'this_year' ? 'selected' : '' }}>This Year</option>
+                                <option value="last_year" {{ ($datePreset ?? 'last_30') === 'last_year' ? 'selected' : '' }}>Last Year</option>
+                                <option value="all_time" {{ ($datePreset ?? 'last_30') === 'all_time' ? 'selected' : '' }}>All Time</option>
+                                <option value="custom" {{ ($datePreset ?? 'last_30') === 'custom' ? 'selected' : '' }}>Custom Date Range</option>
+                            </select>
                         </div>
-                        <div class="col-12 col-md-4">
-                            <label class="form-label text-muted small mb-1" for="end_date">End date</label>
-                            <input type="date" id="end_date" name="end_date" class="form-control rounded-pill" value="{{ $endDate }}">
-                        </div>
-                        <div class="col-12 col-md-4">
+                        <div class="col-12 col-lg-4">
                             <label class="form-label text-muted small mb-1" for="table_scope">Table view</label>
                             <select id="table_scope" name="table_scope" class="form-select rounded-pill">
                                 <option value="payments" {{ ($tableScope ?? 'payments') === 'payments' ? 'selected' : '' }}>Membership payments</option>
@@ -415,7 +426,7 @@
                                 <option value="memberships" {{ ($tableScope ?? '') === 'memberships' ? 'selected' : '' }}>Memberships</option>
                             </select>
                         </div>
-                        <div class="col-12 col-md-4 d-flex gap-2 justify-content-md-end">
+                        <div class="col-12 col-lg-4 d-flex gap-2 justify-content-lg-end">
                             <a href="{{ route('admin.sales.reports') }}" class="btn btn-link text-decoration-none text-muted px-0">
                                 Reset
                             </a>
@@ -423,6 +434,18 @@
                                 <i class="fa-solid fa-magnifying-glass"></i>
                                 Apply
                             </button>
+                        </div>
+                        <div class="col-12 {{ ($datePreset ?? '') === 'custom' ? '' : 'd-none' }}" id="custom-date-range">
+                            <div class="row g-3">
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small mb-1" for="start_date">Start date</label>
+                                    <input type="date" id="start_date" name="start_date" class="form-control rounded-pill" value="{{ ($datePreset ?? '') === 'custom' ? $startDate : '' }}">
+                                </div>
+                                <div class="col-12 col-md-6">
+                                    <label class="form-label text-muted small mb-1" for="end_date">End date</label>
+                                    <input type="date" id="end_date" name="end_date" class="form-control rounded-pill" value="{{ ($datePreset ?? '') === 'custom' ? $endDate : '' }}">
+                                </div>
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -742,6 +765,10 @@
         const printButton = document.getElementById('print-submit-button');
         const printForm = document.getElementById('print-form');
         const printLoader = document.getElementById('print-loader');
+        const datePresetSelect = document.getElementById('date_preset');
+        const customDateRange = document.getElementById('custom-date-range');
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
 
         function buildFilters(filters) {
             const chips = [];
@@ -819,6 +846,18 @@
                     printForm.submit();
                 }
             });
+        }
+
+        if (datePresetSelect && customDateRange) {
+            const toggleCustomDates = () => {
+                const isCustom = datePresetSelect.value === 'custom';
+                customDateRange.classList.toggle('d-none', !isCustom);
+                if (startDateInput) startDateInput.disabled = !isCustom;
+                if (endDateInput) endDateInput.disabled = !isCustom;
+            };
+
+            datePresetSelect.addEventListener('change', toggleCustomDates);
+            toggleCustomDates();
         }
     });
 </script>
