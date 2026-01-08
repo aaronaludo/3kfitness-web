@@ -288,20 +288,135 @@
         border-radius: 0 0 14px 14px;
     }
     }
+    .report-chart-card {
+        border: 1px solid var(--border, #e7e7ea);
+        border-radius: 14px;
+        padding: 16px;
+        background: #fff;
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.05);
+        min-width: 320px;
+        max-width: 420px;
+    }
+    .report-chart-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        margin-bottom: 6px;
+    }
+    .report-chart-canvas {
+        width: 300px !important;
+        height: 300px !important;
+        max-width: 100%;
+        margin: 0 auto;
+        display: block;
+    }
+    .report-chart-note {
+        text-align: center;
+        color: var(--muted, #6b7280);
+        font-size: 0.8rem;
+        margin-top: 6px;
+    }
+    .report-chart-hint {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid rgba(0, 0, 0, 0.05);
+        color: #4b5563;
+    }
 </style>
 @endsection
 
 @section('content')
 <div class="container-fluid">
+    @php
+        $printCollectionCurrent = $focusRows instanceof \Illuminate\Pagination\AbstractPaginator
+            ? collect($focusRows->items())
+            : collect($focusRows ?? []);
+        $printCollectionAll = $focusRowsAll instanceof \Illuminate\Pagination\AbstractPaginator
+            ? collect($focusRowsAll->items())
+            : collect($focusRowsAll ?? $printCollectionCurrent);
+
+        $mapPrintRow = function ($row) use ($focus, $currency) {
+            $label = $row['label'] ?? '—';
+
+            if ($focus === 'trainer') {
+                return [
+                    'label' => $label,
+                    'value' => round((float) ($row['app_cut'] ?? 0), 2),
+                    'currency' => $currency,
+                    'last_sale' => $row['last_sale'] ?? '—',
+                ];
+            }
+
+            if ($focus === 'staff') {
+                return [
+                    'label' => $label,
+                    'value' => round((float) ($row['membership_payments']['total'] ?? 0), 2),
+                    'count' => (int) ($row['membership_payments']['count'] ?? 0),
+                    'currency' => $row['membership_payments']['currency'] ?? $currency,
+                ];
+            }
+
+            return [
+                'label' => $label,
+                'type' => $row['type'] ?? '—',
+                'sales' => (int) ($row['sales'] ?? 0),
+                'revenue' => round((float) ($row['revenue'] ?? 0), 2),
+                'last_sale' => $row['last_sale'] ?? '—',
+            ];
+        };
+
+        $printItems = $printCollectionCurrent->values()->map($mapPrintRow);
+        $printItemsAll = $printCollectionAll->values()->map($mapPrintRow);
+
+        $printPayload = [
+            'title' => 'Sales report',
+            'generated_at' => now()->format('M d, Y g:i A'),
+            'focus' => $focus,
+            'order' => $order,
+            'currency' => $currency,
+            'filters' => [
+                'search' => $searchTerm,
+                'focus' => ucfirst($focus),
+                'order' => $order,
+                'membership' => $selectedMembershipLabel ?? 'All Memberships',
+                'date' => $datePresetLabel ?? 'Custom Date Range',
+                'range' => $rangeLabel,
+            ],
+            'count' => $printItems->count(),
+            'items' => $printItems,
+        ];
+        $printAllPayload = array_merge($printPayload, [
+            'title' => 'Sales report (all pages)',
+            'filters' => array_merge($printPayload['filters'], ['scope' => 'all']),
+            'count' => $printItemsAll->count(),
+            'items' => $printItemsAll,
+        ]);
+    @endphp
     <div class="row">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
             <div>
                 <h2 class="title mb-0">Sales Reports</h2>
                 <p class="text-muted mb-0">Default view loads Member — Most Sales for the last 30 days. Adjust filters to change focus or date ranges.</p>
             </div>
-            <div class="d-flex gap-2 flex-wrap">
+            <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span class="pill-soft">Preset {{ $datePresetLabel ?? 'All Time' }}</span>
                 <span class="pill-soft">Range {{ $rangeLabel }}</span>
+                <button
+                    type="button"
+                    class="btn btn-danger d-flex align-items-center gap-2"
+                    id="sales-print-btn"
+                    data-print='@json($printPayload)'
+                    data-print-all='@json($printAllPayload)'
+                >
+                    <i class="fa-solid fa-print"></i>
+                    <span id="sales-print-loader" class="spinner-border spinner-border-sm ms-1 d-none" role="status" aria-hidden="true"></span>
+                    Print
+                </button>
             </div>
         </div>
     </div>
@@ -509,10 +624,66 @@
                     <h5 class="fw-semibold mb-1">Results</h5>
                     <p class="text-muted small mb-2">Styled to match the Sales Profit Report table.</p>
                     <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ ucfirst($focus) }}</span>
+                </div>
+                <div class="text-muted small text-end">
+                    <div><i class="fa-solid fa-coins me-1"></i>{{ $currency }} currency</div>
+                    <div>Showing {{ $rowsTotal }} record{{ $rowsTotal === 1 ? '' : 's' }}</div>
+                </div>
             </div>
-            <div class="text-muted small text-end">
-                <div><i class="fa-solid fa-coins me-1"></i>{{ $currency }} currency</div>
-                <div>Showing {{ $rowsTotal }} record{{ $rowsTotal === 1 ? '' : 's' }}</div>
+        @php
+            $chartCollection = $focusRows instanceof \Illuminate\Pagination\AbstractPaginator
+                ? collect($focusRows->items())
+                : collect($focusRows ?? []);
+            $chartSlice = $chartCollection->take(6);
+            $chartLabels = $chartSlice->pluck('label')->map(function ($label) {
+                return (string) ($label ?? '—');
+            });
+            $chartValues = $chartSlice->map(function ($row) use ($focus) {
+                if ($focus === 'trainer') {
+                    return (float) ($row['app_cut'] ?? 0);
+                }
+                if ($focus === 'staff') {
+                    return (float) ($row['membership_payments']['total'] ?? 0);
+                }
+                return (float) ($row['revenue'] ?? 0);
+            });
+            $chartTotal = $chartValues->sum();
+        @endphp
+        <div class="d-flex flex-wrap align-items-start gap-3 mb-3">
+            <span class="report-chart-hint">
+                <i class="fa-solid fa-chart-pie text-primary"></i>
+                <span class="small mb-0">Pie chart updates with the current Filter preset and Search.</span>
+            </span>
+            @if($chartTotal <= 0)
+                <span class="text-muted small">No chart data for this view.</span>
+            @endif
+            <button
+                type="button"
+                class="btn btn-outline-primary btn-sm"
+                id="toggle-chart-btn"
+                {{ $chartTotal <= 0 ? 'disabled' : '' }}
+            >
+                <i class="fa-solid fa-eye me-1"></i>Show pie chart
+            </button>
+            <div
+                class="report-chart-card d-none {{ $chartTotal <= 0 ? 'chart-empty' : '' }}"
+                id="sales-report-pie-wrapper"
+            >
+                <div class="report-chart-header">
+                    <span class="fw-semibold small">Sales mix</span>
+                    <span class="badge bg-light text-dark text-uppercase small">{{ ucfirst($focus) }}</span>
+                </div>
+                <canvas id="salesReportPie" class="report-chart-canvas"></canvas>
+                <div class="report-chart-note">
+                    Top {{ $chartSlice->count() }} by
+                    @if($focus === 'staff')
+                        membership payments
+                    @elseif($focus === 'trainer')
+                        class commission
+                    @else
+                        revenue
+                    @endif
+                </div>
             </div>
         </div>
         @if($focus === 'trainer')
@@ -731,6 +902,207 @@
         </div>
     </div>
 </div>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var printBtn = document.getElementById('sales-print-btn');
+        var loader = document.getElementById('sales-print-loader');
+        if (!printBtn) return;
+
+        var rawPayload = printBtn.dataset.print;
+        var rawAllPayload = printBtn.dataset.printAll;
+
+        var parsePayload = function (raw) {
+            try {
+                return raw ? JSON.parse(raw) : null;
+            } catch (err) {
+                return null;
+            }
+        };
+
+        var buildFilterChips = function (filters) {
+            var chips = [];
+            if (!filters) return chips;
+            if (filters.search) chips.push({ label: 'Search', value: filters.search });
+            if (filters.focus) {
+                var focusValue = filters.focus;
+                if (filters.order) {
+                    focusValue += ' (' + filters.order + ')';
+                }
+                chips.push({ label: 'Focus', value: focusValue });
+            }
+            if (filters.membership) chips.push({ label: 'Membership', value: filters.membership });
+            if (filters.date) chips.push({ label: 'Date', value: filters.date });
+            if (filters.range) chips.push({ label: 'Range', value: filters.range });
+            return chips;
+        };
+
+        var buildRows = function (payload) {
+            var focus = payload.focus || 'member';
+            var currency = payload.currency || '';
+            var items = Array.isArray(payload.items) ? payload.items : [];
+            var headers = [];
+            var rows = [];
+
+            if (focus === 'trainer') {
+                headers = ['#', 'Trainer', 'Class Commission (' + currency + ')', 'Last Sale'];
+                rows = items.map(function (item, idx) {
+                    return [
+                        idx + 1,
+                        item.label || '—',
+                        currency + ' ' + Number(item.value || 0).toFixed(2),
+                        item.last_sale || '—',
+                    ];
+                });
+            } else if (focus === 'staff') {
+                headers = ['#', 'Staff', 'Membership Payments (' + currency + ')', 'Count'];
+                rows = items.map(function (item, idx) {
+                    var curr = item.currency || currency;
+                    return [
+                        idx + 1,
+                        item.label || '—',
+                        curr + ' ' + Number(item.value || 0).toFixed(2),
+                        (item.count ?? 0).toString(),
+                    ];
+                });
+            } else {
+                headers = ['Focus', 'Type', 'Sales', 'Revenue (' + currency + ')', 'Last Sale'];
+                rows = items.map(function (item) {
+                    return [
+                        item.label || '—',
+                        item.type || '—',
+                        (item.sales ?? 0).toString(),
+                        currency + ' ' + Number(item.revenue || 0).toFixed(2),
+                        item.last_sale || '—',
+                    ];
+                });
+            }
+
+            return { headers: headers, rows: rows };
+        };
+
+        printBtn.addEventListener('click', async function (event) {
+            event.preventDefault();
+            if (loader) loader.classList.remove('d-none');
+            printBtn.disabled = true;
+
+            var payload = parsePayload(rawPayload);
+            var allPayload = parsePayload(rawAllPayload);
+            var handled = false;
+
+            var scope = 'current';
+            if (window.PrintPreview && typeof window.PrintPreview.chooseScope === 'function') {
+                scope = await window.PrintPreview.chooseScope();
+                if (!scope) {
+                    printBtn.disabled = false;
+                    if (loader) loader.classList.add('d-none');
+                    return;
+                }
+            }
+
+            var payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+
+            if (payloadToUse && window.PrintPreview && typeof window.PrintPreview.tryOpen === 'function') {
+                var chips = buildFilterChips(payloadToUse.filters || {});
+                var built = buildRows(payloadToUse);
+                handled = window.PrintPreview.tryOpen(payloadToUse, built.headers, built.rows, chips);
+            }
+
+            if (!handled) {
+                window.print();
+            }
+
+            printBtn.disabled = false;
+            if (loader) loader.classList.add('d-none');
+        });
+    });
+</script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        var pieCanvas = document.getElementById('salesReportPie');
+        var pieWrapper = document.getElementById('sales-report-pie-wrapper');
+        var toggleBtn = document.getElementById('toggle-chart-btn');
+        if (!pieCanvas) return;
+
+        var labels = @json($chartLabels ?? []);
+        var values = (@json($chartValues ?? []))
+            .map(function (value) { return Number(value) || 0; });
+        var currency = @json($currency ?? 'PHP');
+        var hasData = values.some(function (value) { return value > 0; });
+
+        if (!labels.length || !hasData) {
+            if (pieWrapper) {
+                pieWrapper.classList.add('d-none');
+            }
+            if (toggleBtn) {
+                toggleBtn.disabled = true;
+                toggleBtn.classList.add('disabled');
+            }
+            return;
+        }
+
+        var total = values.reduce(function (sum, value) {
+            return sum + value;
+        }, 0);
+        var palette = ['#0d6efd', '#20c997', '#ffc107', '#6f42c1', '#198754', '#ff7849', '#8d99ae'];
+        var colors = labels.map(function (_, idx) {
+            return palette[idx % palette.length];
+        });
+
+        new Chart(pieCanvas.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: values,
+                    backgroundColor: colors,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { boxWidth: 12 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function (context) {
+                                var label = context.label || '';
+                                var value = Number(context.parsed) || 0;
+                                var percent = total ? ((value / total) * 100).toFixed(1) : 0;
+                                var formatted = value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                                return label + ': ' + currency + ' ' + formatted + ' (' + percent + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        var isVisible = false;
+        var updateToggleText = function () {
+            if (!toggleBtn) return;
+            toggleBtn.innerHTML = isVisible
+                ? '<i class="fa-solid fa-eye-slash me-1"></i>Hide pie chart'
+                : '<i class="fa-solid fa-eye me-1"></i>Show pie chart';
+        };
+        if (toggleBtn) {
+            updateToggleText();
+            toggleBtn.disabled = false;
+            toggleBtn.addEventListener('click', function () {
+                isVisible = !isVisible;
+                if (pieWrapper) {
+                    pieWrapper.classList.toggle('d-none', !isVisible);
+                }
+                updateToggleText();
+            });
+        }
+    });
+</script>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
         var toggle = document.getElementById('filter-menu-toggle');

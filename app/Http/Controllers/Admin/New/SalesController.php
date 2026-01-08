@@ -783,6 +783,7 @@ class SalesController extends Controller
                 'total_sales_count' => $totalSalesCount,
             ],
             'focusRows' => $focusRows,
+            'focusRowsAll' => $focusRowsRaw,
             'membershipOptions' => $membershipOptions,
             'selectedMembershipId' => $membershipId,
             'selectedMembershipLabel' => $membershipLabel,
