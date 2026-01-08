@@ -731,7 +731,10 @@ class SalesController extends Controller
         $focusRowsCollection = $focusRowsRaw instanceof LengthAwarePaginator
             ? collect($focusRowsRaw->items())
             : collect($focusRowsRaw ?? []);
-        $totalSalesCount = (int) $focusRowsCollection->sum(function ($row) {
+        $totalSalesCount = (int) $focusRowsCollection->sum(function ($row) use ($focus) {
+            if ($focus === 'staff') {
+                return (int) ($row['membership_payments']['count'] ?? 0);
+            }
             return (int) ($row['sales'] ?? 0);
         });
 
