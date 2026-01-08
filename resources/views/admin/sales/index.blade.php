@@ -247,14 +247,10 @@
                                 <div class="text-muted small mb-2">New Memberships (period)</div>
                                 <div class="d-flex gap-2 flex-wrap">
                                     <span class="badge bg-success">Approved: {{ $statusTallies['approved'] ?? 0 }}</span>
-                                    <span class="badge bg-warning text-dark">Pending: {{ $statusTallies['pending'] ?? 0 }}</span>
-                                    <span class="badge bg-danger">Rejected: {{ $statusTallies['rejected'] ?? 0 }}</span>
                                 </div>
                                 <div class="d-flex gap-3 flex-wrap align-items-center mt-2">
                                     <span class="text-success small fw-semibold">Approval rate: {{ number_format((float) ($conversionRates['approval'] ?? 0), 1) }}%</span>
-                                    <span class="text-danger small fw-semibold">Rejection rate: {{ number_format((float) ($conversionRates['rejection'] ?? 0), 1) }}%</span>
                                 </div>
-                                <small class="text-muted mt-auto">Same date window as filters</small>
                             </div>
                         </div>
                     </div>
@@ -985,7 +981,30 @@
                                 .title { margin: 0; font-size: 22px; }
                                 .muted { color: #6b7280; font-size: 12px; }
                                 .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
+                                .pill {
+                                    --pill-bg: #f5f7fb;
+                                    --pill-border: #d5deec;
+                                    --pill-text: #111827;
+                                    --pill-dot: #9ca3af;
+                                    background: var(--pill-bg);
+                                    border: 1px solid var(--pill-border);
+                                    border-radius: 10px;
+                                    padding: 6px 10px;
+                                    font-size: 12px;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                    letter-spacing: 0.01em;
+                                    color: var(--pill-text);
+                                }
+                                .pill::before {
+                                    content: '';
+                                    width: 8px;
+                                    height: 8px;
+                                    border-radius: 50%;
+                                    background: var(--pill-dot);
+                                    opacity: 0.9;
+                                }
                                 .cards { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
                                 .card { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fff; }
                                 .card .label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.03em; margin-bottom: 6px; display: block; }

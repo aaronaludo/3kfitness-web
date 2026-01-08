@@ -69,13 +69,14 @@
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 10px 14px;
-        border-radius: 12px;
-        background: #fff4f4;
-        color: #b91c1c;
-        border: 1px solid #ffe3e3;
-        font-weight: 600;
-        box-shadow: 0 8px 24px rgba(185, 28, 28, 0.12);
+        padding: 8px 12px;
+        border-radius: 10px;
+        background: #fff5f5;
+        color: #9f1239;
+        border: 1px solid #f8c7d6;
+        font-weight: 700;
+        box-shadow: none;
+        letter-spacing: 0.01em;
     }
 
     .detail-chip .icon {
@@ -84,23 +85,34 @@
         height: 28px;
         align-items: center;
         justify-content: center;
-        border-radius: 9px;
-        background: #fff;
-        color: #d43838;
-        box-shadow: 0 8px 18px rgba(255, 255, 255, 0.35);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.85);
+        color: #b91c1c;
+        box-shadow: none;
     }
 
     .detail-pill {
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 12px;
-        border-radius: 999px;
-        background: rgba(255, 255, 255, 0.2);
+        padding: 7px 11px;
+        border-radius: 10px;
+        background: rgba(255, 255, 255, 0.16);
         color: #fff;
-        font-weight: 600;
-        backdrop-filter: blur(6px);
-        border: 1px solid rgba(255, 255, 255, 0.35);
+        font-weight: 700;
+        letter-spacing: 0.01em;
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        box-shadow: none;
+        backdrop-filter: blur(5px);
+        position: relative;
+    }
+
+    .detail-pill::before {
+        content: '';
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: rgba(255, 255, 255, 0.9);
     }
 
     .detail-table {

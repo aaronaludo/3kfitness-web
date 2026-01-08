@@ -98,15 +98,29 @@
             text-align: center;
         }
         .pill {
+            --pill-bg: #f5f7fb;
+            --pill-border: #d5deec;
+            --pill-text: #1f2937;
+            --pill-dot: #9ca3af;
             display: inline-flex;
             align-items: center;
             gap: 0.4rem;
-            background: #fff4f4;
-            color: #d9213c;
-            border: 1px solid rgba(220, 53, 69, 0.35);
-            padding: 0.35rem 0.75rem;
-            border-radius: 999px;
+            background: var(--pill-bg);
+            color: var(--pill-text);
+            border: 1px solid var(--pill-border);
+            padding: 0.4rem 0.75rem;
+            border-radius: 10px;
             font-weight: 600;
+            letter-spacing: 0.01em;
+            position: relative;
+        }
+        .pill::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--pill-dot);
+            opacity: 0.9;
         }
     </style>
     <div class="container-fluid">

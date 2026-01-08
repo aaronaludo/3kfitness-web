@@ -12,7 +12,31 @@
         .title { margin: 0; font-size: 22px; line-height: 1.3; }
         .meta { color: #6b7280; font-size: 12px; margin: 2px 0; }
         .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; padding: 0; list-style: none; }
-        .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; display: inline-flex; gap: 6px; align-items: center; color: #111827; }
+        .pill {
+            --pill-bg: #f5f7fb;
+            --pill-border: #d5deec;
+            --pill-text: #111827;
+            --pill-dot: #9ca3af;
+            background: var(--pill-bg);
+            border: 1px solid var(--pill-border);
+            border-radius: 10px;
+            padding: 6px 10px;
+            font-size: 12px;
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            color: var(--pill-text);
+            letter-spacing: 0.01em;
+            text-decoration: none;
+        }
+        .pill::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--pill-dot);
+            opacity: 0.9;
+        }
         .pill-label { color: #6b7280; }
         table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
         th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }

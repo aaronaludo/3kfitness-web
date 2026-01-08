@@ -43,14 +43,23 @@
             display: inline-flex;
             align-items: center;
             gap: 8px;
-            padding: 8px 12px;
-            border-radius: 999px;
+            padding: 7px 11px;
+            border-radius: 10px;
             font-weight: 700;
             font-size: 0.85rem;
-            background: #fff5ef;
-            border: 1px solid #ffd8c2;
-            color: #c4532c;
-            letter-spacing: 0.02em;
+            background: #fff7ed;
+            border: 1px dashed #f3c59b;
+            color: #92400e;
+            letter-spacing: 0.01em;
+            box-shadow: none;
+        }
+
+        .receipt-pill::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #f59e0b;
         }
 
         .receipt-detail-label {

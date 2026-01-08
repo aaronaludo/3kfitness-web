@@ -1610,7 +1610,29 @@
                                 .title { margin: 0; font-size: 22px; }
                                 .muted { color: #6b7280; font-size: 12px; }
                                 .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
-                                .pill { background: #f3f4f6; border: 1px solid #e5e7eb; border-radius: 999px; padding: 6px 12px; font-size: 12px; }
+                                .pill {
+                                    --pill-bg: #f5f7fb;
+                                    --pill-border: #d5deec;
+                                    --pill-text: #111827;
+                                    --pill-dot: #9ca3af;
+                                    background: var(--pill-bg);
+                                    border: 1px solid var(--pill-border);
+                                    border-radius: 10px;
+                                    padding: 6px 10px;
+                                    font-size: 12px;
+                                    display: inline-flex;
+                                    align-items: center;
+                                    gap: 6px;
+                                    letter-spacing: 0.01em;
+                                }
+                                .pill::before {
+                                    content: '';
+                                    width: 8px;
+                                    height: 8px;
+                                    border-radius: 50%;
+                                    background: var(--pill-dot);
+                                    opacity: 0.9;
+                                }
                                 .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; margin-top: 14px; }
                                 .stat-card { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 14px; }
                                 .stat-value { font-size: 20px; font-weight: 700; color: #111827; }

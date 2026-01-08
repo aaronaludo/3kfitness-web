@@ -66,6 +66,8 @@
                         'status' => $statusLabel,
                         'admin_status' => $adminAcceptance,
                         'rejection_reason' => $item->rejection_reason ?: '',
+                        'created_by' => $item->created_by ?? '',
+                        'created_role' => $item->created_role ?? '',
                         'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
                         'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
                     ];
@@ -134,6 +136,8 @@
                         'status' => $statusLabel,
                         'admin_status' => $adminAcceptance,
                         'rejection_reason' => $item->rejection_reason ?: '',
+                        'created_by' => $item->created_by ?? '',
+                        'created_role' => $item->created_role ?? '',
                         'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
                         'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
                     ];
@@ -521,15 +525,16 @@
 
                     function buildRows(items) {
                         return items.map((item) => {
-                            const rejection = item.rejection_reason
-                                ? `<div class="muted">Reason: ${item.rejection_reason}</div>`
-                                : '';
                             const timeRange = item.time_range
                                 ? `<div class="muted">Time: ${item.time_range}</div>`
                                 : '';
                             const trainerRate = item.trainer_rate
                                 ? `<div class="muted">₱${item.trainer_rate} / hr</div>`
                                 : '';
+                            const creatorRole = item.created_role
+                                ? `<div class="muted">${item.created_role}</div>`
+                                : '';
+                            const creatorName = item.created_by || '—';
                             return [
                                 item.id ?? '—',
                                 `<div class="fw">${item.name || '—'}</div><div class="muted">${item.class_code || ''}</div>`,
@@ -537,7 +542,7 @@
                                 `<div>${item.start || 'Not set'}</div><div class="muted">${item.end || '—'}</div>${timeRange}<div class="muted">Cadence: ${item.cadence || '—'}</div>`,
                                 `<div class="fw">${item.slots ?? 0} slots</div><div class="muted">${item.enrolled ?? 0} enrolled</div>`,
                                 `<span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span>`,
-                                `<div>${item.admin_status || '—'}</div>${rejection}`,
+                                `<div class="fw">${creatorName}</div>${creatorRole}`,
                                 `<div>${item.created_at || ''}</div><div class="muted">${item.updated_at || ''}</div>`,
                             ];
                         });
@@ -547,7 +552,7 @@
                         const rawItems = payload && payload.items ? payload.items : [];
                         const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                         const filters = buildFilters(payload.filters || {});
-                        const headers = ['#', 'Class', 'Trainer', 'Schedule', 'Enrollment', 'Status', 'Admin', 'Audit'];
+                        const headers = ['#', 'Class', 'Trainer', 'Schedule', 'Enrollment', 'Status', 'Created By', 'Audit'];
                         const rows = buildRows(items);
 
                         return window.PrintPreview
@@ -835,40 +840,55 @@
                         .pill-chip {
                             display: inline-flex;
                             align-items: center;
-                            justify-content: center;
-                            padding: 7px 14px;
-                            border-radius: 999px;
-                            border: 1px solid #c8d1e0;
-                            background: #e3e8f0;
-                            color: #1f2937;
-                            font-weight: 700;
-                            font-size: 0.9rem;
-                            box-shadow: 0 4px 10px rgba(15, 23, 42, 0.05);
+                            gap: 6px;
+                            justify-content: flex-start;
+                            padding: 6px 12px;
+                            border-radius: 8px;
+                            border: 1px solid var(--pill-border, #d5deec);
+                            background: var(--pill-bg, #f5f7fb);
+                            color: var(--pill-text, #1f2937);
+                            font-weight: 600;
+                            font-size: 0.85rem;
+                            letter-spacing: 0.01em;
+                            box-shadow: none;
+                        }
+                        .pill-chip::before {
+                            content: '';
+                            width: 8px;
+                            height: 8px;
+                            border-radius: 50%;
+                            background: var(--pill-dot, #9ca3af);
+                            opacity: 0.9;
                         }
                         .pill-chip-success {
-                            background: #1f8f4d;
-                            border-color: #1f8f4d;
-                            color: #fff;
+                            --pill-bg: #e8f6ef;
+                            --pill-border: #c5e5d5;
+                            --pill-text: #1f5133;
+                            --pill-dot: #2e8b57;
                         }
                         .pill-chip-warning {
-                            background: #f6c86e;
-                            border-color: #f1b64a;
-                            color: #7c2d12;
+                            --pill-bg: #fff4e5;
+                            --pill-border: #f3d7a6;
+                            --pill-text: #7a4b00;
+                            --pill-dot: #e0a100;
                         }
                         .pill-chip-info {
-                            background: #acd3ff;
-                            border-color: #7bb8f7;
-                            color: #0b3c6f;
+                            --pill-bg: #ecf2ff;
+                            --pill-border: #d5def7;
+                            --pill-text: #123a6d;
+                            --pill-dot: #3b82f6;
                         }
                         .pill-chip-danger {
-                            background: #f8d7da;
-                            border-color: #f5c2c7;
-                            color: #842029;
+                            --pill-bg: #fbecec;
+                            --pill-border: #f0c4c2;
+                            --pill-text: #7b1c1c;
+                            --pill-dot: #c0392b;
                         }
                         .pill-chip-muted {
-                            background: #dbe2ee;
-                            border-color: #c8d1e0;
-                            color: #1f2937;
+                            --pill-bg: #f1f3f7;
+                            --pill-border: #d5deec;
+                            --pill-text: #4b5563;
+                            --pill-dot: #9ca3af;
                         }
                         .resched-cell {
                             display: flex;
@@ -890,7 +910,7 @@
                                             <th class="sortable" data-column="start_date">Schedule</th>
                                             <th>Series of Session</th>
                                             <th class="sortable" data-column="slots">Enrollment</th>
-                                            <th class="sortable" data-column="admin_acceptance">Admin Acceptance</th>
+                                            <th class="sortable" data-column="created_by">Created By</th>
                                             <th>Reschedule</th>
                                             <th>Actions</th>
                                         </tr>
@@ -1362,151 +1382,11 @@
                                                         </a>
                                                     </div>
                                                 </td>
-                                                <td>
-                                                    @php
-                                                        $statusMap = [
-                                                            0 => ['label' => 'Still waiting for acceptance', 'class' => 'bg-warning text-dark'],
-                                                            1 => ['label' => 'Approved', 'class' => 'bg-success'],
-                                                            2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
-                                                        ];
-                                                        $s = $statusMap[$item->isadminapproved] ?? $statusMap[0];
-                                                    @endphp
-
-                                                    <div class="d-flex align-items-center gap-2">
-                                                        <span class="badge {{ $s['class'] }} px-3 py-2">
-                                                            {{ $s['label'] }}
-                                                        </span>
-
-                                                        @if((int)$item->isadminapproved !== 1)
-                                                            <button
-                                                                type="button"
-                                                                class="btn btn-outline-primary btn-sm"
-                                                                data-bs-toggle="modal"
-                                                                data-bs-target="#statusModal-{{ $item->id }}"
-                                                                aria-label="Change Status"
-                                                            >
-                                                                Change
-                                                            </button>
-                                                        @endif
-                                                    </div>
-                                                    <div class="modal fade" id="statusModal-{{ $item->id }}" tabindex="-1" aria-labelledby="statusModalLabel-{{ $item->id }}" aria-hidden="true">
-                                                        <div class="modal-dialog">
-                                                            <form method="POST" action="{{ route('admin.gym-management.schedules.adminacceptance') }}" class="modal-content"
-                                                                id="statusForm-{{ $item->id }}"
-                                                                data-has-users="{{ $item->user_schedules_count > 0 ? 'true' : 'false' }}">
-                                                                @csrf
-                                                                @method('PUT')
-
-                                                                <input type="hidden" name="id" value="{{ $item->id }}">
-                                                                <div class="modal-header">
-                                                                    <h5 class="modal-title" id="statusModalLabel-{{ $item->id }}">Change Admin Status</h5>
-                                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                                </div>
-
-                                                                <div class="modal-body">
-                                                                    <div class="mb-3">
-                                                                        <label for="statusSelect-{{ $item->id }}" class="form-label fw-semibold">Select status</label>
-                                                                        <select class="form-select" id="statusSelect-{{ $item->id }}" name="isadminapproved">
-                                                                            <option value="0" {{ $item->isadminapproved == 0 ? 'selected' : '' }}>Pending</option>
-                                                                            <option value="1" {{ $item->isadminapproved == 1 ? 'selected' : '' }}>Approve</option>
-                                                                            <option value="2" {{ $item->isadminapproved == 2 ? 'selected' : '' }}>Reject</option>
-                                                                        </select>
-                                                                    </div>
-
-                                                                    <div id="rejectGuard-{{ $item->id }}" class="border rounded p-3 bg-light d-none">
-                                                                        <div class="d-flex align-items-start gap-2">
-                                                                            <i class="fa-solid fa-triangle-exclamation text-danger mt-1"></i>
-                                                                            <div>
-                                                                                <div class="fw-semibold text-danger mb-1">Heads up before rejecting</div>
-                                                                                <div class="small text-muted">
-                                                                                    This item currently has linked user schedules ({{ $item->user_schedules_count }}). Rejecting may impact users.
-                                                                                    Please confirm you understand before proceeding.
-                                                                                </div>
-                                                                            </div>
-                                                                        </div>
-                                                                        <div class="form-check mt-3">
-                                                                            <input class="form-check-input" type="checkbox" value="1" id="rejectConfirm-{{ $item->id }}">
-                                                                            <label class="form-check-label" for="rejectConfirm-{{ $item->id }}">
-                                                                                I understand the impact of rejecting.
-                                                                            </label>
-                                                                        </div>
-                                                                    </div>
-                                                                    <div class="mb-3 d-none" id="rejectReasonGroup-{{ $item->id }}">
-                                                                        <label for="rejectReasonInput-{{ $item->id }}" class="form-label fw-semibold">Rejection reason</label>
-                                                                        <textarea
-                                                                            class="form-control"
-                                                                            id="rejectReasonInput-{{ $item->id }}"
-                                                                            name="rejection_reason"
-                                                                            rows="3"
-                                                                            placeholder="Provide rejection reason">{{ old('rejection_reason', $item->rejection_reason) }}</textarea>
-                                                                    </div>
-                                                                </div>
-
-                                                                <div class="modal-footer">
-                                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
-                                                                        Cancel
-                                                                    </button>
-                                                                    <button type="submit" class="btn btn-primary" id="saveStatusBtn-{{ $item->id }}">
-                                                                        Save
-                                                                    </button>
-                                                                </div>
-                                                            </form>
-                                                        </div>
-                                                    </div>
-
-                                                    <script>
-                                                    (function() {
-                                                        const form     = document.getElementById('statusForm-{{ $item->id }}');
-                                                        const select   = document.getElementById('statusSelect-{{ $item->id }}');
-                                                        const guardBox = document.getElementById('rejectGuard-{{ $item->id }}');
-                                                        const confirmC = document.getElementById('rejectConfirm-{{ $item->id }}');
-                                                        const saveBtn  = document.getElementById('saveStatusBtn-{{ $item->id }}');
-                                                        const hasUsers = form.dataset.hasUsers === 'true';
-                                                        const reasonGroup = document.getElementById('rejectReasonGroup-{{ $item->id }}');
-                                                        const reasonInput = document.getElementById('rejectReasonInput-{{ $item->id }}');
-
-                                                        function updateGuard() {
-                                                            const rejectChosen = select.value === '2';
-                                                            if (reasonGroup && reasonInput) {
-                                                                if (rejectChosen) {
-                                                                    reasonGroup.classList.remove('d-none');
-                                                                    reasonInput.required = true;
-                                                                } else {
-                                                                    reasonGroup.classList.add('d-none');
-                                                                    reasonInput.required = false;
-                                                                }
-                                                            }
-                                                            if (hasUsers && rejectChosen) {
-                                                                if (guardBox) {
-                                                                    guardBox.classList.remove('d-none');
-                                                                }
-                                                                if (confirmC) {
-                                                                    saveBtn.disabled = !confirmC.checked;
-                                                                }
-                                                            } else {
-                                                                if (guardBox) {
-                                                                    guardBox.classList.add('d-none');
-                                                                }
-                                                                saveBtn.disabled = false;
-                                                                if (confirmC) {
-                                                                    confirmC.checked = false;
-                                                                }
-                                                            }
-                                                        }
-
-                                                        const modalEl = document.getElementById('statusModal-{{ $item->id }}');
-                                                        modalEl.addEventListener('shown.bs.modal', updateGuard);
-
-                                                        select.addEventListener('change', updateGuard);
-                                                        if (confirmC) {
-                                                            confirmC.addEventListener('change', () => {
-                                                                if (select.value === '2' && hasUsers) {
-                                                                    saveBtn.disabled = !confirmC.checked;
-                                                                }
-                                                            });
-                                                        }
-                                                    })();
-                                                    </script>
+                                                <td class="small">
+                                                    <div class="fw-semibold">{{ $item->created_by ?: '—' }}</div>
+                                                    @if(!empty($item->created_role))
+                                                        <div class="text-muted small">{{ $item->created_role }}</div>
+                                                    @endif
                                                 </td>
                                                 <td class="small">
                                                     @php
@@ -1681,7 +1561,7 @@
                                                 <th>Members</th>
                                                 <th>Start Date</th>
                                                 <th>End Date</th>
-                                                <th>Admin Acceptance</th>
+                                                <th>Created By</th>
                                                 <th>Updated Date</th>
                                                 <th>Actions</th>
                                             </tr>
@@ -1714,18 +1594,11 @@
                                                     <td>{{ $archive->user_schedules_count }}</td>
                                                     <td>{{ $archiveStart ? $archiveStart->format('F j, Y g:iA') : '' }}</td>
                                                     <td>{{ $archiveEnd ? $archiveEnd->format('F j, Y g:iA') : '' }}</td>
-                                                    <td>
-                                                        @php
-                                                            $statusMap = [
-                                                                0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
-                                                                1 => ['label' => 'Approved', 'class' => 'bg-success'],
-                                                                2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
-                                                            ];
-                                                            $archivedStatus = $statusMap[$archive->isadminapproved] ?? $statusMap[0];
-                                                        @endphp
-                                                        <span class="badge {{ $archivedStatus['class'] }} px-3 py-2">
-                                                            {{ $archivedStatus['label'] }}
-                                                        </span>
+                                                    <td class="small">
+                                                        <div class="fw-semibold">{{ $archive->created_by ?: '—' }}</div>
+                                                        @if(!empty($archive->created_role))
+                                                            <div class="text-muted small">{{ $archive->created_role }}</div>
+                                                        @endif
                                                     </td>
                                                     <td>{{ $archive->updated_at }}</td>
                                                     <td class="action-button">
