@@ -334,6 +334,10 @@
         $printItems = $printCollectionCurrent->values()->map($mapPrintRow);
         $printItemsAll = $printCollectionAll->values()->map($mapPrintRow);
 
+        $totalRevenue = round((float) ($summary['total_sales'] ?? (($summary['membership_revenue'] ?? 0) + ($summary['class_commission'] ?? 0))), 2);
+        $totalCost = round((float) ($focus === 'trainer' ? ($summary['class_commission'] ?? 0) : 0), 2);
+        $profit = round($totalRevenue - $totalCost, 2);
+
         $printPayload = [
             'title' => 'Sales report',
             'generated_at' => now()->format('M d, Y g:i A'),
@@ -346,6 +350,9 @@
                 'class_commission' => $focus === 'trainer'
                     ? round((float) ($summary['class_commission'] ?? 0), 2)
                     : null,
+                'total_revenue' => $totalRevenue,
+                'total_cost' => $totalCost,
+                'profit' => $profit,
             ],
             'filters' => [
                 'search' => $searchTerm,
@@ -861,6 +868,15 @@
             }
             if (!isTrainer && summary.total_sales_count !== undefined) {
                 chips.push({ label: 'Total sales', value: (summary.total_sales_count || 0).toString() });
+            }
+            if (summary.total_revenue !== undefined) {
+                chips.push({ label: 'Total revenue', value: formatMoney(summary.total_revenue) });
+            }
+            if (summary.total_cost !== undefined && summary.total_cost !== null) {
+                chips.push({ label: 'Total cost', value: formatMoney(summary.total_cost) });
+            }
+            if (summary.profit !== undefined) {
+                chips.push({ label: 'Profit', value: formatMoney(summary.profit) });
             }
             if (summary.class_commission !== undefined && summary.class_commission !== null) {
                 chips.push({ label: 'Class commission', value: formatMoney(summary.class_commission) });

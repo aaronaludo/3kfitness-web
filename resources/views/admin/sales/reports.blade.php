@@ -168,6 +168,10 @@
         $printFilters = [
             'start_date' => $startDate,
             'end_date' => $endDate,
+            'total_revenue' => round((float) ($summary['total_revenue'] ?? 0), 2),
+            'total_cost' => round((float) ($summary['cost'] ?? 0), 2),
+            'profit' => round((float) ($summary['profit'] ?? 0), 2),
+            'currency' => $summary['currency'] ?? 'PHP',
         ];
         $buildPrintRow = function ($payment) {
             return [
@@ -772,11 +776,25 @@
 
         function buildFilters(filters) {
             const chips = [];
+            const fmt = (value) => {
+                const num = Number(value) || 0;
+                const currency = filters.currency || '';
+                return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            };
             if (filters.start_date || filters.end_date) {
                 chips.push({
                     label: 'Date range',
                     value: `${filters.start_date || 'Any'} → ${filters.end_date || 'Any'}`,
                 });
+            }
+            if (filters.total_revenue !== undefined) {
+                chips.push({ label: 'Total revenue', value: fmt(filters.total_revenue) });
+            }
+            if (filters.total_cost !== undefined) {
+                chips.push({ label: 'Total cost', value: fmt(filters.total_cost) });
+            }
+            if (filters.profit !== undefined) {
+                chips.push({ label: 'Profit', value: fmt(filters.profit) });
             }
             return chips;
         }
