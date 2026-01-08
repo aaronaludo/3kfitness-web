@@ -616,8 +616,11 @@ class SalesController extends Controller
         $endInput = $request->input('end_date');
         $startTimeInput = $request->input('start_time');
         $endTimeInput = $request->input('end_time');
+        $presetInput = $request->input('date_preset');
+        $defaultPreset = ($startInput || $endInput) ? 'custom' : 'last_30';
+        $presetToUse = $presetInput ?: $defaultPreset;
         [$start, $end, $datePreset] = $this->resolveDateRange(
-            $request->input('date_preset'),
+            $presetToUse,
             $startInput,
             $endInput,
             $startTimeInput,
@@ -688,14 +691,26 @@ class SalesController extends Controller
             });
         }
 
-        $classCommission = (clone $payrollBase)
+        $deductions = DeductionSetting::orderByDesc('id')->first();
+        $appCutRate = (float) ($deductions->app_cut_rate ?? 0);
+        $calculateAppCut = function ($run) use ($appCutRate) {
+            $stored = $run->deduction_app_cut ?? null;
+            if (!is_null($stored)) {
+                return (float) $stored;
+            }
+            $gross = (float) ($run->gross_pay ?? 0);
+            return round($gross * ($appCutRate / 100), 2);
+        };
+
+        $trainerRuns = (clone $payrollBase)
             ->whereHas('user', fn ($query) => $query->where('role_id', 5))
-            ->sum('net_pay');
-        $classCommission = round((float) $classCommission, 2);
+            ->get();
+        $classCommission = round($trainerRuns->sum(fn ($run) => $calculateAppCut($run)), 2);
 
         $totalSales = round($membershipRevenue + $classCommission, 2);
 
-        $focusRows = $this->buildSalesReportRows($focus, $order ?? 'most', $payments, $payrollBase);
+        $focusRowsRaw = $this->buildSalesReportRows($focus, $order ?? 'most', $payments, $payrollBase, $appCutRate);
+        $focusRows = $focusRowsRaw;
         $perPage = 10;
         if (!($focusRows instanceof LengthAwarePaginator)) {
             $items = $focusRows instanceof \Illuminate\Support\Collection ? $focusRows : collect($focusRows ?? []);
@@ -712,6 +727,13 @@ class SalesController extends Controller
             );
             $focusRows = $paginator->appends($request->query());
         }
+
+        $focusRowsCollection = $focusRowsRaw instanceof LengthAwarePaginator
+            ? collect($focusRowsRaw->items())
+            : collect($focusRowsRaw ?? []);
+        $totalSalesCount = (int) $focusRowsCollection->sum(function ($row) {
+            return (int) ($row['sales'] ?? 0);
+        });
 
         $rangeLabel = $start->format('Y') === $end->format('Y')
             ? $start->format('Y')
@@ -755,6 +777,7 @@ class SalesController extends Controller
                 'membership_count' => $membershipCount,
                 'class_commission' => $classCommission,
                 'total_sales' => $totalSales,
+                'total_sales_count' => $totalSalesCount,
             ],
             'focusRows' => $focusRows,
             'membershipOptions' => $membershipOptions,
@@ -1061,7 +1084,7 @@ class SalesController extends Controller
         ]);
     }
 
-    protected function buildSalesReportRows(string $focus, string $order, $payments, $payrollBase)
+    protected function buildSalesReportRows(string $focus, string $order, $payments, $payrollBase, float $appCutRate = 0.0)
     {
         $orderDirection = $order === 'least' ? 'asc' : 'desc';
         $rows = collect();
@@ -1072,7 +1095,7 @@ class SalesController extends Controller
                 ->whereHas('user', fn ($query) => $query->where('role_id', $roleId))
                 ->get();
 
-            $rows = $runs->groupBy('user_id')->map(function ($group) use ($focus) {
+            $rows = $runs->groupBy('user_id')->map(function ($group) use ($focus, $appCutRate) {
                 $latest = $group->sortByDesc(function ($run) {
                     return $run->processed_at ?? $run->created_at;
                 })->first();
@@ -1082,12 +1105,25 @@ class SalesController extends Controller
                 $label = $name ?: 'Unknown ' . ($focus === 'trainer' ? 'trainer' : 'staff');
                 $code = $user->user_code ?? null;
                 $lastDate = $latest?->processed_at ?? $latest?->created_at;
+                $grossTotal = $group->sum(fn ($run) => (float) ($run->gross_pay ?? 0));
+                $netTotal = $group->sum(fn ($run) => (float) ($run->net_pay ?? 0));
+                $appCutTotal = $group->sum(function ($run) use ($appCutRate) {
+                    $stored = $run->deduction_app_cut ?? null;
+                    if (!is_null($stored)) {
+                        return (float) $stored;
+                    }
+                    $gross = (float) ($run->gross_pay ?? 0);
+                    return round($gross * ($appCutRate / 100), 2);
+                });
 
                 return [
                     'label' => $code ? "{$label} ({$code})" : $label,
                     'type' => ucfirst($focus),
                     'sales' => $group->count(),
-                    'revenue' => round($group->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+                    'gross' => round($grossTotal, 2),
+                    'net' => round($netTotal, 2),
+                    'app_cut' => round($appCutTotal, 2),
+                    'revenue' => round($netTotal, 2),
                     'last_sale' => $lastDate ? Carbon::parse($lastDate)->format('M d, Y') : '—',
                 ];
             });

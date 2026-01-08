@@ -474,16 +474,16 @@
                                     'trainers' => $trainerSalesOrderTable->total(),
                                     'staffs' => $staffSalesOrderTable->total(),
                                     'memberships' => $membershipPlanTable->total(),
-                                ];
-                                $currentCount = $recordCounts[$tableScope ?? 'payments'] ?? $membershipPayments->total();
-                            @endphp
-                            <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ $currentTable }}</span>
-                            <div class="text-muted small">Showing data for the selected view and date range</div>
-                        </div>
-                        <div class="text-muted small">
-                            Showing {{ $currentCount }} record{{ $currentCount === 1 ? '' : 's' }}
-                        </div>
+                            ];
+                            $currentCount = $recordCounts[$tableScope ?? 'payments'] ?? $membershipPayments->total();
+                        @endphp
+                        <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ $currentTable }}</span>
+                        <div class="text-muted small">Showing data for the selected view and date range</div>
                     </div>
+                    <div class="text-muted small">
+                        Showing {{ $currentCount }} record{{ $currentCount === 1 ? '' : 's' }}
+                    </div>
+                </div>
                     @if(($tableScope ?? 'payments') === 'memberships')
                         <div class="table-responsive">
                             <table class="table table-hover align-middle mb-0">

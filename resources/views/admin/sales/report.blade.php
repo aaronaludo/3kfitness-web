@@ -297,97 +297,79 @@
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
             <div>
                 <h2 class="title mb-0">Sales Reports</h2>
-                <p class="text-muted mb-0">Default view loads the current year. Adjust dates to see past years or custom ranges.</p>
+                <p class="text-muted mb-0">Default view loads Member — Most Sales for the last 30 days. Adjust filters to change focus or date ranges.</p>
             </div>
             <div class="d-flex gap-2 flex-wrap">
-                <span class="pill-soft">Year {{ $rangeYear }}</span>
+                <span class="pill-soft">Preset {{ $datePresetLabel ?? 'All Time' }}</span>
                 <span class="pill-soft">Range {{ $rangeLabel }}</span>
             </div>
         </div>
     </div>
 
+    @php
+        $isTrainerFocus = $focus === 'trainer';
+    @endphp
     <div class="row g-3 mb-4 report-summary">
-        <div class="col-12 col-lg-4">
-            <div class="summary-card">
-                <div class="summary-card__header">
-                    <div>
-                        <span class="pill-soft">Memberships</span>
-                        <div class="summary-card__title h5 mb-1">Membership revenue</div>
-                        <div class="summary-card__subtitle">Total membership sales</div>
-                    </div>
-                    <div class="summary-icon">
-                        <i class="fa-solid fa-wallet fa-fw fa-lg"></i>
-                    </div>
-                </div>
-                <div class="summary-card__value">
-                    <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['membership_revenue'] ?? 0, 2) }}</div>
-                    <span class="pill-ghost">{{ $summary['membership_count'] ?? 0 }} sales</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-lg-4">
-            <div class="summary-card cost">
-                <div class="summary-card__header">
-                    <div>
-                        <span class="pill-soft">Commission</span>
-                        <div class="summary-card__title h5 mb-1">Class commission</div>
-                        <div class="summary-card__subtitle">Trainer commissions for the period</div>
-                    </div>
-                    <div class="summary-icon">
-                        <i class="fa-solid fa-ranking-star fa-fw fa-lg"></i>
-                    </div>
-                </div>
-                <div class="summary-card__value">
-                    <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
-                    <span class="pill-ghost">Included in totals</span>
-                </div>
-            </div>
-        </div>
-        <div class="col-12 col-lg-4">
-            <div class="summary-card profit">
-                <div class="summary-card__header">
-                    <div>
-                        <span class="pill-soft">Total</span>
-                        <div class="summary-card__title h5 mb-1">Total sales</div>
-                        <div class="summary-card__subtitle">Memberships + commissions</div>
-                    </div>
-                    <div class="summary-icon">
-                        <i class="fa-solid fa-layer-group fa-fw fa-lg"></i>
-                    </div>
-                </div>
-                <div class="summary-card__math">
-                    <div class="math-chip">
-                        <span class="math-chip__icon">
+        @if(!$isTrainerFocus)
+            <div class="col-12 col-lg-6">
+                <div class="summary-card">
+                    <div class="summary-card__header">
+                        <div>
+                            <span class="pill-soft">Memberships</span>
+                            <div class="summary-card__title h5 mb-1">Membership revenue</div>
+                            <div class="summary-card__subtitle">Total membership sales</div>
+                        </div>
+                        <div class="summary-icon">
                             <i class="fa-solid fa-wallet fa-fw fa-lg"></i>
-                        </span>
-                        <div>
-                            <div class="math-chip__label">Memberships</div>
-                            <div class="math-chip__value">{{ $currency }} {{ number_format($summary['membership_revenue'] ?? 0, 2) }}</div>
                         </div>
                     </div>
-                    <span class="math-symbol">+</span>
-                    <div class="math-chip">
-                        <span class="math-chip__icon">
-                            <i class="fa-solid fa-ranking-star fa-fw fa-lg"></i>
-                        </span>
-                        <div>
-                            <div class="math-chip__label">Commissions</div>
-                            <div class="math-chip__value">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
-                        </div>
-                    </div>
-                    <span class="math-symbol">=</span>
-                    <div class="math-chip">
-                        <span class="math-chip__icon">
-                            <i class="fa-solid fa-sack-dollar fa-fw fa-lg"></i>
-                        </span>
-                        <div>
-                            <div class="math-chip__label">Total</div>
-                            <div class="math-chip__value">{{ $currency }} {{ number_format($summary['total_sales'] ?? 0, 2) }}</div>
-                        </div>
+                    <div class="summary-card__value">
+                        <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['membership_revenue'] ?? 0, 2) }}</div>
+                        <span class="pill-ghost">{{ $summary['membership_count'] ?? 0 }} sales</span>
                     </div>
                 </div>
             </div>
-        </div>
+        @endif
+        @if($isTrainerFocus)
+            <div class="col-12">
+                <div class="summary-card cost">
+                    <div class="summary-card__header">
+                        <div>
+                            <span class="pill-soft">Commission</span>
+                            <div class="summary-card__title h5 mb-1">Class commission</div>
+                            <div class="summary-card__subtitle">Trainer commissions for the period</div>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="fa-solid fa-ranking-star fa-fw fa-lg"></i>
+                        </div>
+                    </div>
+                    <div class="summary-card__value">
+                        <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
+                        <span class="pill-ghost">Included in totals</span>
+                    </div>
+                </div>
+            </div>
+        @endif
+        @if(!$isTrainerFocus)
+            <div class="col-12 col-lg-6">
+                <div class="summary-card profit">
+                    <div class="summary-card__header">
+                        <div>
+                            <span class="pill-soft">Total</span>
+                            <div class="summary-card__title h5 mb-1">Total sales</div>
+                            <div class="summary-card__subtitle">Count of sales in this view</div>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="fa-solid fa-layer-group fa-fw fa-lg"></i>
+                        </div>
+                    </div>
+                    <div class="summary-card__value">
+                        <div class="summary-amount mb-0">{{ number_format((float) ($summary['total_sales_count'] ?? 0)) }}</div>
+                        <span class="pill-ghost">Sales</span>
+                    </div>
+                </div>
+            </div>
+        @endif
     </div>
 
     <div class="card shadow-sm border-0 rounded-4 mb-4">
@@ -527,12 +509,56 @@
                     <h5 class="fw-semibold mb-1">Results</h5>
                     <p class="text-muted small mb-2">Styled to match the Sales Profit Report table.</p>
                     <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ ucfirst($focus) }}</span>
-                </div>
-                <div class="text-muted small text-end">
-                    <div><i class="fa-solid fa-coins me-1"></i>{{ $currency }} currency</div>
-                    <div>Showing {{ $rowsTotal }} record{{ $rowsTotal === 1 ? '' : 's' }}</div>
-                </div>
             </div>
+            <div class="text-muted small text-end">
+                <div><i class="fa-solid fa-coins me-1"></i>{{ $currency }} currency</div>
+                <div>Showing {{ $rowsTotal }} record{{ $rowsTotal === 1 ? '' : 's' }}</div>
+            </div>
+        </div>
+        @if($focus === 'trainer')
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-muted">#</th>
+                            <th>Trainer</th>
+                            <th class="text-end">Class Commission</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($focusRows as $row)
+                            @php
+                                $indexBase = $focusRows instanceof \Illuminate\Pagination\AbstractPaginator ? $focusRows->firstItem() : 1;
+                                $rowNumber = ($indexBase ?? 1) + $loop->index;
+                                $label = $row['label'] ?? '—';
+                                $labelParts = [];
+                                if (preg_match('/^(.*)\\s*\\(([^)]+)\\)$/', $label, $matches)) {
+                                    $labelParts = [$matches[1] ?? $label, $matches[2] ?? null];
+                                }
+                                $name = $labelParts[0] ?? $label;
+                                $code = $labelParts[1] ?? null;
+                            @endphp
+                            <tr>
+                                <td class="text-muted">{{ $rowNumber }}</td>
+                                <td>
+                                    <div class="fw-semibold">{{ $name }}</div>
+                                    @if($code)
+                                        <div class="text-muted small">Code: {{ $code }}</div>
+                                    @endif
+                                </td>
+                                <td class="text-end fw-semibold">{{ $currency }} {{ number_format((float) ($row['app_cut'] ?? 0), 2) }}</td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    No data for this view. Try widening your date range or clearing filters.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        @else
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
@@ -567,11 +593,12 @@
                     </tbody>
                 </table>
             </div>
-            @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
-                <div class="mt-3">
-                    {{ $focusRows->withQueryString()->links('pagination::bootstrap-5') }}
-                </div>
-            @endif
+        @endif
+        @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
+            <div class="mt-3">
+                {{ $focusRows->withQueryString()->links('pagination::bootstrap-5') }}
+            </div>
+        @endif
         </div>
     </div>
 </div>
