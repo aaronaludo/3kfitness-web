@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Sales Detailed Reports')
+@section('title', 'Sales Profit Report')
 
 @section('styles')
 <style>
@@ -200,7 +200,7 @@
     <div class="row">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
             <div>
-                <h2 class="title mb-0">Sales Detailed Reports</h2>
+                <h2 class="title mb-0">Sales Profit Report</h2>
                 <p class="text-muted mb-0">Revenue, cost, and profit with membership payments in your selected range.</p>
             </div>
             <form action="#" method="POST" id="print-form">
@@ -377,7 +377,7 @@
                     <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
                         <div>
                             <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Filters</span>
-                            <h4 class="fw-semibold mb-1">Detailed reports</h4>
+                            <h4 class="fw-semibold mb-1">Profit Report</h4>
                             <p class="text-muted mb-0">Pick a date window to refresh revenue, cost, profit, and payment details.</p>
                         </div>
                         <div class="text-end">

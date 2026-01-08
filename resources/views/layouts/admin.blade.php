@@ -698,12 +698,12 @@
                             </li>
                             <li>
                                 <a href="{{ route('admin.sales.report') }}" class="{{ request()->routeIs('admin.sales.report') ? 'active' : '' }}">
-                                    Sales Reports
+                                    Sales Report
                                 </a>
                             </li>
                             <li>
                                 <a href="{{ route('admin.sales.reports') }}" class="{{ request()->routeIs('admin.sales.reports') ? 'active' : '' }}">
-                                    Detailed Reports
+                                    Profit Report
                                 </a>
                             </li>
                         </ul>

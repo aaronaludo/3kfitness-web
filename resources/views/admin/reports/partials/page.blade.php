@@ -137,7 +137,7 @@
             <div class="col-lg-8 position-relative" style="z-index: 1;">
                 <p class="eyebrow mb-1">Reports Center</p>
                 <h2>Reports</h2>
-                <p class="mb-3">Use the filters below to quickly search and review report records in the same layout as Sales Reports.</p>
+                <p class="mb-3">Use the filters below to quickly search and review report records in the same layout as Sales Report.</p>
                 <div class="d-flex flex-wrap gap-2">
                     <span class="pill"><i class="fa-solid fa-layer-group"></i> Unified view</span>
                     <span class="pill"><i class="fa-solid fa-clock"></i> Updated daily</span>
@@ -236,7 +236,7 @@
                 <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <div>
                         <h5 class="mb-0">Results</h5>
-                        <small class="text-muted">Consistent table styling with Sales Reports.</small>
+                        <small class="text-muted">Consistent table styling with Sales Report.</small>
                     </div>
                     <div class="badge-soft"><i class="fa-solid fa-clipboard-list me-1"></i> Reports</div>
                 </div>

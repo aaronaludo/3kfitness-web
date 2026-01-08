@@ -1,5 +1,5 @@
 @extends('layouts.admin')
-@section('title', 'Sales Reports')
+@section('title', 'Sales Report')
 
 @section('styles')
 <style>
