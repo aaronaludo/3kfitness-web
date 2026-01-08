@@ -149,31 +149,6 @@
     .summary-card__link i {
         font-size: 0.95rem;
     }
-    .table-meta { color: #6b7280; }
-    .table thead th {
-        border: none;
-        color: #5b6470;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        font-size: 0.78rem;
-    }
-    .table tbody td {
-        vertical-align: middle;
-    }
-    .badge-soft {
-        background: rgba(12, 108, 178, 0.08);
-        color: #0c6cb2;
-        border-radius: 12px;
-        padding: 6px 10px;
-        font-weight: 700;
-        font-size: 0.85rem;
-    }
-    .empty-state {
-        padding: 24px;
-        text-align: center;
-        color: #6b7280;
-    }
     @media (max-width: 575.98px) {
         .summary-card__value {
             flex-direction: column;
@@ -545,22 +520,22 @@
             : (is_countable($focusRows) ? count($focusRows) : 0);
     @endphp
 
-    <div class="card shadow-sm border-0 rounded-4 overflow-hidden p-3 mb-4">
-        <div class="card-header bg-white d-flex align-items-center justify-content-between flex-wrap gap-2 border-0">
-            <div>
-                <h5 class="mb-0">Results</h5>
-                <small class="text-muted">Consistent table styling with Sales Profit Report.</small>
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-body p-4">
+            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+                <div>
+                    <h5 class="fw-semibold mb-1">Results</h5>
+                    <p class="text-muted small mb-2">Styled to match the Sales Profit Report table.</p>
+                    <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ ucfirst($focus) }}</span>
+                </div>
+                <div class="text-muted small text-end">
+                    <div><i class="fa-solid fa-coins me-1"></i>{{ $currency }} currency</div>
+                    <div>Showing {{ $rowsTotal }} record{{ $rowsTotal === 1 ? '' : 's' }}</div>
+                </div>
             </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ ucfirst($focus) }}</span>
-                <span class="badge-soft"><i class="fa-solid fa-coins me-1"></i> {{ $currency }} currency</span>
-                <span class="table-meta">Showing {{ $rowsTotal }} record{{ $rowsTotal === 1 ? '' : 's' }}</span>
-            </div>
-        </div>
-        <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table mb-0">
-                    <thead>
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
                         <tr>
                             <th>Focus</th>
                             <th>Type</th>
@@ -572,16 +547,20 @@
                     <tbody>
                         @forelse ($focusRows as $row)
                             <tr>
-                                <td>{{ $row['label'] }}</td>
-                                <td><span class="badge-soft">{{ $row['type'] }}</span></td>
-                                <td class="text-center fw-bold">{{ $row['sales'] }}</td>
-                                <td class="text-end fw-bold">{{ $currency }} {{ number_format($row['revenue'], 2) }}</td>
-                                <td class="text-end text-muted">{{ $row['last_sale'] }}</td>
+                                <td class="fw-semibold">{{ $row['label'] ?? '—' }}</td>
+                                <td>
+                                    <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">
+                                        {{ $row['type'] ?? '—' }}
+                                    </span>
+                                </td>
+                                <td class="text-center fw-semibold">{{ $row['sales'] ?? 0 }}</td>
+                                <td class="text-end fw-semibold">{{ $currency }} {{ number_format((float) ($row['revenue'] ?? 0), 2) }}</td>
+                                <td class="text-end text-muted">{{ $row['last_sale'] ?? '—' }}</td>
                             </tr>
                         @empty
                             <tr>
-                                <td colspan="5" class="empty-state">
-                                    <i class="fa-regular fa-circle-question me-2"></i>No data for this view. Try widening your date range or clearing filters.
+                                <td colspan="5" class="text-center text-muted">
+                                    No data for this view. Try widening your date range or clearing filters.
                                 </td>
                             </tr>
                         @endforelse
@@ -589,7 +568,7 @@
                 </table>
             </div>
             @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
-                <div class="p-3">
+                <div class="mt-3">
                     {{ $focusRows->withQueryString()->links('pagination::bootstrap-5') }}
                 </div>
             @endif
