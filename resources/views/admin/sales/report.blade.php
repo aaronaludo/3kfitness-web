@@ -558,6 +558,135 @@
                     </tbody>
                 </table>
             </div>
+        @elseif($focus === 'staff')
+            @php $staffPaymentModals = []; @endphp
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="text-muted">#</th>
+                            <th>Staff</th>
+                            <th class="text-end">Membership payments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($focusRows as $row)
+                            @php
+                                $indexBase = $focusRows instanceof \Illuminate\Pagination\AbstractPaginator ? $focusRows->firstItem() : 1;
+                                $rowNumber = ($indexBase ?? 1) + $loop->index;
+                                $label = $row['label'] ?? '—';
+                                $labelParts = [];
+                                if (preg_match('/^(.*)\\s*\\(([^)]+)\\)$/', $label, $matches)) {
+                                    $labelParts = [$matches[1] ?? $label, $matches[2] ?? null];
+                                }
+                                $name = $labelParts[0] ?? $label;
+                                $code = $labelParts[1] ?? null;
+                                $mp = $row['membership_payments'] ?? ['count' => 0, 'total' => 0, 'currency' => $currency, 'items' => collect()];
+                                $mpItems = collect($mp['items'] ?? []);
+                                $mpId = 'staff-mp-report-' . $rowNumber;
+                                $staffPaymentModals[] = [
+                                    'id' => $mpId,
+                                    'name' => $name,
+                                    'currency' => $mp['currency'] ?? $currency,
+                                    'count' => $mp['count'] ?? 0,
+                                    'total' => $mp['total'] ?? 0,
+                                    'items' => $mpItems,
+                                ];
+                            @endphp
+                            <tr>
+                                <td class="text-muted">{{ $rowNumber }}</td>
+                                <td>
+                                    <div class="fw-semibold">{{ $name }}</div>
+                                    @if($code)
+                                        <div class="text-muted small">Code: {{ $code }}</div>
+                                    @endif
+                                </td>
+                                <td class="text-end">
+                                    @if(($mp['count'] ?? 0) > 0)
+                                        <div class="fw-semibold">{{ $mp['currency'] ?? $currency }} {{ number_format((float) ($mp['total'] ?? 0), 2) }}</div>
+                                        <button type="button" class="btn btn-sm btn-outline-primary mt-1" data-bs-toggle="modal" data-bs-target="#{{ $mpId }}">
+                                            View {{ $mp['count'] ?? 0 }}
+                                        </button>
+                                    @else
+                                        <span class="text-muted">—</span>
+                                    @endif
+                                </td>
+                            </tr>
+                        @empty
+                            <tr>
+                                <td colspan="6" class="text-center text-muted">
+                                    No data for this view. Try widening your date range or clearing filters.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+            @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
+                <div class="mt-3">
+                    {{ $focusRows->withQueryString()->links('pagination::bootstrap-5') }}
+                </div>
+            @endif
+            @foreach($staffPaymentModals as $modal)
+                @php $modalItems = collect($modal['items'] ?? []); @endphp
+                <div class="modal fade" id="{{ $modal['id'] ?? '' }}" tabindex="-1" aria-labelledby="{{ $modal['id'] ?? '' }}-label" aria-hidden="true">
+                    <div class="modal-dialog modal-lg modal-dialog-centered">
+                        <div class="modal-content rounded-4 border-0 shadow-sm">
+                            <div class="modal-header">
+                                <div>
+                                    <h5 class="modal-title fw-semibold mb-0" id="{{ $modal['id'] ?? '' }}-label">Membership payments approved by {{ $modal['name'] ?? 'Staff' }}</h5>
+                                    <p class="text-muted small mb-0">Approved payments within the selected window</p>
+                                </div>
+                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                            </div>
+                            <div class="modal-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="badge bg-light text-dark">Count: {{ $modal['count'] ?? 0 }}</span>
+                                    @if(($modal['count'] ?? 0) > 0)
+                                        <span class="badge bg-success-subtle text-success">Total: {{ $modal['currency'] ?? $currency }} {{ number_format((float) ($modal['total'] ?? 0), 2) }}</span>
+                                    @endif
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-sm align-middle mb-0">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>#</th>
+                                                <th>Member</th>
+                                                <th>Membership</th>
+                                                <th class="text-end">Amount</th>
+                                                <th class="text-end">Approved</th>
+                                                <th class="text-end">Expires</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            @forelse($modalItems as $payment)
+                                                <tr>
+                                                    <td class="text-muted">#{{ $payment['id'] }}</td>
+                                                    <td>
+                                                        <div class="fw-semibold">{{ $payment['member_name'] ?? '—' }}</div>
+                                                        <div class="text-muted small">Code: {{ $payment['member_code'] ?? '—' }}</div>
+                                                    </td>
+                                                    <td>{{ $payment['membership'] ?? '—' }}</td>
+                                                    <td class="text-end">{{ $payment['currency'] ?? $currency }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
+                                                    <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
+                                                    <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
+                                                </tr>
+                                            @empty
+                                                <tr>
+                                                    <td colspan="6" class="text-center text-muted small">No approved membership payments for this staff.</td>
+                                                </tr>
+                                            @endforelse
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                            <div class="modal-footer">
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            @endforeach
         @else
             <div class="table-responsive">
                 <table class="table table-hover align-middle mb-0">

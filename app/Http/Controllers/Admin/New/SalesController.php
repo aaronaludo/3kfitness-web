@@ -1095,7 +1095,12 @@ class SalesController extends Controller
                 ->whereHas('user', fn ($query) => $query->where('role_id', $roleId))
                 ->get();
 
-            $rows = $runs->groupBy('user_id')->map(function ($group) use ($focus, $appCutRate) {
+            $paymentsByCreator = ($payments instanceof \Illuminate\Support\Collection ? $payments : collect($payments ?? []))
+                ->groupBy(function ($payment) {
+                    return strtolower(trim($payment->created_by ?? ''));
+                });
+
+            $rows = $runs->groupBy('user_id')->map(function ($group) use ($focus, $appCutRate, $paymentsByCreator) {
                 $latest = $group->sortByDesc(function ($run) {
                     return $run->processed_at ?? $run->created_at;
                 })->first();
@@ -1104,6 +1109,7 @@ class SalesController extends Controller
                 $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
                 $label = $name ?: 'Unknown ' . ($focus === 'trainer' ? 'trainer' : 'staff');
                 $code = $user->user_code ?? null;
+                $staffCodeKey = strtolower(trim($code ?? ''));
                 $lastDate = $latest?->processed_at ?? $latest?->created_at;
                 $grossTotal = $group->sum(fn ($run) => (float) ($run->gross_pay ?? 0));
                 $netTotal = $group->sum(fn ($run) => (float) ($run->net_pay ?? 0));
@@ -1116,6 +1122,32 @@ class SalesController extends Controller
                     return round($gross * ($appCutRate / 100), 2);
                 });
 
+                $membershipPayments = collect();
+                $membershipPaymentsRaw = $paymentsByCreator->get($staffCodeKey, collect());
+                if ($membershipPaymentsRaw instanceof \Illuminate\Support\Collection) {
+                    $membershipPayments = $membershipPaymentsRaw->map(function ($payment) {
+                        $member = $payment->user;
+                        $membership = $payment->membership;
+                        $currency = $membership->currency ?? 'PHP';
+                        $price = (float) ($membership->price ?? 0);
+
+                        return [
+                            'id' => $payment->id,
+                            'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
+                            'member_code' => $member->user_code ?? '—',
+                            'membership' => $membership->name ?? '—',
+                            'currency' => $currency,
+                            'price' => $price,
+                            'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
+                            'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
+                            'membership_id' => $membership->id ?? null,
+                        ];
+                    });
+                }
+
+                $membershipTotal = $membershipPayments->sum(fn ($item) => (float) ($item['price'] ?? 0));
+                $membershipCurrency = $membershipPayments->first()['currency'] ?? 'PHP';
+
                 return [
                     'label' => $code ? "{$label} ({$code})" : $label,
                     'type' => ucfirst($focus),
@@ -1124,6 +1156,13 @@ class SalesController extends Controller
                     'net' => round($netTotal, 2),
                     'app_cut' => round($appCutTotal, 2),
                     'revenue' => round($netTotal, 2),
+                    'sort_metric' => round($membershipTotal, 2),
+                    'membership_payments' => [
+                        'count' => $membershipPayments->count(),
+                        'total' => round($membershipTotal, 2),
+                        'currency' => $membershipCurrency,
+                        'items' => $membershipPayments,
+                    ],
                     'last_sale' => $lastDate ? Carbon::parse($lastDate)->format('M d, Y') : '—',
                 ];
             });
@@ -1177,9 +1216,11 @@ class SalesController extends Controller
             });
         }
 
+        $sortKey = $focus === 'staff' ? 'sort_metric' : 'revenue';
+
         return $orderDirection === 'asc'
-            ? $rows->sortBy('revenue')->values()
-            : $rows->sortByDesc('revenue')->values();
+            ? $rows->sortBy($sortKey)->values()
+            : $rows->sortByDesc($sortKey)->values();
     }
 
     protected function resolveDateRange(?string $preset, ?string $startInput, ?string $endInput, ?string $startTimeInput = null, ?string $endTimeInput = null): array
