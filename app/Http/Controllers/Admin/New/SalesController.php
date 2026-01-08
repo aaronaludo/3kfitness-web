@@ -602,6 +602,8 @@ class SalesController extends Controller
         $request->validate([
             'start_date' => 'nullable|date_format:Y-m-d',
             'end_date' => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
+            'start_time' => 'nullable|date_format:H:i',
+            'end_time' => 'nullable|date_format:H:i',
             'search' => 'nullable|string|max:255',
             'focus' => 'nullable|in:member,trainer,staff,membership,date',
             'order' => 'nullable|in:most,least',
@@ -612,10 +614,14 @@ class SalesController extends Controller
 
         $startInput = $request->input('start_date');
         $endInput = $request->input('end_date');
+        $startTimeInput = $request->input('start_time');
+        $endTimeInput = $request->input('end_time');
         [$start, $end, $datePreset] = $this->resolveDateRange(
             $request->input('date_preset'),
             $startInput,
-            $endInput
+            $endInput,
+            $startTimeInput,
+            $endTimeInput
         );
 
         $search = trim((string) $request->input('search', ''));
@@ -721,6 +727,8 @@ class SalesController extends Controller
             'rangeYear' => $start->format('Y'),
             'startDate' => $start->toDateString(),
             'endDate' => $end->toDateString(),
+            'startTime' => $start->format('H:i'),
+            'endTime' => $end->format('H:i'),
             'searchTerm' => $search,
             'focus' => $focus,
             'order' => $order,
@@ -1122,12 +1130,14 @@ class SalesController extends Controller
             : $rows->sortByDesc('revenue')->values();
     }
 
-    protected function resolveDateRange(?string $preset, ?string $startInput, ?string $endInput): array
+    protected function resolveDateRange(?string $preset, ?string $startInput, ?string $endInput, ?string $startTimeInput = null, ?string $endTimeInput = null): array
     {
         $today = Carbon::now();
         $preset = $preset ?: 'this_year';
         $start = $today->copy()->startOfYear();
         $end = $today->copy()->endOfDay();
+        $startTime = $startTimeInput ?: '00:00';
+        $endTime = $endTimeInput ?: '23:59';
 
         switch ($preset) {
             case 'today':
@@ -1189,12 +1199,16 @@ class SalesController extends Controller
             default:
                 $preset = 'custom';
                 $start = $startInput
-                    ? Carbon::createFromFormat('Y-m-d', $startInput)->startOfDay()
+                    ? Carbon::createFromFormat('Y-m-d H:i', "{$startInput} {$startTime}")
                     : $today->copy()->startOfYear();
                 $end = $endInput
-                    ? Carbon::createFromFormat('Y-m-d', $endInput)->endOfDay()
+                    ? Carbon::createFromFormat('Y-m-d H:i', "{$endInput} {$endTime}")->endOfMinute()
                     : $today->copy()->endOfDay();
                 break;
+        }
+
+        if ($end->lt($start)) {
+            $end = $start->copy()->endOfDay();
         }
 
         return [$start, $end, $preset];

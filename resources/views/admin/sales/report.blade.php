@@ -209,6 +209,10 @@
         max-height: calc(6 * 52px); /* show up to ~6 options before scrolling */
         overflow-y: auto;
     }
+    .filter-menu__sub--dates {
+        grid-column: 1 / -1;
+        border-top: 1px solid rgba(0,0,0,0.06);
+    }
     @media (max-width: 575.98px) {
         .report-hero {
             padding: 18px;
@@ -306,9 +310,9 @@
                         <button type="button" class="btn btn-outline-secondary filter-menu__toggle" id="filter-menu-toggle">
                             <span id="filter-menu-label">
                                 @if(in_array($focus, ['member','trainer','staff']))
-                                    {{ ucfirst($focus) }} — {{ $order === 'least' ? 'Least Sales' : 'Most Sales' }}
+                                    {{ ucfirst($focus) }} — {{ $order === 'least' ? 'Least Sales' : 'Most Sales' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
                                 @elseif($focus === 'membership')
-                                    Memberships — {{ $selectedMembershipLabel ?? 'All Memberships' }}
+                                    Memberships — {{ $selectedMembershipLabel ?? 'All Memberships' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
                                 @else
                                     Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
                                 @endif
@@ -342,7 +346,7 @@
                                     </li>
                                 @endforeach
                             </ul>
-                            <ul class="filter-menu__sub scrollable {{ $focus === 'date' ? '' : 'd-none' }}" id="sub-dates">
+                            <ul class="filter-menu__sub scrollable filter-menu__sub--dates" id="sub-dates">
                                 <li><button type="button" class="{{ $datePreset === 'today' ? 'active' : '' }}" data-date-preset="today" data-date-label="Today">Today</button></li>
                                 <li><button type="button" class="{{ $datePreset === 'yesterday' ? 'active' : '' }}" data-date-preset="yesterday" data-date-label="Yesterday">Yesterday</button></li>
                                 <li><button type="button" class="{{ $datePreset === 'last_7' ? 'active' : '' }}" data-date-preset="last_7" data-date-label="Last 7 Days">Last 7 Days</button></li>
@@ -363,6 +367,26 @@
                         <input type="hidden" name="order" id="order-field" value="{{ $order ?? 'most' }}">
                         <input type="hidden" name="membership_id" id="membership-field" value="{{ $selectedMembershipId }}">
                         <input type="hidden" name="date_preset" id="date-preset-field" value="{{ $datePreset }}">
+                    </div>
+                </div>
+                <div class="col-12 {{ $datePreset === 'custom' ? '' : 'd-none' }}" id="custom-date-row">
+                    <div class="row g-3">
+                        <div class="col-12 col-md-3">
+                            <label for="start-date" class="form-label">Start date</label>
+                            <input type="date" id="start-date" name="start_date" class="form-control" value="{{ $datePreset === 'custom' ? ($startDate ?? '') : '' }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label for="start-time" class="form-label">Start time</label>
+                            <input type="time" id="start-time" name="start_time" class="form-control" value="{{ $datePreset === 'custom' ? ($startTime ?? '') : '' }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label for="end-date" class="form-label">End date</label>
+                            <input type="date" id="end-date" name="end_date" class="form-control" value="{{ $datePreset === 'custom' ? ($endDate ?? '') : '' }}">
+                        </div>
+                        <div class="col-12 col-md-3">
+                            <label for="end-time" class="form-label">End time</label>
+                            <input type="time" id="end-time" name="end_time" class="form-control" value="{{ $datePreset === 'custom' ? ($endTime ?? '') : '' }}">
+                        </div>
                     </div>
                 </div>
                 <div class="col-12 col-lg-auto">
@@ -429,13 +453,15 @@
         var datePresetInput = document.getElementById('date-preset-field');
         var startDateInput = document.getElementById('start-date');
         var endDateInput = document.getElementById('end-date');
+        var startTimeInput = document.getElementById('start-time');
+        var endTimeInput = document.getElementById('end-time');
+        var customDateRow = document.getElementById('custom-date-row');
         var itemButtons = Array.from(document.querySelectorAll('.filter-menu__item'));
         var orderButtons = Array.from(document.querySelectorAll('#sub-orders button'));
         var membershipButtons = Array.from(document.querySelectorAll('#sub-memberships button'));
         var dateButtons = Array.from(document.querySelectorAll('#sub-dates button'));
         var subOrders = document.getElementById('sub-orders');
         var subMemberships = document.getElementById('sub-memberships');
-        var subDates = document.getElementById('sub-dates');
 
         if (!toggle || !panel || !focusInput || !orderInput || !membershipInput || !datePresetInput) return;
 
@@ -449,16 +475,32 @@
 
         var updateLabel = function () {
             var text = '';
+            var dateLabel = datePresetLabels[currentDatePreset] || 'Custom Date Range';
             if (['member', 'trainer', 'staff'].indexOf(currentFocus) !== -1) {
-                text = currentFocus.charAt(0).toUpperCase() + currentFocus.slice(1) + ' — ' + (currentOrder === 'least' ? 'Least Sales' : 'Most Sales');
+                text = currentFocus.charAt(0).toUpperCase() + currentFocus.slice(1) + ' — ' + (currentOrder === 'least' ? 'Least Sales' : 'Most Sales') + ' | Date — ' + dateLabel;
             } else if (currentFocus === 'membership') {
                 var membershipName = currentMembership && membershipLabels[currentMembership] ? membershipLabels[currentMembership] : 'All Memberships';
-                text = 'Memberships — ' + membershipName;
+                text = 'Memberships — ' + membershipName + ' | Date — ' + dateLabel;
             } else {
-                var dateLabel = datePresetLabels[currentDatePreset] || 'Custom Date Range';
                 text = 'Date — ' + dateLabel;
             }
             labelEl.textContent = text;
+        };
+
+        var toggleCustomDateInputs = function (preset) {
+            if (!customDateRow) return;
+            if (preset === 'custom') {
+                customDateRow.classList.remove('d-none');
+            } else {
+                customDateRow.classList.add('d-none');
+            }
+        };
+
+        var clearCustomInputs = function () {
+            if (startDateInput) startDateInput.value = '';
+            if (endDateInput) endDateInput.value = '';
+            if (startTimeInput) startTimeInput.value = '';
+            if (endTimeInput) endTimeInput.value = '';
         };
 
         var closePanel = function () {
@@ -468,14 +510,11 @@
         var showSub = function (focus, hasOrder) {
             subOrders.classList.add('d-none');
             subMemberships.classList.add('d-none');
-            subDates.classList.add('d-none');
 
             if (hasOrder) {
                 subOrders.classList.remove('d-none');
             } else if (focus === 'membership') {
                 subMemberships.classList.remove('d-none');
-            } else if (focus === 'date') {
-                subDates.classList.remove('d-none');
             }
         };
 
@@ -489,9 +528,11 @@
 
             if (!hasOrder) {
                 orderInput.value = '';
-            } else if (!currentOrder) {
-                currentOrder = 'most';
-                orderInput.value = 'most';
+            } else {
+                if (!currentOrder) {
+                    currentOrder = 'most';
+                }
+                orderInput.value = currentOrder;
             }
 
             orderButtons.forEach(function (btn) {
@@ -512,10 +553,9 @@
                 btn.classList.toggle('active', isActive);
             });
             updateLabel();
-            closePanel();
         };
 
-        var setMembership = function (membershipId, membershipLabel) {
+        var setMembership = function (membershipId) {
             currentMembership = membershipId;
             membershipInput.value = membershipId;
             membershipButtons.forEach(function (btn) {
@@ -523,7 +563,6 @@
                 btn.classList.toggle('active', isActive);
             });
             updateLabel();
-            closePanel();
         };
 
         var setDatePreset = function (preset) {
@@ -535,11 +574,10 @@
             });
             // Clear manual dates when using preset other than custom
             if (preset !== 'custom') {
-                if (startDateInput) startDateInput.value = '';
-                if (endDateInput) endDateInput.value = '';
+                clearCustomInputs();
             }
+            toggleCustomDateInputs(preset);
             updateLabel();
-            closePanel();
         };
 
         toggle.addEventListener('click', function () {
@@ -562,7 +600,7 @@
 
         membershipButtons.forEach(function (btn) {
             btn.addEventListener('click', function () {
-                setMembership(btn.getAttribute('data-membership-id') || '', btn.getAttribute('data-membership-label') || '');
+                setMembership(btn.getAttribute('data-membership-id') || '');
             });
         });
 
@@ -580,6 +618,7 @@
 
         // Initialize state
         setFocus(currentFocus, ['member', 'trainer', 'staff'].indexOf(currentFocus) !== -1);
+        toggleCustomDateInputs(currentDatePreset);
         updateLabel();
     });
 </script>
