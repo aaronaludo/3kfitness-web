@@ -370,6 +370,13 @@
             'count' => $printItemsAll->count(),
             'items' => $printItemsAll,
         ]);
+        $hasFilterPreset = !empty(request()->except(['page']));
+        $filterPresetEmpty = !$hasFilterPreset;
+        $showMembershipTile = $filterPresetEmpty || $focus !== 'trainer';
+        $showTotalSalesTile = $filterPresetEmpty || $focus !== 'trainer';
+        $showClassCommissionTile = $filterPresetEmpty || $focus === 'trainer';
+        $tileCount = ($showMembershipTile ? 1 : 0) + ($showTotalSalesTile ? 1 : 0) + ($showClassCommissionTile ? 1 : 0);
+        $tileColClass = $tileCount === 1 ? 'col-12' : ($tileCount === 2 ? 'col-12 col-lg-6' : 'col-12 col-lg-4');
     @endphp
     <div class="row">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
@@ -395,12 +402,9 @@
         </div>
     </div>
 
-    @php
-        $isTrainerFocus = $focus === 'trainer';
-    @endphp
     <div class="row g-3 mb-4 report-summary">
-        @if(!$isTrainerFocus)
-            <div class="col-12 col-lg-6">
+        @if($showMembershipTile)
+            <div class="{{ $tileColClass }}">
                 <div class="summary-card">
                     <div class="summary-card__header">
                         <div>
@@ -419,27 +423,8 @@
                 </div>
             </div>
         @endif
-        @if(!$isTrainerFocus)
-            <div class="col-12 col-lg-6">
-                <div class="summary-card profit">
-                    <div class="summary-card__header">
-                        <div>
-                            <span class="pill-soft">Total</span>
-                            <div class="summary-card__title h5 mb-1">Total sales</div>
-                            <div class="summary-card__subtitle">Count of sales in this view</div>
-                        </div>
-                        <div class="summary-icon">
-                            <i class="fa-solid fa-layer-group fa-fw fa-lg"></i>
-                        </div>
-                    </div>
-                    <div class="summary-card__value">
-                        <div class="summary-amount mb-0">{{ number_format((float) ($summary['total_sales_count'] ?? 0)) }}</div>
-                        <span class="pill-ghost">Sales</span>
-                    </div>
-                </div>
-            </div>
-        @else
-            <div class="col-12">
+        @if($showClassCommissionTile)
+            <div class="{{ $tileColClass }}">
                 <div class="summary-card cost">
                     <div class="summary-card__header">
                         <div>
@@ -454,6 +439,26 @@
                     <div class="summary-card__value">
                         <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
                         <span class="pill-ghost">Included in totals</span>
+                    </div>
+                </div>
+            </div>
+        @endif
+        @if($showTotalSalesTile)
+            <div class="{{ $tileColClass }}">
+                <div class="summary-card profit">
+                    <div class="summary-card__header">
+                        <div>
+                            <span class="pill-soft">Total</span>
+                            <div class="summary-card__title h5 mb-1">Total sales</div>
+                            <div class="summary-card__subtitle">Count of sales in this view</div>
+                        </div>
+                        <div class="summary-icon">
+                            <i class="fa-solid fa-layer-group fa-fw fa-lg"></i>
+                        </div>
+                    </div>
+                    <div class="summary-card__value">
+                        <div class="summary-amount mb-0">{{ number_format((float) ($summary['total_sales_count'] ?? 0)) }}</div>
+                        <span class="pill-ghost">Sales</span>
                     </div>
                 </div>
             </div>
@@ -473,9 +478,6 @@
                     <span class="d-block text-muted small">Range {{ $rangeLabel }}</span>
                 </div>
             </div>
-            @php
-                $hasFilterQuery = !empty(request()->except(['page']));
-            @endphp
             <form action="{{ route('admin.sales.report') }}" method="GET" class="row g-3 align-items-end">
                 <div class="col-12 col-lg-5">
                     <label for="search" class="form-label">Search for all</label>
@@ -496,7 +498,7 @@
                     <div class="filter-menu">
                         <button type="button" class="btn btn-outline-secondary w-100 filter-menu__toggle" id="filter-menu-toggle">
                             <span id="filter-menu-label">
-                                @if($hasFilterQuery)
+                                @if($hasFilterPreset)
                                     @if(in_array($focus, ['member','trainer','staff']))
                                         {{ ucfirst($focus) }} — {{ $order === 'least' ? 'Least Sales' : 'Most Sales' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
                                     @elseif($focus === 'membership')
@@ -596,7 +598,7 @@
             : (is_countable($focusRows) ? count($focusRows) : 0);
     @endphp
 
-    @if($hasFilterQuery)
+    @if($hasFilterPreset)
     <div class="card shadow-sm border-0 rounded-4 mb-4">
         <div class="card-body p-4">
             <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
@@ -998,7 +1000,7 @@
 
         var membershipLabels = @json(($membershipOptions ?? collect())->pluck('name', 'id'));
         var datePresetLabels = @json($datePresetLabels ?? []);
-        var hasUserFilters = @json($hasFilterQuery);
+        var hasUserFilters = @json($hasFilterPreset);
 
         var currentFocus = focusInput.value || 'member';
         var currentOrder = orderInput.value || 'most';

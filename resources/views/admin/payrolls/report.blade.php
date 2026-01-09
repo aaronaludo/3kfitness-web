@@ -220,9 +220,10 @@
                 });
             }
 
+            $runsQueryForAll = clone $runsQuery;
             $filteredRuns = $runsQuery->paginate($perPage)->appends(request()->query());
             $filteredTotal = $filteredRuns->total();
-            $filteredCollection = (clone $runsQuery)->get();
+            $filteredCollection = $runsQueryForAll->get();
             $filteredTotals = [
                 'gross' => round($filteredCollection->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
                 'net' => round($filteredCollection->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
@@ -231,15 +232,97 @@
                 'pagibig' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
                 'app_cut' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_app_cut ?? 0)), 2),
             ];
+
+            $mapRun = function ($run) {
+                $staff = $run->user;
+                $name = trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? ''));
+                $periodLabel = $run->period_month
+                    ? \Carbon\Carbon::parse($run->period_month . '-01')->format('M Y')
+                    : '—';
+
+                return [
+                    'id' => $run->id,
+                    'name' => $name !== '' ? $name : '—',
+                    'email' => $staff->email ?? '—',
+                    'user_code' => $staff->user_code ?? '—',
+                    'role' => optional($staff->role)->name ?? '—',
+                    'period' => $periodLabel,
+                    'hours' => number_format((float) ($run->total_hours ?? 0), 2),
+                    'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
+                    'sss' => number_format((float) ($run->deduction_sss ?? 0), 2),
+                    'philhealth' => number_format((float) ($run->deduction_philhealth ?? 0), 2),
+                    'pagibig' => number_format((float) ($run->deduction_pagibig ?? 0), 2),
+                    'app_cut' => number_format((float) ($run->deduction_app_cut ?? 0), 2),
+                    'net' => number_format((float) ($run->net_pay ?? 0), 2),
+                    'processed_at' => $run->processed_at
+                        ? $run->processed_at->format('M d, Y g:i A')
+                        : ($run->created_at?->format('M d, Y g:i A') ?? '—'),
+                ];
+            };
+
+            $printRuns = collect($filteredRuns->items() ?? [])->map($mapRun)->values();
+            $printAllRuns = collect($filteredCollection ?? [])->map($mapRun)->values();
+
+            $printPayload = [
+                'title' => 'Payroll report',
+                'generated_at' => now()->format('M d, Y g:i A'),
+                'filters' => [
+                    'search' => $search,
+                    'focus' => $focus,
+                    'focus_label' => $focusLabel,
+                    'date_preset' => $datePreset,
+                    'date_range' => $dateRangeLabel,
+                    'start_date' => $startDateInput,
+                    'end_date' => $endDateInput,
+                ],
+                'totals' => $filteredTotals,
+                'count' => $printRuns->count(),
+                'items' => $printRuns,
+            ];
+
+            $printAllPayload = [
+                'title' => 'Payroll report (all pages)',
+                'generated_at' => now()->format('M d, Y g:i A'),
+                'filters' => [
+                    'search' => $search,
+                    'focus' => $focus,
+                    'focus_label' => $focusLabel,
+                    'date_preset' => $datePreset,
+                    'date_range' => $dateRangeLabel,
+                    'start_date' => $startDateInput,
+                    'end_date' => $endDateInput,
+                    'scope' => 'all',
+                ],
+                'totals' => $filteredTotals,
+                'count' => $printAllRuns->count(),
+                'items' => $printAllRuns,
+            ];
         @endphp
         <div class="col-12 d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4 mt-2">
             <div>
                 <h2 class="title mb-1">Payroll Report</h2>
                 <p class="text-muted mb-0">Snapshot of payroll totals across all processed runs.</p>
             </div>
-            <div class="text-end text-muted small">
-                <div>Total runs: {{ $runsCount }}</div>
-                <div>Last updated: {{ now()->format('M d, Y g:i A') }}</div>
+            <div class="d-flex align-items-center flex-wrap gap-3 h-100">
+                <div class="text-end text-muted small">
+                    <div>Total runs: {{ $runsCount }}</div>
+                    <div>Last updated: {{ now()->format('M d, Y g:i A') }}</div>
+                </div>
+                <form action="#" method="POST" id="print-form">
+                    @csrf
+                    <button
+                        type="submit"
+                        class="btn btn-danger d-flex align-items-center gap-2"
+                        id="print-submit-button"
+                        data-print='@json($printPayload)'
+                        data-print-all='@json($printAllPayload)'
+                        aria-label="Open printable/PDF view of payroll report"
+                    >
+                        <i class="fa-solid fa-print"></i>
+                        <span id="print-loader" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                        Print
+                    </button>
+                </form>
             </div>
         </div>
 
@@ -370,16 +453,6 @@
 
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <a href="{{ route('admin.payrolls.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
-
-                                    <button
-                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
-                                        type="button"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#payrollFiltersModal"
-                                    >
-                                        <i class="fa-solid fa-sliders"></i>
-                                        Filters
-                                    </button>
 
                                     <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
                                         <i class="fa-solid fa-filter"></i>
@@ -533,6 +606,8 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const printButton = document.getElementById('print-submit-button');
+        const printLoader = document.getElementById('print-loader');
         const datePresetSelect = document.getElementById('date_preset');
         const customDateRange = document.getElementById('custom-date-range');
         const startDateInput = document.getElementById('start_date');
@@ -540,6 +615,107 @@
         const focusButtons = document.querySelectorAll('.focus-chip');
         const focusField = document.getElementById('payroll-focus');
         const filterForm = document.querySelector('form[action="{{ route('admin.payrolls.report') }}"]');
+
+        function buildFilters(filters) {
+            const chips = [];
+            if (filters.focus_label || filters.focus) {
+                chips.push({ label: 'Type', value: filters.focus_label || filters.focus });
+            }
+            if (filters.search) chips.push({ label: 'Search', value: filters.search });
+            if (filters.date_range) {
+                chips.push({ label: 'Date', value: filters.date_range });
+            } else if (filters.start_date || filters.end_date) {
+                chips.push({ label: 'Date', value: `${filters.start_date || '—'} → ${filters.end_date || '—'}` });
+            }
+            return chips;
+        }
+
+        function buildRows(items) {
+            return (items || []).map((item) => ([
+                item.id ?? '—',
+                `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div><div class="muted">Code: ${item.user_code || '—'}</div>`,
+                item.role || '—',
+                item.period || '—',
+                `${item.hours || '0.00'} hrs`,
+                `₱${item.gross || '0.00'}`,
+                `₱${item.sss || '0.00'}`,
+                `₱${item.philhealth || '0.00'}`,
+                `₱${item.pagibig || '0.00'}`,
+                `₱${item.app_cut || '0.00'}`,
+                `<span class="text-success fw-semibold">₱${item.net || '0.00'}</span>`,
+            ]));
+        }
+
+        function renderPrintWindow(payload) {
+            const rawItems = payload && payload.items ? payload.items : [];
+            const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
+            const filters = buildFilters(payload.filters || {});
+            const headers = [
+                '#',
+                'Staff',
+                'Role',
+                'Period',
+                'Hours',
+                'Gross',
+                'SSS',
+                'PhilHealth',
+                'Pag-IBIG',
+                'App cut',
+                'Net',
+            ];
+            const rows = buildRows(items);
+
+            return window.PrintPreview
+                ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                : false;
+        }
+
+        if (printButton) {
+            printButton.addEventListener('click', async function (e) {
+                const rawPayload = printButton.dataset.print;
+                const rawAllPayload = printButton.dataset.printAll;
+                if (!rawPayload) return;
+
+                e.preventDefault();
+                if (printLoader) printLoader.classList.remove('d-none');
+                printButton.disabled = true;
+
+                let payload = null;
+                let allPayload = null;
+                try {
+                    payload = JSON.parse(rawPayload);
+                } catch (err) {
+                    payload = null;
+                }
+                try {
+                    allPayload = rawAllPayload ? JSON.parse(rawAllPayload) : null;
+                } catch (err) {
+                    allPayload = null;
+                }
+
+                const scope = window.PrintPreview && PrintPreview.chooseScope
+                    ? await PrintPreview.chooseScope()
+                    : 'current';
+
+                if (!scope) {
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
+                    return;
+                }
+
+                const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
+
+                if (!handled) {
+                    printButton.disabled = false;
+                    if (printLoader) printLoader.classList.add('d-none');
+                    return;
+                }
+
+                printButton.disabled = false;
+                if (printLoader) printLoader.classList.add('d-none');
+            });
+        }
 
         const formatDateInput = (date) => {
             if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
