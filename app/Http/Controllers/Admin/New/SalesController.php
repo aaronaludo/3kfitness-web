@@ -617,7 +617,7 @@ class SalesController extends Controller
         $startTimeInput = $request->input('start_time');
         $endTimeInput = $request->input('end_time');
         $presetInput = $request->input('date_preset');
-        $defaultPreset = ($startInput || $endInput) ? 'custom' : 'last_30';
+        $defaultPreset = ($startInput || $endInput) ? 'custom' : 'this_year';
         $presetToUse = $presetInput ?: $defaultPreset;
         [$start, $end, $datePreset] = $this->resolveDateRange(
             $presetToUse,

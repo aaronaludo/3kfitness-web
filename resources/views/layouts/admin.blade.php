@@ -710,7 +710,25 @@
                     </li>
                 @endif
                 @if(auth()->guard('admin')->user()->role_id != 2)
-                <li><a href="{{ route('admin.payrolls.index') }}" class="{{ request()->routeIs($payrollRoutes) ? 'active' : '' }}"><i class="fa-solid fa-money-bill"></i> Payrolls</a></li>
+                    <li>
+                        <a
+                            class="collapsed {{ request()->routeIs($payrollRoutes) ? 'active' : '' }}"
+                            data-bs-toggle="collapse"
+                            href="#payroll-menu"
+                            role="button"
+                            aria-expanded="{{ request()->routeIs($payrollRoutes) ? 'true' : 'false' }}"
+                            aria-controls="payroll-menu"
+                        >
+                            <i class="fa-solid fa-money-bill"></i> Payroll
+                        </a>
+                        <ul id="payroll-menu" class="collapse {{ request()->routeIs($payrollRoutes) ? 'show' : '' }}">
+                            <li>
+                                <a href="{{ route('admin.payrolls.index') }}" class="{{ request()->routeIs('admin.payrolls.*') ? 'active' : '' }}">
+                                    Overview
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
                 @endif
                 <!--<li>-->
                 <!--    <a href="{{ route('admin.banners.index') }}">-->

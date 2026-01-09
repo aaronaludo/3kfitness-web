@@ -376,7 +376,7 @@
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
             <div>
                 <h2 class="title mb-0">Sales Reports</h2>
-                <p class="text-muted mb-0">Default view loads Member — Most Sales for the last 30 days. Adjust filters to change focus or date ranges.</p>
+                <p class="text-muted mb-0">Choose a filter preset to load results. Default date preset is the current year.</p>
             </div>
             <div class="d-flex align-items-center gap-2 flex-wrap">
                 <span class="pill-soft">Preset {{ $datePresetLabel ?? 'All Time' }}</span>
@@ -475,7 +475,9 @@
                     <span class="d-block text-muted small">Range {{ $rangeLabel }}</span>
                 </div>
             </div>
-
+            @php
+                $hasFilterQuery = !empty(request()->except(['page']));
+            @endphp
             <form action="{{ route('admin.sales.report') }}" method="GET" class="row g-3 align-items-end">
                 <div class="col-12 col-lg-5">
                     <label for="search" class="form-label">Search for all</label>
@@ -496,12 +498,16 @@
                     <div class="filter-menu">
                         <button type="button" class="btn btn-outline-secondary w-100 filter-menu__toggle" id="filter-menu-toggle">
                             <span id="filter-menu-label">
-                                @if(in_array($focus, ['member','trainer','staff']))
-                                    {{ ucfirst($focus) }} — {{ $order === 'least' ? 'Least Sales' : 'Most Sales' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
-                                @elseif($focus === 'membership')
-                                    Memberships — {{ $selectedMembershipLabel ?? 'All Memberships' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
+                                @if($hasFilterQuery)
+                                    @if(in_array($focus, ['member','trainer','staff']))
+                                        {{ ucfirst($focus) }} — {{ $order === 'least' ? 'Least Sales' : 'Most Sales' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
+                                    @elseif($focus === 'membership')
+                                        Memberships — {{ $selectedMembershipLabel ?? 'All Memberships' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
+                                    @else
+                                        Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
+                                    @endif
                                 @else
-                                    Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
+                                    Filter preset
                                 @endif
                             </span>
                             <i class="fa-solid fa-chevron-down small"></i>
@@ -592,6 +598,7 @@
             : (is_countable($focusRows) ? count($focusRows) : 0);
     @endphp
 
+    @if($hasFilterQuery)
     <div class="card shadow-sm border-0 rounded-4 mb-4">
         <div class="card-body p-4">
             <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
@@ -820,6 +827,17 @@
         @endif
         </div>
     </div>
+    @else
+    <div class="card shadow-sm border-0 rounded-4 mb-4">
+        <div class="card-body p-5 text-center text-muted">
+            <div class="mb-3">
+                <i class="fa-solid fa-filter-circle-xmark fa-2x"></i>
+            </div>
+            <h5 class="fw-semibold mb-2">No filters applied</h5>
+            <p class="mb-0">Choose a filter preset to load results.</p>
+        </div>
+    </div>
+    @endif
 </div>
 <script>
     document.addEventListener('DOMContentLoaded', function () {
@@ -991,6 +1009,7 @@
 
         var membershipLabels = @json(($membershipOptions ?? collect())->pluck('name', 'id'));
         var datePresetLabels = @json($datePresetLabels ?? []);
+        var hasUserFilters = @json($hasFilterQuery);
 
         var currentFocus = focusInput.value || 'member';
         var currentOrder = orderInput.value || 'most';
@@ -998,6 +1017,10 @@
         var currentDatePreset = datePresetInput.value || 'this_year';
 
         var updateLabel = function () {
+            if (!hasUserFilters) {
+                labelEl.textContent = 'Filter preset';
+                return;
+            }
             var text = '';
             var dateLabel = datePresetLabels[currentDatePreset] || 'Custom Date Range';
             if (['member', 'trainer', 'staff'].indexOf(currentFocus) !== -1) {
@@ -1042,7 +1065,7 @@
             }
         };
 
-        var setFocus = function (focus, hasOrder) {
+        var setFocus = function (focus, hasOrder, markDirty) {
             currentFocus = focus;
             focusInput.value = focus;
             itemButtons.forEach(function (btn) {
@@ -1065,10 +1088,13 @@
             });
 
             // If moving to membership or date, keep previous selections but refresh labels
+            if (markDirty) {
+                hasUserFilters = true;
+            }
             updateLabel();
         };
 
-        var setOrder = function (order) {
+        var setOrder = function (order, markDirty) {
             if (['member', 'trainer', 'staff'].indexOf(currentFocus) === -1) return;
             currentOrder = order;
             orderInput.value = order;
@@ -1076,20 +1102,26 @@
                 var isActive = btn.getAttribute('data-order') === order;
                 btn.classList.toggle('active', isActive);
             });
+            if (markDirty) {
+                hasUserFilters = true;
+            }
             updateLabel();
         };
 
-        var setMembership = function (membershipId) {
+        var setMembership = function (membershipId, markDirty) {
             currentMembership = membershipId;
             membershipInput.value = membershipId;
             membershipButtons.forEach(function (btn) {
                 var isActive = btn.getAttribute('data-membership-id') === membershipId;
                 btn.classList.toggle('active', isActive);
             });
+            if (markDirty) {
+                hasUserFilters = true;
+            }
             updateLabel();
         };
 
-        var setDatePreset = function (preset) {
+        var setDatePreset = function (preset, markDirty) {
             currentDatePreset = preset;
             datePresetInput.value = preset;
             dateButtons.forEach(function (btn) {
@@ -1101,6 +1133,9 @@
                 clearCustomInputs();
             }
             toggleCustomDateInputs(preset);
+            if (markDirty) {
+                hasUserFilters = true;
+            }
             updateLabel();
         };
 
@@ -1112,25 +1147,25 @@
             btn.addEventListener('click', function () {
                 var focus = btn.getAttribute('data-focus');
                 var hasOrder = btn.getAttribute('data-has-order') === 'true';
-                setFocus(focus, hasOrder);
+                setFocus(focus, hasOrder, true);
             });
         });
 
         orderButtons.forEach(function (btn) {
             btn.addEventListener('click', function () {
-                setOrder(btn.getAttribute('data-order'));
+                setOrder(btn.getAttribute('data-order'), true);
             });
         });
 
         membershipButtons.forEach(function (btn) {
             btn.addEventListener('click', function () {
-                setMembership(btn.getAttribute('data-membership-id') || '');
+                setMembership(btn.getAttribute('data-membership-id') || '', true);
             });
         });
 
         dateButtons.forEach(function (btn) {
             btn.addEventListener('click', function () {
-                setDatePreset(btn.getAttribute('data-date-preset'));
+                setDatePreset(btn.getAttribute('data-date-preset'), true);
             });
         });
 
@@ -1141,7 +1176,7 @@
         });
 
         // Initialize state
-        setFocus(currentFocus, ['member', 'trainer', 'staff'].indexOf(currentFocus) !== -1);
+        setFocus(currentFocus, ['member', 'trainer', 'staff'].indexOf(currentFocus) !== -1, false);
         toggleCustomDateInputs(currentDatePreset);
         updateLabel();
     });
