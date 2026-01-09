@@ -701,6 +701,41 @@ class PayrollController extends Controller
         ]);
     }
 
+    public function report()
+    {
+        $deductionSettings = $this->currentDeductionSettings();
+        $appCutRate = max((float) ($deductionSettings['app_cut_rate'] ?? 0), 0);
+
+        $runs = PayrollRun::with('user')
+            ->orderByDesc('processed_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $appCutTotal = $runs->sum(function ($run) use ($appCutRate) {
+            $stored = $run->deduction_app_cut ?? null;
+            if (!is_null($stored)) {
+                return (float) $stored;
+            }
+
+            $gross = (float) ($run->gross_pay ?? 0);
+            return round($gross * ($appCutRate / 100), 2);
+        });
+
+        $totals = [
+            'gross' => round($runs->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+            'net' => round($runs->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+            'sss' => round($runs->sum(fn ($run) => (float) ($run->deduction_sss ?? 0)), 2),
+            'philhealth' => round($runs->sum(fn ($run) => (float) ($run->deduction_philhealth ?? 0)), 2),
+            'pagibig' => round($runs->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
+            'app_cut' => round($appCutTotal, 2),
+        ];
+
+        return view('admin.payrolls.report', [
+            'totals' => $totals,
+            'runsCount' => $runs->count(),
+        ]);
+    }
+
     public function updateDeductions(Request $request)
     {
         $data = $request->validate([

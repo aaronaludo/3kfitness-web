@@ -400,7 +400,7 @@
     @endphp
     <div class="row g-3 mb-4 report-summary">
         @if(!$isTrainerFocus)
-            <div class="col-12 col-lg-6">
+            <div class="col-12 col-lg-4">
                 <div class="summary-card">
                     <div class="summary-card__header">
                         <div>
@@ -419,28 +419,26 @@
                 </div>
             </div>
         @endif
-        @if($isTrainerFocus)
-            <div class="col-12">
-                <div class="summary-card cost">
-                    <div class="summary-card__header">
-                        <div>
-                            <span class="pill-soft">Commission</span>
-                            <div class="summary-card__title h5 mb-1">Class commission</div>
-                            <div class="summary-card__subtitle">Trainer commissions for the period</div>
-                        </div>
-                        <div class="summary-icon">
-                            <i class="fa-solid fa-ranking-star fa-fw fa-lg"></i>
-                        </div>
+        <div class="col-12 col-lg-4">
+            <div class="summary-card cost">
+                <div class="summary-card__header">
+                    <div>
+                        <span class="pill-soft">Commission</span>
+                        <div class="summary-card__title h5 mb-1">Class commission</div>
+                        <div class="summary-card__subtitle">Trainer commissions for the period</div>
                     </div>
-                    <div class="summary-card__value">
-                        <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
-                        <span class="pill-ghost">Included in totals</span>
+                    <div class="summary-icon">
+                        <i class="fa-solid fa-ranking-star fa-fw fa-lg"></i>
                     </div>
                 </div>
+                <div class="summary-card__value">
+                    <div class="summary-amount mb-0">{{ $currency }} {{ number_format($summary['class_commission'] ?? 0, 2) }}</div>
+                    <span class="pill-ghost">Included in totals</span>
+                </div>
             </div>
-        @endif
+        </div>
         @if(!$isTrainerFocus)
-            <div class="col-12 col-lg-6">
+            <div class="col-12 col-lg-4">
                 <div class="summary-card profit">
                     <div class="summary-card__header">
                         <div>

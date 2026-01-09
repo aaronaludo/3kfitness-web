@@ -718,17 +718,22 @@
                             role="button"
                             aria-expanded="{{ request()->routeIs($payrollRoutes) ? 'true' : 'false' }}"
                             aria-controls="payroll-menu"
-                        >
-                            <i class="fa-solid fa-money-bill"></i> Payroll
-                        </a>
-                        <ul id="payroll-menu" class="collapse {{ request()->routeIs($payrollRoutes) ? 'show' : '' }}">
-                            <li>
-                                <a href="{{ route('admin.payrolls.index') }}" class="{{ request()->routeIs('admin.payrolls.*') ? 'active' : '' }}">
-                                    Overview
-                                </a>
-                            </li>
-                        </ul>
-                    </li>
+                    >
+                        <i class="fa-solid fa-money-bill"></i> Payroll
+                    </a>
+                    <ul id="payroll-menu" class="collapse {{ request()->routeIs($payrollRoutes) ? 'show' : '' }}">
+                        <li>
+                            <a href="{{ route('admin.payrolls.index') }}" class="{{ request()->routeIs('admin.payrolls.report') ? '' : (request()->routeIs('admin.payrolls.*') ? 'active' : '') }}">
+                                Overview
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.payrolls.report') }}" class="{{ request()->routeIs('admin.payrolls.report') ? 'active' : '' }}">
+                                Payroll Report
+                            </a>
+                        </li>
+                    </ul>
+                </li>
                 @endif
                 <!--<li>-->
                 <!--    <a href="{{ route('admin.banners.index') }}">-->
