@@ -820,9 +820,9 @@ class SalesController extends Controller
             ->whereBetween('created_at', [$start, $end])
             ->orderByDesc('created_at');
 
-        $paymentsPage = $paymentsQuery->paginate(10)->withQueryString();
-
+        // Calculate totals on the full dataset, then paginate for the table.
         $allPayments = (clone $paymentsQuery)->get();
+        $paymentsPage = (clone $paymentsQuery)->paginate(10)->withQueryString();
         $currency = optional($allPayments->first()?->membership)->currency ?: 'PHP';
         $membershipRevenue = $allPayments->sum(function ($payment) {
             return (float) optional($payment->membership)->price ?: 0.0;
