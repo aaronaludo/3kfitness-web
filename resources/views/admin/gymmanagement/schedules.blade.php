@@ -78,7 +78,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name'),
-                        'search_column' => request('search_column'),
                         'status' => request('status', 'all') ?: 'all',
                         'month_filter' => request('month_filter'),
                         'start' => request('start_date'),
@@ -148,7 +147,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name'),
-                        'search_column' => request('search_column'),
                         'status' => request('status', 'all') ?: 'all',
                         'month_filter' => request('month_filter'),
                         'start' => request('start_date'),
@@ -174,7 +172,6 @@
                         @csrf
                         <div>
                         <input type="hidden" name="name" value="{{ request('name') }}">
-                        <input type="hidden" name="search_column" value="{{ request('search_column') }}">
                         <input type="hidden" name="status" value="{{ request('status', 'all') }}">
                         <input type="hidden" name="month_filter" value="{{ request('month_filter') }}">
                           <input
@@ -279,7 +276,7 @@
                         'count' => $statusTallies['completed'] ?? null,
                     ],
                 ];
-                $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
+                $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
 
                 $baseMonth = now()->startOfMonth();
                 $monthFilterOptions = collect(range(0, 36)) // current month + past 36 months
@@ -437,24 +434,6 @@
                                                 </div>
 
                                                 <div>
-                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
-                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
-                                                        <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
-                                                        <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Class Name</option>
-                                                        <option value="class_code" {{ request('search_column') == 'class_code' ? 'selected' : '' }}>Class Code</option>
-                                                        <option value="trainer_name" {{ request('search_column') == 'trainer_name' ? 'selected' : '' }}>Trainer</option>
-                                                        <option value="trainer_user_code" {{ request('search_column') == 'trainer_user_code' ? 'selected' : '' }}>User Code</option>
-                                                        <option value="trainer_rate_per_hour" {{ request('search_column') == 'trainer_rate_per_hour' ? 'selected' : '' }}>Trainer Rate Per Hour</option>
-                                                        <option value="slots" {{ request('search_column') == 'slots' ? 'selected' : '' }}>Slots</option>
-                        	                            <option value="class_start_date" {{ request('search_column') == 'class_start_date' ? 'selected' : '' }}>Class Start Date</option>
-                                                        <option value="class_end_date" {{ request('search_column') == 'class_end_date' ? 'selected' : '' }}>Class End Date</option>
-                                                        <option value="rejection_reason" {{ request('search_column') == 'rejection_reason' ? 'selected' : '' }}>Reject Reason</option>
-                                                        <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                                    </select>
-                                                </div>
-
-                                                <div>
                                                     <span class="form-label text-muted text-uppercase small d-block mb-2">Date range</span>
                                                     <div class="row g-2">
                                                         <div class="col-12 col-sm-6">
@@ -514,7 +493,7 @@
                         if (filters.search) {
                             chips.push({
                                 label: 'Search',
-                                value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                                value: filters.search,
                             });
                         }
                         if (filters.start || filters.end) {
@@ -618,7 +597,6 @@
                     const startInput = document.getElementById('start-date');
                     const endInput = document.getElementById('end-date');
                     const monthSelect = document.getElementById('month-filter');
-                    const searchColumnSelect = document.getElementById('search-column');
 
                     function formatDate(date) {
                         const year = date.getFullYear();
@@ -652,9 +630,6 @@
                         if (startValue) startInput.value = startValue;
                         if (endValue) endInput.value = endValue;
 
-                        if (searchColumnSelect && !searchColumnSelect.value) {
-                            searchColumnSelect.value = 'class_start_date';
-                        }
                     }
 
                     function submitWithMonthSync() {

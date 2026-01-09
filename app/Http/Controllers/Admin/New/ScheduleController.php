@@ -67,6 +67,7 @@ class ScheduleController extends Controller
         ]);
 
         $search        = $request->input('name');
+        $hasSearch     = $request->filled('name');
         $searchColumn  = $request->input('search_column');
         $startDate     = $request->input('start_date');
         $endDate       = $request->input('end_date');
@@ -77,19 +78,9 @@ class ScheduleController extends Controller
             $status = 'all';
         }
     
-        $allowedColumns = [
-            'id', 'name', 'class_code', 'trainer_name', 'slots',
-            'trainer_user_code',
-            'class_start_date', 'class_end_date', 'isadminapproved',
-            'rejection_reason', 'created_at',
-        ];
-        if (!in_array($searchColumn, $allowedColumns, true)) {
-            $searchColumn = null;
-        }
-    
-        // Choose which date column to filter: default to created_at unless a date-type column is selected.
+        // Choose which date column to filter: default to class_start_date unless a date-type column is selected.
         $dateColumns = ['class_start_date', 'class_end_date', 'created_at'];
-        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
+        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'class_start_date';
 
         $now = Carbon::now();
         $defaultMonthStart = $now->copy()->startOfMonth()->format('Y-m-d');
@@ -122,34 +113,10 @@ class ScheduleController extends Controller
             ->where('is_archieve', 0)
             ->count();
 
-        $applyFilters = function ($query) use ($search, $searchColumn, $startDate, $endDate, $rangeColumn, $useMonthOverlap) {
+        $applyFilters = function ($query) use ($hasSearch, $search, $startDate, $endDate, $rangeColumn, $useMonthOverlap) {
             return $query
-                ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
-                    if ($searchColumn === 'trainer_name') {
-                        $likeSearch = "%{$search}%";
-
-                        return $query->whereHas('user', function ($userQuery) use ($likeSearch) {
-                            $userQuery->where(function ($nameQuery) use ($likeSearch) {
-                                $nameQuery->whereRaw(
-                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                    [$likeSearch]
-                                )->orWhere('first_name', 'like', $likeSearch)
-                                 ->orWhere('last_name', 'like', $likeSearch);
-                            });
-                        });
-                    } elseif ($searchColumn === 'trainer_user_code') {
-                        $likeSearch = "%{$search}%";
-
-                        return $query->whereHas('user', function ($userQuery) use ($likeSearch) {
-                            $userQuery->where('user_code', 'like', $likeSearch);
-                        });
-                    }
-
-                    $exactColumns = ['id', 'slots', 'isadminapproved'];
-                    if (in_array($searchColumn, $exactColumns, true)) {
-                        return $query->where($searchColumn, $search);
-                    }
-                    return $query->where($searchColumn, 'like', "%{$search}%");
+                ->when($hasSearch, function ($query) use ($search) {
+                    return $this->applyScheduleSearch($query, $search);
                 })
                 ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn, $useMonthOverlap) {
                     // When month overlap is on, we filter by date range later in-memory to include reschedules.
@@ -794,6 +761,100 @@ class ScheduleController extends Controller
     }
 
     /**
+     * Apply the all-in-one search across schedule list columns.
+     */
+    private function applyScheduleSearch($query, string $search)
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = '%' . $search . '%';
+        $lowerSearch = strtolower($search);
+        $numericSearch = is_numeric($search) ? (int) $search : null;
+        $dayLookup = [
+            'sunday' => 'sun',
+            'monday' => 'mon',
+            'tuesday' => 'tue',
+            'wednesday' => 'wed',
+            'thursday' => 'thu',
+            'friday' => 'fri',
+            'saturday' => 'sat',
+        ];
+
+        return $query->where(function ($query) use ($like, $lowerSearch, $numericSearch, $dayLookup) {
+            if ($numericSearch !== null) {
+                $query->orWhere('id', $numericSearch)
+                    ->orWhere('slots', $numericSearch)
+                    ->orWhere('istrainerapproved', $numericSearch)
+                    ->orWhereHas('activeUserSchedules', fn ($userScheduleQuery) => $userScheduleQuery, '=', $numericSearch);
+            }
+
+            $query->orWhere('name', 'like', $like)
+                ->orWhere('class_code', 'like', $like)
+                ->orWhere('class_start_date', 'like', $like)
+                ->orWhere('class_end_date', 'like', $like)
+                ->orWhere('series_start_date', 'like', $like)
+                ->orWhere('series_end_date', 'like', $like)
+                ->orWhere('class_start_time', 'like', $like)
+                ->orWhere('class_end_time', 'like', $like)
+                ->orWhere('recurring_days', 'like', $like)
+                ->orWhere('session_overrides', 'like', $like)
+                ->orWhere('created_by', 'like', $like)
+                ->orWhere('created_role', 'like', $like);
+
+            $query->orWhereHas('user', function ($userQuery) use ($like) {
+                $userQuery->where('user_code', 'like', $like)
+                    ->orWhere('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", [$like]);
+            });
+
+            $query->orWhereHas('rescheduleRequests', function ($rescheduleQuery) use ($like, $lowerSearch, $numericSearch) {
+                $rescheduleQuery->where('notes', 'like', $like)
+                    ->orWhere('admin_comment', 'like', $like)
+                    ->orWhere('proposed_start_time', 'like', $like)
+                    ->orWhere('proposed_end_time', 'like', $like)
+                    ->orWhere('proposed_series_start_date', 'like', $like)
+                    ->orWhere('proposed_series_end_date', 'like', $like)
+                    ->orWhere('target_session_dates', 'like', $like)
+                    ->orWhere('proposed_session_dates', 'like', $like);
+
+                if ($numericSearch !== null) {
+                    $rescheduleQuery->orWhere('status', $numericSearch);
+                }
+                if (strpos($lowerSearch, 'pending') !== false) {
+                    $rescheduleQuery->orWhere('status', 0);
+                }
+                if (strpos($lowerSearch, 'approved') !== false) {
+                    $rescheduleQuery->orWhere('status', 1);
+                }
+                if (strpos($lowerSearch, 'rejected') !== false) {
+                    $rescheduleQuery->orWhere('status', 2);
+                }
+            });
+
+            if (strpos($lowerSearch, 'pending') !== false || strpos($lowerSearch, 'waiting') !== false) {
+                $query->orWhere('istrainerapproved', 0);
+            }
+            if (strpos($lowerSearch, 'approved') !== false) {
+                $query->orWhere('istrainerapproved', 1);
+            }
+            if (strpos($lowerSearch, 'rejected') !== false) {
+                $query->orWhere('istrainerapproved', 2);
+            }
+
+            foreach ($dayLookup as $label => $key) {
+                if (strpos($lowerSearch, $label) !== false || strpos($lowerSearch, $key) !== false) {
+                    $query->orWhere('recurring_days', 'like', "%{$key}%");
+                }
+            }
+        });
+    }
+
+    /**
      * Order a list of schedules by the closest relevant session date.
      */
     private function sortSchedulesByNearestSession(Collection $collection, string $status, Carbon $now): Collection
@@ -1249,6 +1310,7 @@ class ScheduleController extends Controller
         $startInput   = $request->input('created_start');
         $endInput     = $request->input('created_end');
         $search       = $request->input('name');
+        $hasSearch    = $request->filled('name');
         $searchColumn = $request->input('search_column');
         $status       = $request->input('status', 'all');
 
@@ -1266,44 +1328,16 @@ class ScheduleController extends Controller
             $start = \Carbon\Carbon::createFromTimestamp(0)->startOfDay(); // include everything until $end
         }
 
-        // Allowed columns
-        $allowedColumns = [
-            'id', 'name', 'class_code', 'trainer_name', 'slots',
-            'class_start_date', 'class_end_date', 'isadminapproved',
-            'rejection_reason', 'created_at',
-        ];
-        if (!in_array($searchColumn, $allowedColumns, true)) {
-            $searchColumn = null;
-        }
-
         // Default date filter column
         $dateColumns = ['class_start_date', 'class_end_date', 'created_at'];
-        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
+        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'class_start_date';
 
         $now = Carbon::now();
 
         $query = \App\Models\Schedule::with(['user:id,first_name,last_name'])
             ->withActiveEnrollmentCount()
-            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
-                if ($searchColumn === 'trainer_name') {
-                    $likeSearch = "%{$search}%";
-
-                    return $query->whereHas('user', function ($userQuery) use ($likeSearch) {
-                        $userQuery->where(function ($nameQuery) use ($likeSearch) {
-                            $nameQuery->whereRaw(
-                                "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                [$likeSearch]
-                            )->orWhere('first_name', 'like', $likeSearch)
-                             ->orWhere('last_name', 'like', $likeSearch);
-                        });
-                    });
-                }
-
-                $exactColumns = ['id', 'slots', 'isadminapproved'];
-                if (in_array($searchColumn, $exactColumns, true)) {
-                    return $query->where($searchColumn, $search);
-                }
-                return $query->where($searchColumn, 'like', "%{$search}%");
+            ->when($hasSearch, function ($query) use ($search) {
+                return $this->applyScheduleSearch($query, $search);
             })
             ->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
                 if ($start && $end) {
