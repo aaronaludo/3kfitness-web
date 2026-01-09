@@ -363,7 +363,6 @@
             const printButton = document.getElementById('print-submit-button');
             const printForm = document.getElementById('print-form');
             const printLoader = document.getElementById('print-loader');
-
             function buildFilters(filters) {
                 const formatDate = (value) => {
                     if (!value) return null;

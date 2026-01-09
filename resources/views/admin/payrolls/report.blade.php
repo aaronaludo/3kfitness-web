@@ -64,11 +64,105 @@
             $search = trim(request('search', ''));
             $startDateInput = request('start_date');
             $endDateInput = request('end_date');
+            $datePreset = request('date_preset');
+            if (!$datePreset && ($startDateInput || $endDateInput)) {
+                $datePreset = 'custom';
+            }
+            $datePreset = $datePreset ?: 'all_time';
+
+            $today = \Carbon\Carbon::now();
+            $resolveDateRange = function ($preset) use ($today) {
+                $start = $today->copy()->startOfYear();
+                $end = $today->copy()->endOfDay();
+
+                switch ($preset) {
+                    case 'today':
+                        $start = $today->copy()->startOfDay();
+                        $end = $today->copy()->endOfDay();
+                        break;
+                    case 'yesterday':
+                        $start = $today->copy()->subDay()->startOfDay();
+                        $end = $today->copy()->subDay()->endOfDay();
+                        break;
+                    case 'last_7':
+                        $start = $today->copy()->subDays(6)->startOfDay();
+                        $end = $today->copy()->endOfDay();
+                        break;
+                    case 'last_30':
+                        $start = $today->copy()->subDays(29)->startOfDay();
+                        $end = $today->copy()->endOfDay();
+                        break;
+                    case 'this_week':
+                        $start = $today->copy()->startOfWeek();
+                        $end = $today->copy()->endOfWeek();
+                        break;
+                    case 'last_week':
+                        $start = $today->copy()->subWeek()->startOfWeek();
+                        $end = $today->copy()->subWeek()->endOfWeek();
+                        break;
+                    case 'this_month':
+                        $start = $today->copy()->startOfMonth();
+                        $end = $today->copy()->endOfMonth();
+                        break;
+                    case 'last_month':
+                        $lastMonth = $today->copy()->subMonth();
+                        $start = $lastMonth->copy()->startOfMonth();
+                        $end = $lastMonth->copy()->endOfMonth();
+                        break;
+                    case 'this_quarter':
+                        $start = $today->copy()->firstOfQuarter()->startOfDay();
+                        $end = $today->copy()->lastOfQuarter()->endOfDay();
+                        break;
+                    case 'last_quarter':
+                        $lastQuarter = $today->copy()->subQuarter();
+                        $start = $lastQuarter->copy()->firstOfQuarter()->startOfDay();
+                        $end = $lastQuarter->copy()->lastOfQuarter()->endOfDay();
+                        break;
+                    case 'this_year':
+                        $start = $today->copy()->startOfYear();
+                        $end = $today->copy()->endOfDay();
+                        break;
+                    case 'last_year':
+                        $lastYear = $today->copy()->subYear();
+                        $start = $lastYear->copy()->startOfYear();
+                        $end = $lastYear->copy()->endOfYear();
+                        break;
+                    case 'all_time':
+                        $start = \Carbon\Carbon::create(2000, 1, 1, 0, 0, 0);
+                        $end = $today->copy()->endOfDay();
+                        break;
+                    case 'custom':
+                    default:
+                        return [null, null];
+                }
+
+                return [$start->format('Y-m-d'), $end->format('Y-m-d')];
+            };
+
+            if ($datePreset !== 'custom') {
+                [$startDateInput, $endDateInput] = $resolveDateRange($datePreset);
+            }
+
             $startDate = $startDateInput ? \Carbon\Carbon::parse($startDateInput)->startOfDay() : null;
             $endDate = $endDateInput ? \Carbon\Carbon::parse($endDateInput)->endOfDay() : null;
-            $dateRangeLabel = ($startDateInput || $endDateInput)
+            $presetLabels = [
+                'today' => 'Today',
+                'yesterday' => 'Yesterday',
+                'last_7' => 'Last 7 Days',
+                'last_30' => 'Last 30 Days',
+                'this_week' => 'This Week',
+                'last_week' => 'Last Week',
+                'this_month' => 'This Month',
+                'last_month' => 'Last Month',
+                'this_quarter' => 'This Quarter',
+                'last_quarter' => 'Last Quarter',
+                'this_year' => 'This Year',
+                'last_year' => 'Last Year',
+                'all_time' => 'All Time',
+            ];
+            $dateRangeLabel = $datePreset === 'custom'
                 ? trim(($startDateInput ?: '—') . ' → ' . ($endDateInput ?: '—'))
-                : 'All time';
+                : (($presetLabels[$datePreset] ?? 'All Time') . ($startDateInput && $endDateInput ? ' (' . $startDateInput . ' → ' . $endDateInput . ')' : ''));
             $perPage = 10;
 
             $runsQuery = \App\Models\PayrollRun::with(['user.role'])
@@ -221,7 +315,26 @@
                             </div>
                         </div>
                         <form action="{{ route('admin.payrolls.report') }}" method="GET" class="row g-3 align-items-end">
-                            <div class="col-12 col-lg-5">
+                            <div class="col-12 col-lg-4">
+                                <label class="form-label text-muted small mb-1" for="date_preset">Date range</label>
+                                <select id="date_preset" name="date_preset" class="form-select rounded-pill">
+                                    <option value="today" {{ ($datePreset ?? 'all_time') === 'today' ? 'selected' : '' }}>Today</option>
+                                    <option value="yesterday" {{ ($datePreset ?? 'all_time') === 'yesterday' ? 'selected' : '' }}>Yesterday</option>
+                                    <option value="last_7" {{ ($datePreset ?? 'all_time') === 'last_7' ? 'selected' : '' }}>Last 7 Days</option>
+                                    <option value="last_30" {{ ($datePreset ?? 'all_time') === 'last_30' ? 'selected' : '' }}>Last 30 Days</option>
+                                    <option value="this_week" {{ ($datePreset ?? 'all_time') === 'this_week' ? 'selected' : '' }}>This Week</option>
+                                    <option value="last_week" {{ ($datePreset ?? 'all_time') === 'last_week' ? 'selected' : '' }}>Last Week</option>
+                                    <option value="this_month" {{ ($datePreset ?? 'all_time') === 'this_month' ? 'selected' : '' }}>This Month</option>
+                                    <option value="last_month" {{ ($datePreset ?? 'all_time') === 'last_month' ? 'selected' : '' }}>Last Month</option>
+                                    <option value="this_quarter" {{ ($datePreset ?? 'all_time') === 'this_quarter' ? 'selected' : '' }}>This Quarter</option>
+                                    <option value="last_quarter" {{ ($datePreset ?? 'all_time') === 'last_quarter' ? 'selected' : '' }}>Last Quarter</option>
+                                    <option value="this_year" {{ ($datePreset ?? 'all_time') === 'this_year' ? 'selected' : '' }}>This Year</option>
+                                    <option value="last_year" {{ ($datePreset ?? 'all_time') === 'last_year' ? 'selected' : '' }}>Last Year</option>
+                                    <option value="all_time" {{ ($datePreset ?? 'all_time') === 'all_time' ? 'selected' : '' }}>All Time</option>
+                                    <option value="custom" {{ ($datePreset ?? 'all_time') === 'custom' ? 'selected' : '' }}>Custom Date Range</option>
+                                </select>
+                            </div>
+                            <div class="col-12 col-lg-4">
                                 <label class="form-label text-muted small mb-1" for="search">Search</label>
                                 <div class="position-relative">
                                     <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
@@ -236,30 +349,7 @@
                                     />
                                 </div>
                             </div>
-                            <div class="col-12 col-lg-4">
-                                <label class="form-label text-muted small mb-1">Date range</label>
-                                <div class="row g-2">
-                                    <div class="col-6">
-                                        <input
-                                            type="date"
-                                            name="start_date"
-                                            class="form-control"
-                                            value="{{ $startDateInput }}"
-                                            aria-label="Start date"
-                                        >
-                                    </div>
-                                    <div class="col-6">
-                                        <input
-                                            type="date"
-                                            name="end_date"
-                                            class="form-control"
-                                            value="{{ $endDateInput }}"
-                                            aria-label="End date"
-                                        >
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="col-12 col-lg-4">
+                            <div class="col-12 col-lg-3">
                                 <label class="form-label text-muted small mb-1 d-block">Payroll type</label>
                                 <div class="btn-group" role="group" aria-label="Payroll focus">
                                     <button type="button" class="btn btn-outline-secondary focus-chip {{ $focus === 'trainer' ? 'btn-dark text-white' : '' }}" data-focus="trainer">
@@ -276,6 +366,35 @@
                                 <button type="submit" class="btn btn-primary">
                                     <i class="fa-solid fa-filter me-2"></i>Apply filters
                                 </button>
+                            </div>
+                            <div class="col-12 {{ ($datePreset ?? 'all_time') === 'custom' ? '' : 'd-none' }}" id="custom-date-range">
+                                <div class="row g-2">
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label text-muted small mb-1" for="start_date">Start date</label>
+                                        <input
+                                            type="date"
+                                            name="start_date"
+                                            id="start_date"
+                                            class="form-control rounded-3"
+                                            value="{{ $startDateInput }}"
+                                            aria-label="Start date"
+                                        >
+                                    </div>
+                                    <div class="col-12 col-md-6">
+                                        <label class="form-label text-muted small mb-1" for="end_date">End date</label>
+                                        <input
+                                            type="date"
+                                            name="end_date"
+                                            id="end_date"
+                                            class="form-control rounded-3"
+                                            value="{{ $endDateInput }}"
+                                            aria-label="End date"
+                                        >
+                                    </div>
+                                    <div class="col-12">
+                                        <small class="text-muted d-block mt-1">Matches processed date, falls back to created date if missing.</small>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>
@@ -320,7 +439,6 @@
                                             <th scope="col">Gross</th>
                                             <th scope="col">Deductions</th>
                                             <th scope="col">Net</th>
-                                            <th scope="col">Processed</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -334,9 +452,6 @@
                                                 $periodLabel = $run->period_month
                                                     ? \Carbon\Carbon::parse($run->period_month . '-01')->format('M Y')
                                                     : '—';
-                                                $processedAt = $run->processed_at
-                                                    ? $run->processed_at->format('M d, Y g:i A')
-                                                    : ($run->created_at?->format('M d, Y g:i A') ?? '—');
                                                 $deductionTotal = ($run->deduction_sss ?? 0) + ($run->deduction_philhealth ?? 0) + ($run->deduction_pagibig ?? 0) + ($run->deduction_app_cut ?? 0);
                                             @endphp
                                             <tr>
@@ -362,10 +477,6 @@
                                                     </ul>
                                                 </td>
                                                 <td class="fw-semibold text-success">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
-                                                <td>
-                                                    <div>{{ $processedAt }}</div>
-                                                    <div class="muted">Period: {{ $run->period_month ?? '—' }}</div>
-                                                </td>
                                             </tr>
                                         @endforeach
                                     </tbody>
@@ -382,9 +493,163 @@
 
 <script>
     document.addEventListener('DOMContentLoaded', function () {
+        const datePresetSelect = document.getElementById('date_preset');
+        const customDateRange = document.getElementById('custom-date-range');
+        const startDateInput = document.getElementById('start_date');
+        const endDateInput = document.getElementById('end_date');
         const focusButtons = document.querySelectorAll('.focus-chip');
         const focusField = document.getElementById('payroll-focus');
         const filterForm = document.querySelector('form[action="{{ route('admin.payrolls.report') }}"]');
+
+        const formatDateInput = (date) => {
+            if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        };
+
+        const startOfWeek = (date) => {
+            const current = new Date(date);
+            current.setHours(0, 0, 0, 0);
+            const day = current.getDay();
+            const diff = (day + 6) % 7; // Monday
+            current.setDate(current.getDate() - diff);
+            return current;
+        };
+
+        const computeDateRange = (preset) => {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const result = { start: '', end: '' };
+
+            switch (preset) {
+                case 'today': {
+                    result.start = formatDateInput(today);
+                    result.end = formatDateInput(today);
+                    break;
+                }
+                case 'yesterday': {
+                    const y = new Date(today);
+                    y.setDate(y.getDate() - 1);
+                    result.start = formatDateInput(y);
+                    result.end = formatDateInput(y);
+                    break;
+                }
+                case 'last_7': {
+                    const start = new Date(today);
+                    start.setDate(start.getDate() - 6);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(today);
+                    break;
+                }
+                case 'last_30': {
+                    const start = new Date(today);
+                    start.setDate(start.getDate() - 29);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(today);
+                    break;
+                }
+                case 'this_week': {
+                    const start = startOfWeek(today);
+                    const end = new Date(start);
+                    end.setDate(end.getDate() + 6);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(end);
+                    break;
+                }
+                case 'last_week': {
+                    const start = startOfWeek(today);
+                    start.setDate(start.getDate() - 7);
+                    const end = new Date(start);
+                    end.setDate(end.getDate() + 6);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(end);
+                    break;
+                }
+                case 'this_month': {
+                    const start = new Date(today.getFullYear(), today.getMonth(), 1);
+                    const end = new Date(today.getFullYear(), today.getMonth() + 1, 0);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(end);
+                    break;
+                }
+                case 'last_month': {
+                    const start = new Date(today.getFullYear(), today.getMonth() - 1, 1);
+                    const end = new Date(today.getFullYear(), today.getMonth(), 0);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(end);
+                    break;
+                }
+                case 'this_quarter': {
+                    const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3;
+                    const start = new Date(today.getFullYear(), quarterStartMonth, 1);
+                    const end = new Date(today.getFullYear(), quarterStartMonth + 3, 0);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(end);
+                    break;
+                }
+                case 'last_quarter': {
+                    const quarterStartMonth = Math.floor(today.getMonth() / 3) * 3 - 3;
+                    const normalizedMonth = ((quarterStartMonth % 12) + 12) % 12;
+                    const year = quarterStartMonth < 0 ? today.getFullYear() - 1 : today.getFullYear();
+                    const start = new Date(year, normalizedMonth, 1);
+                    const end = new Date(year, normalizedMonth + 3, 0);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(end);
+                    break;
+                }
+                case 'this_year': {
+                    const start = new Date(today.getFullYear(), 0, 1);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(today);
+                    break;
+                }
+                case 'last_year': {
+                    const start = new Date(today.getFullYear() - 1, 0, 1);
+                    const end = new Date(today.getFullYear() - 1, 11, 31);
+                    result.start = formatDateInput(start);
+                    result.end = formatDateInput(end);
+                    break;
+                }
+                case 'all_time': {
+                    result.start = '2000-01-01';
+                    result.end = formatDateInput(today);
+                    break;
+                }
+                default: {
+                    result.start = startDateInput?.value || '';
+                    result.end = endDateInput?.value || '';
+                }
+            }
+
+            return result;
+        };
+
+        const applyDatePreset = (preset, preserveCustom = false) => {
+            const isCustom = preset === 'custom';
+            if (customDateRange) {
+                customDateRange.classList.toggle('d-none', !isCustom);
+            }
+            if (isCustom && preserveCustom) {
+                return;
+            }
+            const range = computeDateRange(preset);
+            if (startDateInput && range.start) {
+                startDateInput.value = range.start;
+            }
+            if (endDateInput && range.end) {
+                endDateInput.value = range.end;
+            }
+        };
+
+        if (datePresetSelect) {
+            applyDatePreset(datePresetSelect.value || 'custom', true);
+            datePresetSelect.addEventListener('change', () => {
+                applyDatePreset(datePresetSelect.value || 'custom');
+            });
+        }
+
         focusButtons.forEach(function (btn) {
             btn.addEventListener('click', function () {
                 const selected = this.dataset.focus || 'trainer';
