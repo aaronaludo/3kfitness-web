@@ -112,7 +112,7 @@
                 <div class="d-flex align-items-center flex-wrap gap-2">
                     <a
                         href="{{ route('admin.payrolls.process') }}"
-                        class="btn btn-primary d-flex align-items-center gap-2"
+                        class="btn btn-outline-danger d-flex align-items-center gap-2"
                     >
                         <i class="fa-solid fa-gears"></i>
                         Process payroll

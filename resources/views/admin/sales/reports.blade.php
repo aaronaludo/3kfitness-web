@@ -229,9 +229,6 @@
         $printFilters = [
             'start_date' => $startDate,
             'end_date' => $endDate,
-            'total_revenue' => round((float) ($summary['total_revenue'] ?? 0), 2),
-            'total_cost' => round((float) ($summary['cost'] ?? 0), 2),
-            'profit' => round((float) ($summary['profit'] ?? 0), 2),
             'currency' => $summary['currency'] ?? 'PHP',
         ];
         $buildPrintRow = function ($payment) {
@@ -837,37 +834,49 @@
 
         function buildFilters(filters) {
             const chips = [];
-            const fmt = (value) => {
-                const num = Number(value) || 0;
-                const currency = filters.currency || '';
-                return `${currency} ${num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            };
             if (filters.start_date || filters.end_date) {
                 chips.push({
                     label: 'Date range',
                     value: `${filters.start_date || 'Any'} → ${filters.end_date || 'Any'}`,
                 });
             }
-            if (filters.total_revenue !== undefined) {
-                chips.push({ label: 'Total revenue', value: fmt(filters.total_revenue) });
-            }
-            if (filters.total_cost !== undefined) {
-                chips.push({ label: 'Total cost', value: fmt(filters.total_cost) });
-            }
-            if (filters.profit !== undefined) {
-                chips.push({ label: 'Profit', value: fmt(filters.profit) });
-            }
             return chips;
         }
 
-        function buildRows(items) {
-            return (items || []).map((item) => ([
-                item.id ?? '—',
-                `<div class="fw">${item.member || '—'}</div><div class="muted">${item.user_code || ''}</div>`,
-                item.membership || '—',
-                `${item.currency || ''} ${item.amount || '0.00'}`,
-                item.created_at || '—',
-            ]));
+        function buildRows(items, filters) {
+            const list = Array.isArray(items) ? items : [];
+            const rows = [];
+            const defaultCurrency = (filters && filters.currency) || (list[0] && list[0].currency) || '';
+            let totalAmount = 0;
+
+            list.forEach((item) => {
+                const itemCurrency = item.currency || defaultCurrency;
+                const amountRaw = item.amount ?? '0';
+                const normalizedAmount = String(amountRaw).replace(/[^0-9.-]/g, '');
+                const numericAmount = Number(normalizedAmount) || 0;
+                totalAmount += numericAmount;
+
+                rows.push([
+                    item.id ?? '—',
+                    `<div class="fw">${item.member || '—'}</div><div class="muted">${item.user_code || ''}</div>`,
+                    item.membership || '—',
+                    `${itemCurrency ? itemCurrency + ' ' : ''}${item.amount || '0.00'}`,
+                    item.created_at || '—',
+                ]);
+            });
+
+            if (rows.length) {
+                const formattedTotal = totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                rows.push([
+                    '',
+                    '',
+                    '<strong>Total Amount</strong>',
+                    `${defaultCurrency ? defaultCurrency + ' ' : ''}${formattedTotal}`,
+                    '',
+                ]);
+            }
+
+            return rows;
         }
 
         function renderPrintWindow(payload) {
@@ -875,7 +884,7 @@
             const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
             const filters = buildFilters(payload.filters || {});
             const headers = ['#', 'Member', 'Membership', 'Amount', 'Date'];
-            const rows = buildRows(items);
+            const rows = buildRows(items, payload.filters || {});
 
             return window.PrintPreview
                 ? PrintPreview.tryOpen(payload, headers, rows, filters)

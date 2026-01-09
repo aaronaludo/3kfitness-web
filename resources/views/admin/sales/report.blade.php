@@ -941,13 +941,6 @@
                 var num = Number(value) || 0;
                 return currency + ' ' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             };
-            var isTrainer = (focus || '').toLowerCase() === 'trainer';
-            if (!isTrainer && summary.membership_revenue !== undefined && summary.membership_revenue !== null) {
-                chips.push({ label: 'Membership revenue', value: formatMoney(summary.membership_revenue) });
-            }
-            if (!isTrainer && summary.total_sales_count !== undefined && summary.total_sales_count !== null) {
-                chips.push({ label: 'Total sales', value: (summary.total_sales_count || 0).toString() });
-            }
             if (summary.class_commission !== undefined && summary.class_commission !== null) {
                 chips.push({ label: 'Class commission', value: formatMoney(summary.class_commission) });
             }
@@ -957,6 +950,7 @@
         var buildRows = function (payload) {
             var focus = payload.focus || 'member';
             var currency = payload.currency || '';
+            var summary = payload.summary || {};
             var items = Array.isArray(payload.items) ? payload.items : [];
             var headers = [];
             var rows = [];
@@ -993,6 +987,23 @@
                         item.last_sale || '—',
                     ];
                 });
+
+                var hasSalesTotal = summary.total_sales_count !== undefined && summary.total_sales_count !== null;
+                var hasRevenueTotal = summary.membership_revenue !== undefined && summary.membership_revenue !== null;
+
+                if (hasSalesTotal || hasRevenueTotal) {
+                    var revenueLabel = currency ? 'Total Revenue (' + currency + ')' : 'Total Revenue';
+                    var revenueTotal = Number(summary.membership_revenue || 0);
+                    var salesTotal = Number(summary.total_sales_count || 0);
+
+                    rows.push([
+                        'Totals',
+                        revenueLabel,
+                        salesTotal.toString(),
+                        (currency ? currency + ' ' : '') + revenueTotal.toFixed(2),
+                        '—',
+                    ]);
+                }
             }
 
             return { headers: headers, rows: rows };
