@@ -6,7 +6,7 @@
         display: block;
     }
     #column-left {
-        left: -235px;
+        left: calc(var(--sidebar-width) * -1);
     }
     #content {
         margin-left: 0px;

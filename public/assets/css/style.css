@@ -11,12 +11,19 @@
   src: url("../fonts/Poppins-Regular.ttf");
 }
 
+:root {
+  --sidebar-width: 210px;
+  --header-height: 68px;
+}
+
 html,
 body {
   height: 100%;
   padding: 0;
   margin: 0;
   font-family: "PoppinsRegular";
+  font-size: 14px;
+  line-height: 1.4;
 }
 #wrapper {
   min-height: 100%;
@@ -441,4 +448,127 @@ h2.title {
 .sortable {
     cursor: pointer;
     user-select: none;
+}
+
+/* Compact admin layout */
+#header {
+  height: var(--header-height);
+  padding: 8px 12px;
+}
+
+#header-logo {
+  width: var(--sidebar-width);
+  height: calc(var(--header-height) - 4px);
+}
+
+#header-logo img {
+  padding: 10px 12px;
+  height: 50px;
+}
+
+#header ul.navbar-nav {
+  margin-right: 12px;
+}
+
+#column-left {
+  width: var(--sidebar-width);
+  padding-top: calc(var(--header-height) + 12px);
+}
+
+#column-left.show + #content {
+  left: var(--sidebar-width);
+}
+
+#content {
+  margin-left: var(--sidebar-width);
+  margin-bottom: 32px;
+}
+
+#content .container-fluid {
+  padding: 0 16px;
+}
+
+footer {
+  margin-left: var(--sidebar-width);
+  padding: 12px 0px;
+}
+
+#menu > li > a {
+  padding: 9px 12px 9px 16px;
+  font-size: 0.95rem;
+}
+
+#menu li a {
+  padding: 8px 10px;
+  font-size: 0.93rem;
+}
+
+.table th,
+.table td {
+  padding: 0.55rem 0.75rem;
+}
+
+.table th {
+  font-size: 0.88rem;
+  letter-spacing: 0.01em;
+}
+
+.table td {
+  font-size: 0.95rem;
+}
+
+.form-control,
+.form-select,
+.form-check-input {
+  font-size: 0.95rem;
+}
+
+.form-control,
+.form-select {
+  padding: 0.45rem 0.65rem;
+  min-height: 36px;
+}
+
+.btn {
+  font-size: 0.95rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 0.45rem;
+}
+
+.btn-sm {
+  font-size: 0.9rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.box {
+  padding: 12px;
+}
+
+.tile-body {
+  line-height: 42px;
+}
+
+.tile .tile-body h2 {
+  font-size: 36px;
+}
+
+.tile .tile-body i {
+  font-size: 44px;
+}
+
+h1 {
+  font-size: 1.6rem;
+}
+
+h2 {
+  font-size: 1.35rem;
+}
+
+h3 {
+  font-size: 1.15rem;
+}
+
+.table-responsive nav {
+  margin: 14px 0;
+  height: 72px;
 }

@@ -30,7 +30,7 @@
         }
 
         #header-logo-img {
-            max-height: 52px;
+            max-height: 48px;
             width: auto;
             border-radius: 12px;
             box-shadow: 0 12px 25px rgba(0, 0, 0, 0.2);
@@ -68,49 +68,49 @@
 
         #header {
             height: auto;
-            padding: 10px 14px;
+            padding: 8px 12px;
         }
 
         #header > .container-fluid {
             position: relative;
             z-index: 1;
             flex-wrap: wrap;
-            row-gap: 12px;
+            row-gap: 8px;
         }
 
         .header-actions {
-            gap: 16px;
+            gap: 12px;
             min-width: 0;
             flex: 1 1 auto;
             justify-content: flex-end;
             flex-wrap: wrap;
-            row-gap: 10px;
+            row-gap: 8px;
         }
 
         .datetime-chip {
             display: inline-flex;
             align-items: center;
-            gap: 10px;
-            padding: 7px 12px;
-            border-radius: 14px;
+            gap: 8px;
+            padding: 6px 10px;
+            border-radius: 12px;
             background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(255, 255, 255, 0.88));
             color: #273341;
-            font-size: 0.82rem;
+            font-size: 0.8rem;
             font-weight: 700;
             border: 1px solid rgba(255, 107, 107, 0.35);
             box-shadow: 0 8px 18px rgba(0, 0, 0, 0.08);
         }
 
         .datetime-chip__icon {
-            width: 28px;
-            height: 28px;
+            width: 24px;
+            height: 24px;
             border-radius: 50%;
             background: rgba(255, 107, 107, 0.12);
             color: #e24949;
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            font-size: 0.85rem;
+            font-size: 0.75rem;
         }
 
         .datetime-chip__meta {
@@ -128,7 +128,7 @@
         .datetime-chip .live-date {
             font-weight: 600;
             color: #5c6673;
-            font-size: 0.72rem;
+            font-size: 0.68rem;
             text-transform: uppercase;
         }
 
@@ -139,11 +139,11 @@
 
         .time-action-trigger {
             border-radius: 999px;
-            padding: 8px 12px;
+            padding: 7px 11px;
             font-weight: 700;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
+            gap: 7px;
             background: #ffffff;
             color: #333;
             border: 1px solid rgba(0, 0, 0, 0.08);
