@@ -10,6 +10,7 @@
                 $periodMonth = request('period_month');
                 $processedFrom = request('processed_from');
                 $processedTo = request('processed_to');
+                $advancedFiltersOpen = request()->filled('search_column') || request()->filled('processed_from') || request()->filled('processed_to');
                 $printSource = $runs;
                 $printAllSource = $printAllRuns ?? collect();
                 $mapRun = function ($run) {
@@ -128,92 +129,127 @@
                             </div>
                         </div>
 
-                        <form action="{{ route('admin.payrolls.index') }}" method="GET" class="row g-3 align-items-end">
-                            <div class="col-12 col-md-6 col-lg-4">
-                                <label class="form-label text-muted small mb-1" for="member_name">Staff</label>
-                                <div class="position-relative">
-                                    <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted">
-                                        <i class="fa-solid fa-magnifying-glass"></i>
-                                    </span>
+                        <form action="{{ route('admin.payrolls.index') }}" method="GET" class="mt-4">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
+                                    <label class="form-label text-muted small mb-1" for="member_name">Staff</label>
+                                    <div class="position-relative">
+                                        <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted">
+                                            <i class="fa-solid fa-magnifying-glass"></i>
+                                        </span>
+                                        <input
+                                            type="search"
+                                            class="form-control rounded-pill ps-5"
+                                            name="member_name"
+                                            id="member_name"
+                                            placeholder="Search staff or payroll"
+                                            value="{{ $searchTerm }}"
+                                            aria-label="Search staff or payroll"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 220px;">
+                                    <label class="form-label text-muted small mb-1" for="period_month">Period month</label>
                                     <input
-                                        type="search"
-                                        class="form-control rounded-pill ps-5"
-                                        name="member_name"
-                                        id="member_name"
-                                        placeholder="Search staff or payroll"
-                                        value="{{ $searchTerm }}"
-                                        aria-label="Search staff or payroll"
+                                        type="month"
+                                        class="form-control rounded-pill"
+                                        name="period_month"
+                                        id="period_month"
+                                        value="{{ $periodMonth }}"
+                                        aria-label="Filter by payroll month"
                                     />
                                 </div>
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <a href="{{ route('admin.payrolls.index') }}" class="btn btn-link text-decoration-none text-muted px-0">
+                                        Reset
+                                    </a>
+
+                                    <button
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#payrollFiltersModal"
+                                    >
+                                        <i class="fa-solid fa-sliders"></i>
+                                        Filters
+                                    </button>
+
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        Apply
+                                    </button>
+                                </div>
                             </div>
 
-                            <div class="col-12 col-md-4 col-lg-3">
-                                <label class="form-label text-muted small mb-1" for="search_column">Search by</label>
-                                <select
-                                    class="form-select rounded-3"
-                                    name="search_column"
-                                    id="search_column"
-                                    aria-label="Choose which payroll field to search"
-                                >
-                                    <option value="" disabled {{ $searchColumn ? '' : 'selected' }}>Select option</option>
-                                    <option value="id" {{ $searchColumn === 'id' ? 'selected' : '' }}>#</option>
-                                    <option value="name" {{ $searchColumn === 'name' ? 'selected' : '' }}>Name</option>
-                                    <option value="email" {{ $searchColumn === 'email' ? 'selected' : '' }}>Email</option>
-                                    <option value="user_code" {{ $searchColumn === 'user_code' ? 'selected' : '' }}>User Code</option>
-                                    <option value="period_month" {{ $searchColumn === 'period_month' ? 'selected' : '' }}>Period Month</option>
-                                    <option value="processed_at" {{ $searchColumn === 'processed_at' ? 'selected' : '' }}>Processed Date</option>
-                                    <option value="created_at" {{ $searchColumn === 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                    <option value="updated_at" {{ $searchColumn === 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                </select>
-                            </div>
+                            <div class="modal fade" id="payrollFiltersModal" tabindex="-1" aria-labelledby="payrollFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-md">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="payrollFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-column gap-4">
+                                                <div>
+                                                    <label class="form-label text-muted text-uppercase small mb-1" for="search_column">Search by</label>
+                                                    <select
+                                                        class="form-select rounded-3"
+                                                        name="search_column"
+                                                        id="search_column"
+                                                        aria-label="Choose which payroll field to search"
+                                                    >
+                                                        <option value="" disabled {{ $searchColumn ? '' : 'selected' }}>Select option</option>
+                                                        <option value="id" {{ $searchColumn === 'id' ? 'selected' : '' }}>#</option>
+                                                        <option value="name" {{ $searchColumn === 'name' ? 'selected' : '' }}>Name</option>
+                                                        <option value="email" {{ $searchColumn === 'email' ? 'selected' : '' }}>Email</option>
+                                                        <option value="user_code" {{ $searchColumn === 'user_code' ? 'selected' : '' }}>User Code</option>
+                                                        <option value="period_month" {{ $searchColumn === 'period_month' ? 'selected' : '' }}>Period Month</option>
+                                                        <option value="processed_at" {{ $searchColumn === 'processed_at' ? 'selected' : '' }}>Processed Date</option>
+                                                        <option value="created_at" {{ $searchColumn === 'created_at' ? 'selected' : '' }}>Created Date</option>
+                                                        <option value="updated_at" {{ $searchColumn === 'updated_at' ? 'selected' : '' }}>Updated Date</option>
+                                                    </select>
+                                                </div>
 
-                            <div class="col-12 col-md-4 col-lg-3">
-                                <label class="form-label text-muted small mb-1" for="period_month">Period month</label>
-                                <input
-                                    type="month"
-                                    class="form-control rounded-pill"
-                                    name="period_month"
-                                    id="period_month"
-                                    value="{{ $periodMonth }}"
-                                    aria-label="Filter by payroll month"
-                                />
-                            </div>
-
-                            <div class="col-12 col-md-6 col-lg-4">
-                                <label class="form-label text-muted small mb-1" for="processed_from">Processed date</label>
-                                <div class="row g-2">
-                                    <div class="col-6">
-                                        <input
-                                            type="date"
-                                            class="form-control rounded-3"
-                                            name="processed_from"
-                                            id="processed_from"
-                                            value="{{ $processedFrom }}"
-                                            aria-label="Filter payrolls processed from date"
-                                        />
-                                    </div>
-                                    <div class="col-6">
-                                        <input
-                                            type="date"
-                                            class="form-control rounded-3"
-                                            name="processed_to"
-                                            id="processed_to"
-                                            value="{{ $processedTo }}"
-                                            aria-label="Filter payrolls processed to date"
-                                        />
+                                                <div>
+                                                    <span class="form-label text-muted text-uppercase small d-block mb-2">Processed date</span>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label class="form-label small text-muted mb-1" for="processed_from">From</label>
+                                                            <input
+                                                                type="date"
+                                                                class="form-control rounded-3"
+                                                                name="processed_from"
+                                                                id="processed_from"
+                                                                value="{{ $processedFrom }}"
+                                                                aria-label="Filter payrolls processed from date"
+                                                            />
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label class="form-label small text-muted mb-1" for="processed_to">To</label>
+                                                            <input
+                                                                type="date"
+                                                                class="form-control rounded-3"
+                                                                name="processed_to"
+                                                                id="processed_to"
+                                                                value="{{ $processedTo }}"
+                                                                aria-label="Filter payrolls processed to date"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                    <small class="text-muted d-block mt-1">Matches processed date, falls back to created date if missing.</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-magnifying-glass me-2"></i>Apply filters
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
-                                <small class="text-muted d-block mt-1">Matches processed date, falls back to created date if missing.</small>
-                            </div>
-
-                            <div class="col-12 col-md-4 col-lg-2 d-flex gap-2 justify-content-md-end">
-                                <a href="{{ route('admin.payrolls.index') }}" class="btn btn-link text-decoration-none text-muted px-0">
-                                    Reset
-                                </a>
-                                <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
-                                    <i class="fa-solid fa-magnifying-glass"></i>
-                                    Apply
-                                </button>
                             </div>
                         </form>
                     </div>

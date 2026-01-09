@@ -164,6 +164,7 @@
                 ? trim(($startDateInput ?: '—') . ' → ' . ($endDateInput ?: '—'))
                 : (($presetLabels[$datePreset] ?? 'All Time') . ($startDateInput && $endDateInput ? ' (' . $startDateInput . ' → ' . $endDateInput . ')' : ''));
             $perPage = 10;
+            $advancedFiltersOpen = ($datePreset ?? 'all_time') === 'custom' || request()->filled('start_date') || request()->filled('end_date');
 
             $runsQuery = \App\Models\PayrollRun::with(['user.role'])
                 ->orderByDesc('processed_at')
@@ -314,85 +315,124 @@
                                 <div class="text-muted small">Showing {{ $filteredTotal }} record{{ $filteredTotal === 1 ? '' : 's' }}</div>
                             </div>
                         </div>
-                        <form action="{{ route('admin.payrolls.report') }}" method="GET" class="row g-3 align-items-end">
-                            <div class="col-12 col-lg-4">
-                                <label class="form-label text-muted small mb-1" for="date_preset">Date range</label>
-                                <select id="date_preset" name="date_preset" class="form-select rounded-pill">
-                                    <option value="today" {{ ($datePreset ?? 'all_time') === 'today' ? 'selected' : '' }}>Today</option>
-                                    <option value="yesterday" {{ ($datePreset ?? 'all_time') === 'yesterday' ? 'selected' : '' }}>Yesterday</option>
-                                    <option value="last_7" {{ ($datePreset ?? 'all_time') === 'last_7' ? 'selected' : '' }}>Last 7 Days</option>
-                                    <option value="last_30" {{ ($datePreset ?? 'all_time') === 'last_30' ? 'selected' : '' }}>Last 30 Days</option>
-                                    <option value="this_week" {{ ($datePreset ?? 'all_time') === 'this_week' ? 'selected' : '' }}>This Week</option>
-                                    <option value="last_week" {{ ($datePreset ?? 'all_time') === 'last_week' ? 'selected' : '' }}>Last Week</option>
-                                    <option value="this_month" {{ ($datePreset ?? 'all_time') === 'this_month' ? 'selected' : '' }}>This Month</option>
-                                    <option value="last_month" {{ ($datePreset ?? 'all_time') === 'last_month' ? 'selected' : '' }}>Last Month</option>
-                                    <option value="this_quarter" {{ ($datePreset ?? 'all_time') === 'this_quarter' ? 'selected' : '' }}>This Quarter</option>
-                                    <option value="last_quarter" {{ ($datePreset ?? 'all_time') === 'last_quarter' ? 'selected' : '' }}>Last Quarter</option>
-                                    <option value="this_year" {{ ($datePreset ?? 'all_time') === 'this_year' ? 'selected' : '' }}>This Year</option>
-                                    <option value="last_year" {{ ($datePreset ?? 'all_time') === 'last_year' ? 'selected' : '' }}>Last Year</option>
-                                    <option value="all_time" {{ ($datePreset ?? 'all_time') === 'all_time' ? 'selected' : '' }}>All Time</option>
-                                    <option value="custom" {{ ($datePreset ?? 'all_time') === 'custom' ? 'selected' : '' }}>Custom Date Range</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-lg-4">
-                                <label class="form-label text-muted small mb-1" for="search">Search</label>
-                                <div class="position-relative">
-                                    <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
-                                    <input
-                                        type="search"
-                                        class="form-control rounded-pill ps-5"
-                                        name="search"
-                                        id="search"
-                                        value="{{ $search }}"
-                                        placeholder="Name, email, user code, or period (YYYY-MM)"
-                                        aria-label="Search payroll runs"
-                                    />
+                        <form action="{{ route('admin.payrolls.report') }}" method="GET" class="mt-4" id="payroll-report-filter-form">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div class="d-flex flex-wrap align-items-center gap-3 flex-grow-1">
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
+                                        <label class="form-label text-muted small mb-1" for="search">Search</label>
+                                        <div class="position-relative">
+                                            <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                            <input
+                                                type="search"
+                                                class="form-control rounded-pill ps-5"
+                                                name="search"
+                                                id="search"
+                                                value="{{ $search }}"
+                                                placeholder="Name, email, user code, or period (YYYY-MM)"
+                                                aria-label="Search payroll runs"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 220px;">
+                                        <label class="form-label text-muted small mb-1" for="date_preset">Date range</label>
+                                        <select id="date_preset" name="date_preset" class="form-select rounded-pill">
+                                            <option value="today" {{ ($datePreset ?? 'all_time') === 'today' ? 'selected' : '' }}>Today</option>
+                                            <option value="yesterday" {{ ($datePreset ?? 'all_time') === 'yesterday' ? 'selected' : '' }}>Yesterday</option>
+                                            <option value="last_7" {{ ($datePreset ?? 'all_time') === 'last_7' ? 'selected' : '' }}>Last 7 Days</option>
+                                            <option value="last_30" {{ ($datePreset ?? 'all_time') === 'last_30' ? 'selected' : '' }}>Last 30 Days</option>
+                                            <option value="this_week" {{ ($datePreset ?? 'all_time') === 'this_week' ? 'selected' : '' }}>This Week</option>
+                                            <option value="last_week" {{ ($datePreset ?? 'all_time') === 'last_week' ? 'selected' : '' }}>Last Week</option>
+                                            <option value="this_month" {{ ($datePreset ?? 'all_time') === 'this_month' ? 'selected' : '' }}>This Month</option>
+                                            <option value="last_month" {{ ($datePreset ?? 'all_time') === 'last_month' ? 'selected' : '' }}>Last Month</option>
+                                            <option value="this_quarter" {{ ($datePreset ?? 'all_time') === 'this_quarter' ? 'selected' : '' }}>This Quarter</option>
+                                            <option value="last_quarter" {{ ($datePreset ?? 'all_time') === 'last_quarter' ? 'selected' : '' }}>Last Quarter</option>
+                                            <option value="this_year" {{ ($datePreset ?? 'all_time') === 'this_year' ? 'selected' : '' }}>This Year</option>
+                                            <option value="last_year" {{ ($datePreset ?? 'all_time') === 'last_year' ? 'selected' : '' }}>Last Year</option>
+                                            <option value="all_time" {{ ($datePreset ?? 'all_time') === 'all_time' ? 'selected' : '' }}>All Time</option>
+                                            <option value="custom" {{ ($datePreset ?? 'all_time') === 'custom' ? 'selected' : '' }}>Custom Date Range</option>
+                                        </select>
+                                    </div>
+
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
+                                        <label class="form-label text-muted small mb-1 d-block">Payroll type</label>
+                                        <div class="btn-group" role="group" aria-label="Payroll focus">
+                                            <button type="button" class="btn btn-outline-secondary focus-chip {{ $focus === 'trainer' ? 'btn-dark text-white' : '' }}" data-focus="trainer">
+                                                <i class="fa-solid fa-ranking-star me-1"></i>Trainer runs
+                                            </button>
+                                            <button type="button" class="btn btn-outline-secondary focus-chip {{ $focus === 'staff' ? 'btn-dark text-white' : '' }}" data-focus="staff">
+                                                <i class="fa-solid fa-user-gear me-1"></i>Staff runs
+                                            </button>
+                                        </div>
+                                        <input type="hidden" name="focus" id="payroll-focus" value="{{ $focus }}">
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <a href="{{ route('admin.payrolls.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+
+                                    <button
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#payrollFiltersModal"
+                                    >
+                                        <i class="fa-solid fa-sliders"></i>
+                                        Filters
+                                    </button>
+
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-filter"></i>
+                                        Apply filters
+                                    </button>
                                 </div>
                             </div>
-                            <div class="col-12 col-lg-3">
-                                <label class="form-label text-muted small mb-1 d-block">Payroll type</label>
-                                <div class="btn-group" role="group" aria-label="Payroll focus">
-                                    <button type="button" class="btn btn-outline-secondary focus-chip {{ $focus === 'trainer' ? 'btn-dark text-white' : '' }}" data-focus="trainer">
-                                        <i class="fa-solid fa-ranking-star me-1"></i>Trainer runs
-                                    </button>
-                                    <button type="button" class="btn btn-outline-secondary focus-chip {{ $focus === 'staff' ? 'btn-dark text-white' : '' }}" data-focus="staff">
-                                        <i class="fa-solid fa-user-gear me-1"></i>Staff runs
-                                    </button>
-                                </div>
-                                <input type="hidden" name="focus" id="payroll-focus" value="{{ $focus }}">
-                            </div>
-                            <div class="col-12 col-lg-auto d-flex gap-3">
-                                <a href="{{ route('admin.payrolls.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
-                                <button type="submit" class="btn btn-primary">
-                                    <i class="fa-solid fa-filter me-2"></i>Apply filters
-                                </button>
-                            </div>
-                            <div class="col-12 {{ ($datePreset ?? 'all_time') === 'custom' ? '' : 'd-none' }}" id="custom-date-range">
-                                <div class="row g-2">
-                                    <div class="col-12 col-md-6">
-                                        <label class="form-label text-muted small mb-1" for="start_date">Start date</label>
-                                        <input
-                                            type="date"
-                                            name="start_date"
-                                            id="start_date"
-                                            class="form-control rounded-3"
-                                            value="{{ $startDateInput }}"
-                                            aria-label="Start date"
-                                        >
-                                    </div>
-                                    <div class="col-12 col-md-6">
-                                        <label class="form-label text-muted small mb-1" for="end_date">End date</label>
-                                        <input
-                                            type="date"
-                                            name="end_date"
-                                            id="end_date"
-                                            class="form-control rounded-3"
-                                            value="{{ $endDateInput }}"
-                                            aria-label="End date"
-                                        >
-                                    </div>
-                                    <div class="col-12">
-                                        <small class="text-muted d-block mt-1">Matches processed date, falls back to created date if missing.</small>
+
+                            <div class="modal fade" id="payrollFiltersModal" tabindex="-1" aria-labelledby="payrollFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-md">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="payrollFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-column gap-3">
+                                                <div class="{{ ($datePreset ?? 'all_time') === 'custom' ? '' : 'd-none' }}" id="custom-date-range">
+                                                    <label class="form-label text-muted text-uppercase small d-block mb-2">Custom date range</label>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label class="form-label small text-muted mb-1" for="start_date">Start date</label>
+                                                            <input
+                                                                type="date"
+                                                                name="start_date"
+                                                                id="start_date"
+                                                                class="form-control rounded-3"
+                                                                value="{{ $startDateInput }}"
+                                                                aria-label="Start date"
+                                                            >
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label class="form-label small text-muted mb-1" for="end_date">End date</label>
+                                                            <input
+                                                                type="date"
+                                                                name="end_date"
+                                                                id="end_date"
+                                                                class="form-control rounded-3"
+                                                                value="{{ $endDateInput }}"
+                                                                aria-label="End date"
+                                                            >
+                                                        </div>
+                                                    </div>
+                                                    <small class="text-muted d-block mt-1">Matches processed date, falls back to created date if missing.</small>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-filter me-2"></i>Apply filters
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
