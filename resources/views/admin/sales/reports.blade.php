@@ -3,6 +3,62 @@
 
 @section('styles')
 <style>
+    /* Compact page shell */
+    .report-shell {
+        --card-radius: 14px;
+        --card-padding: 1rem;
+        --border: #e7e7ea;
+        --text: #1f2933;
+        --muted: #6b7280;
+    }
+    .report-shell .card {
+        border-radius: var(--card-radius);
+    }
+    .report-shell .card-body {
+        padding: var(--card-padding);
+    }
+    .report-shell h2.title {
+        font-size: 1.35rem;
+        margin-bottom: 0.15rem;
+    }
+    .report-shell h4.fw-semibold {
+        font-size: 1.05rem;
+    }
+    .report-shell .badge {
+        padding: 0.35rem 0.65rem;
+        font-size: 0.75rem;
+        letter-spacing: 0.01em;
+    }
+    .report-shell .form-control,
+    .report-shell .form-select {
+        padding: 0.55rem 0.75rem;
+        font-size: 0.95rem;
+        border-radius: 10px;
+    }
+    .report-shell .form-label {
+        font-size: 0.9rem;
+        margin-bottom: 0.25rem;
+    }
+    .report-shell .btn {
+        padding: 0.48rem 0.9rem;
+        border-radius: 10px;
+    }
+    .report-shell .btn.btn-danger,
+    .report-shell .btn.btn-outline-secondary,
+    .report-shell .btn.btn-link {
+        box-shadow: none;
+    }
+    .report-shell .table {
+        font-size: 0.93rem;
+    }
+    .report-shell .table > :not(caption) > * > * {
+        padding: 0.55rem 0.75rem;
+    }
+    .report-shell .table thead th {
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.02em;
+    }
     /* Minimal summary cards */
     .report-summary {
         --border: #e7e7ea;
@@ -14,13 +70,13 @@
         --accent-soft: #fff5f5;
         background: #fff;
         border: 1px solid var(--border);
-        border-radius: 16px;
-        padding: 18px;
-        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.05);
+        border-radius: 12px;
+        padding: 14px;
+        box-shadow: 0 8px 22px rgba(0, 0, 0, 0.05);
         min-height: 100%;
         display: flex;
         flex-direction: column;
-        gap: 14px;
+        gap: 10px;
     }
     .summary-card.cost {
         --accent: #c2395a;
@@ -40,15 +96,17 @@
         font-weight: 700;
         margin: 2px 0 2px;
         color: var(--text);
+        font-size: 1.05rem;
+        line-height: 1.25;
     }
     .summary-card__subtitle {
         color: var(--muted);
-        font-size: 0.9rem;
+        font-size: 0.86rem;
     }
     .summary-icon {
-        width: 44px;
-        height: 44px;
-        border-radius: 12px;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -57,12 +115,12 @@
         border: 1px solid var(--border);
     }
     .pill-soft {
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         display: inline-block;
-        padding: 4px 10px;
+        padding: 3px 9px;
         border-radius: 999px;
-        font-size: 0.75rem;
-        font-weight: 600;
+        font-size: 0.72rem;
+        font-weight: 700;
         text-transform: uppercase;
         letter-spacing: 0.02em;
         background: var(--accent-soft);
@@ -70,15 +128,16 @@
         border: 1px solid rgba(0, 0, 0, 0.04);
     }
     .pill-ghost {
-        padding: 6px 12px;
+        padding: 5px 10px;
         border-radius: 999px;
         border: 1px solid var(--border);
         color: var(--muted);
         background: #fff;
         font-weight: 600;
+        font-size: 0.85rem;
     }
     .summary-amount {
-        font-size: 1.9rem;
+        font-size: 1.55rem;
         font-weight: 800;
         color: var(--text);
     }
@@ -86,33 +145,33 @@
         display: flex;
         justify-content: space-between;
         align-items: center;
-        gap: 10px;
+        gap: 8px;
     }
     .summary-card__math {
         display: flex;
         flex-wrap: wrap;
-        gap: 10px;
+        gap: 8px;
         align-items: center;
         background: var(--accent-soft);
         border: 1px dashed rgba(0, 0, 0, 0.05);
-        border-radius: 12px;
-        padding: 10px;
+        border-radius: 10px;
+        padding: 8px;
     }
     .math-chip {
         display: flex;
         align-items: center;
-        gap: 10px;
-        padding: 10px 12px;
+        gap: 8px;
+        padding: 8px 10px;
         background: #fff;
         border: 1px solid var(--border);
-        border-radius: 12px;
-        min-width: 160px;
-        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.03);
+        border-radius: 10px;
+        min-width: 140px;
+        box-shadow: 0 6px 12px rgba(0, 0, 0, 0.02);
     }
     .math-chip__icon {
-        width: 34px;
-        height: 34px;
-        border-radius: 10px;
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
@@ -124,10 +183,12 @@
         font-weight: 700;
         color: var(--text);
         line-height: 1.2;
+        font-size: 0.95rem;
     }
     .math-chip__value {
         color: var(--muted);
         font-weight: 600;
+        font-size: 0.85rem;
     }
     .math-symbol {
         font-weight: 800;
@@ -163,7 +224,7 @@
 @endsection
 
 @section('content')
-<div class="container-fluid">
+<div class="container-fluid report-shell">
     @php
         $printFilters = [
             'start_date' => $startDate,
@@ -202,7 +263,7 @@
         ];
     @endphp
     <div class="row">
-        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
+        <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2 mt-2">
             <div>
                 <h2 class="title mb-0">Sales Profit Report</h2>
                 <p class="text-muted mb-0">Revenue, cost, and profit with membership payments in your selected range.</p>
@@ -227,7 +288,7 @@
         </div>
     </div>
 
-    <div class="row g-3 mb-4 report-summary">
+    <div class="row g-2 mb-3 report-summary">
         <div class="col-12 col-lg-4">
             <div class="summary-card revenue">
                 <div class="summary-card__header">
@@ -374,13 +435,13 @@
         </div>
     </div> --}}
 
-    <div class="row g-3 mb-3">
+    <div class="row g-2 mb-3">
         <div class="col-12">
             <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                <div class="card-body p-4">
-                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
+                <div class="card-body">
+                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2 mb-2">
                         <div>
-                            <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Filters</span>
+                            <span class="badge bg-light text-dark fw-semibold px-2 py-1 rounded-pill text-uppercase small mb-2">Filters</span>
                             <h4 class="fw-semibold mb-1">Profit Report</h4>
                             <p class="text-muted mb-0">Pick a date window to refresh revenue, cost, profit, and payment details.</p>
                         </div>
@@ -400,10 +461,10 @@
                         </div>
                     </div>
 
-                    <form action="{{ route('admin.sales.reports') }}" method="GET" class="row g-3 align-items-end">
+                    <form action="{{ route('admin.sales.reports') }}" method="GET" class="row g-2 align-items-end">
                         <div class="col-12 col-lg-4">
                             <label class="form-label text-muted small mb-1" for="date_preset">Date range</label>
-                            <select id="date_preset" name="date_preset" class="form-select rounded-pill">
+                            <select id="date_preset" name="date_preset" class="form-select">
                                 <option value="today" {{ ($datePreset ?? 'last_30') === 'today' ? 'selected' : '' }}>Today</option>
                                 <option value="yesterday" {{ ($datePreset ?? 'last_30') === 'yesterday' ? 'selected' : '' }}>Yesterday</option>
                                 <option value="last_7" {{ ($datePreset ?? 'last_30') === 'last_7' ? 'selected' : '' }}>Last 7 Days</option>
@@ -422,7 +483,7 @@
                         </div>
                         <div class="col-12 col-lg-4">
                             <label class="form-label text-muted small mb-1" for="table_scope">Table view</label>
-                            <select id="table_scope" name="table_scope" class="form-select rounded-pill">
+                            <select id="table_scope" name="table_scope" class="form-select">
                                 <option value="payments" {{ ($tableScope ?? 'payments') === 'payments' ? 'selected' : '' }}>Membership payments</option>
                                 <option value="members" {{ ($tableScope ?? '') === 'members' ? 'selected' : '' }}>Members</option>
                                 <option value="trainers" {{ ($tableScope ?? '') === 'trainers' ? 'selected' : '' }}>Trainers</option>
@@ -434,20 +495,20 @@
                             <a href="{{ route('admin.sales.reports') }}" class="btn btn-link text-decoration-none text-muted px-0">
                                 Reset
                             </a>
-                            <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
+                            <button type="submit" class="btn btn-danger px-3 d-flex align-items-center gap-2">
                                 <i class="fa-solid fa-magnifying-glass"></i>
                                 Apply
                             </button>
                         </div>
                         <div class="col-12 {{ ($datePreset ?? '') === 'custom' ? '' : 'd-none' }}" id="custom-date-range">
-                            <div class="row g-3">
+                            <div class="row g-2">
                                 <div class="col-12 col-md-6">
                                     <label class="form-label text-muted small mb-1" for="start_date">Start date</label>
-                                    <input type="date" id="start_date" name="start_date" class="form-control rounded-pill" value="{{ ($datePreset ?? '') === 'custom' ? $startDate : '' }}">
+                                    <input type="date" id="start_date" name="start_date" class="form-control" value="{{ ($datePreset ?? '') === 'custom' ? $startDate : '' }}">
                                 </div>
                                 <div class="col-12 col-md-6">
                                     <label class="form-label text-muted small mb-1" for="end_date">End date</label>
-                                    <input type="date" id="end_date" name="end_date" class="form-control rounded-pill" value="{{ ($datePreset ?? '') === 'custom' ? $endDate : '' }}">
+                                    <input type="date" id="end_date" name="end_date" class="form-control" value="{{ ($datePreset ?? '') === 'custom' ? $endDate : '' }}">
                                 </div>
                             </div>
                         </div>
@@ -460,8 +521,8 @@
     <div class="row">
         <div class="col-12">
             <div class="card shadow-sm border-0 rounded-4">
-                <div class="card-body p-4">
-                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-3">
+                <div class="card-body">
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                         <div>
                             @php
                                 $tableTitles = [
@@ -481,7 +542,7 @@
                             ];
                             $currentCount = $recordCounts[$tableScope ?? 'payments'] ?? $membershipPayments->total();
                         @endphp
-                        <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small">{{ $currentTable }}</span>
+                        <span class="badge bg-light text-dark fw-semibold px-2 py-1 rounded-pill text-uppercase small">{{ $currentTable }}</span>
                         <div class="text-muted small">Showing data for the selected view and date range</div>
                     </div>
                     <div class="text-muted small">

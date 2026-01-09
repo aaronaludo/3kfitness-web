@@ -105,6 +105,12 @@
                     ],
                     'currency' => $currency,
                 ];
+                $advancedFiltersOpen = request()->filled('membership_id')
+                    || request()->filled('member_id')
+                    || request()->filled('staff_id')
+                    || request()->filled('trainer_id')
+                    || request()->filled('staff_sales_order')
+                    || request()->filled('trainer_sales_order');
             @endphp
             <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
                 <div>
@@ -133,79 +139,143 @@
             <div class="col-12 mb-3">
                 <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-body p-4">
-                        <p class="text-muted small mb-3">Filter by date, staff, trainer, membership plan, or member to focus profit and payroll slices.</p>
-                        <form action="{{ route('admin.sales.index') }}" method="GET" class="row g-3 align-items-end">
-                            <div class="col-12 col-lg-3">
-                                <label for="start-date" class="form-label small text-muted mb-1">Start date</label>
-                                <input type="date" id="start-date" name="start_date" class="form-control" value="{{ request('start_date', optional($start)->toDateString()) }}" />
+                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                            <div>
+                                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Filters</span>
+                                <h4 class="fw-semibold mb-1">Sales filters</h4>
+                                <p class="text-muted mb-0">Filter by date, staff, trainer, membership plan, or member to focus profit and payroll slices.</p>
                             </div>
-                            <div class="col-12 col-lg-3">
-                                <label for="end-date" class="form-label small text-muted mb-1">End date</label>
-                                <input type="date" id="end-date" name="end_date" class="form-control" value="{{ request('end_date', optional($end)->toDateString()) }}" />
+                            <div class="text-end">
+                                <span class="d-block text-muted small">Period {{ optional($start)->format('M d, Y') }} → {{ optional($end)->format('M d, Y') }}</span>
+                                <span class="d-block text-muted small">Showing {{ $totalSales }} sale{{ $totalSales === 1 ? '' : 's' }}</span>
                             </div>
-                            <div class="col-12 col-lg-3">
-                                <label for="membership-id" class="form-label small text-muted mb-1">Membership plan</label>
-                                <select id="membership-id" name="membership_id" class="form-select">
-                                    <option value="">All plans</option>
-                                    @foreach($membershipOptions ?? [] as $option)
-                                        <option value="{{ $option['id'] }}" {{ (string) request('membership_id') === (string) $option['id'] ? 'selected' : '' }}>
-                                            {{ $option['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
+                        </div>
+
+                        <form action="{{ route('admin.sales.index') }}" method="GET" class="mt-4" id="sales-filter-form">
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div class="d-flex flex-wrap align-items-center gap-2 flex-grow-1">
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 200px;">
+                                        <label for="start-date" class="form-label small text-muted mb-1">Start date</label>
+                                        <input
+                                            type="date"
+                                            id="start-date"
+                                            name="start_date"
+                                            class="form-control rounded-pill"
+                                            value="{{ request('start_date', optional($start)->toDateString()) }}"
+                                        />
+                                    </div>
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 200px;">
+                                        <label for="end-date" class="form-label small text-muted mb-1">End date</label>
+                                        <input
+                                            type="date"
+                                            id="end-date"
+                                            name="end_date"
+                                            class="form-control rounded-pill"
+                                            value="{{ request('end_date', optional($end)->toDateString()) }}"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <a href="{{ route('admin.sales.index') }}" class="btn btn-link text-decoration-none text-muted px-0">
+                                        Reset
+                                    </a>
+
+                                    <button
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#salesFiltersModal"
+                                    >
+                                        <i class="fa-solid fa-sliders"></i> Filters
+                                    </button>
+
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
+                                        <i class="fa-solid fa-magnifying-glass"></i>
+                                        Apply
+                                    </button>
+                                </div>
                             </div>
-                            <div class="col-12 col-lg-3">
-                                <label for="member-id" class="form-label small text-muted mb-1">Member sales</label>
-                                <select id="member-id" name="member_id" class="form-select">
-                                    <option value="">All members</option>
-                                    @foreach($memberOptions ?? [] as $option)
-                                        <option value="{{ $option['id'] }}" {{ (string) request('member_id') === (string) $option['id'] ? 'selected' : '' }}>
-                                            {{ $option['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-12 col-lg-3">
-                                <label for="staff-id" class="form-label small text-muted mb-1">Staff</label>
-                                <select id="staff-id" name="staff_id" class="form-select">
-                                    <option value="">All staff</option>
-                                    @foreach($staffOptions ?? [] as $option)
-                                        <option value="{{ $option['id'] }}" {{ (string) request('staff_id') === (string) $option['id'] ? 'selected' : '' }}>
-                                            {{ $option['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-12 col-lg-3">
-                                <label for="trainer-id" class="form-label small text-muted mb-1">Trainer</label>
-                                <select id="trainer-id" name="trainer_id" class="form-select">
-                                    <option value="">All trainers</option>
-                                    @foreach($trainerOptions ?? [] as $option)
-                                        <option value="{{ $option['id'] }}" {{ (string) request('trainer_id') === (string) $option['id'] ? 'selected' : '' }}>
-                                            {{ $option['label'] }}
-                                        </option>
-                                    @endforeach
-                                </select>
-                            </div>
-                            <div class="col-12 col-lg-3">
-                                <label for="staff-sales-order" class="form-label small text-muted mb-1">Staff memberships payment order</label>
-                                <select id="staff-sales-order" name="staff_sales_order" class="form-select">
-                                    <option value="">All staff</option>
-                                    <option value="most" {{ request('staff_sales_order') === 'most' ? 'selected' : '' }}>Most sales first</option>
-                                    <option value="least" {{ request('staff_sales_order') === 'least' ? 'selected' : '' }}>Least sales first</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-lg-3">
-                                <label for="trainer-sales-order" class="form-label small text-muted mb-1">Trainer app cut order</label>
-                                <select id="trainer-sales-order" name="trainer_sales_order" class="form-select">
-                                    <option value="">All trainers</option>
-                                    <option value="most" {{ request('trainer_sales_order') === 'most' ? 'selected' : '' }}>Highest app cut first</option>
-                                    <option value="least" {{ request('trainer_sales_order') === 'least' ? 'selected' : '' }}>Lowest app cut first</option>
-                                </select>
-                            </div>
-                            <div class="col-12 col-lg-3 d-flex gap-2 flex-wrap">
-                                <button type="submit" class="btn btn-danger mt-auto flex-fill"><i class="fa-solid fa-magnifying-glass me-2"></i>Apply</button>
-                                <a href="{{ route('admin.sales.index') }}" class="btn btn-light mt-auto flex-fill">Reset</a>
+
+                            <div class="modal fade" id="salesFiltersModal" tabindex="-1" aria-labelledby="salesFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-lg">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="salesFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="row g-3">
+                                                <div class="col-12 col-lg-6">
+                                                    <label for="membership-id" class="form-label small text-muted mb-1">Membership plan</label>
+                                                    <select id="membership-id" name="membership_id" class="form-select rounded-3">
+                                                        <option value="">All plans</option>
+                                                        @foreach($membershipOptions ?? [] as $option)
+                                                            <option value="{{ $option['id'] }}" {{ (string) request('membership_id') === (string) $option['id'] ? 'selected' : '' }}>
+                                                                {{ $option['label'] }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col-12 col-lg-6">
+                                                    <label for="member-id" class="form-label small text-muted mb-1">Member sales</label>
+                                                    <select id="member-id" name="member_id" class="form-select rounded-3">
+                                                        <option value="">All members</option>
+                                                        @foreach($memberOptions ?? [] as $option)
+                                                            <option value="{{ $option['id'] }}" {{ (string) request('member_id') === (string) $option['id'] ? 'selected' : '' }}>
+                                                                {{ $option['label'] }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col-12 col-lg-6">
+                                                    <label for="staff-id" class="form-label small text-muted mb-1">Staff</label>
+                                                    <select id="staff-id" name="staff_id" class="form-select rounded-3">
+                                                        <option value="">All staff</option>
+                                                        @foreach($staffOptions ?? [] as $option)
+                                                            <option value="{{ $option['id'] }}" {{ (string) request('staff_id') === (string) $option['id'] ? 'selected' : '' }}>
+                                                                {{ $option['label'] }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col-12 col-lg-6">
+                                                    <label for="trainer-id" class="form-label small text-muted mb-1">Trainer</label>
+                                                    <select id="trainer-id" name="trainer_id" class="form-select rounded-3">
+                                                        <option value="">All trainers</option>
+                                                        @foreach($trainerOptions ?? [] as $option)
+                                                            <option value="{{ $option['id'] }}" {{ (string) request('trainer_id') === (string) $option['id'] ? 'selected' : '' }}>
+                                                                {{ $option['label'] }}
+                                                            </option>
+                                                        @endforeach
+                                                    </select>
+                                                </div>
+                                                <div class="col-12 col-lg-6">
+                                                    <label for="staff-sales-order" class="form-label small text-muted mb-1">Staff memberships payment order</label>
+                                                    <select id="staff-sales-order" name="staff_sales_order" class="form-select rounded-3">
+                                                        <option value="">All staff</option>
+                                                        <option value="most" {{ request('staff_sales_order') === 'most' ? 'selected' : '' }}>Most sales first</option>
+                                                        <option value="least" {{ request('staff_sales_order') === 'least' ? 'selected' : '' }}>Least sales first</option>
+                                                    </select>
+                                                </div>
+                                                <div class="col-12 col-lg-6">
+                                                    <label for="trainer-sales-order" class="form-label small text-muted mb-1">Trainer app cut order</label>
+                                                    <select id="trainer-sales-order" name="trainer_sales_order" class="form-select rounded-3">
+                                                        <option value="">All trainers</option>
+                                                        <option value="most" {{ request('trainer_sales_order') === 'most' ? 'selected' : '' }}>Highest app cut first</option>
+                                                        <option value="least" {{ request('trainer_sales_order') === 'least' ? 'selected' : '' }}>Lowest app cut first</option>
+                                                    </select>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-magnifying-glass me-2"></i>Apply filters
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </form>
                     </div>

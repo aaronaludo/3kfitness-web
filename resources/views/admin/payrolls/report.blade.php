@@ -454,6 +454,15 @@
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <a href="{{ route('admin.payrolls.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
 
+                                    <button
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#payrollFiltersModal"
+                                    >
+                                        <i class="fa-solid fa-sliders"></i> Filters
+                                    </button>
+
                                     <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
                                         <i class="fa-solid fa-filter"></i>
                                         Apply filters
