@@ -305,7 +305,6 @@
                                         <th scope="col">App cut</th>
                                         <th scope="col">Net</th>
                                         <th scope="col">Processed Date</th>
-                                        <th scope="col">Processed Sessions</th>
                                         <th scope="col" class="text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -363,21 +362,6 @@
                                             <td>₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</td>
                                             <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
                                             <td>{{ $processedAt }}</td>
-                                            <td>
-                                                @if($processedSessionCount > 0)
-                                                    <button
-                                                        type="button"
-                                                        class="btn btn-outline-primary btn-sm processed-series-btn"
-                                                        data-series='@json($processedSeries->values())'
-                                                        data-run-name="{{ $name }}"
-                                                        data-period="{{ $periodLabel }}"
-                                                    >
-                                                        View ({{ $processedSessionCount }})
-                                                    </button>
-                                                @else
-                                                    <span class="text-muted small">—</span>
-                                                @endif
-                                            </td>
                                             <td class="text-center">
                                                 @if($staff)
                                                     <button
