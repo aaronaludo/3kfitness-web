@@ -334,9 +334,17 @@
         $printItems = $printCollectionCurrent->values()->map($mapPrintRow);
         $printItemsAll = $printCollectionAll->values()->map($mapPrintRow);
 
-        $totalRevenue = round((float) ($summary['total_sales'] ?? (($summary['membership_revenue'] ?? 0) + ($summary['class_commission'] ?? 0))), 2);
-        $totalCost = round((float) ($focus === 'trainer' ? ($summary['class_commission'] ?? 0) : 0), 2);
-        $profit = round($totalRevenue - $totalCost, 2);
+        $summaryForPrint = [
+            'membership_revenue' => $focus === 'trainer'
+                ? null
+                : round((float) ($summary['membership_revenue'] ?? 0), 2),
+            'total_sales_count' => $focus === 'trainer'
+                ? null
+                : (int) ($summary['total_sales_count'] ?? 0),
+            'class_commission' => $focus === 'trainer'
+                ? round((float) ($summary['class_commission'] ?? 0), 2)
+                : null,
+        ];
 
         $printPayload = [
             'title' => 'Sales report',
@@ -344,16 +352,7 @@
             'focus' => $focus,
             'order' => $order,
             'currency' => $currency,
-            'summary' => [
-                'membership_revenue' => round((float) ($summary['membership_revenue'] ?? 0), 2),
-                'total_sales_count' => (int) ($summary['total_sales_count'] ?? 0),
-                'class_commission' => $focus === 'trainer'
-                    ? round((float) ($summary['class_commission'] ?? 0), 2)
-                    : null,
-                'total_revenue' => $totalRevenue,
-                'total_cost' => $totalCost,
-                'profit' => $profit,
-            ],
+            'summary' => $summaryForPrint,
             'filters' => [
                 'search' => $searchTerm,
                 'focus' => ucfirst($focus),
@@ -881,20 +880,11 @@
                 return currency + ' ' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             };
             var isTrainer = (focus || '').toLowerCase() === 'trainer';
-            if (!isTrainer && summary.membership_revenue !== undefined) {
+            if (!isTrainer && summary.membership_revenue !== undefined && summary.membership_revenue !== null) {
                 chips.push({ label: 'Membership revenue', value: formatMoney(summary.membership_revenue) });
             }
-            if (!isTrainer && summary.total_sales_count !== undefined) {
+            if (!isTrainer && summary.total_sales_count !== undefined && summary.total_sales_count !== null) {
                 chips.push({ label: 'Total sales', value: (summary.total_sales_count || 0).toString() });
-            }
-            if (summary.total_revenue !== undefined) {
-                chips.push({ label: 'Total revenue', value: formatMoney(summary.total_revenue) });
-            }
-            if (summary.total_cost !== undefined && summary.total_cost !== null) {
-                chips.push({ label: 'Total cost', value: formatMoney(summary.total_cost) });
-            }
-            if (summary.profit !== undefined) {
-                chips.push({ label: 'Profit', value: formatMoney(summary.profit) });
             }
             if (summary.class_commission !== undefined && summary.class_commission !== null) {
                 chips.push({ label: 'Class commission', value: formatMoney(summary.class_commission) });
