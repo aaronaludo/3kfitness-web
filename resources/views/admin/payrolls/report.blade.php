@@ -224,6 +224,7 @@
             $filteredRuns = $runsQuery->paginate($perPage)->appends(request()->query());
             $filteredTotal = $filteredRuns->total();
             $filteredCollection = $runsQueryForAll->get();
+            $currencySymbol = '₱';
             $filteredTotals = [
                 'gross' => round($filteredCollection->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
                 'net' => round($filteredCollection->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
@@ -231,6 +232,14 @@
                 'philhealth' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_philhealth ?? 0)), 2),
                 'pagibig' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
                 'app_cut' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_app_cut ?? 0)), 2),
+            ];
+            $pageTotals = [
+                'gross' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+                'net' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+                'sss' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_sss ?? 0)), 2),
+                'philhealth' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_philhealth ?? 0)), 2),
+                'pagibig' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
+                'app_cut' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_app_cut ?? 0)), 2),
             ];
 
             $mapRun = function ($run) {
@@ -275,7 +284,8 @@
                     'start_date' => $startDateInput,
                     'end_date' => $endDateInput,
                 ],
-                'totals' => $filteredTotals,
+                'currency_symbol' => $currencySymbol,
+                'totals' => $pageTotals,
                 'count' => $printRuns->count(),
                 'items' => $printRuns,
             ];
@@ -293,6 +303,7 @@
                     'end_date' => $endDateInput,
                     'scope' => 'all',
                 ],
+                'currency_symbol' => $currencySymbol,
                 'totals' => $filteredTotals,
                 'count' => $printAllRuns->count(),
                 'items' => $printAllRuns,
@@ -639,26 +650,62 @@
             return chips;
         }
 
-        function buildRows(items) {
-            return (items || []).map((item) => ([
+        function buildTotalsRow(totals, currencySymbol) {
+            if (!totals) return null;
+            const fmtMoney = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            return [
+                '',
+                '<strong>Totals</strong>',
+                '',
+                '',
+                '',
+                fmtMoney(totals.gross),
+                fmtMoney(totals.sss),
+                fmtMoney(totals.philhealth),
+                fmtMoney(totals.pagibig),
+                fmtMoney(totals.app_cut),
+                `<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`,
+            ];
+        }
+
+        function buildTotalsChips(totals, currencySymbol) {
+            if (!totals) return [];
+            const fmt = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+            return [
+                { label: 'Gross', value: fmt(totals.gross) },
+                { label: 'Net', value: fmt(totals.net) },
+                { label: 'SSS', value: fmt(totals.sss) },
+                { label: 'PhilHealth', value: fmt(totals.philhealth) },
+                { label: 'Pag-IBIG', value: fmt(totals.pagibig) },
+                { label: '3k Fitness App Cut', value: fmt(totals.app_cut) },
+            ];
+        }
+
+        function buildRows(items, totals, currencySymbol) {
+            const rows = (items || []).map((item) => ([
                 item.id ?? '—',
                 `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div><div class="muted">Code: ${item.user_code || '—'}</div>`,
                 item.role || '—',
                 item.period || '—',
                 `${item.hours || '0.00'} hrs`,
-                `₱${item.gross || '0.00'}`,
-                `₱${item.sss || '0.00'}`,
-                `₱${item.philhealth || '0.00'}`,
-                `₱${item.pagibig || '0.00'}`,
-                `₱${item.app_cut || '0.00'}`,
-                `<span class="text-success fw-semibold">₱${item.net || '0.00'}</span>`,
+                `${currencySymbol}${item.gross || '0.00'}`,
+                `${currencySymbol}${item.sss || '0.00'}`,
+                `${currencySymbol}${item.philhealth || '0.00'}`,
+                `${currencySymbol}${item.pagibig || '0.00'}`,
+                `${currencySymbol}${item.app_cut || '0.00'}`,
+                `<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`,
             ]));
+
+            const totalsRow = buildTotalsRow(totals, currencySymbol);
+            if (totalsRow) rows.push(totalsRow);
+            return rows;
         }
 
         function renderPrintWindow(payload) {
             const rawItems = payload && payload.items ? payload.items : [];
             const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
             const filters = buildFilters(payload.filters || {});
+            const currencySymbol = payload.currency_symbol || '₱';
             const headers = [
                 '#',
                 'Staff',
@@ -672,10 +719,12 @@
                 'App cut',
                 'Net',
             ];
-            const rows = buildRows(items);
+            const rows = buildRows(items, payload.totals, currencySymbol);
+            const totalsChips = buildTotalsChips(payload.totals, currencySymbol);
+            const filterChips = filters.concat(totalsChips);
 
             return window.PrintPreview
-                ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                ? PrintPreview.tryOpen(payload, headers, rows, filterChips)
                 : false;
         }
 

@@ -13,6 +13,28 @@
                 $advancedFiltersOpen = request()->filled('search_column') || request()->filled('processed_from') || request()->filled('processed_to');
                 $printSource = $runs;
                 $printAllSource = $printAllRuns ?? collect();
+                $currencySymbol = '₱';
+                $calculateTotals = function ($source) {
+                    $collection = $source instanceof \Illuminate\Pagination\AbstractPaginator
+                        ? collect($source->items())
+                        : collect($source ?? []);
+
+                    $sum = fn ($key) => $collection->sum(function ($run) use ($key) {
+                        return (float) (is_array($run) ? ($run[$key] ?? 0) : ($run->$key ?? 0));
+                    });
+
+                    return [
+                        'hours' => round($sum('total_hours'), 2),
+                        'gross' => round($sum('gross_pay'), 2),
+                        'sss' => round($sum('deduction_sss'), 2),
+                        'philhealth' => round($sum('deduction_philhealth'), 2),
+                        'pagibig' => round($sum('deduction_pagibig'), 2),
+                        'app_cut' => round($sum('deduction_app_cut'), 2),
+                        'net' => round($sum('net_pay'), 2),
+                    ];
+                };
+                $pageTotals = $calculateTotals($printSource);
+                $allTotals = $calculateTotals($printAllSource);
                 $mapRun = function ($run) {
                     $staff = $run->user;
                     $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
@@ -58,6 +80,8 @@
                         'processed_from' => $processedFrom,
                         'processed_to' => $processedTo,
                     ],
+                    'currency_symbol' => $currencySymbol,
+                    'totals' => $pageTotals,
                     'count' => $printRuns->count(),
                     'items' => $printRuns,
                 ];
@@ -73,6 +97,8 @@
                         'processed_to' => $processedTo,
                         'scope' => 'all',
                     ],
+                    'currency_symbol' => $currencySymbol,
+                    'totals' => $allTotals,
                     'count' => $printAllRuns->count(),
                     'items' => $printAllRuns,
                 ];
@@ -421,28 +447,70 @@
                 return chips;
             }
 
-            function buildRows(items) {
-                return (items || []).map((item) => ([
+            function buildTotalsRow(totals, currencySymbol) {
+                if (!totals) return null;
+                const fmtMoney = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const fmtHours = (value) => `${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} hrs`;
+                return [
+                    '',
+                    '<strong>Totals</strong>',
+                    '',
+                    '',
+                    fmtHours(totals.hours),
+                    fmtMoney(totals.gross),
+                    fmtMoney(totals.sss),
+                    fmtMoney(totals.philhealth),
+                    fmtMoney(totals.pagibig),
+                    fmtMoney(totals.app_cut),
+                    `<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`,
+                    '',
+                ];
+            }
+
+            function buildTotalsChips(totals, currencySymbol) {
+                if (!totals) return [];
+                const fmt = (value, suffix = '') => `${suffix}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const fmtMoney = (value) => fmt(value, currencySymbol);
+                const fmtHours = (value) => fmt(value, '') + ' hrs';
+                return [
+                    { label: 'Total hours', value: fmtHours(totals.hours) },
+                    { label: 'Total gross', value: fmtMoney(totals.gross) },
+                    { label: 'Total SSS', value: fmtMoney(totals.sss) },
+                    { label: 'Total PhilHealth', value: fmtMoney(totals.philhealth) },
+                    { label: 'Total Pag-IBIG', value: fmtMoney(totals.pagibig) },
+                    { label: 'Total app cut', value: fmtMoney(totals.app_cut) },
+                    { label: 'Total net', value: fmtMoney(totals.net) },
+                ];
+            }
+
+            function buildRows(items, totals, currencySymbol) {
+                const rows = (items || []).map((item) => ([
                     item.id ?? '—',
                     `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
                     item.user_code || '—',
                     item.period || '—',
                     `${item.hours || '0.00'} hrs`,
-                    `₱${item.gross || '0.00'}`,
-                    `₱${item.sss || '0.00'}`,
-                    `₱${item.philhealth || '0.00'}`,
-                    `₱${item.pagibig || '0.00'}`,
-                    `₱${item.app_cut || '0.00'}`,
-                    `<span class="text-success fw-semibold">₱${item.net || '0.00'}</span>`,
+                    `${currencySymbol}${item.gross || '0.00'}`,
+                    `${currencySymbol}${item.sss || '0.00'}`,
+                    `${currencySymbol}${item.philhealth || '0.00'}`,
+                    `${currencySymbol}${item.pagibig || '0.00'}`,
+                    `${currencySymbol}${item.app_cut || '0.00'}`,
+                    `<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`,
                     item.processed_at || '—',
-                    (item.processed_sessions ?? 0).toString(),
                 ]));
+
+                const totalsRow = buildTotalsRow(totals, currencySymbol);
+                if (totalsRow) {
+                    rows.push(totalsRow);
+                }
+                return rows;
             }
 
             function renderPrintWindow(payload) {
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
+                const currencySymbol = payload.currency_symbol || '₱';
                 const headers = [
                     '#',
                     'Staff',
@@ -455,13 +523,14 @@
                     'Pag-IBIG',
                     'App cut',
                     'Net',
-                    'Processed',
-                    'Processed Sessions'
+                    'Processed'
                 ];
-                const rows = buildRows(items);
+                const rows = buildRows(items, payload.totals, currencySymbol);
+                const totalsChips = buildTotalsChips(payload.totals, currencySymbol);
+                const filterChips = filters.concat(totalsChips);
 
                 return window.PrintPreview
-                    ? PrintPreview.tryOpen(payload, headers, rows, filters)
+                    ? PrintPreview.tryOpen(payload, headers, rows, filterChips)
                     : false;
             }
 
