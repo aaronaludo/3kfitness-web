@@ -1,7 +1,7 @@
 @extends('layouts.admin')
 
 @section('styles')
-    <script src="https://rawgit.com/schmich/instascan-builds/master/instascan.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/schmich/instascan-builds@master/instascan.min.js"></script>
     <meta name="csrf-token" content="{{ csrf_token() }}">
 @endsection
 
