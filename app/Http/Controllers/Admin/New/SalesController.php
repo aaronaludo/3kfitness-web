@@ -1252,11 +1252,17 @@ class SalesController extends Controller
                 $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
                 $label = $name ?: 'Member';
                 $code = $user->user_code ?? null;
+                $memberships = $group
+                    ->map(fn ($payment) => optional($payment->membership)->name)
+                    ->filter()
+                    ->unique()
+                    ->values();
 
                 return [
                     'label' => $code ? "{$label} ({$code})" : $label,
                     'type' => 'Member',
                     'sales' => $group->count(),
+                    'memberships' => $memberships->all(),
                     'revenue' => round($group->sum(function ($payment) {
                         return (float) optional($payment->membership)->price ?: 0.0;
                     }), 2),

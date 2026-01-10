@@ -252,6 +252,10 @@
         align-items: start;
         gap: 0;
     }
+    .filter-menu__panel.show.has-memberships {
+        grid-template-columns: 150px 180px 190px 1fr;
+        min-width: 720px;
+    }
     .filter-menu__list {
         list-style: none;
         margin: 0;
@@ -283,6 +287,12 @@
         grid-row: 1;
         display: grid;
         gap: 8px;
+    }
+    .filter-menu__sub--memberships {
+        grid-column: 2;
+    }
+    .filter-menu__panel.show.has-memberships .filter-menu__sub--memberships {
+        grid-column: 3;
     }
     .filter-menu__sub li {
         margin-bottom: 6px;
@@ -323,6 +333,9 @@
         display: grid;
         gap: 10px;
     }
+    .filter-menu__panel.show.has-memberships .filter-menu__sub--dates {
+        grid-column: 4;
+    }
     @media (max-width: 575.98px) {
         .report-hero {
             padding: 18px;
@@ -334,19 +347,30 @@
         grid-template-columns: 1fr;
         width: 100%;
     }
+    .filter-menu__panel.show.has-memberships {
+        min-width: 0;
+        grid-template-columns: 1fr;
+    }
     .filter-menu__list {
         border-right: none;
         border-bottom: 1px solid rgba(0,0,0,0.06);
     }
     .filter-menu__sub {
         grid-column: 1;
+        grid-row: auto;
+    }
+    .filter-menu__panel.show.has-memberships .filter-menu__sub--memberships {
+        grid-column: 1;
     }
     .filter-menu__sub--dates {
         grid-column: 1;
-        grid-row: 3;
+        grid-row: auto;
         border-left: none;
         border-top: 1px solid rgba(0,0,0,0.06);
         border-radius: 0 0 14px 14px;
+    }
+    .filter-menu__panel.show.has-memberships .filter-menu__sub--dates {
+        grid-column: 1;
     }
     }
 </style>
@@ -561,7 +585,11 @@
                             <span id="filter-menu-label">
                                 @if($hasFilterPreset)
                                     @if(in_array($focus, ['member','trainer','staff']))
-                                        {{ ucfirst($focus) }} — {{ $order === 'least' ? 'Least Sales' : 'Most Sales' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
+                                        {{ ucfirst($focus) }} — {{ $order === 'least' ? 'Least Sales' : 'Most Sales' }}
+                                        @if(in_array($focus, ['member','staff']) && !empty($selectedMembershipId))
+                                            | Memberships — {{ $selectedMembershipLabel ?? 'All Memberships' }}
+                                        @endif
+                                        | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
                                     @elseif($focus === 'membership')
                                         Memberships — {{ $selectedMembershipLabel ?? 'All Memberships' }} | Date — {{ $datePresetLabel ?? 'Custom Date Range' }}
                                     @else
@@ -585,7 +613,7 @@
                                 <li><button type="button" class="{{ $order === 'least' ? '' : 'active' }}" data-order="most">Most Sales</button></li>
                                 <li><button type="button" class="{{ $order === 'least' ? 'active' : '' }}" data-order="least">Least Sales</button></li>
                             </ul>
-                            <ul class="filter-menu__sub scrollable {{ $focus === 'membership' ? '' : 'd-none' }}" id="sub-memberships">
+                            <ul class="filter-menu__sub filter-menu__sub--memberships scrollable {{ in_array($focus, ['member','staff','membership']) ? '' : 'd-none' }}" id="sub-memberships">
                                 <li><button type="button" class="{{ empty($selectedMembershipId) ? 'active' : '' }}" data-membership-id="">All Memberships</button></li>
                                 @foreach($membershipOptions ?? [] as $option)
                                     <li>
@@ -1080,6 +1108,18 @@
         var currentMembership = membershipInput.value || '';
         var currentDatePreset = datePresetInput.value || 'this_year';
 
+        var focusSupportsMembership = function (focusValue) {
+            return ['member', 'staff', 'membership'].indexOf(focusValue) !== -1;
+        };
+
+        var focusStacksMembership = function (focusValue) {
+            return ['member', 'staff'].indexOf(focusValue) !== -1;
+        };
+
+        var getMembershipName = function () {
+            return currentMembership && membershipLabels[currentMembership] ? membershipLabels[currentMembership] : 'All Memberships';
+        };
+
         var updateLabel = function () {
             if (!hasUserFilters) {
                 labelEl.textContent = 'Filter preset';
@@ -1088,10 +1128,13 @@
             var text = '';
             var dateLabel = datePresetLabels[currentDatePreset] || 'Custom Date Range';
             if (['member', 'trainer', 'staff'].indexOf(currentFocus) !== -1) {
-                text = currentFocus.charAt(0).toUpperCase() + currentFocus.slice(1) + ' — ' + (currentOrder === 'least' ? 'Least Sales' : 'Most Sales') + ' | Date — ' + dateLabel;
+                text = currentFocus.charAt(0).toUpperCase() + currentFocus.slice(1) + ' — ' + (currentOrder === 'least' ? 'Least Sales' : 'Most Sales');
+                if (focusStacksMembership(currentFocus) && currentMembership) {
+                    text += ' | Memberships — ' + getMembershipName();
+                }
+                text += ' | Date — ' + dateLabel;
             } else if (currentFocus === 'membership') {
-                var membershipName = currentMembership && membershipLabels[currentMembership] ? membershipLabels[currentMembership] : 'All Memberships';
-                text = 'Memberships — ' + membershipName + ' | Date — ' + dateLabel;
+                text = 'Memberships — ' + getMembershipName() + ' | Date — ' + dateLabel;
             } else {
                 text = 'Date — ' + dateLabel;
             }
@@ -1119,14 +1162,9 @@
         };
 
         var showSub = function (focus, hasOrder) {
-            subOrders.classList.add('d-none');
-            subMemberships.classList.add('d-none');
-
-            if (hasOrder) {
-                subOrders.classList.remove('d-none');
-            } else if (focus === 'membership') {
-                subMemberships.classList.remove('d-none');
-            }
+            subOrders.classList.toggle('d-none', !hasOrder);
+            subMemberships.classList.toggle('d-none', !focusSupportsMembership(focus));
+            panel.classList.toggle('has-memberships', focusStacksMembership(focus));
         };
 
         var setFocus = function (focus, hasOrder, markDirty) {
@@ -1136,6 +1174,15 @@
                 btn.classList.toggle('active', btn.getAttribute('data-focus') === focus);
             });
             showSub(focus, hasOrder);
+
+            if (!focusSupportsMembership(focus)) {
+                currentMembership = '';
+                membershipInput.value = '';
+                membershipButtons.forEach(function (btn) {
+                    var isActive = btn.getAttribute('data-membership-id') === '';
+                    btn.classList.toggle('active', isActive);
+                });
+            }
 
             if (!hasOrder) {
                 orderInput.value = '';
