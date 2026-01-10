@@ -30,8 +30,7 @@ class TrainerManagementController extends Controller
             'status'        => 'nullable|in:all,assigned,unassigned',
         ]);
         
-        $search = $request->name;
-        $search_column = $request->search_column;
+        $search = trim((string) $request->input('name', ''));
         $startDate = $request->input('start_date');
         $endDate   = $request->input('end_date');
         $statusFilter = $request->input('status', 'all');
@@ -40,18 +39,7 @@ class TrainerManagementController extends Controller
             $statusFilter = 'all';
         }
         
-        $allowed_columns = [
-            'id', 'user_code', 'name', 'phone_number', 'email', 'created_at',
-            'updated_at', 'created_by',
-        ];
-        
-        if (!in_array($search_column, $allowed_columns)) {
-            $search_column = null;
-        }
-        
         $current_time = Carbon::now();
-        $dateColumns = ['created_at', 'updated_at'];
-        $rangeColumn = in_array($search_column, $dateColumns, true) ? $search_column : 'created_at';
 
         $activeTrainerIds = Schedule::whereNotNull('trainer_id')
             ->where('class_end_date', '>=', $current_time)
@@ -72,29 +60,19 @@ class TrainerManagementController extends Controller
 
         $baseQuery = User::where('role_id', 5)
             ->with(['trainerSchedules.activeUserSchedules.user'])
-            ->when($search && $search_column, function ($query) use ($search, $search_column) {
-                if ($search_column === 'name') {
-                    return $query->where(function ($q) use ($search) {
-                        $q->where('first_name', 'like', "%{$search}%")
-                          ->orWhere('last_name', 'like', "%{$search}%");
-                    });
-                }
-
-                if (in_array($search_column, ['user_code', 'phone_number', 'email', 'created_by'], true)) {
-                    return $query->where($search_column, 'like', "%{$search}%");
-                }
-
-                return $query->where($search_column, 'like', "%{$search}%");
-            })
-            ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
+            ->when($startDate || $endDate, function ($query) use ($startDate, $endDate) {
                 if ($startDate) {
-                    $query->whereDate($rangeColumn, '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
+                    $query->whereDate('created_at', '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
                 }
 
                 if ($endDate) {
-                    $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
+                    $query->whereDate('created_at', '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
                 }
             });
+
+        if ($search !== '') {
+            $this->applyTrainerSearch($baseQuery, $search);
+        }
 
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
@@ -353,8 +331,7 @@ class TrainerManagementController extends Controller
             'status'        => 'nullable|in:all,assigned,unassigned',
         ]);
 
-        $search       = $request->input('name');
-        $searchColumn = $request->input('search_column');
+        $search       = trim((string) $request->input('name', ''));
         $startDate    = $request->input('created_start', $request->input('start_date'));
         $endDate      = $request->input('created_end', $request->input('end_date'));
         $statusFilter = $request->input('status', 'all');
@@ -362,14 +339,6 @@ class TrainerManagementController extends Controller
         if (empty($statusFilter)) {
             $statusFilter = 'all';
         }
-
-        $allowedColumns = ['id', 'user_code', 'name', 'phone_number', 'email', 'created_at', 'updated_at', 'created_by'];
-        if (!in_array($searchColumn, $allowedColumns, true)) {
-            $searchColumn = null;
-        }
-
-        $dateColumns = ['created_at', 'updated_at'];
-        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : null;
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
@@ -382,32 +351,18 @@ class TrainerManagementController extends Controller
             ->filter()
             ->values();
 
-        $trainers = User::where('role_id', 5)
-            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
-                if ($searchColumn === 'name') {
-                    return $query->where(function ($q) use ($search) {
-                        $q->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%");
-                    });
-                }
-
-                if (in_array($searchColumn, ['user_code', 'phone_number', 'email', 'created_by'], true)) {
-                    return $query->where($searchColumn, 'like', "%{$search}%");
-                }
-
-                return $query->where($searchColumn, 'like', "%{$search}%");
-            })
-            ->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
+        $trainersQuery = User::where('role_id', 5)
+            ->when($start || $end, function ($query) use ($start, $end) {
                 if ($start && $end) {
-                    return $query->whereBetween($rangeColumn, [$start, $end]);
+                    return $query->whereBetween('created_at', [$start, $end]);
                 }
 
                 if ($start) {
-                    return $query->whereDate($rangeColumn, '>=', $start->toDateString());
+                    return $query->whereDate('created_at', '>=', $start->toDateString());
                 }
 
                 if ($end) {
-                    return $query->whereDate($rangeColumn, '<=', $end->toDateString());
+                    return $query->whereDate('created_at', '<=', $end->toDateString());
                 }
 
                 return $query;
@@ -426,7 +381,13 @@ class TrainerManagementController extends Controller
                 }
 
                 return $query;
-            })
+            });
+
+        if ($search !== '') {
+            $this->applyTrainerSearch($trainersQuery, $search);
+        }
+
+        $trainers = $trainersQuery
             ->orderByDesc('created_at')
             ->get();
 
@@ -518,5 +479,51 @@ class TrainerManagementController extends Controller
         $writer->save($fullPath);
 
         return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    protected function applyTrainerSearch($query, string $search)
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = '%' . $search . '%';
+        $integerSearch = ctype_digit($search) ? (int) $search : null;
+
+        $parsedDate = null;
+        try {
+            $parsedDate = Carbon::parse($search)->toDateString();
+        } catch (\Exception $e) {
+            $parsedDate = null;
+        }
+
+        return $query->where(function ($query) use ($like, $integerSearch, $parsedDate) {
+            if ($integerSearch !== null) {
+                $query->orWhere('id', $integerSearch);
+            }
+
+            $query->orWhere('user_code', 'like', $like)
+                ->orWhere('phone_number', 'like', $like)
+                ->orWhere('email', 'like', $like)
+                ->orWhere('created_by', 'like', $like)
+                ->orWhere('created_at', 'like', $like)
+                ->orWhere('updated_at', 'like', $like);
+
+            $query->orWhere(function ($nameQuery) use ($like) {
+                $nameQuery->where('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhereRaw(
+                        "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                        [$like]
+                    );
+            });
+
+            if ($parsedDate) {
+                $query->orWhereDate('created_at', $parsedDate)
+                    ->orWhereDate('updated_at', $parsedDate);
+            }
+        });
     }
 }

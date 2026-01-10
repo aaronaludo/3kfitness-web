@@ -111,7 +111,7 @@
                                         class="form-control"
                                         id="reschedule-search"
                                         name="search"
-                                        placeholder="Class, trainer, notes, admin"
+                                        placeholder="Search #, class, trainer, code, schedule, series, admin"
                                         value="{{ $filters['search'] ?? '' }}"
                                     />
                                 </div>
@@ -266,7 +266,7 @@
             if (!form) return;
 
             const statusInput = document.getElementById('reschedule-history-status');
-            const chips = form.querySelectorAll('.reschedule-history-status-chip');
+            const chips = document.querySelectorAll('.reschedule-history-status-chip');
 
             chips.forEach(function (chip) {
                 chip.addEventListener('click', function () {

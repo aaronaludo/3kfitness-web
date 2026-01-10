@@ -29,7 +29,6 @@ class MembershipHistoryController extends Controller
             'status'        => $request->input('status', 'all'),
             'start_date'    => $request->input('start_date'),
             'end_date'      => $request->input('end_date'),
-            'search_column' => $request->input('search_column'),
         ];
 
         $statusMap = [
@@ -42,28 +41,6 @@ class MembershipHistoryController extends Controller
             $filters['status'] = 'all';
         }
 
-        $allowedSearchColumns = [
-            'id',
-            'member_name',
-            'member_code',
-            'member_email',
-            'member_phone',
-            'member_role',
-            'membership_name',
-            'price',
-            'status',
-            'purchased_at',
-            'expiration_at',
-        ];
-        if (!in_array($filters['search_column'], $allowedSearchColumns, true)) {
-            $filters['search_column'] = null;
-        }
-
-        $dateColumns = ['created_at', 'expiration_at'];
-        $rangeColumn = in_array($filters['search_column'], $dateColumns, true) ? $filters['search_column'] : 'created_at';
-        $startDateObj = $filters['start_date'] ? \Carbon\Carbon::createFromFormat('Y-m-d', $filters['start_date']) : null;
-        $endDateObj   = $filters['end_date'] ? \Carbon\Carbon::createFromFormat('Y-m-d', $filters['end_date']) : null;
-
         $baseQuery = MembershipPayment::with(['user.role', 'membership'])
             ->where('is_archive', 0);
 
@@ -72,122 +49,15 @@ class MembershipHistoryController extends Controller
         }
 
         if ($filters['search'] !== '') {
-            $like = '%' . $filters['search'] . '%';
-            $searchColumn = $filters['search_column'];
-            $searchTerm = $filters['search'];
-
-            if ($searchColumn === 'id') {
-                $baseQuery->where('id', $searchTerm);
-            } elseif ($searchColumn === 'member_name') {
-                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
-                    $userQuery->where(function ($nameQuery) use ($like) {
-                        $nameQuery->whereRaw(
-                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                            [$like]
-                        )
-                        ->orWhere('first_name', 'like', $like)
-                        ->orWhere('last_name', 'like', $like);
-                    });
-                });
-            } elseif ($searchColumn === 'member_code') {
-                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
-                    $userQuery->where('user_code', 'like', $like);
-                });
-            } elseif ($searchColumn === 'member_email') {
-                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
-                    $userQuery->where('email', 'like', $like);
-                });
-            } elseif ($searchColumn === 'member_phone') {
-                $baseQuery->whereHas('user', function ($userQuery) use ($like) {
-                    $userQuery->where('phone_number', 'like', $like);
-                });
-            } elseif ($searchColumn === 'member_role') {
-                $baseQuery->whereHas('user.role', function ($roleQuery) use ($like) {
-                    $roleQuery->where('name', 'like', $like);
-                });
-            } elseif ($searchColumn === 'membership_name') {
-                $baseQuery->whereHas('membership', function ($membershipQuery) use ($like) {
-                    $membershipQuery->where('name', 'like', $like);
-                });
-            } elseif ($searchColumn === 'price') {
-                $baseQuery->where('total_price', 'like', $like)
-                    ->orWhereHas('membership', function ($membershipQuery) use ($like) {
-                        $membershipQuery->where('price', 'like', $like);
-                    });
-            } elseif ($searchColumn === 'status') {
-                $normalizedStatus = strtolower(trim($searchTerm));
-                $statusValue = $statusMap[$normalizedStatus] ?? null;
-                if (!is_null($statusValue)) {
-                    $baseQuery->where('isapproved', $statusValue);
-                } elseif (is_numeric($searchTerm)) {
-                    $baseQuery->where('isapproved', (int) $searchTerm);
-                }
-            } elseif ($searchColumn === 'purchased_at') {
-                $parsed = null;
-                try {
-                    $parsed = \Carbon\Carbon::parse($searchTerm)->toDateString();
-                } catch (\Exception $e) {
-                    $parsed = null;
-                }
-                if ($parsed) {
-                    $baseQuery->whereDate('created_at', $parsed);
-                } else {
-                    $baseQuery->where('created_at', 'like', $like);
-                }
-            } elseif ($searchColumn === 'expiration_at') {
-                $parsed = null;
-                try {
-                    $parsed = \Carbon\Carbon::parse($searchTerm)->toDateString();
-                } catch (\Exception $e) {
-                    $parsed = null;
-                }
-                if ($parsed) {
-                    $baseQuery->whereDate('expiration_at', $parsed);
-                } else {
-                    $baseQuery->where('expiration_at', 'like', $like);
-                }
-            } else {
-                $baseQuery->where(function ($query) use ($like) {
-                    $query
-                        ->whereHas('user', function ($userQuery) use ($like) {
-                            $userQuery->where(function ($nameQuery) use ($like) {
-                                $nameQuery->whereRaw(
-                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                    [$like]
-                                )
-                                ->orWhere('first_name', 'like', $like)
-                                ->orWhere('last_name', 'like', $like)
-                                ->orWhere('email', 'like', $like)
-                                ->orWhere('phone_number', 'like', $like);
-                            });
-                        })
-                        ->orWhereHas('membership', function ($membershipQuery) use ($like) {
-                            $membershipQuery->where('name', 'like', $like);
-                        })
-                        ->orWhere('id', 'like', $like);
-                });
-            }
+            $this->applyMembershipHistorySearch($baseQuery, $filters['search']);
         }
 
-        if ($startDateObj || $endDateObj) {
-            $start = $startDateObj ? $startDateObj->toDateString() : null;
-            $end = $endDateObj ? $endDateObj->toDateString() : null;
+        if ($filters['start_date']) {
+            $baseQuery->whereDate('created_at', '>=', $filters['start_date']);
+        }
 
-            if ($rangeColumn === 'expiration_at') {
-                if ($start) {
-                    $baseQuery->whereDate('expiration_at', '>=', $start);
-                }
-                if ($end) {
-                    $baseQuery->whereDate('expiration_at', '<=', $end);
-                }
-            } else {
-                if ($start) {
-                    $baseQuery->whereDate('created_at', '>=', $start);
-                }
-                if ($end) {
-                    $baseQuery->whereDate('created_at', '<=', $end);
-                }
-            }
+        if ($filters['end_date']) {
+            $baseQuery->whereDate('created_at', '<=', $filters['end_date']);
         }
 
         $statusTallies = [
@@ -248,7 +118,6 @@ class MembershipHistoryController extends Controller
             'status'        => $request->input('status', 'all'),
             'start_date'    => $request->input('start_date'),
             'end_date'      => $request->input('end_date'),
-            'search_column' => $request->input('search_column'),
         ];
 
         $statusMap = [
@@ -261,28 +130,6 @@ class MembershipHistoryController extends Controller
             $filters['status'] = 'all';
         }
 
-        $allowedSearchColumns = [
-            'id',
-            'member_name',
-            'member_code',
-            'member_email',
-            'member_phone',
-            'member_role',
-            'membership_name',
-            'price',
-            'status',
-            'purchased_at',
-            'expiration_at',
-        ];
-        if (!in_array($filters['search_column'], $allowedSearchColumns, true)) {
-            $filters['search_column'] = null;
-        }
-
-        $dateColumns = ['created_at', 'expiration_at'];
-        $rangeColumn = in_array($filters['search_column'], $dateColumns, true) ? $filters['search_column'] : 'created_at';
-        $startDateObj = $filters['start_date'] ? \Carbon\Carbon::createFromFormat('Y-m-d', $filters['start_date']) : null;
-        $endDateObj   = $filters['end_date'] ? \Carbon\Carbon::createFromFormat('Y-m-d', $filters['end_date']) : null;
-
         $query = MembershipPayment::with(['user.role', 'membership'])
             ->where('is_archive', 0);
 
@@ -291,122 +138,15 @@ class MembershipHistoryController extends Controller
         }
 
         if ($filters['search'] !== '') {
-            $like = '%' . $filters['search'] . '%';
-            $searchColumn = $filters['search_column'];
-            $searchTerm = $filters['search'];
-
-            if ($searchColumn === 'id') {
-                $query->where('id', $searchTerm);
-            } elseif ($searchColumn === 'member_name') {
-                $query->whereHas('user', function ($userQuery) use ($like) {
-                    $userQuery->where(function ($nameQuery) use ($like) {
-                        $nameQuery->whereRaw(
-                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                            [$like]
-                        )
-                        ->orWhere('first_name', 'like', $like)
-                        ->orWhere('last_name', 'like', $like);
-                    });
-                });
-            } elseif ($searchColumn === 'member_code') {
-                $query->whereHas('user', function ($userQuery) use ($like) {
-                    $userQuery->where('user_code', 'like', $like);
-                });
-            } elseif ($searchColumn === 'member_email') {
-                $query->whereHas('user', function ($userQuery) use ($like) {
-                    $userQuery->where('email', 'like', $like);
-                });
-            } elseif ($searchColumn === 'member_phone') {
-                $query->whereHas('user', function ($userQuery) use ($like) {
-                    $userQuery->where('phone_number', 'like', $like);
-                });
-            } elseif ($searchColumn === 'member_role') {
-                $query->whereHas('user.role', function ($roleQuery) use ($like) {
-                    $roleQuery->where('name', 'like', $like);
-                });
-            } elseif ($searchColumn === 'membership_name') {
-                $query->whereHas('membership', function ($membershipQuery) use ($like) {
-                    $membershipQuery->where('name', 'like', $like);
-                });
-            } elseif ($searchColumn === 'price') {
-                $query->where('total_price', 'like', $like)
-                    ->orWhereHas('membership', function ($membershipQuery) use ($like) {
-                        $membershipQuery->where('price', 'like', $like);
-                    });
-            } elseif ($searchColumn === 'status') {
-                $normalizedStatus = strtolower(trim($searchTerm));
-                $statusValue = $statusMap[$normalizedStatus] ?? null;
-                if (!is_null($statusValue)) {
-                    $query->where('isapproved', $statusValue);
-                } elseif (is_numeric($searchTerm)) {
-                    $query->where('isapproved', (int) $searchTerm);
-                }
-            } elseif ($searchColumn === 'purchased_at') {
-                $parsed = null;
-                try {
-                    $parsed = \Carbon\Carbon::parse($searchTerm)->toDateString();
-                } catch (\Exception $e) {
-                    $parsed = null;
-                }
-                if ($parsed) {
-                    $query->whereDate('created_at', $parsed);
-                } else {
-                    $query->where('created_at', 'like', $like);
-                }
-            } elseif ($searchColumn === 'expiration_at') {
-                $parsed = null;
-                try {
-                    $parsed = \Carbon\Carbon::parse($searchTerm)->toDateString();
-                } catch (\Exception $e) {
-                    $parsed = null;
-                }
-                if ($parsed) {
-                    $query->whereDate('expiration_at', $parsed);
-                } else {
-                    $query->where('expiration_at', 'like', $like);
-                }
-            } else {
-                $query->where(function ($builder) use ($like) {
-                    $builder
-                        ->whereHas('user', function ($userQuery) use ($like) {
-                            $userQuery->where(function ($nameQuery) use ($like) {
-                                $nameQuery->whereRaw(
-                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                    [$like]
-                                )
-                                ->orWhere('first_name', 'like', $like)
-                                ->orWhere('last_name', 'like', $like)
-                                ->orWhere('email', 'like', $like)
-                                ->orWhere('phone_number', 'like', $like);
-                            });
-                        })
-                        ->orWhereHas('membership', function ($membershipQuery) use ($like) {
-                            $membershipQuery->where('name', 'like', $like);
-                        })
-                        ->orWhere('id', 'like', $like);
-                });
-            }
+            $this->applyMembershipHistorySearch($query, $filters['search']);
         }
 
-        if ($startDateObj || $endDateObj) {
-            $start = $startDateObj ? $startDateObj->toDateString() : null;
-            $end = $endDateObj ? $endDateObj->toDateString() : null;
+        if ($filters['start_date']) {
+            $query->whereDate('created_at', '>=', $filters['start_date']);
+        }
 
-            if ($rangeColumn === 'expiration_at') {
-                if ($start) {
-                    $query->whereDate('expiration_at', '>=', $start);
-                }
-                if ($end) {
-                    $query->whereDate('expiration_at', '<=', $end);
-                }
-            } else {
-                if ($start) {
-                    $query->whereDate('created_at', '>=', $start);
-                }
-                if ($end) {
-                    $query->whereDate('created_at', '<=', $end);
-                }
-            }
+        if ($filters['end_date']) {
+            $query->whereDate('created_at', '<=', $filters['end_date']);
         }
 
         if ($filters['status'] !== 'all') {
@@ -447,11 +187,7 @@ class MembershipHistoryController extends Controller
 
         $filterSummary = [];
         if ($filters['search'] !== '') {
-            $searchSummary = "Search='{$filters['search']}'";
-            if ($filters['search_column']) {
-                $searchSummary .= " (By={$filters['search_column']})";
-            }
-            $filterSummary[] = $searchSummary;
+            $filterSummary[] = "Search='{$filters['search']}'";
         }
         if ($filters['membership_id']) {
             $membership = Membership::find($filters['membership_id']);
@@ -535,5 +271,77 @@ class MembershipHistoryController extends Controller
         $writer->save($fullPath);
 
         return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    protected function applyMembershipHistorySearch($query, string $search)
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = '%' . $search . '%';
+        $lowerSearch = strtolower($search);
+        $integerSearch = ctype_digit($search) ? (int) $search : null;
+        $hasTotalPrice = \Illuminate\Support\Facades\Schema::hasColumn('membership_payments', 'total_price');
+
+        $parsedDate = null;
+        try {
+            $parsedDate = \Carbon\Carbon::parse($search)->toDateString();
+        } catch (\Exception $e) {
+            $parsedDate = null;
+        }
+
+        return $query->where(function ($query) use ($like, $lowerSearch, $integerSearch, $hasTotalPrice, $parsedDate) {
+            if ($integerSearch !== null) {
+                $query->orWhere('id', $integerSearch);
+            }
+
+            if ($hasTotalPrice) {
+                $query->orWhere('total_price', 'like', $like);
+            }
+
+            $query->orWhere('created_at', 'like', $like)
+                ->orWhere('expiration_at', 'like', $like);
+
+            if ($parsedDate) {
+                $query->orWhereDate('created_at', $parsedDate)
+                    ->orWhereDate('expiration_at', $parsedDate);
+            }
+
+            $query->orWhereHas('user', function ($userQuery) use ($like) {
+                $userQuery->where(function ($nameQuery) use ($like) {
+                    $nameQuery->whereRaw(
+                        "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                        [$like]
+                    )
+                    ->orWhere('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('user_code', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhere('phone_number', 'like', $like);
+                });
+            });
+
+            $query->orWhereHas('user.role', function ($roleQuery) use ($like) {
+                $roleQuery->where('name', 'like', $like);
+            });
+
+            $query->orWhereHas('membership', function ($membershipQuery) use ($like) {
+                $membershipQuery->where('name', 'like', $like)
+                    ->orWhere('price', 'like', $like);
+            });
+
+            if (strpos($lowerSearch, 'pending') !== false) {
+                $query->orWhere('isapproved', 0);
+            }
+            if (strpos($lowerSearch, 'approved') !== false) {
+                $query->orWhere('isapproved', 1);
+            }
+            if (strpos($lowerSearch, 'rejected') !== false) {
+                $query->orWhere('isapproved', 2);
+            }
+        });
     }
 }

@@ -30,6 +30,7 @@ class MemberDataController extends Controller
         ]);
         
         $search        = $request->input('name');
+        $hasSearch     = $request->filled('name');
         $searchColumn  = $request->input('search_column');
         $startDate     = $request->input('start_date');
         $endDate       = $request->input('end_date');
@@ -88,46 +89,8 @@ class MemberDataController extends Controller
                 },
                 'membershipPayments.membership',
             ])
-            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn, $current_time, $hasPaymentArchiveColumn) {
-                if ($searchColumn === 'name') {
-                    return $query->where(function ($q) use ($search) {
-                        $q->where('first_name', 'like', "%{$search}%")
-                          ->orWhere('last_name', 'like', "%{$search}%");
-                    });
-                }
-
-                if ($searchColumn === 'membership_name') {
-                    return $query->whereHas('membershipPayments', function ($q) use ($search, $current_time, $hasPaymentArchiveColumn) {
-                        $q->where('isapproved', 1)
-                            ->where('expiration_at', '>=', $current_time)
-                            ->whereHas('membership', function ($membershipQuery) use ($search) {
-                                $membershipQuery->where('name', 'like', "%{$search}%");
-                            });
-
-                        if ($hasPaymentArchiveColumn) {
-                            $q->where('is_archive', 0);
-                        }
-                    });
-                }
-
-                if ($searchColumn === 'expiration_at') {
-                    return $query->whereHas('membershipPayments', function ($q) use ($search, $current_time, $hasPaymentArchiveColumn) {
-                        $q->where('isapproved', 1)
-                            ->where('expiration_at', '>=', $current_time)
-                            ->where('expiration_at', 'like', "%{$search}%");
-
-                        if ($hasPaymentArchiveColumn) {
-                            $q->where('is_archive', 0);
-                        }
-                    });
-                }
-
-                $exactColumns = ['id', 'user_code'];
-                if (in_array($searchColumn, $exactColumns, true)) {
-                    return $query->where($searchColumn, $search);
-                }
-
-                return $query->where($searchColumn, 'like', "%{$search}%");
+            ->when($hasSearch, function ($query) use ($search, $current_time, $hasPaymentArchiveColumn) {
+                return $this->applyMemberSearch($query, $search, $current_time, $hasPaymentArchiveColumn);
             })
             ->when($startDateObj || $endDateObj, function ($query) use ($startDateObj, $endDateObj, $rangeColumn, $current_time, $hasPaymentArchiveColumn) {
                 $start = $startDateObj ? $startDateObj->toDateString() : null;
@@ -562,6 +525,7 @@ class MemberDataController extends Controller
         $startInput   = $request->input('created_start');
         $endInput     = $request->input('created_end');
         $search       = $request->input('name');
+        $hasSearch    = $request->filled('name');
         $searchColumn = $request->input('search_column');
         $membershipStatus = $request->input('membership_status', 'all');
 
@@ -606,46 +570,8 @@ class MemberDataController extends Controller
                 },
                 'membershipPayments.membership',
             ])
-            ->when($search && $searchColumn, function ($q) use ($search, $searchColumn, $now, $hasPaymentArchiveColumn) {
-                if ($searchColumn === 'name') {
-                    return $q->where(function ($inner) use ($search) {
-                        $inner->where('first_name', 'like', "%{$search}%")
-                            ->orWhere('last_name', 'like', "%{$search}%");
-                    });
-                }
-
-                if ($searchColumn === 'membership_name') {
-                    return $q->whereHas('membershipPayments', function ($inner) use ($search, $now, $hasPaymentArchiveColumn) {
-                        $inner->where('isapproved', 1)
-                            ->where('expiration_at', '>=', $now)
-                            ->whereHas('membership', function ($membershipQuery) use ($search) {
-                                $membershipQuery->where('name', 'like', "%{$search}%");
-                            });
-
-                        if ($hasPaymentArchiveColumn) {
-                            $inner->where('is_archive', 0);
-                        }
-                    });
-                }
-
-                if ($searchColumn === 'expiration_at') {
-                    return $q->whereHas('membershipPayments', function ($inner) use ($search, $now, $hasPaymentArchiveColumn) {
-                        $inner->where('isapproved', 1)
-                            ->where('expiration_at', '>=', $now)
-                            ->where('expiration_at', 'like', "%{$search}%");
-
-                        if ($hasPaymentArchiveColumn) {
-                            $inner->where('is_archive', 0);
-                        }
-                    });
-                }
-
-                $exactColumns = ['id', 'user_code'];
-                if (in_array($searchColumn, $exactColumns, true)) {
-                    return $q->where($searchColumn, $search);
-                }
-
-                return $q->where($searchColumn, 'like', "%{$search}%");
+            ->when($hasSearch, function ($q) use ($search, $now, $hasPaymentArchiveColumn) {
+                return $this->applyMemberSearch($q, $search, $now, $hasPaymentArchiveColumn);
             })
             ->when($start || $end, function ($q) use ($start, $end, $rangeColumn, $now, $hasPaymentArchiveColumn) {
                 if ($rangeColumn === 'expiration_at') {
@@ -784,6 +710,80 @@ class MemberDataController extends Controller
         $writer->save($fullPath);
 
         return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    /**
+     * Apply the all-in-one search across member list columns.
+     */
+    private function applyMemberSearch($query, string $search, Carbon $currentTime, bool $hasPaymentArchiveColumn)
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = '%' . $search . '%';
+        $lowerSearch = strtolower($search);
+        $numericSearch = is_numeric($search) ? (int) $search : null;
+        $applyActiveMembershipScope = function ($membershipQuery) use ($currentTime, $hasPaymentArchiveColumn) {
+            $membershipQuery->where('isapproved', 1)
+                ->where('expiration_at', '>=', $currentTime);
+
+            if ($hasPaymentArchiveColumn) {
+                $membershipQuery->where('is_archive', 0);
+            }
+        };
+
+        return $query->where(function ($query) use ($like, $lowerSearch, $numericSearch, $applyActiveMembershipScope) {
+            if ($numericSearch !== null) {
+                $query->orWhere('id', $numericSearch);
+            }
+
+            $query->orWhere('user_code', 'like', $like)
+                ->orWhere('first_name', 'like', $like)
+                ->orWhere('last_name', 'like', $like)
+                ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", [$like])
+                ->orWhere('phone_number', 'like', $like)
+                ->orWhere('email', 'like', $like)
+                ->orWhere('created_at', 'like', $like)
+                ->orWhere('updated_at', 'like', $like);
+
+            $query->orWhereHas('membershipPayments', function ($membershipQuery) use ($like, $applyActiveMembershipScope) {
+                $applyActiveMembershipScope($membershipQuery);
+
+                $membershipQuery->where(function ($inner) use ($like) {
+                    $inner->where('expiration_at', 'like', $like)
+                        ->orWhere('created_by', 'like', $like)
+                        ->orWhereHas('membership', function ($membershipQuery) use ($like) {
+                            $membershipQuery->where('name', 'like', $like);
+                        });
+                });
+            });
+
+            if (
+                strpos($lowerSearch, 'no membership') !== false
+                || strpos($lowerSearch, 'no active') !== false
+                || strpos($lowerSearch, 'none') !== false
+                || strpos($lowerSearch, 'without') !== false
+            ) {
+                $query->orWhereDoesntHave('membershipPayments', function ($membershipQuery) use ($applyActiveMembershipScope) {
+                    $applyActiveMembershipScope($membershipQuery);
+                });
+            }
+
+            if (strpos($lowerSearch, 'active') !== false || strpos($lowerSearch, 'with membership') !== false) {
+                $query->orWhereHas('membershipPayments', function ($membershipQuery) use ($applyActiveMembershipScope) {
+                    $applyActiveMembershipScope($membershipQuery);
+                });
+            }
+
+            if (strpos($lowerSearch, 'pending') !== false) {
+                $query->orWhereDoesntHave('membershipPayments', function ($membershipQuery) use ($applyActiveMembershipScope) {
+                    $applyActiveMembershipScope($membershipQuery);
+                });
+            }
+        });
     }
 
     protected function storeCapturedImage(?string $dataUri, string $destinationPath): ?string

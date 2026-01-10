@@ -11,8 +11,8 @@
                 'completed' => ['label' => 'Completed', 'class' => 'bg-success'],
             ];
             $showArchived = $filters['show_archived'] ?? false;
-            $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['role_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'completed' || $showArchived || ($filters['search_column'] ?? null);
-            $advancedFiltersOpen = ($filters['search_column'] ?? null) || ($filters['role_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'completed';
+            $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['role_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'completed' || $showArchived;
+            $advancedFiltersOpen = ($filters['role_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'completed';
 
             $printItems = collect($attendances->items())->map(function ($attendance) {
                 $person = $attendance->user;
@@ -68,7 +68,6 @@
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'role_id' => $filters['role_id'] ?? null,
-                    'search_column' => $filters['search_column'] ?? null,
                     'status' => $filters['status'] ?? null,
                     'start' => $filters['start_date'] ?? null,
                     'end' => $filters['end_date'] ?? null,
@@ -84,7 +83,6 @@
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'role_id' => $filters['role_id'] ?? null,
-                    'search_column' => $filters['search_column'] ?? null,
                     'status' => $filters['status'] ?? null,
                     'start' => $filters['start_date'] ?? null,
                     'end' => $filters['end_date'] ?? null,
@@ -107,7 +105,6 @@
                         @csrf
                         <input type="hidden" name="search" value="{{ $filters['search'] ?? '' }}">
                         <input type="hidden" name="role_id" value="{{ $filters['role_id'] ?? '' }}">
-                        <input type="hidden" name="search_column" value="{{ $filters['search_column'] ?? '' }}">
                         <input type="hidden" name="start_date" value="{{ $filters['start_date'] ?? '' }}">
                         <input type="hidden" name="end_date" value="{{ $filters['end_date'] ?? '' }}">
                         <input type="hidden" name="status" value="{{ $filters['status'] ?? '' }}">
@@ -270,23 +267,6 @@
                                                         <option value="all" {{ $activeStatus === 'all' ? 'selected' : '' }}>All</option>
                                                         <option value="completed" {{ $activeStatus === 'completed' ? 'selected' : '' }}>Completed</option>
                                                         <option value="open" {{ $activeStatus === 'open' ? 'selected' : '' }}>Open</option>
-                                                    </select>
-                                                </div>
-
-                                                <div>
-                                                    <label for="attendance-search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
-                                                    <select id="attendance-search-column" name="search_column" class="form-select rounded-3">
-                                                        <option value="" disabled {{ ($filters['search_column'] ?? '') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ ($filters['search_column'] ?? '') === 'id' ? 'selected' : '' }}>#</option>
-                                                        <option value="name" {{ ($filters['search_column'] ?? '') === 'name' ? 'selected' : '' }}>Name</option>
-                                                        <option value="user_code" {{ ($filters['search_column'] ?? '') === 'user_code' ? 'selected' : '' }}>User Code</option>
-                                                        <option value="role" {{ ($filters['search_column'] ?? '') === 'role' ? 'selected' : '' }}>Role</option>
-                                                        <option value="email" {{ ($filters['search_column'] ?? '') === 'email' ? 'selected' : '' }}>Email</option>
-                                                        <option value="phone_number" {{ ($filters['search_column'] ?? '') === 'phone_number' ? 'selected' : '' }}>Phone Number</option>
-                                                        <option value="clockin_at" {{ ($filters['search_column'] ?? '') === 'clockin_at' ? 'selected' : '' }}>Clock-in</option>
-                                                        <option value="clockout_at" {{ ($filters['search_column'] ?? '') === 'clockout_at' ? 'selected' : '' }}>Clock-out</option>
-                                                        <option value="status" {{ ($filters['search_column'] ?? '') === 'status' ? 'selected' : '' }}>Status</option>
-                                                        <option value="archive" {{ ($filters['search_column'] ?? '') === 'archive' ? 'selected' : '' }}>Archive</option>
                                                     </select>
                                                 </div>
 
@@ -463,8 +443,7 @@
             function buildFilters(filters) {
                 const chips = [];
                 if (filters.search) {
-                    const searchLabel = filters.search_column ? `${filters.search} (${filters.search_column})` : filters.search;
-                    chips.push({ label: 'Search', value: searchLabel });
+                    chips.push({ label: 'Search', value: filters.search });
                 }
                 if (filters.role_id) chips.push({ label: 'Role ID', value: filters.role_id });
                 if (filters.status && filters.status !== 'all') chips.push({ label: 'Status', value: filters.status });

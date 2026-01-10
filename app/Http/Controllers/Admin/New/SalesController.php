@@ -649,15 +649,37 @@ class SalesController extends Controller
         }
 
         if ($search) {
-            $paymentsQuery->where(function ($query) use ($search) {
+            $like = '%' . $search . '%';
+            $integerSearch = ctype_digit($search) ? (int) $search : null;
+            $parsedDate = null;
+            try {
+                $parsedDate = Carbon::parse($search)->toDateString();
+            } catch (\Exception $e) {
+                $parsedDate = null;
+            }
+
+            $paymentsQuery->where(function ($query) use ($like, $integerSearch, $parsedDate) {
                 $query
-                    ->whereHas('user', function ($sub) use ($search) {
-                        $sub->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                            ->orWhere('user_code', 'like', "%{$search}%");
+                    ->whereHas('user', function ($sub) use ($like) {
+                        $sub->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
+                            ->orWhere('user_code', 'like', $like)
+                            ->orWhere('email', 'like', $like)
+                            ->orWhere('phone_number', 'like', $like);
                     })
-                    ->orWhereHas('membership', function ($sub) use ($search) {
-                        $sub->where('name', 'like', "%{$search}%");
+                    ->orWhereHas('membership', function ($sub) use ($like) {
+                        $sub->where('name', 'like', $like)
+                            ->orWhere('price', 'like', $like);
                     });
+
+                if (!is_null($integerSearch)) {
+                    $query->orWhere('id', $integerSearch)
+                        ->orWhere('user_id', $integerSearch)
+                        ->orWhere('membership_id', $integerSearch);
+                }
+
+                if ($parsedDate) {
+                    $query->orWhereDate('created_at', $parsedDate);
+                }
             });
         }
 
@@ -685,9 +707,32 @@ class SalesController extends Controller
             ->whereBetween(DB::raw('COALESCE(processed_at, created_at)'), [$start, $end]);
 
         if ($search) {
-            $payrollBase->whereHas('user', function ($query) use ($search) {
-                $query->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                    ->orWhere('user_code', 'like', "%{$search}%");
+            $like = '%' . $search . '%';
+            $integerSearch = ctype_digit($search) ? (int) $search : null;
+            $parsedDate = null;
+            try {
+                $parsedDate = Carbon::parse($search)->toDateString();
+            } catch (\Exception $e) {
+                $parsedDate = null;
+            }
+
+            $payrollBase->where(function ($query) use ($like, $integerSearch, $parsedDate) {
+                $query->whereHas('user', function ($sub) use ($like) {
+                    $sub->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
+                        ->orWhere('user_code', 'like', $like)
+                        ->orWhere('email', 'like', $like)
+                        ->orWhere('phone_number', 'like', $like);
+                });
+
+                if (!is_null($integerSearch)) {
+                    $query->orWhere('id', $integerSearch)
+                        ->orWhere('user_id', $integerSearch);
+                }
+
+                if ($parsedDate) {
+                    $query->orWhereDate('processed_at', $parsedDate)
+                        ->orWhereDate('created_at', $parsedDate);
+                }
             });
         }
 

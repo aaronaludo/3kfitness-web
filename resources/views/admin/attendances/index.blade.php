@@ -59,7 +59,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name'),
-                        'search_column' => request('search_column'),
                         'status' => request('status', 'all') ?: 'all',
                         'start' => request('start_date'),
                         'end' => request('end_date'),
@@ -74,7 +73,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name'),
-                        'search_column' => request('search_column'),
                         'status' => request('status', 'all') ?: 'all',
                         'start' => request('start_date'),
                         'end' => request('end_date'),
@@ -94,7 +92,6 @@
                         <input type="hidden" name="created_start" value="{{ request('start_date') }}">
                         <input type="hidden" name="created_end" value="{{ request('end_date') }}">
                         <input type="hidden" name="name" value="{{ request('name') }}">
-                        <input type="hidden" name="search_column" value="{{ request('search_column') }}">
                         <input type="hidden" name="status" value="{{ request('status', 'all') }}">
                         <button
                             class="btn btn-danger ms-2"
@@ -172,7 +169,7 @@
                         'count' => $statusTallies['completed'] ?? null,
                     ],
                 ];
-                $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
+                $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
             @endphp
 
             <div class="col-12 mb-20 mt-3">
@@ -225,7 +222,7 @@
                                                 type="search"
                                                 class="form-control rounded-pill ps-5"
                                                 name="name"
-                                                placeholder="Search by member or role"
+                                                placeholder="Search name, role, code, email"
                                                 value="{{ request('name') }}"
                                                 aria-label="Search attendances"
                                             />
@@ -273,23 +270,6 @@
                                                     </div>
                                                 </div>
 
-                                                <div>
-                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
-                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
-                                                        <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
-                                                        <option value="role" {{ request('search_column') == 'role' ? 'selected' : '' }}>Role</option>
-                                                        <option value="role_name" {{ request('search_column') == 'role_name' ? 'selected' : '' }}>Role Name</option>
-                                                        <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
-                                                        <option value="user_code" {{ request('search_column') == 'user_code' ? 'selected' : '' }}>User Code</option>
-                                                        <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>
-                                                        <option value="phone_number" {{ request('search_column') == 'phone_number' ? 'selected' : '' }}>Phone Number</option>
-                                                        <option value="clockin_at" {{ request('search_column') == 'clockin_at' ? 'selected' : '' }}>Clock In Date</option>
-                                                        <option value="clockout_at" {{ request('search_column') == 'clockout_at' ? 'selected' : '' }}>Clock Out Date</option>
-                                                        <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                                        <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                                    </select>
-                                                </div>
 
                                                 <div>
                                                     <span class="form-label text-muted text-uppercase small d-block mb-2">Date range</span>
@@ -954,7 +934,7 @@
                 if (filters.search) {
                     chips.push({
                         label: 'Search',
-                        value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                        value: filters.search,
                     });
                 }
                 if (filters.start || filters.end) {

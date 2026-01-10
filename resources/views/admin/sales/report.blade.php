@@ -539,7 +539,7 @@
                     <span class="d-block text-muted small">Range {{ $rangeLabel }}</span>
                 </div>
             </div>
-            <form action="{{ route('admin.sales.report') }}" method="GET" class="row g-2 align-items-end">
+            <form action="{{ route('admin.sales.report') }}" method="GET" class="row g-2 align-items-end" id="sales-report-form">
                 <div class="col-12 col-lg-5">
                     <label for="search" class="form-label">Search for all</label>
                     <div class="position-relative">
@@ -549,7 +549,7 @@
                             id="search"
                             name="search"
                             class="form-control search-input"
-                            placeholder="Members, trainers, staff, memberships"
+                            placeholder="Members, trainers, staff, codes, memberships, dates"
                             value="{{ $searchTerm }}"
                         />
                     </div>
@@ -646,7 +646,8 @@
                 <div class="col-12 col-lg-auto d-flex gap-2">
                     <a href="{{ route('admin.sales.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
                     <button type="submit" class="btn btn-danger px-3 d-flex align-items-center gap-2">
-                        <i class="fa-solid fa-filter me-2"></i>Apply filters
+                        <i class="fa-solid fa-filter"></i>
+                        Apply
                     </button>
                 </div>
             </form>

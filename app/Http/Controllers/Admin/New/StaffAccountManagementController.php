@@ -25,24 +25,13 @@ class StaffAccountManagementController extends Controller
             'payroll_status'  => 'nullable|in:all,with-payrolls,no-payrolls',
         ]);
 
-        $keyword      = $request->input('name');
-        $searchColumn = $request->input('search_column');
+        $keyword      = trim((string) $request->input('name', ''));
         $startDate    = $request->input('start_date');
         $endDate      = $request->input('end_date');
         $payrollStatus = $request->input('payroll_status', 'all');
         if (empty($payrollStatus)) {
             $payrollStatus = 'all';
         }
-
-        $allowedColumns = [
-            'id', 'user_code', 'name', 'email', 'role_id', 'role_name', 'phone_number', 'created_at', 'updated_at', 'created_by',
-        ];
-        if (!in_array($searchColumn, $allowedColumns, true)) {
-            $searchColumn = null;
-        }
-
-        $dateColumns = ['created_at', 'updated_at'];
-        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
 
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : null;
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
@@ -56,7 +45,7 @@ class StaffAccountManagementController extends Controller
             'no-payrolls'   => max($totalStaff - $withPayrollsCount, 0),
         ];
 
-        $baseQuery = $this->buildStaffQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $payrollStatus);
+        $baseQuery = $this->buildStaffQuery($keyword, $start, $end, $payrollStatus);
 
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
@@ -339,8 +328,7 @@ class StaffAccountManagementController extends Controller
 
         $startInput   = $request->input('created_start');
         $endInput     = $request->input('created_end');
-        $keyword      = $request->input('name');
-        $searchColumn = $request->input('search_column');
+        $keyword      = trim((string) $request->input('name', ''));
         $payrollStatus = $request->input('payroll_status', 'all');
 
         if (empty($payrollStatus)) {
@@ -356,17 +344,7 @@ class StaffAccountManagementController extends Controller
             $start = Carbon::createFromTimestamp(0)->startOfDay();
         }
 
-        $allowedColumns = [
-            'id', 'user_code', 'name', 'email', 'role_id', 'role_name', 'phone_number', 'created_at', 'updated_at', 'created_by',
-        ];
-        if (!in_array($searchColumn, $allowedColumns, true)) {
-            $searchColumn = null;
-        }
-
-        $dateColumns = ['created_at', 'updated_at'];
-        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'created_at';
-
-        $query = $this->buildStaffQuery($keyword, $searchColumn, $start, $end, $rangeColumn, $payrollStatus)
+        $query = $this->buildStaffQuery($keyword, $start, $end, $payrollStatus)
             ->where('is_archive', 0);
         $data  = $query->get();
 
@@ -448,51 +426,64 @@ class StaffAccountManagementController extends Controller
         return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
     }
 
-    protected function buildStaffQuery(?string $keyword, ?string $searchColumn, ?Carbon $start, ?Carbon $end, string $rangeColumn, string $payrollStatus = 'all')
+    protected function buildStaffQuery(?string $keyword, ?Carbon $start, ?Carbon $end, string $payrollStatus = 'all')
     {
         $query = User::where('role_id', 2)
             ->with(['role', 'payrolls'])
             ->withCount('payrolls')
             ->orderBy('created_at', 'desc');
 
-        if ($keyword && !$searchColumn) {
-            $searchColumn = 'name';
+        if (!empty($keyword)) {
+            $like = '%' . $keyword . '%';
+            $integerSearch = ctype_digit($keyword) ? (int) $keyword : null;
+            $parsedDate = null;
+            try {
+                $parsedDate = Carbon::parse($keyword)->toDateString();
+            } catch (\Exception $e) {
+                $parsedDate = null;
+            }
+
+            $query->where(function ($query) use ($like, $integerSearch, $parsedDate) {
+                if (!is_null($integerSearch)) {
+                    $query->orWhere('id', $integerSearch);
+                }
+
+                $query->orWhere('user_code', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhere('phone_number', 'like', $like)
+                    ->orWhere('created_by', 'like', $like)
+                    ->orWhere('created_at', 'like', $like)
+                    ->orWhere('updated_at', 'like', $like);
+
+                $query->orWhere(function ($nameQuery) use ($like) {
+                    $nameQuery->where('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhereRaw(
+                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                            [$like]
+                        );
+                });
+
+                $query->orWhereHas('role', function ($roleQuery) use ($like) {
+                    $roleQuery->where('name', 'like', $like);
+                });
+
+                if ($parsedDate) {
+                    $query->orWhereDate('created_at', $parsedDate)
+                        ->orWhereDate('updated_at', $parsedDate);
+                }
+            });
         }
 
-        $query->when($keyword && $searchColumn, function ($query) use ($keyword, $searchColumn) {
-            $keyword = trim($keyword);
-
-            switch ($searchColumn) {
-                case 'id':
-                    return $query->where('id', $keyword);
-                case 'name':
-                    return $query->where(function ($q) use ($keyword) {
-                        $q->where('first_name', 'like', "%{$keyword}%")
-                            ->orWhere('last_name', 'like', "%{$keyword}%")
-                            ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$keyword}%"]);
-                    });
-                case 'role_id':
-                    return $query->where('role_id', $keyword);
-                case 'role_name':
-                    return $query->whereHas('role', function ($roleQuery) use ($keyword) {
-                        $roleQuery->where('name', 'like', "%{$keyword}%");
-                    });
-                case 'created_by':
-                    return $query->where('created_by', 'like', "%{$keyword}%");
-                default:
-                    return $query->where($searchColumn, 'like', "%{$keyword}%");
-            }
-        });
-
-        $query->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
+        if ($start || $end) {
             if ($start && $end) {
-                $query->whereBetween($rangeColumn, [$start, $end]);
+                $query->whereBetween('created_at', [$start, $end]);
             } elseif ($start) {
-                $query->whereDate($rangeColumn, '>=', $start->toDateString());
+                $query->whereDate('created_at', '>=', $start->toDateString());
             } elseif ($end) {
-                $query->whereDate($rangeColumn, '<=', $end->toDateString());
+                $query->whereDate('created_at', '<=', $end->toDateString());
             }
-        });
+        }
 
         if ($payrollStatus === 'with-payrolls') {
             $query->whereHas('payrolls');

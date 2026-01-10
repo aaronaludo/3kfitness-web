@@ -64,7 +64,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name', request('member_name')),
-                        'search_column' => request('search_column'),
                         'status' => request('status', 'all') ?: 'all',
                         'start' => request('start_date'),
                         'end' => request('end_date'),
@@ -127,7 +126,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name', request('member_name')),
-                        'search_column' => request('search_column'),
                         'status' => request('status', 'all') ?: 'all',
                         'start' => request('start_date'),
                         'end' => request('end_date'),
@@ -146,7 +144,6 @@
                         <input type="hidden" name="created_start" value="{{ request('start_date') }}">
                         <input type="hidden" name="created_end" value="{{ request('end_date') }}">
                         <input type="hidden" name="name" value="{{ request('name', request('member_name')) }}">
-                        <input type="hidden" name="search_column" value="{{ request('search_column') }}">
                         <input type="hidden" name="status" value="{{ request('status', 'all') }}">
                         <button
                             class="btn btn-danger ms-2"
@@ -199,7 +196,7 @@
                         'count' => $statusTallies['rejected'] ?? null,
                     ],
                 ];
-                $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
+                $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
             @endphp
 
             <div class="col-12 mb-20">
@@ -298,21 +295,6 @@
                                                         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
                                                         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
                                                     </div>
-                                                </div>
-
-                                                <div>
-                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
-                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
-                                                        <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
-                                                        <option value="member_name" {{ request('search_column', 'member_name') == 'member_name' ? 'selected' : '' }}>Member Name</option>
-                                                        <option value="member_user_code" {{ request('search_column') == 'member_user_code' ? 'selected' : '' }}>User Code</option>
-                                                        <option value="membership" {{ request('search_column') == 'membership' ? 'selected' : '' }}>Membership</option>
-                                                        <option value="expiration_at" {{ request('search_column') == 'expiration_at' ? 'selected' : '' }}>Expiration Date</option>
-                                                        <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                                        <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                                        <option value="status" {{ request('search_column') == 'status' ? 'selected' : '' }}>Status</option>
-                                                    </select>
                                                 </div>
 
                                                 <div>
@@ -872,12 +854,12 @@
                 const chips = [];
                 if (filters.show_archived) chips.push({ value: 'Archived view' });
                 if (filters.status && filters.status !== 'all') chips.push({ label: 'Status', value: filters.status });
-                if (filters.search) {
-                    chips.push({
-                        label: 'Search',
-                        value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
-                    });
-                }
+                        if (filters.search) {
+                            chips.push({
+                                label: 'Search',
+                                value: filters.search,
+                            });
+                        }
                 if (filters.start || filters.end) {
                     chips.push({ label: 'Date', value: `${filters.start || '—'} → ${filters.end || '—'}` });
                 }

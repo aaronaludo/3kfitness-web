@@ -164,8 +164,6 @@
                 ? trim(($startDateInput ?: '—') . ' → ' . ($endDateInput ?: '—'))
                 : (($presetLabels[$datePreset] ?? 'All Time') . ($startDateInput && $endDateInput ? ' (' . $startDateInput . ' → ' . $endDateInput . ')' : ''));
             $perPage = 10;
-            $advancedFiltersOpen = ($datePreset ?? 'all_time') === 'custom' || request()->filled('start_date') || request()->filled('end_date');
-
             $runsQuery = \App\Models\PayrollRun::with(['user.role'])
                 ->orderByDesc('processed_at')
                 ->orderByDesc('id');
@@ -186,15 +184,47 @@
             }
 
             if ($search !== '') {
-                $runsQuery->where(function ($query) use ($search) {
-                    $query->where('period_month', 'like', "%{$search}%")
-                        ->orWhereHas('user', function ($userQuery) use ($search) {
+                $like = '%' . $search . '%';
+                $integerSearch = ctype_digit($search) ? (int) $search : null;
+                $parsedDate = null;
+                try {
+                    $parsedDate = \Carbon\Carbon::parse($search)->toDateString();
+                } catch (\Throwable $th) {
+                    $parsedDate = null;
+                }
+
+                $runsQuery->where(function ($query) use ($like, $integerSearch, $parsedDate) {
+                    $query->where('period_month', 'like', $like)
+                        ->orWhere('total_hours', 'like', $like)
+                        ->orWhere('gross_pay', 'like', $like)
+                        ->orWhere('deduction_sss', 'like', $like)
+                        ->orWhere('deduction_philhealth', 'like', $like)
+                        ->orWhere('deduction_pagibig', 'like', $like)
+                        ->orWhere('deduction_app_cut', 'like', $like)
+                        ->orWhere('net_pay', 'like', $like)
+                        ->orWhere('processed_at', 'like', $like)
+                        ->orWhere('created_at', 'like', $like)
+                        ->orWhereHas('user', function ($userQuery) use ($like) {
                             $userQuery
-                                ->where('first_name', 'like', "%{$search}%")
-                                ->orWhere('last_name', 'like', "%{$search}%")
-                                ->orWhere('email', 'like', "%{$search}%")
-                                ->orWhere('user_code', 'like', "%{$search}%");
+                                ->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
+                                ->orWhere('first_name', 'like', $like)
+                                ->orWhere('last_name', 'like', $like)
+                                ->orWhere('email', 'like', $like)
+                                ->orWhere('user_code', 'like', $like)
+                                ->orWhereHas('role', function ($roleQuery) use ($like) {
+                                    $roleQuery->where('name', 'like', $like);
+                                });
                         });
+
+                    if (!is_null($integerSearch)) {
+                        $query->orWhere('id', $integerSearch)
+                            ->orWhere('user_id', $integerSearch);
+                    }
+
+                    if ($parsedDate) {
+                        $query->orWhereDate('processed_at', $parsedDate)
+                            ->orWhereDate('created_at', $parsedDate);
+                    }
                 });
             }
 
@@ -402,7 +432,7 @@
                             <div>
                                 <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Filters</span>
                                 <h4 class="fw-semibold mb-1">Payroll report filters</h4>
-                                <p class="text-muted mb-0">Toggle between trainer and staff runs or search by name, code, email, or period.</p>
+                                <p class="text-muted mb-0">Toggle between trainer and staff runs or search across IDs, names, roles, periods, totals, and dates.</p>
                             </div>
                             <div class="text-end">
                                 <span class="pill-soft d-inline-block mb-1">{{ $focusLabel }}</span>
@@ -422,7 +452,7 @@
                                                 name="search"
                                                 id="search"
                                                 value="{{ $search }}"
-                                                placeholder="Name, email, user code, or period (YYYY-MM)"
+                                                placeholder="ID, name, email, code, role, period, totals, date"
                                                 aria-label="Search payroll runs"
                                             />
                                         </div>
@@ -464,70 +494,40 @@
 
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <a href="{{ route('admin.payrolls.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
-
-                                    <button
-                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
-                                        type="button"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#payrollFiltersModal"
-                                    >
-                                        <i class="fa-solid fa-sliders"></i> Filters
-                                    </button>
-
                                     <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
                                         <i class="fa-solid fa-filter"></i>
-                                        Apply filters
+                                        Apply
                                     </button>
                                 </div>
                             </div>
 
-                            <div class="modal fade" id="payrollFiltersModal" tabindex="-1" aria-labelledby="payrollFiltersModalLabel" aria-hidden="true">
-                                <div class="modal-dialog modal-dialog-centered modal-md">
-                                    <div class="modal-content rounded-4 border-0 shadow-sm">
-                                        <div class="modal-header border-0 pb-0">
-                                            <h5 class="modal-title fw-semibold" id="payrollFiltersModalLabel">Advanced filters</h5>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                        </div>
-                                        <div class="modal-body">
-                                            <div class="d-flex flex-column gap-3">
-                                                <div class="{{ ($datePreset ?? 'all_time') === 'custom' ? '' : 'd-none' }}" id="custom-date-range">
-                                                    <label class="form-label text-muted text-uppercase small d-block mb-2">Custom date range</label>
-                                                    <div class="row g-2">
-                                                        <div class="col-12 col-sm-6">
-                                                            <label class="form-label small text-muted mb-1" for="start_date">Start date</label>
-                                                            <input
-                                                                type="date"
-                                                                name="start_date"
-                                                                id="start_date"
-                                                                class="form-control rounded-3"
-                                                                value="{{ $startDateInput }}"
-                                                                aria-label="Start date"
-                                                            >
-                                                        </div>
-                                                        <div class="col-12 col-sm-6">
-                                                            <label class="form-label small text-muted mb-1" for="end_date">End date</label>
-                                                            <input
-                                                                type="date"
-                                                                name="end_date"
-                                                                id="end_date"
-                                                                class="form-control rounded-3"
-                                                                value="{{ $endDateInput }}"
-                                                                aria-label="End date"
-                                                            >
-                                                        </div>
-                                                    </div>
-                                                    <small class="text-muted d-block mt-1">Matches processed date, falls back to created date if missing.</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="modal-footer border-0 pt-0">
-                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
-                                            <button type="submit" class="btn btn-danger">
-                                                <i class="fa-solid fa-filter me-2"></i>Apply filters
-                                            </button>
-                                        </div>
+                            <div class="{{ ($datePreset ?? 'all_time') === 'custom' ? '' : 'd-none' }} w-100" id="custom-date-range">
+                                <label class="form-label text-muted text-uppercase small d-block mb-2">Custom date range</label>
+                                <div class="row g-2">
+                                    <div class="col-12 col-sm-6">
+                                        <label class="form-label small text-muted mb-1" for="start_date">Start date</label>
+                                        <input
+                                            type="date"
+                                            name="start_date"
+                                            id="start_date"
+                                            class="form-control rounded-3"
+                                            value="{{ $startDateInput }}"
+                                            aria-label="Start date"
+                                        >
+                                    </div>
+                                    <div class="col-12 col-sm-6">
+                                        <label class="form-label small text-muted mb-1" for="end_date">End date</label>
+                                        <input
+                                            type="date"
+                                            name="end_date"
+                                            id="end_date"
+                                            class="form-control rounded-3"
+                                            value="{{ $endDateInput }}"
+                                            aria-label="End date"
+                                        >
                                     </div>
                                 </div>
+                                <small class="text-muted d-block mt-1">Matches processed date, falls back to created date if missing.</small>
                             </div>
                         </form>
                     </div>
@@ -634,7 +634,6 @@
         const endDateInput = document.getElementById('end_date');
         const focusButtons = document.querySelectorAll('.focus-chip');
         const focusField = document.getElementById('payroll-focus');
-        const filterForm = document.querySelector('form[action="{{ route('admin.payrolls.report') }}"]');
 
         function buildFilters(filters) {
             const chips = [];
@@ -933,9 +932,6 @@
                 this.classList.add('btn-dark', 'text-white');
                 if (focusField) {
                     focusField.value = selected;
-                }
-                if (filterForm) {
-                    filterForm.submit();
                 }
             });
         });

@@ -24,6 +24,7 @@ class MembershipController extends Controller
         ]);
     
         $search = $request->name;
+        $hasSearch = $request->filled('name');
         $search_column = $request->search_column;
         $startDate = $request->input('start_date');
         $endDate   = $request->input('end_date');
@@ -70,11 +71,8 @@ class MembershipController extends Controller
                     $query->where('isapproved', 2);
                 },
             ])
-            ->when($search && $search_column, function ($query) use ($search, $search_column) {
-                if (in_array($search_column, ['members_approved', 'members_pending', 'members_reject'])) {
-                    return $query->having($search_column, '=', (int) $search);
-                }
-                return $query->where($search_column, 'like', "%{$search}%");
+            ->when($hasSearch, function ($query) use ($search) {
+                return $this->applyMembershipSearch($query, $search);
             })
             ->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
                 if ($start && $end) {
@@ -130,6 +128,57 @@ class MembershipController extends Controller
             'printAllActive' => $printAllActive,
             'printAllArchived' => $printAllArchived,
         ]);
+    }
+
+    /**
+     * Apply the all-in-one search across membership list columns.
+     */
+    private function applyMembershipSearch($query, string $search)
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = '%' . $search . '%';
+        $lowerSearch = strtolower($search);
+        $numericSearch = is_numeric($search) ? $search : null;
+        $integerSearch = ctype_digit($search) ? (int) $search : null;
+
+        return $query->where(function ($query) use ($like, $lowerSearch, $numericSearch, $integerSearch) {
+            if ($integerSearch !== null) {
+                $query->orWhere('id', $integerSearch)
+                    ->orWhere('month', $integerSearch)
+                    ->orWhere('class_limit_per_month', $integerSearch);
+            }
+
+            if ($numericSearch !== null) {
+                $query->orWhere('price', $numericSearch);
+            }
+
+            $query->orWhere('name', 'like', $like)
+                ->orWhere('description', 'like', $like)
+                ->orWhere('created_at', 'like', $like)
+                ->orWhere('updated_at', 'like', $like);
+
+            if ($integerSearch !== null) {
+                $query->orWhereRaw(
+                    '(select count(*) from membership_payments where membership_payments.membership_id = memberships.id and membership_payments.isapproved = 1) = ?',
+                    [$integerSearch]
+                )->orWhereRaw(
+                    '(select count(*) from membership_payments where membership_payments.membership_id = memberships.id and membership_payments.isapproved = 0) = ?',
+                    [$integerSearch]
+                )->orWhereRaw(
+                    '(select count(*) from membership_payments where membership_payments.membership_id = memberships.id and membership_payments.isapproved = 2) = ?',
+                    [$integerSearch]
+                );
+            }
+
+            if (strpos($lowerSearch, 'unlimited') !== false) {
+                $query->orWhereNull('class_limit_per_month');
+            }
+        });
     }
 
 
@@ -297,6 +346,7 @@ class MembershipController extends Controller
         $startInput   = $request->input('created_start');
         $endInput     = $request->input('created_end');
         $search       = $request->input('name');
+        $hasSearch    = $request->filled('name');
         $searchColumn = $request->input('search_column');
         $statusFilter = $request->input('membership_status', 'all');
 
@@ -337,18 +387,8 @@ class MembershipController extends Controller
                     $query->where('isapproved', 2);
                 },
             ])
-            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
-                $countColumns = ['members_approved', 'members_pending', 'members_reject'];
-                if (in_array($searchColumn, $countColumns, true)) {
-                    return $query->having($searchColumn, '=', (int) $search);
-                }
-
-                $exactColumns = ['id', 'price', 'month'];
-                if (in_array($searchColumn, $exactColumns, true)) {
-                    return $query->where($searchColumn, $search);
-                }
-
-                return $query->where($searchColumn, 'like', "%{$search}%");
+            ->when($hasSearch, function ($query) use ($search) {
+                return $this->applyMembershipSearch($query, $search);
             })
             ->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
                 if ($start && $end) {

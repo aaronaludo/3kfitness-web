@@ -25,8 +25,7 @@ class AttendanceController extends Controller
             'status'        => 'nullable|in:all,open,completed',
         ]);
         
-        $search = $request->name;
-        $search_column = $request->search_column;
+        $search = trim((string) $request->input('name', ''));
         $startDate = $request->input('start_date');
         $endDate   = $request->input('end_date');
         $statusFilter = $request->input('status', 'all');
@@ -37,17 +36,6 @@ class AttendanceController extends Controller
             $statusFilter = 'all';
         }
     
-        $allowed_columns = [
-            'id', 'role', 'role_name', 'name', 'user_code', 'email', 'phone_number', 'clockin_at', 'clockout_at', 'created_at', 'updated_at', 'status',
-        ];
-    
-        if (!in_array($search_column, $allowed_columns)) {
-            $search_column = null;
-        }
-
-        $date_columns = ['clockin_at', 'clockout_at', 'created_at', 'updated_at'];
-        $rangeColumn = in_array($search_column, $date_columns, true) ? $search_column : 'clockin_at';
-
         $activeAttendanceBase = Attendance2::where('is_archive', 0)
             ->when($restrictStaffView, function ($query) {
                 $query->whereDoesntHave('user', function ($q) {
@@ -67,47 +55,6 @@ class AttendanceController extends Controller
                     $q->where('role_id', 2);
                 });
             })
-            ->when($search && $search_column, function ($query) use ($search, $search_column) {
-                if (in_array($search_column, ['role', 'role_name'], true)) {
-                    return $query->whereHas('user.role', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
-                    });
-                }
-
-                if ($search_column === 'name') {
-                    return $query->whereHas('user', function ($q) use ($search) {
-                        $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
-                    });
-                }
-
-                if (in_array($search_column, ['user_code', 'email', 'phone_number'], true)) {
-                    return $query->whereHas('user', function ($q) use ($search, $search_column) {
-                        $q->where($search_column, 'like', "%{$search}%");
-                    });
-                }
-
-                if ($search_column === 'status') {
-                    $normalized = strtolower(trim($search));
-                    if (in_array($normalized, ['completed', 'complete', '1'], true)) {
-                        return $query->whereNotNull('clockout_at');
-                    }
-                    if (in_array($normalized, ['open', 'pending', '0'], true)) {
-                        return $query->whereNull('clockout_at');
-                    }
-                    return $query;
-                }
-
-                return $query->where($search_column, 'like', "%{$search}%");
-            })
-            ->when($startDate || $endDate, function ($query) use ($startDate, $endDate, $rangeColumn) {
-                if ($startDate) {
-                    $query->whereDate($rangeColumn, '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
-                }
-
-                if ($endDate) {
-                    $query->whereDate($rangeColumn, '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
-                }
-            })
             ->when($statusFilter !== 'all', function ($query) use ($statusFilter) {
                 if ($statusFilter === 'open') {
                     return $query->whereNull('clockout_at');
@@ -120,6 +67,18 @@ class AttendanceController extends Controller
                 return $query;
             })
             ->orderByDesc('clockin_at');
+
+        if ($search !== '') {
+            $this->applyAttendanceLogSearch($baseQuery, $search);
+        }
+
+        if ($startDate) {
+            $baseQuery->whereDate('clockin_at', '>=', Carbon::createFromFormat('Y-m-d', $startDate)->toDateString());
+        }
+
+        if ($endDate) {
+            $baseQuery->whereDate('clockin_at', '<=', Carbon::createFromFormat('Y-m-d', $endDate)->toDateString());
+        }
 
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
@@ -382,8 +341,7 @@ class AttendanceController extends Controller
             'status'        => 'nullable|in:all,open,completed',
         ]);
 
-        $search       = $request->input('name');
-        $searchColumn = $request->input('search_column');
+        $search       = trim((string) $request->input('name', ''));
         $startDate    = $request->input('created_start', $request->input('start_date'));
         $endDate      = $request->input('created_end', $request->input('end_date'));
         $statusFilter = $request->input('status', 'all');
@@ -394,14 +352,6 @@ class AttendanceController extends Controller
             $statusFilter = 'all';
         }
 
-        $allowedColumns = ['id', 'role', 'role_name', 'name', 'user_code', 'email', 'phone_number', 'clockin_at', 'clockout_at', 'created_at', 'updated_at', 'status'];
-        if (!in_array($searchColumn, $allowedColumns, true)) {
-            $searchColumn = null;
-        }
-
-        $dateColumns = ['clockin_at', 'clockout_at', 'created_at', 'updated_at'];
-        $rangeColumn = in_array($searchColumn, $dateColumns, true) ? $searchColumn : 'clockin_at';
-
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : null;
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
 
@@ -411,53 +361,6 @@ class AttendanceController extends Controller
                 $query->whereDoesntHave('user', function ($q) {
                     $q->where('role_id', 2);
                 });
-            })
-            ->when($search && $searchColumn, function ($query) use ($search, $searchColumn) {
-                if (in_array($searchColumn, ['role', 'role_name'], true)) {
-                    return $query->whereHas('user.role', function ($q) use ($search) {
-                        $q->where('name', 'like', "%{$search}%");
-                    });
-                }
-
-                if ($searchColumn === 'name') {
-                    return $query->whereHas('user', function ($q) use ($search) {
-                        $q->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"]);
-                    });
-                }
-
-                if (in_array($searchColumn, ['user_code', 'email', 'phone_number'], true)) {
-                    return $query->whereHas('user', function ($q) use ($search, $searchColumn) {
-                        $q->where($searchColumn, 'like', "%{$search}%");
-                    });
-                }
-
-                if ($searchColumn === 'status') {
-                    $normalized = strtolower(trim($search));
-                    if (in_array($normalized, ['completed', 'complete', '1'], true)) {
-                        return $query->whereNotNull('clockout_at');
-                    }
-                    if (in_array($normalized, ['open', 'pending', '0'], true)) {
-                        return $query->whereNull('clockout_at');
-                    }
-                    return $query;
-                }
-
-                return $query->where($searchColumn, 'like', "%{$search}%");
-            })
-            ->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
-                if ($start && $end) {
-                    return $query->whereBetween($rangeColumn, [$start, $end]);
-                }
-
-                if ($start) {
-                    return $query->whereDate($rangeColumn, '>=', $start->toDateString());
-                }
-
-                if ($end) {
-                    return $query->whereDate($rangeColumn, '<=', $end->toDateString());
-                }
-
-                return $query;
             })
             ->when($statusFilter !== 'all', function ($query) use ($statusFilter) {
                 if ($statusFilter === 'open') {
@@ -472,6 +375,18 @@ class AttendanceController extends Controller
             })
             ->where('is_archive', 0)
             ->orderByDesc('clockin_at');
+
+        if ($search !== '') {
+            $this->applyAttendanceLogSearch($query, $search);
+        }
+
+        if ($start && $end) {
+            $query->whereBetween('clockin_at', [$start, $end]);
+        } elseif ($start) {
+            $query->whereDate('clockin_at', '>=', $start->toDateString());
+        } elseif ($end) {
+            $query->whereDate('clockin_at', '<=', $end->toDateString());
+        }
 
         $records = $query->get();
 
@@ -580,5 +495,68 @@ class AttendanceController extends Controller
         $writer->save($fullPath);
 
         return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
+    }
+
+    protected function applyAttendanceLogSearch($query, string $search)
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = '%' . $search . '%';
+        $lowerSearch = strtolower($search);
+        $integerSearch = ctype_digit($search) ? (int) $search : null;
+
+        $parsedDate = null;
+        try {
+            $parsedDate = Carbon::parse($search)->toDateString();
+        } catch (\Exception $e) {
+            $parsedDate = null;
+        }
+
+        return $query->where(function ($query) use ($like, $lowerSearch, $integerSearch, $parsedDate) {
+            if ($integerSearch !== null) {
+                $query->orWhere('id', $integerSearch);
+            }
+
+            $query->orWhere('clockin_at', 'like', $like)
+                ->orWhere('clockout_at', 'like', $like)
+                ->orWhere('created_at', 'like', $like)
+                ->orWhere('updated_at', 'like', $like);
+
+            if ($parsedDate) {
+                $query->orWhereDate('clockin_at', $parsedDate)
+                    ->orWhereDate('clockout_at', $parsedDate)
+                    ->orWhereDate('created_at', $parsedDate)
+                    ->orWhereDate('updated_at', $parsedDate);
+            }
+
+            $query->orWhereHas('user', function ($userQuery) use ($like) {
+                $userQuery->where(function ($nameQuery) use ($like) {
+                    $nameQuery->whereRaw(
+                        "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                        [$like]
+                    )
+                    ->orWhere('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhere('user_code', 'like', $like)
+                    ->orWhere('email', 'like', $like)
+                    ->orWhere('phone_number', 'like', $like);
+                });
+            });
+
+            $query->orWhereHas('user.role', function ($roleQuery) use ($like) {
+                $roleQuery->where('name', 'like', $like);
+            });
+
+            if (strpos($lowerSearch, 'completed') !== false || strpos($lowerSearch, 'complete') !== false) {
+                $query->orWhereNotNull('clockout_at');
+            }
+            if (strpos($lowerSearch, 'open') !== false || strpos($lowerSearch, 'pending') !== false) {
+                $query->orWhereNull('clockout_at');
+            }
+        });
     }
 }

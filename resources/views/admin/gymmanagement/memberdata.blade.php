@@ -44,7 +44,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name'),
-                        'search_column' => request('search_column'),
                         'membership_status' => request('membership_status', 'all') ?: 'all',
                         'start' => request('start_date'),
                         'end' => request('end_date'),
@@ -87,7 +86,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name'),
-                        'search_column' => request('search_column'),
                         'membership_status' => request('membership_status', 'all') ?: 'all',
                         'start' => request('start_date'),
                         'end' => request('end_date'),
@@ -131,7 +129,6 @@
                           />
                       
                           <input type="hidden" name="name" value="{{ request('name') }}">
-                          <input type="hidden" name="search_column" value="{{ request('search_column') }}">
                           <input type="hidden" name="membership_status" value="{{ request('membership_status', 'all') }}">
                       
                           <button
@@ -178,7 +175,7 @@
                         if (filters.search) {
                             chips.push({
                                 label: 'Search',
-                                value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                                value: filters.search,
                             });
                         }
                         if (filters.start || filters.end) {
@@ -274,7 +271,7 @@
                         'count' => $statusTallies['none'] ?? null,
                     ],
                 ];
-                $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
+                $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
             @endphp
 
             <div class="col-12 mb-4">
@@ -373,23 +370,6 @@
                                                         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
                                                         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
                                                     </div>
-                                                </div>
-
-                                                <div>
-                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
-                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
-                                                        <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
-                                                        <option value="user_code" {{ request('search_column') == 'user_code' ? 'selected' : '' }}>User Code</option>
-                                                        <option value="membership_name" {{ request('search_column') == 'membership_name' ? 'selected' : '' }}>Membership Name</option>
-                                                        <option value="expiration_at" {{ request('search_column') == 'expiration_at' ? 'selected' : '' }}>Membership Expiration Date</option>
-                                                        <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
-                                                        <option value="phone_number" {{ request('search_column') == 'phone_number' ? 'selected' : '' }}>Phone Number</option>
-                                                        <option value="email" {{ request('search_column') == 'email' ? 'selected' : '' }}>Email</option>
-                                                        <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                                        <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                                        <option value="created_by" {{ request('search_column') == 'created_by' ? 'selected' : '' }}>Approved By</option>
-                                                    </select>
                                                 </div>
 
                                                 <div>

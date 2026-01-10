@@ -34,7 +34,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name'),
-                        'search_column' => request('search_column'),
                         'membership_status' => request('membership_status', 'all') ?: 'all',
                         'start' => request('start_date'),
                         'end' => request('end_date'),
@@ -49,7 +48,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'search' => request('name'),
-                        'search_column' => request('search_column'),
                         'membership_status' => request('membership_status', 'all') ?: 'all',
                         'start' => request('start_date'),
                         'end' => request('end_date'),
@@ -69,7 +67,6 @@
                         <input type="hidden" name="created_start" value="{{ request('start_date') }}">
                         <input type="hidden" name="created_end" value="{{ request('end_date') }}">
                         <input type="hidden" name="name" value="{{ request('name') }}">
-                        <input type="hidden" name="search_column" value="{{ request('search_column') }}">
                         <input type="hidden" name="membership_status" value="{{ request('membership_status', 'all') }}">
                         <button
                             class="btn btn-danger ms-2"
@@ -118,7 +115,7 @@
                         'count' => $statusTallies['empty'] ?? null,
                     ],
                 ];
-                $advancedFiltersOpen = request()->filled('search_column') || request()->filled('start_date') || request()->filled('end_date');
+                $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
             @endphp
 
             <div class="col-12 mb-20">
@@ -217,23 +214,6 @@
                                                         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
                                                         <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
                                                     </div>
-                                                </div>
-
-                                                <div>
-                                                    <label for="search-column" class="form-label text-muted text-uppercase small mb-1">Search by</label>
-                                                    <select id="search-column" name="search_column" class="form-select rounded-3">
-                                                        <option value="" disabled {{ request('search_column') ? '' : 'selected' }}>Select Option</option>
-                                                        <option value="id" {{ request('search_column') == 'id' ? 'selected' : '' }}>#</option>
-                                                        <option value="name" {{ request('search_column') == 'name' ? 'selected' : '' }}>Name</option>
-                                                        <option value="description" {{ request('search_column') == 'description' ? 'selected' : '' }}>Description</option>
-                                                        <option value="month" {{ request('search_column') == 'month' ? 'selected' : '' }}>Month</option>
-                                                        <option value="class_limit_per_month" {{ request('search_column') == 'class_limit_per_month' ? 'selected' : '' }}>Classes / Month</option>
-                                                        <option value="members_approved" {{ request('search_column') == 'members_approved' ? 'selected' : '' }}>Total Members Approved</option>
-                                                        <option value="members_pending" {{ request('search_column') == 'members_pending' ? 'selected' : '' }}>Total Members Pending</option>
-                                                        <option value="members_reject" {{ request('search_column') == 'members_reject' ? 'selected' : '' }}>Total Members Reject</option>
-                                                        <option value="created_at" {{ request('search_column') == 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                                        <option value="updated_at" {{ request('search_column') == 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                                    </select>
                                                 </div>
 
                                                 <div>
@@ -650,7 +630,7 @@
                         if (filters.search) {
                             chips.push({
                                 label: 'Search',
-                                value: `${filters.search}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                                value: filters.search,
                             });
                         }
                         if (filters.start || filters.end) {

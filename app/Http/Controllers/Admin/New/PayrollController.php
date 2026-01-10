@@ -397,18 +397,15 @@ class PayrollController extends Controller
     }
     public function index(Request $request)
     {
-        $search = $request->input('member_name');
-        $searchColumn = $request->input('search_column');
+        $search = trim((string) $request->input('member_name', ''));
+        if ($search === '') {
+            $search = trim((string) $request->input('search', ''));
+        }
         $period = $request->input('period_month');
         $processedFromInput = $request->input('processed_from');
         $processedToInput = $request->input('processed_to');
         $deductionSettings = $this->currentDeductionSettings();
         $appCutRate = max((float) $request->input('app_cut_rate', $deductionSettings['app_cut_rate']), 0);
-
-        $allowedColumns = ['id', 'name', 'email', 'user_code', 'period_month', 'processed_at', 'created_at', 'updated_at'];
-        if (!in_array($searchColumn, $allowedColumns, true)) {
-            $searchColumn = null;
-        }
 
         $processedFrom = null;
         $processedTo = null;
@@ -430,43 +427,38 @@ class PayrollController extends Controller
         }
 
         $baseQuery = PayrollRun::with('user')
-            ->when($search, function ($query, $search) use ($searchColumn) {
-                $query->where(function ($subQuery) use ($search, $searchColumn) {
-                    if ($searchColumn === 'id') {
-                        return $subQuery->where('id', $search);
+            ->when($search, function ($query) use ($search) {
+                $like = '%' . $search . '%';
+                $integerSearch = ctype_digit($search) ? (int) $search : null;
+                $parsedDate = null;
+                try {
+                    $parsedDate = Carbon::parse($search)->toDateString();
+                } catch (\Throwable $th) {
+                    $parsedDate = null;
+                }
+
+                $query->where(function ($subQuery) use ($like, $integerSearch, $parsedDate) {
+                    $subQuery
+                        ->whereHas('user', function ($userQuery) use ($like) {
+                            $userQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
+                                ->orWhere('email', 'like', $like)
+                                ->orWhere('user_code', 'like', $like);
+                        })
+                        ->orWhere('period_month', 'like', $like)
+                        ->orWhere('processed_at', 'like', $like)
+                        ->orWhere('created_at', 'like', $like)
+                        ->orWhere('updated_at', 'like', $like);
+
+                    if (!is_null($integerSearch)) {
+                        $subQuery->orWhere('id', $integerSearch)
+                            ->orWhere('user_id', $integerSearch);
                     }
 
-                    if ($searchColumn === 'name') {
-                        return $subQuery->whereHas('user', function ($userQuery) use ($search) {
-                            $userQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                                ->orWhere('email', 'like', "%{$search}%");
-                        });
+                    if ($parsedDate) {
+                        $subQuery->orWhereDate('processed_at', $parsedDate)
+                            ->orWhereDate('created_at', $parsedDate)
+                            ->orWhereDate('updated_at', $parsedDate);
                     }
-
-                    if ($searchColumn === 'email') {
-                        return $subQuery->whereHas('user', function ($userQuery) use ($search) {
-                            $userQuery->where('email', 'like', "%{$search}%");
-                        });
-                    }
-
-                    if ($searchColumn === 'user_code') {
-                        return $subQuery->whereHas('user', function ($userQuery) use ($search) {
-                            $userQuery->where('user_code', 'like', "%{$search}%");
-                        });
-                    }
-
-                    if ($searchColumn === 'period_month') {
-                        return $subQuery->where('period_month', 'like', "%{$search}%");
-                    }
-
-                    if (in_array($searchColumn, ['processed_at', 'created_at', 'updated_at'], true)) {
-                        return $subQuery->where($searchColumn, 'like', "%{$search}%");
-                    }
-
-                    $subQuery->whereHas('user', function ($userQuery) use ($search) {
-                        $userQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$search}%"])
-                            ->orWhere('email', 'like', "%{$search}%");
-                    });
                 });
             })
             ->when($period, function ($query, $period) {

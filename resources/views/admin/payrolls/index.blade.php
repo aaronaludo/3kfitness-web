@@ -6,11 +6,10 @@
         <div class="row">
             @php
                 $searchTerm = request('member_name');
-                $searchColumn = request('search_column');
                 $periodMonth = request('period_month');
                 $processedFrom = request('processed_from');
                 $processedTo = request('processed_to');
-                $advancedFiltersOpen = request()->filled('search_column') || request()->filled('processed_from') || request()->filled('processed_to');
+                $advancedFiltersOpen = request()->filled('processed_from') || request()->filled('processed_to');
                 $printSource = $runs;
                 $printAllSource = $printAllRuns ?? collect();
                 $currencySymbol = '₱';
@@ -75,7 +74,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'member_name' => $searchTerm,
-                        'search_column' => $searchColumn,
                         'period_month' => $periodMonth,
                         'processed_from' => $processedFrom,
                         'processed_to' => $processedTo,
@@ -91,7 +89,6 @@
                     'generated_at' => now()->format('M d, Y g:i A'),
                     'filters' => [
                         'member_name' => $searchTerm,
-                        'search_column' => $searchColumn,
                         'period_month' => $periodMonth,
                         'processed_from' => $processedFrom,
                         'processed_to' => $processedTo,
@@ -120,7 +117,6 @@
                     <form action="#" method="POST" id="print-form">
                         @csrf
                         <input type="hidden" name="member_name" value="{{ $searchTerm }}">
-                        <input type="hidden" name="search_column" value="{{ $searchColumn }}">
                         <input type="hidden" name="period_month" value="{{ $periodMonth }}">
                         <input type="hidden" name="processed_from" value="{{ $processedFrom }}">
                         <input type="hidden" name="processed_to" value="{{ $processedTo }}">
@@ -147,7 +143,7 @@
                             <div>
                                 <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Filters</span>
                                 <h4 class="fw-semibold mb-1">Find a payroll run</h4>
-                                <p class="text-muted mb-0">Search by staff, period month, or processed date window to locate completed runs.</p>
+                                <p class="text-muted mb-0">Search across staff, user code, period month, or processed date window to locate runs.</p>
                             </div>
                             <div class="text-end">
                                 <span class="d-block text-muted small">Showing {{ $runs->total() }} results</span>
@@ -158,7 +154,7 @@
                         <form action="{{ route('admin.payrolls.index') }}" method="GET" class="mt-4">
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                                 <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
-                                    <label class="form-label text-muted small mb-1" for="member_name">Staff</label>
+                                    <label class="form-label text-muted small mb-1" for="member_name">Search</label>
                                     <div class="position-relative">
                                         <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted">
                                             <i class="fa-solid fa-magnifying-glass"></i>
@@ -168,9 +164,9 @@
                                             class="form-control rounded-pill ps-5"
                                             name="member_name"
                                             id="member_name"
-                                            placeholder="Search staff or payroll"
+                                            placeholder="Search #, staff, code, period, date"
                                             value="{{ $searchTerm }}"
-                                            aria-label="Search staff or payroll"
+                                            aria-label="Search payroll runs"
                                         />
                                     </div>
                                 </div>
@@ -218,26 +214,6 @@
                                         </div>
                                         <div class="modal-body">
                                             <div class="d-flex flex-column gap-4">
-                                                <div>
-                                                    <label class="form-label text-muted text-uppercase small mb-1" for="search_column">Search by</label>
-                                                    <select
-                                                        class="form-select rounded-3"
-                                                        name="search_column"
-                                                        id="search_column"
-                                                        aria-label="Choose which payroll field to search"
-                                                    >
-                                                        <option value="" disabled {{ $searchColumn ? '' : 'selected' }}>Select option</option>
-                                                        <option value="id" {{ $searchColumn === 'id' ? 'selected' : '' }}>#</option>
-                                                        <option value="name" {{ $searchColumn === 'name' ? 'selected' : '' }}>Name</option>
-                                                        <option value="email" {{ $searchColumn === 'email' ? 'selected' : '' }}>Email</option>
-                                                        <option value="user_code" {{ $searchColumn === 'user_code' ? 'selected' : '' }}>User Code</option>
-                                                        <option value="period_month" {{ $searchColumn === 'period_month' ? 'selected' : '' }}>Period Month</option>
-                                                        <option value="processed_at" {{ $searchColumn === 'processed_at' ? 'selected' : '' }}>Processed Date</option>
-                                                        <option value="created_at" {{ $searchColumn === 'created_at' ? 'selected' : '' }}>Created Date</option>
-                                                        <option value="updated_at" {{ $searchColumn === 'updated_at' ? 'selected' : '' }}>Updated Date</option>
-                                                    </select>
-                                                </div>
-
                                                 <div>
                                                     <span class="form-label text-muted text-uppercase small d-block mb-2">Processed date</span>
                                                     <div class="row g-2">
@@ -435,7 +411,7 @@
                 if (filters.member_name) {
                     chips.push({
                         label: 'Search',
-                        value: `${filters.member_name}${filters.search_column ? ` (${filters.search_column})` : ''}`,
+                        value: filters.member_name,
                     });
                 }
                 if (filters.period_month) chips.push({ label: 'Period', value: filters.period_month });

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Models\Schedule;
 use App\Models\ScheduleRescheduleRequest;
 use App\Models\User;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class RescheduleRequestHistoryController extends Controller
@@ -40,41 +41,7 @@ class RescheduleRequestHistoryController extends Controller
         $baseQuery = ScheduleRescheduleRequest::with(['schedule.user', 'trainer', 'responder']);
 
         if ($filters['search'] !== '') {
-            $like = '%' . $filters['search'] . '%';
-            $baseQuery->where(function ($query) use ($like) {
-                $query
-                    ->whereHas('schedule', function ($scheduleQuery) use ($like) {
-                        $scheduleQuery
-                            ->where('name', 'like', $like)
-                            ->orWhere('class_code', 'like', $like);
-                    })
-                    ->orWhereHas('trainer', function ($trainerQuery) use ($like) {
-                        $trainerQuery->where(function ($nameQuery) use ($like) {
-                            $nameQuery
-                                ->whereRaw(
-                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                    [$like]
-                                )
-                                ->orWhere('first_name', 'like', $like)
-                                ->orWhere('last_name', 'like', $like)
-                                ->orWhere('user_code', 'like', $like)
-                                ->orWhere('email', 'like', $like);
-                        });
-                    })
-                    ->orWhereHas('responder', function ($responderQuery) use ($like) {
-                        $responderQuery->where(function ($nameQuery) use ($like) {
-                            $nameQuery
-                                ->whereRaw(
-                                    "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
-                                    [$like]
-                                )
-                                ->orWhere('first_name', 'like', $like)
-                                ->orWhere('last_name', 'like', $like);
-                        });
-                    })
-                    ->orWhere('notes', 'like', $like)
-                    ->orWhere('admin_comment', 'like', $like);
-            });
+            $this->applyRescheduleHistorySearch($baseQuery, $filters['search']);
         }
 
         if ($filters['trainer_id']) {
@@ -141,5 +108,135 @@ class RescheduleRequestHistoryController extends Controller
             'trainerOptions' => $trainerOptions,
             'stats' => $stats,
         ]);
+    }
+
+    protected function applyRescheduleHistorySearch($query, string $search)
+    {
+        $search = trim($search);
+
+        if ($search === '') {
+            return $query;
+        }
+
+        $like = '%' . $search . '%';
+        $lowerSearch = strtolower($search);
+        $integerSearch = ctype_digit($search) ? (int) $search : null;
+        $activeEnrollmentCountSql = "(select count(*) from user_schedules inner join users on users.id = user_schedules.user_id and users.is_archive = 0 where user_schedules.schedule_id = schedule_reschedule_requests.schedule_id)";
+
+        $dayCodes = [];
+        $dayMap = [
+            'sun' => ['sun', 'sunday'],
+            'mon' => ['mon', 'monday'],
+            'tue' => ['tue', 'tuesday'],
+            'wed' => ['wed', 'wednesday'],
+            'thu' => ['thu', 'thursday'],
+            'fri' => ['fri', 'friday'],
+            'sat' => ['sat', 'saturday'],
+        ];
+
+        foreach ($dayMap as $code => $aliases) {
+            foreach ($aliases as $alias) {
+                if (strpos($lowerSearch, $alias) !== false) {
+                    $dayCodes[] = $code;
+                    break;
+                }
+            }
+        }
+
+        $dayCodes = array_values(array_unique($dayCodes));
+
+        $parsedDate = null;
+        try {
+            $parsedDate = Carbon::parse($search)->toDateString();
+        } catch (\Exception $e) {
+            $parsedDate = null;
+        }
+
+        return $query->where(function ($query) use (
+            $like,
+            $lowerSearch,
+            $integerSearch,
+            $activeEnrollmentCountSql,
+            $dayCodes,
+            $parsedDate
+        ) {
+            if ($integerSearch !== null) {
+                $query->orWhere('id', $integerSearch)
+                    ->orWhere('schedule_id', $integerSearch)
+                    ->orWhere('trainer_id', $integerSearch)
+                    ->orWhere('responded_by', $integerSearch)
+                    ->orWhereRaw("{$activeEnrollmentCountSql} = ?", [$integerSearch]);
+            }
+
+            $query->orWhere('notes', 'like', $like)
+                ->orWhere('admin_comment', 'like', $like)
+                ->orWhere('proposed_start_time', 'like', $like)
+                ->orWhere('proposed_end_time', 'like', $like)
+                ->orWhere('proposed_series_start_date', 'like', $like)
+                ->orWhere('proposed_series_end_date', 'like', $like)
+                ->orWhere('target_session_dates', 'like', $like)
+                ->orWhere('proposed_session_dates', 'like', $like)
+                ->orWhere('recurring_days', 'like', $like)
+                ->orWhere('created_at', 'like', $like)
+                ->orWhere('responded_at', 'like', $like);
+
+            foreach ($dayCodes as $code) {
+                $query->orWhereJsonContains('recurring_days', $code);
+            }
+
+            if ($parsedDate) {
+                $query->orWhereDate('proposed_series_start_date', $parsedDate)
+                    ->orWhereDate('proposed_series_end_date', $parsedDate)
+                    ->orWhereDate('created_at', $parsedDate)
+                    ->orWhereDate('responded_at', $parsedDate);
+            }
+
+            $query->orWhereHas('schedule', function ($scheduleQuery) use ($like) {
+                $scheduleQuery
+                    ->where('name', 'like', $like)
+                    ->orWhere('class_code', 'like', $like);
+            });
+
+            $query->orWhereHas('trainer', function ($trainerQuery) use ($like) {
+                $trainerQuery->where(function ($nameQuery) use ($like) {
+                    $nameQuery
+                        ->whereRaw(
+                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                            [$like]
+                        )
+                        ->orWhere('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhere('user_code', 'like', $like)
+                        ->orWhere('email', 'like', $like);
+                });
+            });
+
+            $query->orWhereHas('responder', function ($responderQuery) use ($like) {
+                $responderQuery->where(function ($nameQuery) use ($like) {
+                    $nameQuery
+                        ->whereRaw(
+                            "CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?",
+                            [$like]
+                        )
+                        ->orWhere('first_name', 'like', $like)
+                        ->orWhere('last_name', 'like', $like)
+                        ->orWhere('user_code', 'like', $like)
+                        ->orWhere('email', 'like', $like);
+                });
+            });
+
+            if (strpos($lowerSearch, 'pending') !== false) {
+                $query->orWhere('status', 0);
+            }
+            if (strpos($lowerSearch, 'approved') !== false) {
+                $query->orWhere('status', 1);
+            }
+            if (strpos($lowerSearch, 'rejected') !== false) {
+                $query->orWhere('status', 2);
+            }
+            if (strpos($lowerSearch, 'resolved') !== false) {
+                $query->orWhereIn('status', [1, 2]);
+            }
+        });
     }
 }

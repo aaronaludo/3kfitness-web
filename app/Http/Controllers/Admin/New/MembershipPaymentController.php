@@ -365,6 +365,71 @@ class MembershipPaymentController extends Controller
     }
 
     /**
+     * Apply the all-in-one search across membership payment list columns.
+     */
+    protected function applyMembershipPaymentSearch($query, string $keyword)
+    {
+        $keyword = trim($keyword);
+
+        if ($keyword === '') {
+            return $query;
+        }
+
+        $like = '%' . $keyword . '%';
+        $lowerKeyword = strtolower($keyword);
+        $numericKeyword = is_numeric($keyword) ? $keyword : null;
+        $integerKeyword = ctype_digit($keyword) ? (int) $keyword : null;
+        $statusMap = [
+            'pending' => 0,
+            'approved' => 1,
+            'rejected' => 2,
+        ];
+
+        return $query->where(function ($query) use ($like, $lowerKeyword, $numericKeyword, $integerKeyword, $statusMap) {
+            if ($integerKeyword !== null) {
+                $query->orWhere('id', $integerKeyword);
+            }
+
+            $query->orWhere('created_by', 'like', $like)
+                ->orWhere('expiration_at', 'like', $like)
+                ->orWhere('created_at', 'like', $like)
+                ->orWhere('updated_at', 'like', $like);
+
+            $query->orWhereHas('user', function ($userQuery) use ($like) {
+                $userQuery->where('first_name', 'like', $like)
+                    ->orWhere('last_name', 'like', $like)
+                    ->orWhereRaw("CONCAT(COALESCE(first_name, ''), ' ', COALESCE(last_name, '')) LIKE ?", [$like])
+                    ->orWhere('email', 'like', $like)
+                    ->orWhere('user_code', 'like', $like);
+            });
+
+            $query->orWhereHas('membership', function ($membershipQuery) use ($like, $numericKeyword) {
+                $membershipQuery->where('name', 'like', $like)
+                    ->orWhere('currency', 'like', $like);
+
+                if ($numericKeyword !== null) {
+                    $membershipQuery->orWhere('price', $numericKeyword);
+                }
+            });
+
+            $query->orWhereHas('user.userSchedules.schedule', function ($scheduleQuery) use ($like) {
+                $scheduleQuery->where('name', 'like', $like)
+                    ->orWhere('class_code', 'like', $like);
+            });
+
+            if ($integerKeyword !== null && $integerKeyword >= 0 && $integerKeyword <= 2) {
+                $query->orWhere('isapproved', $integerKeyword);
+            }
+
+            foreach ($statusMap as $label => $value) {
+                if (strpos($lowerKeyword, $label) !== false || strpos($label, $lowerKeyword) === 0) {
+                    $query->orWhere('isapproved', $value);
+                }
+            }
+        });
+    }
+
+    /**
      * Build the base query with shared filtering logic for index and export.
      */
     protected function buildMembershipPaymentQuery(?string $keyword, ?string $searchColumn, ?Carbon $start, ?Carbon $end, string $rangeColumn, string $statusFilter = 'all')
@@ -387,68 +452,9 @@ class MembershipPaymentController extends Controller
                 'membership:id,name,currency,price',
             ]);
 
-        if ($keyword && !$searchColumn) {
-            $searchColumn = 'member_name';
+        if ($keyword !== null && trim($keyword) !== '') {
+            $this->applyMembershipPaymentSearch($query, $keyword);
         }
-
-        $query->when($keyword && $searchColumn, function ($query) use ($keyword, $searchColumn) {
-            $keyword = trim($keyword);
-            switch ($searchColumn) {
-                case 'id':
-                    return $query->where('id', $keyword);
-                case 'member_name':
-                    return $query->whereHas('user', function ($subQuery) use ($keyword) {
-                        $subQuery->where(function ($builder) use ($keyword) {
-                            $builder->where('first_name', 'like', "%{$keyword}%")
-                                ->orWhere('last_name', 'like', "%{$keyword}%")
-                                ->orWhereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", ["%{$keyword}%"]);
-                        });
-                    });
-                case 'member_user_code':
-                    return $query->whereHas('user', function ($subQuery) use ($keyword) {
-                        $subQuery->where('user_code', 'like', "%{$keyword}%");
-                    });
-                case 'membership':
-                    return $query->whereHas('membership', function ($subQuery) use ($keyword) {
-                        $subQuery->where('name', 'like', "%{$keyword}%");
-                    });
-                case 'status':
-                    $normalized = strtolower($keyword);
-                    $statusMap  = [
-                        'pending'  => 0,
-                        'approved' => 1,
-                        'rejected' => 2,
-                    ];
-                    $statusValue = null;
-                    foreach ($statusMap as $label => $value) {
-                        if ($normalized === $label || str_starts_with($label, $normalized)) {
-                            $statusValue = $value;
-                            break;
-                        }
-                    }
-                    if ($statusValue === null && is_numeric($keyword)) {
-                        $candidate = (int) $keyword;
-                        if (in_array($candidate, array_values($statusMap), true)) {
-                            $statusValue = $candidate;
-                        }
-                    }
-                    if ($statusValue !== null) {
-                        return $query->where('isapproved', $statusValue);
-                    }
-                    return $query;
-                case 'expiration_at':
-                case 'created_at':
-                case 'updated_at':
-                    try {
-                        $parsed = Carbon::parse($keyword);
-                        return $query->whereDate($searchColumn, $parsed->toDateString());
-                    } catch (\Exception $e) {
-                        return $query->where($searchColumn, 'like', "%{$keyword}%");
-                    }
-                default:
-                    return $query->where($searchColumn, 'like', "%{$keyword}%");
-            }
-        });
 
         $query->when($start || $end, function ($query) use ($start, $end, $rangeColumn) {
             if ($start && $end) {
