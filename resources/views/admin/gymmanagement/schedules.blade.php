@@ -203,7 +203,7 @@
                         </div>
                     </form>
                     <a
-                        class="btn btn-outline-danger ms-2"
+                        class="btn btn-danger ms-2"
                         href="{{ route('admin.gym-management.schedules.reschedule-requests') }}"
                     >
                         <i class="fa-solid fa-calendar-check"></i>&nbsp;&nbsp;Reschedule requests
@@ -213,14 +213,14 @@
                     </a>
                     @if ($showArchived)
                         <a
-                            class="btn btn-outline-secondary ms-2"
+                            class="btn btn-danger ms-2"
                             href="{{ route('admin.gym-management.schedules', request()->except(['show_archived', 'page', 'archive_page'])) }}"
                         >
                             <i class="fa-solid fa-rotate-left"></i>&nbsp;&nbsp;Back to active
                         </a>
                     @else
                         <a
-                            class="btn btn-outline-danger ms-2"
+                            class="btn btn-danger ms-2"
                             href="{{ route('admin.gym-management.schedules', array_merge(request()->except(['page', 'archive_page']), ['show_archived' => 1])) }}"
                         >
                             <i class="fa-solid fa-box-archive"></i>&nbsp;&nbsp;View archived

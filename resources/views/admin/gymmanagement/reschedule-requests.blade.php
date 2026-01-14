@@ -23,6 +23,56 @@
             };
         @endphp
 
+        <style>
+            .pill-chip {
+                display: inline-flex;
+                align-items: center;
+                gap: 6px;
+                justify-content: flex-start;
+                padding: 6px 12px;
+                border-radius: 8px;
+                border: 1px solid var(--pill-border, #d5deec);
+                background: var(--pill-bg, #f5f7fb);
+                color: var(--pill-text, #1f2937);
+                font-weight: 600;
+                font-size: 0.85rem;
+                letter-spacing: 0.01em;
+                box-shadow: none;
+            }
+            .pill-chip::before {
+                content: '';
+                width: 8px;
+                height: 8px;
+                border-radius: 50%;
+                background: var(--pill-dot, #9ca3af);
+                opacity: 0.9;
+            }
+            .pill-chip-warning {
+                --pill-bg: #fff4e5;
+                --pill-border: #f3d7a6;
+                --pill-text: #7a4b00;
+                --pill-dot: #e0a100;
+            }
+            .pill-chip-success {
+                --pill-bg: #e8f6ef;
+                --pill-border: #c5e5d5;
+                --pill-text: #1f5133;
+                --pill-dot: #2e8b57;
+            }
+            .pill-chip-danger {
+                --pill-bg: #fbecec;
+                --pill-border: #f0c4c2;
+                --pill-text: #7b1c1c;
+                --pill-dot: #c0392b;
+            }
+            .pill-chip-secondary {
+                --pill-bg: #f1f3f5;
+                --pill-border: #dee2e6;
+                --pill-text: #6c757d;
+                --pill-dot: #6c757d;
+            }
+        </style>
+
         <div class="row">
             <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 mt-2">
                 <div>
@@ -33,7 +83,7 @@
                     <a href="{{ route('admin.gym-management.schedules') }}" class="btn btn-danger">
                         <i class="fa-solid fa-calendar-days me-2"></i>Classes
                     </a>
-                    <a href="{{ route('admin.history.reschedule-requests') }}" class="btn btn-outline-danger">
+                    <a href="{{ route('admin.history.reschedule-requests') }}" class="btn btn-danger">
                         <i class="fa-solid fa-clock-rotate-left me-2"></i>History
                     </a>
                 </div>
@@ -59,8 +109,8 @@
                             </div>
                             <div class="text-end d-flex flex-column align-items-end gap-2">
                                 <div>
-                                    <span class="badge bg-warning text-dark px-3 py-2 rounded-pill">Pending: {{ $pendingCount }}</span>
-                                    <span class="badge bg-secondary text-white px-3 py-2 rounded-pill ms-2">Resolved: {{ $resolvedCount }}</span>
+                                    <span class="pill-chip pill-chip-warning">Pending: {{ $pendingCount ?? 0 }}</span>
+                                    <span class="pill-chip pill-chip-secondary ms-2">Resolved: {{ $resolvedCount }}</span>
                                 </div>
                             </div>
                         </div>
@@ -84,9 +134,9 @@
                                     @forelse ($rescheduleRequests as $requestItem)
                                         @php
                                             $statusMap = [
-                                                0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
-                                                1 => ['label' => 'Approved', 'class' => 'bg-success'],
-                                                2 => ['label' => 'Rejected', 'class' => 'bg-danger'],
+                                                0 => ['label' => 'Pending', 'class' => 'pill-chip pill-chip-warning'],
+                                                1 => ['label' => 'Approved', 'class' => 'pill-chip pill-chip-success'],
+                                                2 => ['label' => 'Rejected', 'class' => 'pill-chip pill-chip-danger'],
                                             ];
                                             $statusMeta = $statusMap[$requestItem->status] ?? $statusMap[0];
                                             $classItem = $requestItem->schedule;
@@ -157,7 +207,7 @@
                                                 {{ $requestItem->notes ?: '—' }}
                                             </td>
                                             <td>
-                                                <span class="badge {{ $statusMeta['class'] }} px-3 py-2">{{ $statusMeta['label'] }}</span>
+                                                <span class="{{ $statusMeta['class'] }}">{{ $statusMeta['label'] }}</span>
                                                 @if($requestItem->responded_at)
                                                     <div class="text-muted small mt-1">Handled {{ $requestItem->responded_at->format('M j, Y') }}</div>
                                                 @endif
@@ -193,7 +243,7 @@
                                                         @csrf
                                                         @method('DELETE')
                                                         <input type="hidden" name="redirect_to" value="{{ route('admin.gym-management.schedules.reschedule-requests') }}">
-                                                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                                                        <button type="submit" class="btn btn-sm btn-danger">
                                                             Delete
                                                         </button>
                                                     </form>
