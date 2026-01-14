@@ -24,16 +24,16 @@
         @endphp
 
         <div class="row">
-            <div class="col-lg-12 d-flex justify-content-between align-items-start flex-wrap gap-3 mb-3 mt-2">
+            <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-4 mt-2">
                 <div>
                     <h2 class="title mb-1">Reschedule requests</h2>
                     <p class="text-muted mb-0 small">Trainers can propose changes to specific sessions. Approving will update those sessions automatically.</p>
                 </div>
                 <div class="d-flex gap-2 flex-wrap">
-                    <a href="{{ route('admin.gym-management.schedules') }}" class="btn btn-outline-secondary">
+                    <a href="{{ route('admin.gym-management.schedules') }}" class="btn btn-danger">
                         <i class="fa-solid fa-calendar-days me-2"></i>Classes
                     </a>
-                    <a href="{{ route('admin.history.reschedule-requests') }}" class="btn btn-outline-secondary">
+                    <a href="{{ route('admin.history.reschedule-requests') }}" class="btn btn-outline-danger">
                         <i class="fa-solid fa-clock-rotate-left me-2"></i>History
                     </a>
                 </div>

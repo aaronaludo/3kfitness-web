@@ -162,7 +162,7 @@
             @endphp
             <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
                 <div>
-                  <h2 class="title mb-0">Classes</h2>
+                  <h2 class="title">Classes</h2>
                 </div>
                 <div class="d-flex align-items-center">
                     <a class="btn btn-danger" href="{{ route('admin.gym-management.schedules.create') }}">
@@ -203,7 +203,7 @@
                         </div>
                     </form>
                     <a
-                        class="btn btn-outline-primary ms-2"
+                        class="btn btn-outline-danger ms-2"
                         href="{{ route('admin.gym-management.schedules.reschedule-requests') }}"
                     >
                         <i class="fa-solid fa-calendar-check"></i>&nbsp;&nbsp;Reschedule requests
@@ -220,7 +220,7 @@
                         </a>
                     @else
                         <a
-                            class="btn btn-outline-secondary ms-2"
+                            class="btn btn-outline-danger ms-2"
                             href="{{ route('admin.gym-management.schedules', array_merge(request()->except(['page', 'archive_page']), ['show_archived' => 1])) }}"
                         >
                             <i class="fa-solid fa-box-archive"></i>&nbsp;&nbsp;View archived
