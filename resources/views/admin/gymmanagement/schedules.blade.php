@@ -160,9 +160,9 @@
 
                 $pendingRescheduleCount = collect($pendingRescheduleRequests ?? [])->where('status', 0)->count();
             @endphp
-            <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
+            <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 my-4">
                 <div>
-                  <h2 class="title">Classes</h2>
+                  <h1 class="title">Classes</h1>
                 </div>
                 <div class="d-flex align-items-center">
                     <a class="btn btn-danger" href="{{ route('admin.gym-management.schedules.create') }}">

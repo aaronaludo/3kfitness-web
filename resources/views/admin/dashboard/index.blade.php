@@ -86,6 +86,7 @@
                                         <th>ID</th>
                                         <th>Message</th>
                                         <th>Role Name</th>
+                                        <th>User Code</th>
                                         <th>Created Date</th>
                                     </thead>
                                     <tbody>
@@ -94,6 +95,9 @@
                                                 <td>{{ $item->id }}</td>
                                                 <td>{{ $item->message }}</td>
                                                 <td>{{ $item->role_name }}</td>
+                                                <td>
+                                                    <span class="text-muted small">{{ optional($item->user)->user_code ?? '—' }}</span>
+                                                </td>
                                                 <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
                                             </tr>
                                         @endforeach

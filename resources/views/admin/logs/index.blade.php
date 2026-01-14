@@ -224,7 +224,7 @@
                                                 <td>{{ $item->message }}</td>
                                                 <td>{{ $item->role_name }}</td>
                                                 <td>
-                                                    <span class="text-muted small">{{ $item->user->user_code ?? '—' }}</span>
+                                                    <span class="text-muted small">{{ optional($item->user)->user_code ?? '—' }}</span>
                                                 </td>
                                                 <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
                                             </tr>

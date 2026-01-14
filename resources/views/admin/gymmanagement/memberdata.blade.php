@@ -96,8 +96,8 @@
                     'items' => $printAllMembers,
                 ];
             @endphp
-            <div class="col-lg-12 d-flex justify-content-between">
-                <div><h2 class="title">Members Data</h2></div>
+            <div class="col-lg-12 d-flex justify-content-between align-items-center flex-wrap gap-3 my-4">
+                <div><h1 class="title">Members Data</h1></div>
                 <div class="d-flex align-items-center">
                     {{-- <form action="{{ route('admin.gym-management.members.print') }}" method="POST" id="print-form">
                         @csrf
