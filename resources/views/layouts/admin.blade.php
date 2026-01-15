@@ -170,6 +170,173 @@
             box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
         }
 
+        .classes-calendar-modal .modal-content {
+            border-radius: 18px;
+            border: none;
+            background: #f7f8fc;
+        }
+
+        .classes-calendar-modal .modal-header {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .calendar-view {
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .calendar-view__header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+            margin-bottom: 12px;
+        }
+
+        .calendar-view__month {
+            font-size: 1.1rem;
+            font-weight: 800;
+            color: #1f2a37;
+        }
+
+        .calendar-view__controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .calendar-status {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-bottom: 10px;
+        }
+
+        .calendar-view__scroller {
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, minmax(0, 1fr));
+            gap: 6px;
+        }
+
+        .calendar-grid--weekdays {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: #6b7280;
+            font-weight: 700;
+            margin-bottom: 6px;
+        }
+
+        .calendar-grid--days,
+        .calendar-grid--weekdays {
+            min-width: 740px;
+        }
+
+        .calendar-day {
+            background: #f8f9fb;
+            border: 1px solid #e4e7ee;
+            border-radius: 12px;
+            padding: 6px;
+            min-height: 92px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .calendar-day--outside {
+            background: #f1f2f6;
+            color: #b0b6c3;
+        }
+
+        .calendar-day__date {
+            font-weight: 800;
+            font-size: 0.72rem;
+            color: #273341;
+        }
+
+        .calendar-day--outside .calendar-day__date {
+            color: #a4a9b5;
+        }
+
+        .calendar-day__events {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .calendar-event {
+            padding: 6px;
+            border-radius: 10px;
+            border: 1px solid var(--event-border);
+            background: var(--event-bg);
+            color: var(--event-text);
+            font-size: 0.65rem;
+            line-height: 1.2;
+        }
+
+        .calendar-event__title {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 6px;
+            font-weight: 700;
+        }
+
+        .calendar-event__code {
+            font-size: 0.6rem;
+            opacity: 0.85;
+        }
+
+        .calendar-event__meta {
+            font-size: 0.6rem;
+            opacity: 0.9;
+        }
+
+        .calendar-event__more {
+            font-size: 0.65rem;
+            color: #6b7280;
+            font-weight: 600;
+        }
+
+        .calendar-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .calendar-legend__item {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 0.75rem;
+            color: #4b5563;
+            font-weight: 600;
+        }
+
+        .calendar-legend__swatch {
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
+            background: var(--legend-bg);
+            border: 1px solid var(--legend-border);
+        }
+
+        .calendar-empty {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 12px;
+        }
+
         .header-actions .navbar-nav {
             flex: 0 0 auto;
             margin-top: 0 !important;
@@ -391,6 +558,14 @@
                 display: none;
             }
 
+            .calendar-view {
+                padding: 12px;
+            }
+
+            .calendar-day {
+                min-height: 80px;
+            }
+
             .header-actions .nav-link {
                 font-size: 0.9rem;
                 padding: 0;
@@ -440,10 +615,13 @@
                 <a href="#" id="button-menu"><i class="fa-solid fa-bars"></i></a>
                 <a href="#" id="button-menu-close"><i class="fa-solid fa-xmark"></i></a>
                 <a
-                    href="{{ route('admin.gym-management.schedules') }}"
+                    href="#"
                     class="header-calendar-link"
+                    data-bs-toggle="modal"
+                    data-bs-target="#classesCalendarModal"
                     aria-label="View calendar"
                     title="View calendar"
+                    role="button"
                 >
                     <span class="header-calendar-link__icon">
                         <i class="fa-regular fa-calendar"></i>
@@ -889,6 +1067,50 @@
     </div>
 </div>
 
+<div class="modal fade classes-calendar-modal" id="classesCalendarModal" tabindex="-1" aria-labelledby="classesCalendarModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-xl modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="classesCalendarModalLabel">Classes Calendar View (For All Users)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="calendar-view">
+                    <div class="calendar-view__header">
+                        <div class="calendar-view__month" id="calendarMonthLabel">Loading...</div>
+                        <div class="calendar-view__controls">
+                            <button type="button" class="btn btn-light btn-sm calendar-nav-btn" data-calendar-nav="prev" aria-label="Previous month">
+                                <i class="fa-solid fa-chevron-left"></i>
+                            </button>
+                            <button type="button" class="btn btn-light btn-sm calendar-nav-btn" data-calendar-nav="next" aria-label="Next month">
+                                <i class="fa-solid fa-chevron-right"></i>
+                            </button>
+                            <button type="button" class="btn btn-danger btn-sm" id="calendarPrintBtn">
+                                <i class="fa-solid fa-print me-1"></i>Print
+                            </button>
+                        </div>
+                    </div>
+                    <div class="calendar-status" id="calendarStatus" role="status">Loading classes...</div>
+                    <div class="calendar-view__scroller">
+                        <div class="calendar-grid calendar-grid--weekdays">
+                            <div>Sun</div>
+                            <div>Mon</div>
+                            <div>Tue</div>
+                            <div>Wed</div>
+                            <div>Thu</div>
+                            <div>Fri</div>
+                            <div>Sat</div>
+                        </div>
+                        <div class="calendar-grid calendar-grid--days" id="calendarGrid"></div>
+                    </div>
+                    <div class="calendar-empty d-none" id="calendarEmpty">No classes scheduled for this month.</div>
+                    <div class="calendar-legend" id="calendarLegend"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if(auth()->guard('admin')->user()->role_id == 2)
 <div class="modal fade" id="timeActionsModal" tabindex="-1" aria-labelledby="timeActionsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1153,6 +1375,520 @@
             }
         });
     </script>    
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            var modalEl = document.getElementById('classesCalendarModal');
+            if (!modalEl) {
+                return;
+            }
+
+            var monthLabelEl = document.getElementById('calendarMonthLabel');
+            var gridEl = document.getElementById('calendarGrid');
+            var legendEl = document.getElementById('calendarLegend');
+            var statusEl = document.getElementById('calendarStatus');
+            var emptyEl = document.getElementById('calendarEmpty');
+            var printBtn = document.getElementById('calendarPrintBtn');
+            var navButtons = modalEl.querySelectorAll('[data-calendar-nav]');
+            var calendarUrl = "{{ route('admin.gym-management.schedules.all') }}";
+
+            var schedules = [];
+            var dataLoaded = false;
+            var dataLoading = false;
+            var calendarCursor = new Date();
+            calendarCursor.setDate(1);
+
+            var palette = [
+                { bg: '#fde8e9', border: '#f7c7cd', text: '#7a1f2d' },
+                { bg: '#e8f6ef', border: '#c5e5d5', text: '#1f5133' },
+                { bg: '#e9f0ff', border: '#cdd7f9', text: '#223a72' },
+                { bg: '#fff4e6', border: '#f6d2a3', text: '#7a4b00' },
+                { bg: '#f1f3f7', border: '#d5deec', text: '#4b5563' },
+                { bg: '#e6f7fb', border: '#c4e6ef', text: '#145766' }
+            ];
+            var colorCache = {};
+            var dayKeys = ['sun', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat'];
+
+            var hashKey = function (value) {
+                var hash = 0;
+                for (var i = 0; i < value.length; i++) {
+                    hash = ((hash << 5) - hash) + value.charCodeAt(i);
+                    hash |= 0;
+                }
+                return Math.abs(hash);
+            };
+
+            var getColorForKey = function (key) {
+                var safeKey = key || 'class';
+                if (colorCache[safeKey]) {
+                    return colorCache[safeKey];
+                }
+                var index = hashKey(safeKey) % palette.length;
+                colorCache[safeKey] = palette[index];
+                return colorCache[safeKey];
+            };
+
+            var extractDateString = function (value) {
+                if (!value) {
+                    return null;
+                }
+                var raw = String(value).split('T')[0].split(' ')[0];
+                return raw || null;
+            };
+
+            var parseDateString = function (value) {
+                var raw = extractDateString(value);
+                if (!raw) {
+                    return null;
+                }
+                var parts = raw.split('-');
+                if (parts.length < 3) {
+                    return null;
+                }
+                var year = parseInt(parts[0], 10);
+                var month = parseInt(parts[1], 10) - 1;
+                var day = parseInt(parts[2], 10);
+                if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day)) {
+                    return null;
+                }
+                return new Date(year, month, day);
+            };
+
+            var formatDateKey = function (date) {
+                var year = date.getFullYear();
+                var month = String(date.getMonth() + 1).padStart(2, '0');
+                var day = String(date.getDate()).padStart(2, '0');
+                return year + '-' + month + '-' + day;
+            };
+
+            var normalizeRecurringDays = function (value) {
+                var list = [];
+                if (!value) {
+                    return list;
+                }
+                if (Array.isArray(value)) {
+                    list = value;
+                } else if (typeof value === 'string') {
+                    try {
+                        list = JSON.parse(value);
+                    } catch (err) {
+                        list = value.split(',');
+                    }
+                }
+                return list.map(function (day) {
+                    if (!day) {
+                        return null;
+                    }
+                    var text = String(day).toLowerCase().trim();
+                    return text.slice(0, 3);
+                }).filter(Boolean);
+            };
+
+            var normalizeOverrides = function (value) {
+                var list = [];
+                if (!value) {
+                    return list;
+                }
+                if (Array.isArray(value)) {
+                    list = value;
+                } else if (typeof value === 'string') {
+                    try {
+                        list = JSON.parse(value);
+                    } catch (err) {
+                        list = [];
+                    }
+                }
+                return list.filter(function (override) {
+                    return override && typeof override === 'object';
+                });
+            };
+
+            var formatTime = function (value) {
+                if (!value) {
+                    return null;
+                }
+                var parts = String(value).split(':');
+                if (parts.length < 2) {
+                    return null;
+                }
+                var hours = parseInt(parts[0], 10);
+                var minutes = parseInt(parts[1], 10);
+                if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+                    return null;
+                }
+                var suffix = hours >= 12 ? 'PM' : 'AM';
+                var displayHours = hours % 12;
+                if (displayHours === 0) {
+                    displayHours = 12;
+                }
+                return displayHours + ':' + String(minutes).padStart(2, '0') + ' ' + suffix;
+            };
+
+            var formatTimeLabel = function (startTime, endTime) {
+                var startLabel = formatTime(startTime);
+                var endLabel = formatTime(endTime);
+                if (startLabel && endLabel) {
+                    return startLabel + ' - ' + endLabel;
+                }
+                return startLabel || endLabel || 'Time TBA';
+            };
+
+            var timeToMinutes = function (value) {
+                if (!value) {
+                    return null;
+                }
+                var parts = String(value).split(':');
+                if (parts.length < 2) {
+                    return null;
+                }
+                var hours = parseInt(parts[0], 10);
+                var minutes = parseInt(parts[1], 10);
+                if (Number.isNaN(hours) || Number.isNaN(minutes)) {
+                    return null;
+                }
+                return (hours * 60) + minutes;
+            };
+
+            var setStatus = function (message) {
+                if (!statusEl) {
+                    return;
+                }
+                if (!message) {
+                    statusEl.classList.add('d-none');
+                    statusEl.textContent = '';
+                    return;
+                }
+                statusEl.textContent = message;
+                statusEl.classList.remove('d-none');
+            };
+
+            var buildOccurrencesForMonth = function (items, year, month) {
+                var monthStart = new Date(year, month, 1);
+                var monthEnd = new Date(year, month + 1, 0);
+                var occurrences = {};
+                var legend = {};
+
+                var addOccurrence = function (dateObj, schedule, override) {
+                    if (!dateObj || dateObj < monthStart || dateObj > monthEnd) {
+                        return;
+                    }
+                    var dateKey = formatDateKey(dateObj);
+                    if (!occurrences[dateKey]) {
+                        occurrences[dateKey] = [];
+                    }
+                    var startTime = override && override.start_time ? override.start_time : schedule.class_start_time;
+                    var endTime = override && override.end_time ? override.end_time : schedule.class_end_time;
+                    var colorKey = schedule.class_code || schedule.name || String(schedule.id);
+                    var color = getColorForKey(colorKey);
+                    var label = (schedule.class_code ? schedule.class_code + ' ' : '') + (schedule.name || 'Class');
+                    var trainer = schedule.trainer || 'No Trainer';
+                    var event = {
+                        name: schedule.name || 'Class',
+                        classCode: schedule.class_code || '---',
+                        trainer: trainer,
+                        timeLabel: formatTimeLabel(startTime, endTime),
+                        startMinutes: timeToMinutes(startTime),
+                        color: color,
+                        legendLabel: label
+                    };
+                    occurrences[dateKey].push(event);
+                    if (!legend[colorKey]) {
+                        legend[colorKey] = { label: label, color: color };
+                    }
+                };
+
+                items.forEach(function (schedule) {
+                    if (schedule.is_archieve) {
+                        return;
+                    }
+
+                    var recurringDays = normalizeRecurringDays(schedule.recurring_days);
+                    var overridesList = normalizeOverrides(schedule.session_overrides);
+                    var overrideMap = {};
+
+                    overridesList.forEach(function (override) {
+                        var originalKey = extractDateString(override.original_date);
+                        if (originalKey) {
+                            overrideMap[originalKey] = override;
+                        }
+                    });
+
+                    var startDate = parseDateString(schedule.class_start_date);
+                    var endDate = parseDateString(schedule.class_end_date);
+                    var seriesStart = parseDateString(schedule.series_start_date) || startDate;
+                    var seriesEnd = parseDateString(schedule.series_end_date) || endDate || seriesStart;
+
+                    if (seriesStart && seriesEnd && recurringDays.length) {
+                        var rangeStart = seriesStart.getTime() > monthStart.getTime() ? seriesStart : monthStart;
+                        var rangeEnd = seriesEnd.getTime() < monthEnd.getTime() ? seriesEnd : monthEnd;
+                        for (var d = new Date(rangeStart); d <= rangeEnd; d.setDate(d.getDate() + 1)) {
+                            var dayKey = dayKeys[d.getDay()];
+                            if (recurringDays.indexOf(dayKey) === -1) {
+                                continue;
+                            }
+                            var dateKey = formatDateKey(d);
+                            var override = overrideMap[dateKey];
+                            if (override) {
+                                var overrideKey = extractDateString(override.new_date) || dateKey;
+                                var overrideDate = parseDateString(overrideKey);
+                                if (overrideDate) {
+                                    addOccurrence(overrideDate, schedule, override);
+                                }
+                            } else {
+                                addOccurrence(new Date(d.getTime()), schedule, null);
+                            }
+                        }
+                    } else if (startDate) {
+                        var startKey = formatDateKey(startDate);
+                        var singleOverride = overrideMap[startKey];
+                        if (singleOverride) {
+                            var movedKey = extractDateString(singleOverride.new_date) || startKey;
+                            var movedDate = parseDateString(movedKey);
+                            if (movedDate) {
+                                addOccurrence(movedDate, schedule, singleOverride);
+                            }
+                        } else {
+                            addOccurrence(startDate, schedule, null);
+                        }
+                    }
+
+                    if (overridesList.length) {
+                        var monthStartKey = formatDateKey(monthStart);
+                        var monthEndKey = formatDateKey(monthEnd);
+                        overridesList.forEach(function (override) {
+                            var originalKey = extractDateString(override.original_date);
+                            var newKey = extractDateString(override.new_date) || originalKey;
+                            if (!newKey) {
+                                return;
+                            }
+                            if (originalKey && originalKey >= monthStartKey && originalKey <= monthEndKey) {
+                                return;
+                            }
+                            var newDate = parseDateString(newKey);
+                            if (!newDate) {
+                                return;
+                            }
+                            if (newDate < monthStart || newDate > monthEnd) {
+                                return;
+                            }
+                            addOccurrence(newDate, schedule, override);
+                        });
+                    }
+                });
+
+                return { occurrences: occurrences, legend: legend };
+            };
+
+            var renderCalendar = function () {
+                if (!dataLoaded || !gridEl || !monthLabelEl) {
+                    return;
+                }
+
+                var year = calendarCursor.getFullYear();
+                var month = calendarCursor.getMonth();
+                monthLabelEl.textContent = calendarCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+                var result = buildOccurrencesForMonth(schedules, year, month);
+                var occurrences = result.occurrences;
+                var legend = result.legend;
+
+                gridEl.innerHTML = '';
+
+                var firstDay = new Date(year, month, 1);
+                var startDayIndex = firstDay.getDay();
+                var gridStart = new Date(year, month, 1 - startDayIndex);
+
+                var totalEvents = 0;
+                for (var i = 0; i < 42; i++) {
+                    var cellDate = new Date(gridStart.getFullYear(), gridStart.getMonth(), gridStart.getDate() + i);
+                    var isCurrentMonth = cellDate.getMonth() === month;
+                    var dateKey = formatDateKey(cellDate);
+
+                    var dayCell = document.createElement('div');
+                    dayCell.className = 'calendar-day' + (isCurrentMonth ? '' : ' calendar-day--outside');
+
+                    var dateLabel = document.createElement('div');
+                    dateLabel.className = 'calendar-day__date';
+                    dateLabel.textContent = cellDate.getDate();
+                    dayCell.appendChild(dateLabel);
+
+                    if (isCurrentMonth && occurrences[dateKey]) {
+                        var events = occurrences[dateKey].slice();
+                        events.sort(function (a, b) {
+                            return (a.startMinutes || 0) - (b.startMinutes || 0);
+                        });
+
+                        var eventsContainer = document.createElement('div');
+                        eventsContainer.className = 'calendar-day__events';
+
+                        var maxEvents = 2;
+                        events.slice(0, maxEvents).forEach(function (event) {
+                            var eventEl = document.createElement('div');
+                            eventEl.className = 'calendar-event';
+                            eventEl.style.setProperty('--event-bg', event.color.bg);
+                            eventEl.style.setProperty('--event-border', event.color.border);
+                            eventEl.style.setProperty('--event-text', event.color.text);
+
+                            var titleEl = document.createElement('div');
+                            titleEl.className = 'calendar-event__title';
+                            var nameEl = document.createElement('span');
+                            nameEl.textContent = event.name;
+                            var codeEl = document.createElement('span');
+                            codeEl.className = 'calendar-event__code';
+                            codeEl.textContent = event.classCode;
+                            titleEl.appendChild(nameEl);
+                            titleEl.appendChild(codeEl);
+
+                            var trainerEl = document.createElement('div');
+                            trainerEl.className = 'calendar-event__meta';
+                            trainerEl.textContent = event.trainer;
+
+                            var timeEl = document.createElement('div');
+                            timeEl.className = 'calendar-event__meta';
+                            timeEl.textContent = event.timeLabel;
+
+                            eventEl.appendChild(titleEl);
+                            eventEl.appendChild(trainerEl);
+                            eventEl.appendChild(timeEl);
+                            eventsContainer.appendChild(eventEl);
+                        });
+
+                        if (events.length > maxEvents) {
+                            var moreEl = document.createElement('div');
+                            moreEl.className = 'calendar-event__more';
+                            moreEl.textContent = '+' + (events.length - maxEvents) + ' more';
+                            eventsContainer.appendChild(moreEl);
+                        }
+
+                        dayCell.appendChild(eventsContainer);
+                        totalEvents += events.length;
+                    }
+
+                    gridEl.appendChild(dayCell);
+                }
+
+                if (emptyEl) {
+                    if (totalEvents === 0) {
+                        emptyEl.classList.remove('d-none');
+                    } else {
+                        emptyEl.classList.add('d-none');
+                    }
+                }
+
+                if (legendEl) {
+                    legendEl.innerHTML = '';
+                    Object.keys(legend).forEach(function (key) {
+                        var entry = legend[key];
+                        var item = document.createElement('div');
+                        item.className = 'calendar-legend__item';
+                        var swatch = document.createElement('span');
+                        swatch.className = 'calendar-legend__swatch';
+                        swatch.style.setProperty('--legend-bg', entry.color.bg);
+                        swatch.style.setProperty('--legend-border', entry.color.border);
+                        var label = document.createElement('span');
+                        label.textContent = entry.label;
+                        item.appendChild(swatch);
+                        item.appendChild(label);
+                        legendEl.appendChild(item);
+                    });
+                }
+            };
+
+            var loadCalendarData = function () {
+                if (dataLoaded || dataLoading) {
+                    return;
+                }
+                dataLoading = true;
+                setStatus('Loading classes...');
+
+                fetch(calendarUrl, { headers: { 'Accept': 'application/json' } })
+                    .then(function (response) {
+                        if (!response.ok) {
+                            throw new Error('Request failed');
+                        }
+                        return response.json();
+                    })
+                    .then(function (payload) {
+                        schedules = Array.isArray(payload.data) ? payload.data : [];
+                        dataLoaded = true;
+                        dataLoading = false;
+                        setStatus('');
+                        renderCalendar();
+                    })
+                    .catch(function () {
+                        dataLoading = false;
+                        setStatus('Unable to load classes right now.');
+                    });
+            };
+
+            modalEl.addEventListener('shown.bs.modal', function () {
+                if (!dataLoaded) {
+                    loadCalendarData();
+                    return;
+                }
+                renderCalendar();
+            });
+
+            navButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    var direction = button.getAttribute('data-calendar-nav');
+                    if (direction === 'prev') {
+                        calendarCursor.setMonth(calendarCursor.getMonth() - 1);
+                    } else if (direction === 'next') {
+                        calendarCursor.setMonth(calendarCursor.getMonth() + 1);
+                    }
+                    calendarCursor.setDate(1);
+                    renderCalendar();
+                });
+            });
+
+            if (printBtn) {
+                printBtn.addEventListener('click', function () {
+                    var calendarView = modalEl.querySelector('.calendar-view');
+                    if (!calendarView) {
+                        return;
+                    }
+                    var titleEl = document.getElementById('classesCalendarModalLabel');
+                    var titleText = titleEl ? titleEl.textContent : 'Classes Calendar View';
+                    var printWindow = window.open('', '_blank', 'width=1200,height=900');
+                    if (!printWindow) {
+                        return;
+                    }
+                    var printStyles = ''
+                        + 'body { font-family: "PoppinsRegular", Arial, sans-serif; margin: 24px; color: #1f2937; }'
+                        + '.print-title { font-size: 20px; font-weight: 800; margin-bottom: 16px; }'
+                        + '.calendar-view { background: #ffffff; border-radius: 16px; padding: 16px; border: 1px solid #e5e7eb; }'
+                        + '.calendar-view__controls, .calendar-status, .calendar-empty { display: none !important; }'
+                        + '.calendar-view__scroller { overflow: visible; }'
+                        + '.calendar-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 6px; }'
+                        + '.calendar-grid--weekdays { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; font-weight: 700; margin-bottom: 6px; }'
+                        + '.calendar-day { background: #f8f9fb; border: 1px solid #e4e7ee; border-radius: 12px; padding: 6px; min-height: 92px; display: flex; flex-direction: column; gap: 6px; }'
+                        + '.calendar-day__date { font-weight: 800; font-size: 0.72rem; color: #273341; }'
+                        + '.calendar-day__events { display: flex; flex-direction: column; gap: 6px; }'
+                        + '.calendar-event { padding: 6px; border-radius: 10px; border: 1px solid var(--event-border); background: var(--event-bg); color: var(--event-text); font-size: 0.65rem; line-height: 1.2; }'
+                        + '.calendar-event__title { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; font-weight: 700; }'
+                        + '.calendar-event__code { font-size: 0.6rem; opacity: 0.85; }'
+                        + '.calendar-event__meta { font-size: 0.6rem; opacity: 0.9; }'
+                        + '.calendar-event__more { font-size: 0.65rem; color: #6b7280; font-weight: 600; }'
+                        + '.calendar-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }'
+                        + '.calendar-legend__item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #4b5563; font-weight: 600; }'
+                        + '.calendar-legend__swatch { width: 12px; height: 12px; border-radius: 4px; background: var(--legend-bg); border: 1px solid var(--legend-border); }';
+
+                    printWindow.document.write('<!doctype html><html><head><title>' + titleText + '</title>');
+                    printWindow.document.write('<style>' + printStyles + '</style></head><body>');
+                    printWindow.document.write('<div class="print-title">' + titleText + '</div>');
+                    printWindow.document.write(calendarView.outerHTML);
+                    printWindow.document.write('</body></html>');
+                    printWindow.document.close();
+                    setTimeout(function () {
+                        printWindow.focus();
+                        printWindow.print();
+                        printWindow.close();
+                    }, 500);
+                });
+            }
+        });
+    </script>
 
     @yield('scripts')
     <script type="text/javascript" src="{{ asset('assets/js/bootstrap.bundle.min.js') }}"></script>

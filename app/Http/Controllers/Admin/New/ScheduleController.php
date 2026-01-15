@@ -21,18 +21,32 @@ class ScheduleController extends Controller
 {
     public function all()
     {
-        $data = Schedule::all();
+        $data = Schedule::with('user')->get();
     
         $data = $data->map(function ($item) {
             $now = now();
-            $start_date = \Carbon\Carbon::parse($item->class_start_date);
-            $end_date = \Carbon\Carbon::parse($item->class_end_date);
+            $start_date = $item->class_start_date ? \Carbon\Carbon::parse($item->class_start_date) : null;
+            $end_date = $item->class_end_date ? \Carbon\Carbon::parse($item->class_end_date) : null;
     
             $status = 'Past';
-            if ($now->lt($start_date)) {
+            if ($start_date && $now->lt($start_date)) {
                 $status = 'Future';
-            } elseif ($now->between($start_date, $end_date)) {
+            } elseif ($start_date && $end_date && $now->between($start_date, $end_date)) {
                 $status = 'Present';
+            }
+
+            $recurringDays = is_array($item->recurring_days)
+                ? $item->recurring_days
+                : json_decode($item->recurring_days ?? '[]', true);
+            if (!is_array($recurringDays)) {
+                $recurringDays = [];
+            }
+
+            $sessionOverrides = is_array($item->session_overrides)
+                ? $item->session_overrides
+                : json_decode($item->session_overrides ?? '[]', true);
+            if (!is_array($sessionOverrides)) {
+                $sessionOverrides = [];
             }
     
             return [
@@ -44,6 +58,12 @@ class ScheduleController extends Controller
                 'link' => '0',
                 'class_start_date' => $item->class_start_date,
                 'class_end_date' => $item->class_end_date,
+                'series_start_date' => $item->series_start_date,
+                'series_end_date' => $item->series_end_date,
+                'class_start_time' => $item->class_start_time,
+                'class_end_time' => $item->class_end_time,
+                'recurring_days' => $recurringDays,
+                'session_overrides' => $sessionOverrides,
                 'isenabled' => $item->isenabled ? 'Enabled' : 'Disabled',
                 'status' => $status,
                 'isadminapproved' => $item->isadminapproved,
