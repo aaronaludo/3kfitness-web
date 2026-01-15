@@ -268,7 +268,8 @@
     .filter-menu__panel.show {
         display: grid;
         grid-template-columns: 150px 180px 1fr;
-        grid-template-rows: 1fr;
+        grid-template-rows: auto;
+        grid-auto-rows: auto;
         align-items: start;
         gap: 0;
     }
@@ -356,6 +357,26 @@
     .filter-menu__panel.show.has-memberships .filter-menu__sub--dates {
         grid-column: 4;
     }
+    .filter-menu__custom-range {
+        grid-column: 1 / -1;
+        grid-row: 2;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px 12px;
+        padding: 12px;
+        border-top: 1px solid rgba(0,0,0,0.06);
+        background: #f8fafc;
+        border-radius: 0 0 14px 14px;
+    }
+    .filter-menu__custom-field {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+    .filter-menu__custom-range .form-label {
+        font-size: 0.82rem;
+        color: #475569;
+    }
     @media (max-width: 575.98px) {
         .report-hero {
             padding: 18px;
@@ -391,6 +412,12 @@
     }
     .filter-menu__panel.show.has-memberships .filter-menu__sub--dates {
         grid-column: 1;
+    }
+    .filter-menu__custom-range {
+        grid-column: 1;
+        grid-row: auto;
+        grid-template-columns: 1fr;
+        border-radius: 0 0 14px 14px;
     }
     }
 </style>
@@ -704,31 +731,29 @@
                                 <li><button type="button" class="{{ $datePreset === 'all_time' ? 'active' : '' }}" data-date-preset="all_time" data-date-label="All Time">All Time</button></li>
                                 <li><button type="button" class="{{ $datePreset === 'custom' ? 'active' : '' }}" data-date-preset="custom" data-date-label="Custom Date Range">Custom Date Range</button></li>
                             </ul>
+                            <div class="filter-menu__custom-range {{ $datePreset === 'custom' ? '' : 'd-none' }}" id="custom-date-row">
+                                <div class="filter-menu__custom-field">
+                                    <label for="start-date" class="form-label">Start date</label>
+                                    <input type="date" id="start-date" name="start_date" class="form-control" value="{{ $datePreset === 'custom' ? ($startDate ?? '') : '' }}">
+                                </div>
+                                <div class="filter-menu__custom-field">
+                                    <label for="start-time" class="form-label">Start time</label>
+                                    <input type="time" id="start-time" name="start_time" class="form-control" value="{{ $datePreset === 'custom' ? ($startTime ?? '') : '' }}">
+                                </div>
+                                <div class="filter-menu__custom-field">
+                                    <label for="end-date" class="form-label">End date</label>
+                                    <input type="date" id="end-date" name="end_date" class="form-control" value="{{ $datePreset === 'custom' ? ($endDate ?? '') : '' }}">
+                                </div>
+                                <div class="filter-menu__custom-field">
+                                    <label for="end-time" class="form-label">End time</label>
+                                    <input type="time" id="end-time" name="end_time" class="form-control" value="{{ $datePreset === 'custom' ? ($endTime ?? '') : '' }}">
+                                </div>
+                            </div>
                         </div>
                         <input type="hidden" name="focus" id="focus-field" value="{{ $focus }}">
                         <input type="hidden" name="order" id="order-field" value="{{ $order ?? 'most' }}">
                         <input type="hidden" name="membership_id" id="membership-field" value="{{ $selectedMembershipId }}">
                         <input type="hidden" name="date_preset" id="date-preset-field" value="{{ $datePreset }}">
-                    </div>
-                </div>
-                <div class="col-12 col-lg-4 {{ $datePreset === 'custom' ? '' : 'd-none' }}" id="custom-date-row">
-                    <div class="row g-2">
-                        <div class="col-6 col-md-6">
-                            <label for="start-date" class="form-label">Start date</label>
-                            <input type="date" id="start-date" name="start_date" class="form-control" value="{{ $datePreset === 'custom' ? ($startDate ?? '') : '' }}">
-                        </div>
-                        <div class="col-6 col-md-6">
-                            <label for="start-time" class="form-label">Start time</label>
-                            <input type="time" id="start-time" name="start_time" class="form-control" value="{{ $datePreset === 'custom' ? ($startTime ?? '') : '' }}">
-                        </div>
-                        <div class="col-6 col-md-6">
-                            <label for="end-date" class="form-label">End date</label>
-                            <input type="date" id="end-date" name="end_date" class="form-control" value="{{ $datePreset === 'custom' ? ($endDate ?? '') : '' }}">
-                        </div>
-                        <div class="col-6 col-md-6">
-                            <label for="end-time" class="form-label">End time</label>
-                            <input type="time" id="end-time" name="end_time" class="form-control" value="{{ $datePreset === 'custom' ? ($endTime ?? '') : '' }}">
-                        </div>
                     </div>
                 </div>
                 <div class="col-12 col-lg-auto d-flex gap-2 align-items-center">
