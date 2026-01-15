@@ -826,6 +826,7 @@
                             font-size: 0.85rem;
                             letter-spacing: 0.01em;
                             box-shadow: none;
+                            width: 100%;
                         }
                         .pill-chip::before {
                             content: '';
@@ -884,6 +885,7 @@
                                             <th>User Code</th>
                                             <th class="sortable" data-column="start_date">Schedule</th>
                                             <th>Series of Session</th>
+                                            <th>Trainer Status</th>
                                             <th class="sortable" data-column="slots">Enrollment</th>
                                             <th class="sortable" data-column="created_by">Created By</th>
                                             <th>Reschedule</th>
@@ -1276,10 +1278,8 @@
                                                 </td>
                                                 <td class="small">
                                                     <div class="d-flex flex-column gap-2">
-                                                        <span class="pill-chip {{ $trainerAcceptancePill['class'] }}">{{ $trainerAcceptancePill['label'] }}</span>
-
                                                         @if($trainerAcceptanceStatus === 0)
-                                                            {{-- Waiting for trainer acceptance; hide session details until decided --}}
+                                                            <span class="pill-chip pill-chip-muted">Series pending trainer acceptance</span>
                                                         @elseif(count($allSessionOccurrences))
                                                             @php
                                                                 $seriesPillClass = match ($scheduleStatus) {
@@ -1295,7 +1295,7 @@
                                                             <div class="d-flex align-items-center gap-2">
                                                                 <button
                                                                     type="button"
-                                                                    class="btn btn-link btn-sm px-0 text-decoration-none"
+                                                                    class="btn btn-link btn-sm px-0"
                                                                     data-bs-toggle="collapse"
                                                                     data-bs-target="#session-series-{{ $item->id }}"
                                                                     aria-expanded="false"
@@ -1344,6 +1344,9 @@
                                                             <span class="text-muted">Series not set</span>
                                                         @endif
                                                     </div>
+                                                </td>
+                                                <td class="small">
+                                                    <span class="pill-chip {{ $trainerAcceptancePill['class'] }}">{{ $trainerAcceptancePill['label'] }}</span>
                                                 </td>
                                                 <td class="small">
                                                     <div class="fw-semibold">{{ $item->slots }} slots</div>
