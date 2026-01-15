@@ -432,6 +432,7 @@
         $printCollectionAll = $focusRowsAll instanceof \Illuminate\Pagination\AbstractPaginator
             ? collect($focusRowsAll->items())
             : collect($focusRowsAll ?? $printCollectionCurrent);
+        $hasFilterPreset = !empty(request()->except(['page']));
 
         $mapPrintRow = function ($row) use ($focus, $currency) {
             $label = $row['label'] ?? '—';
@@ -466,17 +467,61 @@
         $printItems = $printCollectionCurrent->values()->map($mapPrintRow);
         $printItemsAll = $printCollectionAll->values()->map($mapPrintRow);
 
+        if (!$hasFilterPreset) {
+            $printItems = collect();
+            $printItemsAll = collect();
+        }
+
+        $includeAllSummary = !$hasFilterPreset;
         $summaryForPrint = [
-            'membership_revenue' => $focus === 'trainer'
-                ? null
-                : round((float) ($summary['membership_revenue'] ?? 0), 2),
-            'total_sales_count' => $focus === 'trainer'
-                ? null
-                : (int) ($summary['total_sales_count'] ?? 0),
-            'class_commission' => $focus === 'trainer'
+            'membership_revenue' => ($includeAllSummary || $focus !== 'trainer')
+                ? round((float) ($summary['membership_revenue'] ?? 0), 2)
+                : null,
+            'total_sales_count' => ($includeAllSummary || $focus !== 'trainer')
+                ? (int) ($summary['total_sales_count'] ?? 0)
+                : null,
+            'class_commission' => ($includeAllSummary || $focus === 'trainer')
                 ? round((float) ($summary['class_commission'] ?? 0), 2)
                 : null,
         ];
+        $summaryCards = [];
+        if ($summaryForPrint['membership_revenue'] !== null) {
+            $summaryCards[] = [
+                'label' => 'Membership revenue',
+                'value' => $currency . ' ' . number_format($summaryForPrint['membership_revenue'], 2),
+                'tone' => 'revenue',
+            ];
+        }
+        if ($summaryForPrint['class_commission'] !== null) {
+            $summaryCards[] = [
+                'label' => 'Class commission',
+                'value' => $currency . ' ' . number_format($summaryForPrint['class_commission'], 2),
+                'tone' => 'commission',
+            ];
+        }
+        if ($summaryForPrint['total_sales_count'] !== null) {
+            $summaryCards[] = [
+                'label' => 'Total sales count',
+                'value' => number_format((int) $summaryForPrint['total_sales_count']),
+                'tone' => 'count',
+            ];
+        }
+        $filtersForPrint = $hasFilterPreset
+            ? [
+                'search' => $searchTerm,
+                'focus' => ucfirst($focus),
+                'order' => $order,
+                'membership' => $selectedMembershipLabel ?? 'All Memberships',
+                'date' => $datePresetLabel ?? 'Custom Date Range',
+                'range' => $rangeLabel,
+            ]
+            : [];
+        $printMeta = $hasFilterPreset
+            ? []
+            : [
+                'hide_table' => true,
+                'summary_cards' => $summaryCards,
+            ];
 
         $printPayload = [
             'title' => 'Sales report',
@@ -485,14 +530,8 @@
             'order' => $order,
             'currency' => $currency,
             'summary' => $summaryForPrint,
-            'filters' => [
-                'search' => $searchTerm,
-                'focus' => ucfirst($focus),
-                'order' => $order,
-                'membership' => $selectedMembershipLabel ?? 'All Memberships',
-                'date' => $datePresetLabel ?? 'Custom Date Range',
-                'range' => $rangeLabel,
-            ],
+            'filters' => $filtersForPrint,
+            'meta' => $printMeta,
             'count' => $printItems->count(),
             'items' => $printItems,
         ];
@@ -502,7 +541,6 @@
             'count' => $printItemsAll->count(),
             'items' => $printItemsAll,
         ]);
-        $hasFilterPreset = !empty(request()->except(['page']));
         $filterPresetEmpty = !$hasFilterPreset;
         $showMembershipTile = $filterPresetEmpty || $focus !== 'trainer';
         $showTotalSalesTile = $filterPresetEmpty || $focus !== 'trainer';
@@ -1026,6 +1064,7 @@
 
         var rawPayload = printBtn.dataset.print;
         var rawAllPayload = printBtn.dataset.printAll;
+        var detailsStorageKey = 'salesReportShowDetails';
 
         var parsePayload = function (raw) {
             try {
@@ -1059,8 +1098,15 @@
                 var num = Number(value) || 0;
                 return currency + ' ' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
             };
+            if (summary.membership_revenue !== undefined && summary.membership_revenue !== null) {
+                chips.push({ label: 'Membership revenue', value: formatMoney(summary.membership_revenue) });
+            }
             if (summary.class_commission !== undefined && summary.class_commission !== null) {
                 chips.push({ label: 'Class commission', value: formatMoney(summary.class_commission) });
+            }
+            if (summary.total_sales_count !== undefined && summary.total_sales_count !== null) {
+                var count = Number(summary.total_sales_count) || 0;
+                chips.push({ label: 'Total sales count', value: count.toLocaleString() });
             }
             return chips;
         };
@@ -1069,9 +1115,14 @@
             var focus = payload.focus || 'member';
             var currency = payload.currency || '';
             var summary = payload.summary || {};
+            var meta = payload.meta || {};
             var items = Array.isArray(payload.items) ? payload.items : [];
             var headers = [];
             var rows = [];
+
+            if (meta.hide_table) {
+                return { headers: [], rows: [] };
+            }
 
             if (focus === 'trainer') {
                 headers = ['#', 'Trainer', 'Class Commission (' + currency + ')', 'Last Sale'];
@@ -1147,11 +1198,31 @@
             }
 
             var payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+            var detailsVisible = true;
+            try {
+                detailsVisible = localStorage.getItem(detailsStorageKey) !== '0';
+            } catch (err) {
+                detailsVisible = true;
+            }
+
+            if (payloadToUse && !detailsVisible) {
+                payloadToUse = JSON.parse(JSON.stringify(payloadToUse));
+                payloadToUse.meta = payloadToUse.meta || {};
+                payloadToUse.meta.hide_table = true;
+                payloadToUse.items = [];
+                payloadToUse.count = 0;
+            }
 
             if (payloadToUse && window.PrintPreview && typeof window.PrintPreview.tryOpen === 'function') {
                 var chips = buildFilterChips(payloadToUse.filters || {});
-                var summaryChips = buildSummaryChips(payloadToUse.summary, payloadToUse.currency, payloadToUse.focus);
-                chips = chips.concat(summaryChips);
+                var hideTable = payloadToUse.meta && payloadToUse.meta.hide_table;
+                var hasSummaryCards = payloadToUse.meta
+                    && Array.isArray(payloadToUse.meta.summary_cards)
+                    && payloadToUse.meta.summary_cards.length;
+                if (!hideTable || !hasSummaryCards) {
+                    var summaryChips = buildSummaryChips(payloadToUse.summary, payloadToUse.currency, payloadToUse.focus);
+                    chips = chips.concat(summaryChips);
+                }
                 var built = buildRows(payloadToUse);
                 handled = window.PrintPreview.tryOpen(payloadToUse, built.headers, built.rows, chips);
             }

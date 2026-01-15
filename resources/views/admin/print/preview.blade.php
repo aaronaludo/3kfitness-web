@@ -11,6 +11,22 @@
         .header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }
         .title { margin: 0; font-size: 22px; line-height: 1.3; }
         .meta { color: #6b7280; font-size: 12px; margin: 2px 0; }
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 16px 0 8px; }
+        .summary-card {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-radius: 14px;
+            padding: 16px 18px;
+            position: relative;
+            overflow: hidden;
+            box-shadow: 0 12px 24px rgba(17, 24, 39, 0.08);
+        }
+        .summary-card::before { content: ''; position: absolute; top: 0; left: 0; width: 100%; height: 4px; background: #94a3b8; }
+        .summary-card[data-tone="revenue"]::before { background: #16a34a; }
+        .summary-card[data-tone="commission"]::before { background: #e11d48; }
+        .summary-card[data-tone="count"]::before { background: #2563eb; }
+        .summary-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; }
+        .summary-value { font-size: 20px; font-weight: 700; margin-top: 6px; color: #111827; }
         .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; padding: 0; list-style: none; }
         .pill {
             --pill-bg: #f5f7fb;
@@ -54,6 +70,7 @@
         @media print {
             body { background: #fff; padding: 0; }
             .sheet { box-shadow: none; border-radius: 0; border: none; }
+            .summary-card { box-shadow: none; }
         }
     </style>
 </head>
@@ -67,12 +84,25 @@
             <div>
                 <h1 class="title">{{ $title ?? 'Print preview' }}</h1>
                 <div class="meta">Generated {{ $generatedAt ?? '' }}</div>
-                <div class="meta">Showing {{ $count ?? 0 }} record(s)</div>
+                @if(empty($meta['hide_table']))
+                    <div class="meta">Showing {{ $count ?? 0 }} record(s)</div>
+                @endif
             </div>
             @if(!empty($meta['subtitle']))
                 <div class="muted">{{ $meta['subtitle'] }}</div>
             @endif
         </div>
+
+        @if(!empty($meta['summary_cards']))
+            <div class="summary-grid">
+                @foreach($meta['summary_cards'] as $card)
+                    <div class="summary-card" data-tone="{{ $card['tone'] ?? '' }}">
+                        <div class="summary-label">{{ $card['label'] ?? '' }}</div>
+                        <div class="summary-value">{{ $card['value'] ?? '' }}</div>
+                    </div>
+                @endforeach
+            </div>
+        @endif
 
         <div class="pill-row">
             @forelse($filters ?? [] as $filter)
@@ -87,34 +117,36 @@
             @endforelse
         </div>
 
-        <table>
-            @if(!empty($headers))
-                <thead>
-                    <tr>
-                        @foreach($headers as $header)
-                            <th>{{ $header }}</th>
-                        @endforeach
-                    </tr>
-                </thead>
-            @endif
-            <tbody>
-                @if(!empty($rowsHtml))
-                    {!! $rowsHtml !!}
-                @else
-                    @forelse($rows ?? [] as $row)
+        @if(empty($meta['hide_table']))
+            <table>
+                @if(!empty($headers))
+                    <thead>
                         <tr>
-                            @for($i = 0; $i < $columnCount; $i++)
-                                <td>{!! $row[$i] ?? '&mdash;' !!}</td>
-                            @endfor
+                            @foreach($headers as $header)
+                                <th>{{ $header }}</th>
+                            @endforeach
                         </tr>
-                    @empty
-                        <tr>
-                            <td class="empty" colspan="{{ $columnCount }}">No records to print for this view.</td>
-                        </tr>
-                    @endforelse
+                    </thead>
                 @endif
-            </tbody>
-        </table>
+                <tbody>
+                    @if(!empty($rowsHtml))
+                        {!! $rowsHtml !!}
+                    @else
+                        @forelse($rows ?? [] as $row)
+                            <tr>
+                                @for($i = 0; $i < $columnCount; $i++)
+                                    <td>{!! $row[$i] ?? '&mdash;' !!}</td>
+                                @endfor
+                            </tr>
+                        @empty
+                            <tr>
+                                <td class="empty" colspan="{{ $columnCount }}">No records to print for this view.</td>
+                            </tr>
+                        @endforelse
+                    @endif
+                </tbody>
+            </table>
+        @endif
 
         @if(!empty($notes))
             <div class="muted" style="margin-top: 12px;">{!! $notes !!}</div>
