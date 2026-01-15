@@ -132,6 +132,44 @@
             text-transform: uppercase;
         }
 
+        .header-calendar-link {
+            display: inline-flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            padding: 6px 12px;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.18);
+            color: #fff;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 0.68rem;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            border: 1px solid rgba(255, 255, 255, 0.35);
+            box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+        }
+
+        .header-calendar-link__icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.25);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .header-calendar-link:hover {
+            color: #fff;
+            background: rgba(255, 255, 255, 0.26);
+            transform: translateY(-1px);
+            box-shadow: 0 10px 24px rgba(0, 0, 0, 0.16);
+        }
+
         .header-actions .navbar-nav {
             flex: 0 0 auto;
             margin-top: 0 !important;
@@ -338,6 +376,21 @@
                 font-size: 0.7rem;
             }
 
+            .header-calendar-link {
+                padding: 6px 8px;
+                border-radius: 12px;
+            }
+
+            .header-calendar-link__icon {
+                width: 28px;
+                height: 28px;
+                font-size: 0.9rem;
+            }
+
+            .header-calendar-link__label {
+                display: none;
+            }
+
             .header-actions .nav-link {
                 font-size: 0.9rem;
                 padding: 0;
@@ -386,6 +439,17 @@
                 
                 <a href="#" id="button-menu"><i class="fa-solid fa-bars"></i></a>
                 <a href="#" id="button-menu-close"><i class="fa-solid fa-xmark"></i></a>
+                <a
+                    href="{{ route('admin.gym-management.schedules') }}"
+                    class="header-calendar-link"
+                    aria-label="View calendar"
+                    title="View calendar"
+                >
+                    <span class="header-calendar-link__icon">
+                        <i class="fa-regular fa-calendar"></i>
+                    </span>
+                    <span class="header-calendar-link__label">View Calendar</span>
+                </a>
 
                 <div class="d-flex align-items-center ms-auto flex-wrap flex-lg-nowrap header-actions">
                     <div class="datetime-chip mt-2 mt-lg-0 me-lg-2">

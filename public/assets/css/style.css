@@ -43,7 +43,6 @@ body {
 }
 #header-logo {
   width: 235px;
-  border-right: 1px solid #eee;
   overflow: hidden;
   height: 76px;
 }
