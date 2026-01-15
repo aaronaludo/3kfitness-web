@@ -25,6 +25,8 @@
         .summary-card[data-tone="revenue"]::before { background: #16a34a; }
         .summary-card[data-tone="commission"]::before { background: #e11d48; }
         .summary-card[data-tone="count"]::before { background: #2563eb; }
+        .summary-card[data-tone="cost"]::before { background: #f59e0b; }
+        .summary-card[data-tone="profit"]::before { background: #0f766e; }
         .summary-label { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: #6b7280; }
         .summary-value { font-size: 20px; font-weight: 700; margin-top: 6px; color: #111827; }
         .pill-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; padding: 0; list-style: none; }

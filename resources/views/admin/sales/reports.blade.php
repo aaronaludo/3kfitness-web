@@ -48,6 +48,26 @@
     .report-shell .btn.btn-link {
         box-shadow: none;
     }
+    .report-shell .sales-month-filter {
+        min-width: 180px;
+    }
+    .report-shell .details-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0.48rem 0.9rem;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .report-shell .details-toggle-btn.is-active {
+        border-color: rgba(220, 53, 69, 0.4);
+        color: #b91c1c;
+        background: rgba(220, 53, 69, 0.08);
+    }
     .report-shell .table {
         font-size: 0.93rem;
     }
@@ -226,6 +246,7 @@
 @section('content')
 <div class="container-fluid report-shell">
     @php
+        $hasFilterPreset = !empty(request()->except(['page']));
         $printFilters = [
             'start_date' => $startDate,
             'end_date' => $endDate,
@@ -244,20 +265,83 @@
         };
         $printRows = collect($membershipPayments->items() ?? [])->map($buildPrintRow)->values();
         $printAllRows = collect($membershipPaymentsAll ?? [])->map($buildPrintRow)->values();
+        if (!$hasFilterPreset) {
+            $printRows = collect();
+            $printAllRows = collect();
+        }
+        $summaryCurrency = $summary['currency'] ?? 'PHP';
+        $summaryCards = [
+            [
+                'label' => 'Total revenue',
+                'value' => $summaryCurrency . ' ' . number_format((float) ($summary['total_revenue'] ?? 0), 2),
+                'tone' => 'revenue',
+            ],
+            [
+                'label' => 'Total cost',
+                'value' => $summaryCurrency . ' ' . number_format((float) ($summary['cost'] ?? 0), 2),
+                'tone' => 'cost',
+            ],
+            [
+                'label' => 'Total profit',
+                'value' => $summaryCurrency . ' ' . number_format((float) ($summary['profit'] ?? 0), 2),
+                'tone' => 'profit',
+            ],
+        ];
+        $printMeta = $hasFilterPreset
+            ? []
+            : [
+                'hide_table' => true,
+                'summary_cards' => $summaryCards,
+            ];
         $printPayload = [
             'title' => 'Sales detailed reports',
             'generated_at' => now()->format('M d, Y g:i A'),
-            'filters' => array_merge($printFilters, ['scope' => 'current']),
+            'filters' => $hasFilterPreset ? array_merge($printFilters, ['scope' => 'current']) : [],
             'count' => $printRows->count(),
             'items' => $printRows,
+            'meta' => $printMeta,
         ];
         $printAllPayload = [
             'title' => 'Sales detailed reports (all pages)',
             'generated_at' => now()->format('M d, Y g:i A'),
-            'filters' => array_merge($printFilters, ['scope' => 'all']),
+            'filters' => $hasFilterPreset ? array_merge($printFilters, ['scope' => 'all']) : [],
             'count' => $printAllRows->count(),
             'items' => $printAllRows,
+            'meta' => $printMeta,
         ];
+        $baseMonth = now()->startOfMonth();
+        $monthFilterOptions = collect(range(0, 36))
+            ->map(function ($offset) use ($baseMonth) {
+                $month = $baseMonth->copy()->subMonths($offset);
+                return [
+                    'value' => $month->format('Y-m'),
+                    'label' => $month->format('F Y'),
+                    'start' => $month->copy()->startOfMonth()->format('Y-m-d'),
+                    'end' => $month->copy()->endOfMonth()->format('Y-m-d'),
+                ];
+            })
+            ->sortByDesc('start')
+            ->values();
+        $monthFilterSelection = null;
+        if (!empty($datePreset) && $datePreset === 'this_month') {
+            $monthFilterSelection = now()->format('Y-m');
+        } elseif (!empty($datePreset) && $datePreset === 'last_month') {
+            $monthFilterSelection = now()->subMonth()->format('Y-m');
+        } elseif (!empty($startDate) && !empty($endDate)) {
+            try {
+                $startCarbon = \Carbon\Carbon::parse($startDate);
+                $endCarbon = \Carbon\Carbon::parse($endDate);
+                if (
+                    $startCarbon->isSameDay($startCarbon->copy()->startOfMonth()) &&
+                    $endCarbon->isSameDay($endCarbon->copy()->endOfMonth()) &&
+                    $startCarbon->isSameMonth($endCarbon)
+                ) {
+                    $monthFilterSelection = $startCarbon->format('Y-m');
+                }
+            } catch (\Exception $e) {
+                $monthFilterSelection = null;
+            }
+        }
     @endphp
     <div class="row">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2 mt-2">
@@ -265,23 +349,38 @@
                 <h2 class="title mb-0">Sales Profit Report</h2>
                 <p class="text-muted mb-0">Revenue, cost, and profit with membership payments in your selected range.</p>
             </div>
-            <form action="#" method="POST" id="print-form">
-                @csrf
-                <input type="hidden" name="start_date" value="{{ $startDate }}">
-                <input type="hidden" name="end_date" value="{{ $endDate }}">
-                <button
-                    type="submit"
-                    class="btn btn-danger d-flex align-items-center gap-2"
-                    id="print-submit-button"
-                    data-print='@json($printPayload)'
-                    data-print-all='@json($printAllPayload)'
-                    aria-label="Open printable/PDF view of filtered payments"
-                >
-                    <i class="fa-solid fa-print"></i>
-                    <span id="print-loader" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
-                    Print
-                </button>
-            </form>
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select sales-month-filter" id="sales-month-filter" aria-label="Filter by month">
+                    <option value="">Filter month</option>
+                    @foreach ($monthFilterOptions as $option)
+                        <option
+                            value="{{ $option['value'] }}"
+                            data-start="{{ $option['start'] }}"
+                            data-end="{{ $option['end'] }}"
+                            {{ $monthFilterSelection === $option['value'] ? 'selected' : '' }}
+                        >
+                            {{ $option['label'] }}
+                        </option>
+                    @endforeach
+                </select>
+                <form action="#" method="POST" id="print-form">
+                    @csrf
+                    <input type="hidden" name="start_date" value="{{ $startDate }}">
+                    <input type="hidden" name="end_date" value="{{ $endDate }}">
+                    <button
+                        type="submit"
+                        class="btn btn-danger d-flex align-items-center gap-2"
+                        id="print-submit-button"
+                        data-print='@json($printPayload)'
+                        data-print-all='@json($printAllPayload)'
+                        aria-label="Open printable/PDF view of filtered payments"
+                    >
+                        <i class="fa-solid fa-print"></i>
+                        <span id="print-loader" class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true"></span>
+                        Print
+                    </button>
+                </form>
+            </div>
         </div>
     </div>
 
@@ -458,7 +557,7 @@
                         </div>
                     </div>
 
-                    <form action="{{ route('admin.sales.reports') }}" method="GET" class="row g-2 align-items-end">
+                    <form action="{{ route('admin.sales.reports') }}" method="GET" class="row g-2 align-items-end" id="sales-profit-filter-form">
                         <div class="col-12 col-lg-4">
                             <label class="form-label text-muted small mb-1" for="date_preset">Date range</label>
                             <select id="date_preset" name="date_preset" class="form-select">
@@ -492,6 +591,10 @@
                             <a href="{{ route('admin.sales.reports') }}" class="btn btn-link text-decoration-none text-muted px-0">
                                 Reset
                             </a>
+                            <button type="button" class="details-toggle-btn" id="sales-profit-details-toggle" aria-pressed="true">
+                                <i class="fa-solid fa-eye-slash"></i>
+                                Hide Details
+                            </button>
                             <button type="submit" class="btn btn-danger px-3 d-flex align-items-center gap-2">
                                 <i class="fa-solid fa-magnifying-glass"></i>
                                 Apply
@@ -517,7 +620,8 @@
 
     <div class="row">
         <div class="col-12">
-            <div class="card shadow-sm border-0 rounded-4">
+            @if($hasFilterPreset)
+            <div class="card shadow-sm border-0 rounded-4 report-detail-section">
                 <div class="card-body">
                     <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
                         <div>
@@ -818,6 +922,17 @@
                     @endif
                 </div>
             </div>
+            @else
+            <div class="card shadow-sm border-0 rounded-4 mb-4">
+                <div class="card-body p-4 text-center text-muted">
+                    <div class="mb-3">
+                        <i class="fa-solid fa-filter-circle-xmark fa-2x"></i>
+                    </div>
+                    <h5 class="fw-semibold mb-2">No filters applied</h5>
+                    <p class="mb-0">Choose a date range to load report details.</p>
+                </div>
+            </div>
+            @endif
         </div>
     </div>
 </div>
@@ -827,10 +942,15 @@
         const printButton = document.getElementById('print-submit-button');
         const printForm = document.getElementById('print-form');
         const printLoader = document.getElementById('print-loader');
+        const monthFilter = document.getElementById('sales-month-filter');
+        const filterForm = document.getElementById('sales-profit-filter-form');
         const datePresetSelect = document.getElementById('date_preset');
         const customDateRange = document.getElementById('custom-date-range');
         const startDateInput = document.getElementById('start_date');
         const endDateInput = document.getElementById('end_date');
+        const detailsToggle = document.getElementById('sales-profit-details-toggle');
+        const detailSections = document.querySelectorAll('.report-detail-section');
+        const detailsStorageKey = 'salesProfitReportShowDetails';
 
         function buildFilters(filters) {
             const chips = [];
@@ -880,11 +1000,12 @@
         }
 
         function renderPrintWindow(payload) {
+            const hideTable = payload && payload.meta && payload.meta.hide_table;
             const rawItems = payload && payload.items ? payload.items : [];
             const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
             const filters = buildFilters(payload.filters || {});
-            const headers = ['#', 'Member', 'Membership', 'Amount', 'Date'];
-            const rows = buildRows(items, payload.filters || {});
+            const headers = hideTable ? [] : ['#', 'Member', 'Membership', 'Amount', 'Date'];
+            const rows = hideTable ? [] : buildRows(items, payload.filters || {});
 
             return window.PrintPreview
                 ? PrintPreview.tryOpen(payload, headers, rows, filters)
@@ -924,7 +1045,21 @@
                     return;
                 }
 
-                const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                let payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                let detailsVisible = true;
+                try {
+                    detailsVisible = localStorage.getItem(detailsStorageKey) !== '0';
+                } catch (err) {
+                    detailsVisible = true;
+                }
+
+                if (payloadToUse && !detailsVisible) {
+                    payloadToUse = JSON.parse(JSON.stringify(payloadToUse));
+                    payloadToUse.meta = payloadToUse.meta || {};
+                    payloadToUse.meta.hide_table = true;
+                    payloadToUse.items = [];
+                    payloadToUse.count = 0;
+                }
                 const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
 
                 printButton.disabled = false;
@@ -936,16 +1071,77 @@
             });
         }
 
-        if (datePresetSelect && customDateRange) {
-            const toggleCustomDates = () => {
-                const isCustom = datePresetSelect.value === 'custom';
-                customDateRange.classList.toggle('d-none', !isCustom);
-                if (startDateInput) startDateInput.disabled = !isCustom;
-                if (endDateInput) endDateInput.disabled = !isCustom;
+        const toggleCustomDates = () => {
+            if (!datePresetSelect || !customDateRange) return;
+            const isCustom = datePresetSelect.value === 'custom';
+            customDateRange.classList.toggle('d-none', !isCustom);
+            if (startDateInput) startDateInput.disabled = !isCustom;
+            if (endDateInput) endDateInput.disabled = !isCustom;
+        };
+
+        if (datePresetSelect) {
+            datePresetSelect.addEventListener('change', toggleCustomDates);
+        }
+        toggleCustomDates();
+
+        if (monthFilter) {
+            monthFilter.addEventListener('change', function () {
+                const selected = monthFilter.options[monthFilter.selectedIndex];
+                const startValue = selected ? selected.getAttribute('data-start') : null;
+                const endValue = selected ? selected.getAttribute('data-end') : null;
+                if (!startValue || !endValue) {
+                    return;
+                }
+                if (startDateInput) startDateInput.value = startValue;
+                if (endDateInput) endDateInput.value = endValue;
+                if (datePresetSelect) datePresetSelect.value = 'custom';
+                toggleCustomDates();
+                try {
+                    localStorage.setItem(detailsStorageKey, '1');
+                } catch (err) {
+                    // ignore storage errors
+                }
+                if (filterForm) {
+                    filterForm.submit();
+                }
+            });
+        }
+
+        if (filterForm) {
+            filterForm.addEventListener('submit', function () {
+                try {
+                    localStorage.setItem(detailsStorageKey, '1');
+                } catch (err) {
+                    // ignore storage errors
+                }
+            });
+        }
+
+        if (detailsToggle && detailSections.length) {
+            const savedState = localStorage.getItem(detailsStorageKey);
+            let isVisible = savedState !== '0';
+
+            const setDetailsVisibility = (visible) => {
+                isVisible = visible;
+                detailSections.forEach((section) => {
+                    section.classList.toggle('d-none', !visible);
+                });
+                detailsToggle.setAttribute('aria-pressed', visible ? 'true' : 'false');
+                detailsToggle.classList.toggle('is-active', !visible);
+                detailsToggle.innerHTML = visible
+                    ? '<i class="fa-solid fa-eye-slash"></i> Hide Details'
+                    : '<i class="fa-solid fa-eye"></i> Show Details';
+                try {
+                    localStorage.setItem(detailsStorageKey, visible ? '1' : '0');
+                } catch (err) {
+                    // ignore storage errors
+                }
             };
 
-            datePresetSelect.addEventListener('change', toggleCustomDates);
-            toggleCustomDates();
+            setDetailsVisibility(isVisible);
+            detailsToggle.addEventListener('click', function () {
+                setDetailsVisibility(!isVisible);
+            });
         }
     });
 </script>
