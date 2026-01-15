@@ -48,6 +48,26 @@
     .report-shell .btn.btn-link {
         box-shadow: none;
     }
+    .report-shell .sales-month-filter {
+        min-width: 180px;
+    }
+    .report-shell .details-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0.48rem 0.9rem;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .report-shell .details-toggle-btn.is-active {
+        border-color: rgba(220, 53, 69, 0.4);
+        color: #b91c1c;
+        background: rgba(220, 53, 69, 0.08);
+    }
     .report-shell .table {
         font-size: 0.93rem;
     }
@@ -462,6 +482,39 @@
         $showClassCommissionTile = $filterPresetEmpty || $focus === 'trainer';
         $tileCount = ($showMembershipTile ? 1 : 0) + ($showTotalSalesTile ? 1 : 0) + ($showClassCommissionTile ? 1 : 0);
         $tileColClass = $tileCount === 1 ? 'col-12' : ($tileCount === 2 ? 'col-12 col-lg-6' : 'col-12 col-lg-4');
+        $baseMonth = now()->startOfMonth();
+        $monthFilterOptions = collect(range(0, 36))
+            ->map(function ($offset) use ($baseMonth) {
+                $month = $baseMonth->copy()->subMonths($offset);
+                return [
+                    'value' => $month->format('Y-m'),
+                    'label' => $month->format('F Y'),
+                    'start' => $month->copy()->startOfMonth()->format('Y-m-d'),
+                    'end' => $month->copy()->endOfMonth()->format('Y-m-d'),
+                ];
+            })
+            ->sortByDesc('start')
+            ->values();
+        $monthFilterSelection = null;
+        if (!empty($datePreset) && $datePreset === 'this_month') {
+            $monthFilterSelection = now()->format('Y-m');
+        } elseif (!empty($datePreset) && $datePreset === 'last_month') {
+            $monthFilterSelection = now()->subMonth()->format('Y-m');
+        } elseif (!empty($startDate) && !empty($endDate)) {
+            try {
+                $startCarbon = \Carbon\Carbon::parse($startDate);
+                $endCarbon = \Carbon\Carbon::parse($endDate);
+                if (
+                    $startCarbon->isSameDay($startCarbon->copy()->startOfMonth()) &&
+                    $endCarbon->isSameDay($endCarbon->copy()->endOfMonth()) &&
+                    $startCarbon->isSameMonth($endCarbon)
+                ) {
+                    $monthFilterSelection = $startCarbon->format('Y-m');
+                }
+            } catch (\Exception $e) {
+                $monthFilterSelection = null;
+            }
+        }
     @endphp
     <div class="row">
         <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2 mt-2">
@@ -469,9 +522,20 @@
                 <h2 class="title mb-0">Sales Reports</h2>
                 <p class="text-muted mb-0">Choose a filter preset to load results. Default date preset is the current year.</p>
             </div>
-            <div class="d-flex align-items-center gap-2 flex-wrap">
-                <span class="pill-soft">Preset {{ $datePresetLabel ?? 'All Time' }}</span>
-                <span class="pill-soft">Range {{ $rangeLabel }}</span>
+            <div class="d-flex align-items-center gap-2">
+                <select class="form-select sales-month-filter" id="sales-month-filter" aria-label="Filter by month">
+                    <option value="">Filter month</option>
+                    @foreach ($monthFilterOptions as $option)
+                        <option
+                            value="{{ $option['value'] }}"
+                            data-start="{{ $option['start'] }}"
+                            data-end="{{ $option['end'] }}"
+                            {{ $monthFilterSelection === $option['value'] ? 'selected' : '' }}
+                        >
+                            {{ $option['label'] }}
+                        </option>
+                    @endforeach
+                </select>
                 <button
                     type="button"
                     class="btn btn-danger d-flex align-items-center gap-2"
@@ -534,7 +598,7 @@
                     <div class="summary-card__header">
                         <div>
                             <span class="pill-soft">Total</span>
-                            <div class="summary-card__title h5 mb-1">Total sales</div>
+                            <div class="summary-card__title h5 mb-1">Total sales count</div>
                             <div class="summary-card__subtitle">Count of sales in this view</div>
                         </div>
                         <div class="summary-icon">
@@ -557,10 +621,6 @@
                     <span class="badge bg-light text-dark fw-semibold px-2 py-1 rounded-pill text-uppercase small mb-2">Filters</span>
                     <h4 class="fw-semibold mb-1">Sales report filters</h4>
                     <p class="text-muted mb-0">Adjust focus, membership, and date range. Default is current year.</p>
-                </div>
-                <div class="text-end">
-                    <span class="d-block text-muted small">Year {{ $rangeYear }}</span>
-                    <span class="d-block text-muted small">Range {{ $rangeLabel }}</span>
                 </div>
             </div>
             <form action="{{ route('admin.sales.report') }}" method="GET" class="row g-2 align-items-end" id="sales-report-form">
@@ -671,8 +731,12 @@
                         </div>
                     </div>
                 </div>
-                <div class="col-12 col-lg-auto d-flex gap-2">
+                <div class="col-12 col-lg-auto d-flex gap-2 align-items-center">
                     <a href="{{ route('admin.sales.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+                    <button type="button" class="details-toggle-btn" id="sales-details-toggle" aria-pressed="true">
+                        <i class="fa-solid fa-eye-slash"></i>
+                        Hide Details
+                    </button>
                     <button type="submit" class="btn btn-danger px-3 d-flex align-items-center gap-2">
                         <i class="fa-solid fa-filter"></i>
                         Apply
@@ -689,7 +753,7 @@
     @endphp
 
     @if($hasFilterPreset)
-    <div class="card shadow-sm border-0 rounded-4 mb-4">
+    <div class="card shadow-sm border-0 rounded-4 mb-4 report-detail-section">
         <div class="card-body">
             <div class="d-flex align-items-start justify-content-between flex-wrap gap-2 mb-2">
                 <div>
@@ -1096,6 +1160,11 @@
         var dateButtons = Array.from(document.querySelectorAll('#sub-dates button'));
         var subOrders = document.getElementById('sub-orders');
         var subMemberships = document.getElementById('sub-memberships');
+        var monthFilter = document.getElementById('sales-month-filter');
+        var salesForm = document.getElementById('sales-report-form');
+        var detailsToggle = document.getElementById('sales-details-toggle');
+        var detailSections = document.querySelectorAll('.report-detail-section');
+        var detailsStorageKey = 'salesReportShowDetails';
 
         if (!toggle || !panel || !focusInput || !orderInput || !membershipInput || !datePresetInput) return;
 
@@ -1280,11 +1349,59 @@
             });
         });
 
+        if (monthFilter) {
+            monthFilter.addEventListener('change', function () {
+                var selected = monthFilter.options[monthFilter.selectedIndex];
+                var startValue = selected ? selected.getAttribute('data-start') : null;
+                var endValue = selected ? selected.getAttribute('data-end') : null;
+                if (!startValue || !endValue) {
+                    return;
+                }
+                if (startDateInput) startDateInput.value = startValue;
+                if (endDateInput) endDateInput.value = endValue;
+                if (startTimeInput) startTimeInput.value = '';
+                if (endTimeInput) endTimeInput.value = '';
+                setDatePreset('custom', true);
+                if (salesForm) {
+                    salesForm.submit();
+                }
+            });
+        }
+
+        if (salesForm) {
+            salesForm.addEventListener('submit', function () {
+                localStorage.setItem(detailsStorageKey, '1');
+            });
+        }
+
         document.addEventListener('click', function (event) {
             if (!panel.contains(event.target) && !toggle.contains(event.target)) {
                 closePanel();
             }
         });
+
+        if (detailsToggle && detailSections.length) {
+            var savedState = localStorage.getItem(detailsStorageKey);
+            var isVisible = savedState !== '0';
+
+            var setDetailsVisibility = function (visible) {
+                isVisible = visible;
+                detailSections.forEach(function (section) {
+                    section.classList.toggle('d-none', !visible);
+                });
+                detailsToggle.setAttribute('aria-pressed', visible ? 'true' : 'false');
+                detailsToggle.classList.toggle('is-active', !visible);
+                detailsToggle.innerHTML = visible
+                    ? '<i class="fa-solid fa-eye-slash"></i> Hide Details'
+                    : '<i class="fa-solid fa-eye"></i> Show Details';
+                localStorage.setItem(detailsStorageKey, visible ? '1' : '0');
+            };
+
+            setDetailsVisibility(isVisible);
+            detailsToggle.addEventListener('click', function () {
+                setDetailsVisibility(!isVisible);
+            });
+        }
 
         // Initialize state
         setFocus(currentFocus, ['member', 'trainer', 'staff'].indexOf(currentFocus) !== -1, false);
