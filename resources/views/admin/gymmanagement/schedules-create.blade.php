@@ -111,6 +111,15 @@
             background: var(--pill-dot);
             opacity: 0.9;
         }
+        .class-image-preview {
+            width: 64px;
+            height: 64px;
+            border-radius: 14px;
+            object-fit: cover;
+            border: 1px solid #e6e8f0;
+            background: #fff;
+            flex: 0 0 auto;
+        }
     </style>
     <div class="container-fluid">
         <div class="row">
@@ -134,8 +143,15 @@
                                 @endif
                                 <div class="mb-3 row">
                                     <label for="image" class="col-sm-12 col-lg-2 col-form-label">Image: </label>
-                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="file" class="form-control" id="image" name="image"/>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center gap-3">
+                                        <img
+                                            src="{{ asset('assets/images/icon-mobile.png') }}"
+                                            alt="Class image preview"
+                                            class="class-image-preview"
+                                            id="classImagePreview"
+                                            data-default-src="{{ asset('assets/images/icon-mobile.png') }}"
+                                        />
+                                        <input type="file" class="form-control" id="image" name="image" accept="image/*"/>
                                     </div>
                                 </div>
                                 <div class="mb-3 row">
@@ -422,6 +438,9 @@
         const confirmModal = confirmModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(confirmModalEl) : null;
         const confirmActionButton = document.getElementById('confirmActionButton');
         const confirmActionLoader = document.getElementById('confirmActionLoader');
+        const imageInput = document.getElementById('image');
+        const imagePreview = document.getElementById('classImagePreview');
+        const defaultImageSrc = imagePreview ? imagePreview.getAttribute('data-default-src') : null;
         const daysMeta = [
             { key: 'sun', label: 'Sun', long: 'Sunday', index: 0 },
             { key: 'mon', label: 'Mon', long: 'Monday', index: 1 },
@@ -436,6 +455,22 @@
         let selectedDays = new Set();
         let calendarCursor = new Date();
         let allowSubmit = false;
+
+        if (imageInput && imagePreview) {
+            imageInput.addEventListener('change', function () {
+                const file = imageInput.files && imageInput.files[0];
+                if (!file || !file.type || !file.type.startsWith('image/')) {
+                    imagePreview.src = defaultImageSrc || imagePreview.src;
+                    return;
+                }
+                const reader = new FileReader();
+                reader.onload = function (event) {
+                    const result = event.target && event.target.result ? event.target.result : null;
+                    imagePreview.src = result || defaultImageSrc || imagePreview.src;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
 
         const toLocalIsoString = (date) => {
             return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);

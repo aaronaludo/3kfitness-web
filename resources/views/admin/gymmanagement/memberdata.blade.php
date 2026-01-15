@@ -5,6 +5,124 @@
 @section('title', 'Members Data')
 
 @section('content')
+    <style>
+        .manual-clock-modal .modal-content {
+            border-radius: 22px;
+            border: none;
+            background: #f6f5fb;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+        }
+        .manual-clock-modal .modal-header {
+            border-bottom: none;
+        }
+        .manual-clock-hero {
+            text-align: center;
+        }
+        .manual-clock-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 0 auto 12px;
+            border: 1px solid transparent;
+        }
+        .manual-clock-icon--success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #16a34a;
+            border-color: rgba(34, 197, 94, 0.35);
+        }
+        .manual-clock-icon--danger {
+            background: rgba(239, 68, 68, 0.12);
+            color: #dc2626;
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+        .manual-clock-icon--warning {
+            background: rgba(245, 158, 11, 0.12);
+            color: #b45309;
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+        .manual-clock-icon--loading {
+            background: rgba(148, 163, 184, 0.18);
+            color: #475569;
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+        .manual-clock-title {
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .manual-clock-subtitle {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-bottom: 16px;
+        }
+        .manual-clock-member-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 12px 14px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid #eceef6;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        }
+        .manual-clock-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            object-fit: cover;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+            flex: 0 0 auto;
+        }
+        .manual-clock-member-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .manual-clock-member-name {
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .manual-clock-member-meta {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 2px;
+            word-break: break-word;
+        }
+        .manual-clock-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .manual-clock-chip {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+        .manual-clock-chip--active {
+            background: rgba(34, 197, 94, 0.15);
+            color: #15803d;
+            border-color: rgba(34, 197, 94, 0.35);
+        }
+        .manual-clock-chip--inactive {
+            background: rgba(148, 163, 184, 0.15);
+            color: #64748b;
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+        @media (max-width: 575px) {
+            .manual-clock-member-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
     <div class="container-fluid">
         <div class="row">
             @php
@@ -499,6 +617,10 @@
                                             $approvedBy = $membershipActive
                                                 ? optional($latestMembershipPayment)->created_by
                                                 : 'Pending staff approval';
+                                            $profilePicture = $item->profile_picture
+                                                ? asset($item->profile_picture)
+                                                : asset('assets/images/profile-45x45.png');
+                                            $memberCode = $item->user_code ?: $item->id;
                                         @endphp
 
                                         {{-- UPDATED START: mark each row for filtering --}}
@@ -539,6 +661,11 @@
                                                             class="btn btn-outline-success manual-clock-button"
                                                             data-email="{{ $item->email }}"
                                                             data-name="{{ $item->first_name }} {{ $item->last_name }}"
+                                                            data-phone="{{ $item->phone_number }}"
+                                                            data-member-code="{{ $memberCode }}"
+                                                            data-membership="{{ $membershipName }}"
+                                                            data-membership-active="{{ $hasMembership ? '1' : '0' }}"
+                                                            data-avatar="{{ $profilePicture }}"
                                                             data-action="clockin"
                                                         >
                                                             <i class="fa-regular fa-clock me-1"></i>Clock In
@@ -548,6 +675,11 @@
                                                             class="btn btn-outline-secondary manual-clock-button"
                                                             data-email="{{ $item->email }}"
                                                             data-name="{{ $item->first_name }} {{ $item->last_name }}"
+                                                            data-phone="{{ $item->phone_number }}"
+                                                            data-member-code="{{ $memberCode }}"
+                                                            data-membership="{{ $membershipName }}"
+                                                            data-membership-active="{{ $hasMembership ? '1' : '0' }}"
+                                                            data-avatar="{{ $profilePicture }}"
                                                             data-action="clockout"
                                                         >
                                                             <i class="fa-solid fa-right-from-bracket me-1"></i>Clock Out
@@ -831,18 +963,44 @@
         </div>
     </div>
 
-    <div class="modal fade" id="manualClockModal" tabindex="-1" aria-labelledby="manualClockModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+    <div
+        class="modal fade manual-clock-modal"
+        id="manualClockModal"
+        tabindex="-1"
+        aria-labelledby="manualClockModalLabel"
+        aria-hidden="true"
+        data-default-avatar="{{ asset('assets/images/profile-45x45.png') }}"
+    >
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
+                <div class="modal-header pb-0">
                     <h5 class="modal-title" id="manualClockModalLabel">Manual attendance</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p id="manualClockModalMessage" class="mb-0"></p>
+                <div class="modal-body p-4">
+                    <div class="manual-clock-hero">
+                        <div class="manual-clock-icon manual-clock-icon--success" id="manualClockIcon">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <h4 class="manual-clock-title" id="manualClockTitle">Clocked In Successfully</h4>
+                        <p class="manual-clock-subtitle" id="manualClockSubtitle">Attendance updated.</p>
+                    </div>
+                    <div class="manual-clock-member-card">
+                        <img src="{{ asset('assets/images/profile-45x45.png') }}" alt="Member photo" class="manual-clock-avatar" id="manualClockAvatar">
+                        <div class="manual-clock-member-info">
+                            <div class="manual-clock-member-name" id="manualClockMemberName">Member</div>
+                            <div class="manual-clock-member-meta" id="manualClockMemberEmail">member@email.com</div>
+                            <div class="manual-clock-member-meta" id="manualClockMemberPhone">No phone</div>
+                            <div class="manual-clock-chips">
+                                <span class="manual-clock-chip" id="manualClockMemberCode">#---</span>
+                                <span class="manual-clock-chip manual-clock-chip--inactive" id="manualClockMemberMembership">No Membership</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal" id="manualClockCloseBtn">Close</button>
+                    <button type="button" class="btn btn-danger px-4 d-none" id="manualClockConfirmBtn">Confirm Clock Out</button>
                 </div>
             </div>
         </div>
@@ -853,9 +1011,24 @@
             const form = document.getElementById('member-filter-form');
             const manualClockButtons = document.querySelectorAll('.manual-clock-button');
             const manualClockModalEl = document.getElementById('manualClockModal');
-            const manualClockModalMessageEl = document.getElementById('manualClockModalMessage');
+            const manualClockIconEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockIcon') : null;
+            const manualClockTitleEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockTitle') : null;
+            const manualClockSubtitleEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockSubtitle') : null;
+            const manualClockAvatarEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockAvatar') : null;
+            const manualClockMemberNameEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockMemberName') : null;
+            const manualClockMemberEmailEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockMemberEmail') : null;
+            const manualClockMemberPhoneEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockMemberPhone') : null;
+            const manualClockMemberCodeEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockMemberCode') : null;
+            const manualClockMemberMembershipEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockMemberMembership') : null;
+            const manualClockCloseBtn = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockCloseBtn') : null;
+            const manualClockConfirmBtn = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockConfirmBtn') : null;
+            const manualClockModal = manualClockModalEl && typeof bootstrap !== 'undefined'
+                ? new bootstrap.Modal(manualClockModalEl)
+                : null;
             const csrfMeta = document.querySelector("meta[name='csrf-token']");
             const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : '';
+            const defaultAvatar = manualClockModalEl ? manualClockModalEl.getAttribute('data-default-avatar') : '';
+            const pendingRequest = { action: null, member: null, button: null };
 
             const feedbackModalEl = document.getElementById('actionFeedbackModal');
             if (feedbackModalEl && typeof bootstrap !== 'undefined') {
@@ -863,61 +1036,195 @@
                 feedbackModal.show();
             }
 
-            function showManualClockMessage(message) {
-                if (manualClockModalMessageEl) {
-                    manualClockModalMessageEl.textContent = message;
+            const iconMap = {
+                success: { icon: 'fa-solid fa-circle-check', className: 'manual-clock-icon--success' },
+                confirm: { icon: 'fa-regular fa-clock', className: 'manual-clock-icon--danger' },
+                error: { icon: 'fa-solid fa-triangle-exclamation', className: 'manual-clock-icon--warning' },
+                loading: { icon: 'fa-solid fa-spinner fa-spin', className: 'manual-clock-icon--loading' }
+            };
+
+            const normalizeMemberData = function (button) {
+                const memberCode = button.dataset.memberCode || '';
+                const formattedCode = memberCode.startsWith('#') ? memberCode : `#${memberCode || '---'}`;
+                return {
+                    name: button.dataset.name || 'Member',
+                    email: button.dataset.email || 'No email',
+                    phone: button.dataset.phone || 'No phone',
+                    code: formattedCode,
+                    membership: button.dataset.membership || 'No Membership',
+                    membershipActive: button.dataset.membershipActive === '1',
+                    avatar: button.dataset.avatar || defaultAvatar
+                };
+            };
+
+            const updateMemberCard = function (member) {
+                if (manualClockAvatarEl) {
+                    manualClockAvatarEl.src = member.avatar || defaultAvatar || manualClockAvatarEl.src;
+                }
+                if (manualClockMemberNameEl) manualClockMemberNameEl.textContent = member.name || 'Member';
+                if (manualClockMemberEmailEl) manualClockMemberEmailEl.textContent = member.email || 'No email';
+                if (manualClockMemberPhoneEl) manualClockMemberPhoneEl.textContent = member.phone || 'No phone';
+                if (manualClockMemberCodeEl) manualClockMemberCodeEl.textContent = member.code || '#---';
+                if (manualClockMemberMembershipEl) {
+                    manualClockMemberMembershipEl.textContent = member.membership || 'No Membership';
+                    manualClockMemberMembershipEl.classList.remove('manual-clock-chip--active', 'manual-clock-chip--inactive');
+                    manualClockMemberMembershipEl.classList.add(member.membershipActive ? 'manual-clock-chip--active' : 'manual-clock-chip--inactive');
+                }
+            };
+
+            const setModalState = function (state, options) {
+                const config = iconMap[state] || iconMap.success;
+                if (manualClockIconEl) {
+                    manualClockIconEl.className = `manual-clock-icon ${config.className}`;
+                    manualClockIconEl.innerHTML = `<i class="${config.icon}"></i>`;
                 }
 
-                if (manualClockModalEl && typeof bootstrap !== 'undefined') {
-                    const manualClockModal = new bootstrap.Modal(manualClockModalEl);
-                    manualClockModal.show();
-                } else {
-                    alert(message);
+                if (manualClockTitleEl) manualClockTitleEl.textContent = options.title || 'Attendance update';
+                if (manualClockSubtitleEl) {
+                    manualClockSubtitleEl.textContent = options.subtitle || '';
+                    manualClockSubtitleEl.classList.toggle('d-none', !options.subtitle);
                 }
+
+                if (manualClockConfirmBtn && manualClockCloseBtn) {
+                    const showConfirm = state === 'confirm';
+                    manualClockConfirmBtn.classList.toggle('d-none', !showConfirm);
+                    manualClockCloseBtn.textContent = showConfirm ? 'Cancel' : 'Close';
+                }
+            };
+
+            const showManualClockModal = function () {
+                if (manualClockModal) {
+                    manualClockModal.show();
+                } else if (manualClockTitleEl) {
+                    alert(manualClockTitleEl.textContent);
+                }
+            };
+
+            const isErrorMessage = function (message) {
+                return /unable|invalid|no data|no valid|already|cannot|error|unexpected/i.test(message);
+            };
+
+            const setButtonLoading = function (button, loadingText) {
+                if (!button) {
+                    return;
+                }
+                if (!button.dataset.originalHtml) {
+                    button.dataset.originalHtml = button.innerHTML;
+                }
+                button.disabled = true;
+                button.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>${loadingText}`;
+            };
+
+            const resetButton = function (button) {
+                if (!button) {
+                    return;
+                }
+                button.disabled = false;
+                if (button.dataset.originalHtml) {
+                    button.innerHTML = button.dataset.originalHtml;
+                    delete button.dataset.originalHtml;
+                }
+            };
+
+            const submitManualClock = function (action, member, button) {
+                if (!csrfToken || !member.email || !action) {
+                    updateMemberCard(member);
+                    setModalState('error', {
+                        title: 'Unable to update attendance',
+                        subtitle: 'Missing required member details.'
+                    });
+                    showManualClockModal();
+                    return;
+                }
+
+                setButtonLoading(button, action === 'clockout' ? 'Clocking out...' : 'Clocking in...');
+                updateMemberCard(member);
+                setModalState('loading', {
+                    title: action === 'clockout' ? 'Clocking Out' : 'Clocking In',
+                    subtitle: 'Please wait while we update attendance.'
+                });
+                showManualClockModal();
+
+                fetch("{{ route('admin.staff-account-management.attendances.scanner2.fetch') }}", {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN': csrfToken,
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify({ result: member.email, action: action })
+                })
+                    .then(function (response) {
+                        return response.json().catch(function () {
+                            return { data: 'Unable to process attendance right now.' };
+                        });
+                    })
+                    .then(function (data) {
+                        const message = data && data.data ? data.data : `${member.name}'s attendance was updated.`;
+                        const state = isErrorMessage(message) ? 'error' : 'success';
+                        setModalState(state, {
+                            title: state === 'success'
+                                ? (action === 'clockout' ? 'Clocked Out Successfully' : 'Clocked In Successfully')
+                                : 'Unable to update attendance',
+                            subtitle: message
+                        });
+                    })
+                    .catch(function () {
+                        setModalState('error', {
+                            title: 'Unable to update attendance',
+                            subtitle: 'Unable to process attendance right now.'
+                        });
+                    })
+                    .finally(function () {
+                        resetButton(button);
+                    });
+            };
+
+            if (manualClockConfirmBtn) {
+                manualClockConfirmBtn.addEventListener('click', function () {
+                    if (!pendingRequest.action || !pendingRequest.member || !pendingRequest.button) {
+                        return;
+                    }
+                    submitManualClock(pendingRequest.action, pendingRequest.member, pendingRequest.button);
+                });
+            }
+
+            if (manualClockModalEl) {
+                manualClockModalEl.addEventListener('hidden.bs.modal', function () {
+                    pendingRequest.action = null;
+                    pendingRequest.member = null;
+                    pendingRequest.button = null;
+                    if (manualClockConfirmBtn) {
+                        manualClockConfirmBtn.classList.add('d-none');
+                    }
+                    if (manualClockCloseBtn) {
+                        manualClockCloseBtn.textContent = 'Close';
+                    }
+                });
             }
 
             manualClockButtons.forEach(function (button) {
                 button.addEventListener('click', function () {
                     const targetButton = this;
-                    const email = targetButton.dataset.email;
                     const action = targetButton.dataset.action;
-                    const name = targetButton.dataset.name || 'Member';
+                    const member = normalizeMemberData(targetButton);
 
-                    if (!csrfToken || !email || !action) {
-                        showManualClockMessage('Unable to process attendance right now.');
+                    pendingRequest.action = action;
+                    pendingRequest.member = member;
+                    pendingRequest.button = targetButton;
+
+                    updateMemberCard(member);
+
+                    if (action === 'clockout') {
+                        setModalState('confirm', {
+                            title: 'Clock Out',
+                            subtitle: 'Please confirm clocking out the member.'
+                        });
+                        showManualClockModal();
                         return;
                     }
 
-                    const originalHtml = targetButton.innerHTML;
-                    const loadingText = action === 'clockout' ? 'Clocking out...' : 'Clocking in...';
-                    targetButton.disabled = true;
-                    targetButton.innerHTML = `<span class="spinner-border spinner-border-sm me-1" role="status" aria-hidden="true"></span>${loadingText}`;
-
-                    fetch("{{ route('admin.staff-account-management.attendances.scanner2.fetch') }}", {
-                        method: 'POST',
-                        headers: {
-                            'X-CSRF-TOKEN': csrfToken,
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json'
-                        },
-                        body: JSON.stringify({ result: email, action: action })
-                    })
-                        .then(function (response) {
-                            return response.json().catch(function () {
-                                return { data: 'Unable to process attendance right now.' };
-                            });
-                        })
-                        .then(function (data) {
-                            const message = data && data.data ? data.data : `${name}'s attendance was updated.`;
-                            showManualClockMessage(message);
-                        })
-                        .catch(function () {
-                            showManualClockMessage('Unable to process attendance right now.');
-                        })
-                        .finally(function () {
-                            targetButton.disabled = false;
-                            targetButton.innerHTML = originalHtml;
-                        });
+                    submitManualClock(action, member, targetButton);
                 });
             });
 
