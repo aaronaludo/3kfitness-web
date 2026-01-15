@@ -181,14 +181,14 @@
             padding-bottom: 0;
         }
 
-        .calendar-view {
+        .classes-calendar-modal .calendar-view {
             background: #ffffff;
             border-radius: 18px;
             padding: 16px;
             box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
         }
 
-        .calendar-view__header {
+        .classes-calendar-modal .calendar-view__header {
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -197,37 +197,40 @@
             margin-bottom: 12px;
         }
 
-        .calendar-view__month {
+        .classes-calendar-modal .calendar-view__month {
             font-size: 1.1rem;
             font-weight: 800;
             color: #1f2a37;
         }
 
-        .calendar-view__controls {
+        .classes-calendar-modal .calendar-view__controls {
             display: flex;
             align-items: center;
             gap: 8px;
-            flex-wrap: wrap;
         }
 
-        .calendar-status {
+        .classes-calendar-modal .calendar-month-select {
+            min-width: 170px;
+        }
+
+        .classes-calendar-modal .calendar-status {
             font-size: 0.85rem;
             color: #6b7280;
             margin-bottom: 10px;
         }
 
-        .calendar-view__scroller {
+        .classes-calendar-modal .calendar-view__scroller {
             overflow-x: auto;
             padding-bottom: 4px;
         }
 
-        .calendar-grid {
+        .classes-calendar-modal .calendar-grid {
             display: grid;
             grid-template-columns: repeat(7, minmax(0, 1fr));
             gap: 6px;
         }
 
-        .calendar-grid--weekdays {
+        .classes-calendar-modal .calendar-grid--weekdays {
             font-size: 0.7rem;
             text-transform: uppercase;
             letter-spacing: 0.08em;
@@ -236,12 +239,12 @@
             margin-bottom: 6px;
         }
 
-        .calendar-grid--days,
-        .calendar-grid--weekdays {
+        .classes-calendar-modal .calendar-grid--days,
+        .classes-calendar-modal .calendar-grid--weekdays {
             min-width: 740px;
         }
 
-        .calendar-day {
+        .classes-calendar-modal .calendar-day {
             background: #f8f9fb;
             border: 1px solid #e4e7ee;
             border-radius: 12px;
@@ -252,28 +255,28 @@
             gap: 6px;
         }
 
-        .calendar-day--outside {
+        .classes-calendar-modal .calendar-day--outside {
             background: #f1f2f6;
             color: #b0b6c3;
         }
 
-        .calendar-day__date {
+        .classes-calendar-modal .calendar-day__date {
             font-weight: 800;
             font-size: 0.72rem;
             color: #273341;
         }
 
-        .calendar-day--outside .calendar-day__date {
+        .classes-calendar-modal .calendar-day--outside .calendar-day__date {
             color: #a4a9b5;
         }
 
-        .calendar-day__events {
+        .classes-calendar-modal .calendar-day__events {
             display: flex;
             flex-direction: column;
             gap: 6px;
         }
 
-        .calendar-event {
+        .classes-calendar-modal .calendar-event {
             padding: 6px;
             border-radius: 10px;
             border: 1px solid var(--event-border);
@@ -283,7 +286,7 @@
             line-height: 1.2;
         }
 
-        .calendar-event__title {
+        .classes-calendar-modal .calendar-event__title {
             display: flex;
             align-items: baseline;
             justify-content: space-between;
@@ -291,30 +294,30 @@
             font-weight: 700;
         }
 
-        .calendar-event__code {
+        .classes-calendar-modal .calendar-event__code {
             font-size: 0.6rem;
             opacity: 0.85;
         }
 
-        .calendar-event__meta {
+        .classes-calendar-modal .calendar-event__meta {
             font-size: 0.6rem;
             opacity: 0.9;
         }
 
-        .calendar-event__more {
+        .classes-calendar-modal .calendar-event__more {
             font-size: 0.65rem;
             color: #6b7280;
             font-weight: 600;
         }
 
-        .calendar-legend {
+        .classes-calendar-modal .calendar-legend {
             display: flex;
             flex-wrap: wrap;
             gap: 12px;
             margin-top: 12px;
         }
 
-        .calendar-legend__item {
+        .classes-calendar-modal .calendar-legend__item {
             display: inline-flex;
             align-items: center;
             gap: 6px;
@@ -323,7 +326,7 @@
             font-weight: 600;
         }
 
-        .calendar-legend__swatch {
+        .classes-calendar-modal .calendar-legend__swatch {
             width: 12px;
             height: 12px;
             border-radius: 4px;
@@ -331,7 +334,7 @@
             border: 1px solid var(--legend-border);
         }
 
-        .calendar-empty {
+        .classes-calendar-modal .calendar-empty {
             font-size: 0.85rem;
             color: #6b7280;
             margin-top: 12px;
@@ -558,11 +561,11 @@
                 display: none;
             }
 
-            .calendar-view {
+            .classes-calendar-modal .calendar-view {
                 padding: 12px;
             }
 
-            .calendar-day {
+            .classes-calendar-modal .calendar-day {
                 min-height: 80px;
             }
 
@@ -1077,20 +1080,17 @@
             <div class="modal-body">
                 <div class="calendar-view">
                     <div class="calendar-view__header">
-                        <div class="calendar-view__month" id="calendarMonthLabel">Loading...</div>
+                        <div class="calendar-view__month" id="classesCalendarMonthLabel">Loading...</div>
                         <div class="calendar-view__controls">
-                            <button type="button" class="btn btn-light btn-sm calendar-nav-btn" data-calendar-nav="prev" aria-label="Previous month">
-                                <i class="fa-solid fa-chevron-left"></i>
-                            </button>
-                            <button type="button" class="btn btn-light btn-sm calendar-nav-btn" data-calendar-nav="next" aria-label="Next month">
-                                <i class="fa-solid fa-chevron-right"></i>
-                            </button>
-                            <button type="button" class="btn btn-danger btn-sm" id="calendarPrintBtn">
+                            <select class="form-select form-select-sm calendar-month-select" id="classesCalendarMonthSelect" aria-label="Filter month" disabled>
+                                <option selected>Loading...</option>
+                            </select>
+                            <button type="button" class="btn btn-danger btn-sm" id="classesCalendarPrintBtn" style="width: 100px;">
                                 <i class="fa-solid fa-print me-1"></i>Print
                             </button>
                         </div>
                     </div>
-                    <div class="calendar-status" id="calendarStatus" role="status">Loading classes...</div>
+                    <div class="calendar-status" id="classesCalendarStatus" role="status">Loading classes...</div>
                     <div class="calendar-view__scroller">
                         <div class="calendar-grid calendar-grid--weekdays">
                             <div>Sun</div>
@@ -1101,10 +1101,10 @@
                             <div>Fri</div>
                             <div>Sat</div>
                         </div>
-                        <div class="calendar-grid calendar-grid--days" id="calendarGrid"></div>
+                        <div class="calendar-grid calendar-grid--days" id="classesCalendarGrid"></div>
                     </div>
-                    <div class="calendar-empty d-none" id="calendarEmpty">No classes scheduled for this month.</div>
-                    <div class="calendar-legend" id="calendarLegend"></div>
+                    <div class="calendar-empty d-none" id="classesCalendarEmpty">No classes scheduled for this month.</div>
+                    <div class="calendar-legend" id="classesCalendarLegend"></div>
                 </div>
             </div>
         </div>
@@ -1383,12 +1383,13 @@
                 return;
             }
 
-            var monthLabelEl = document.getElementById('calendarMonthLabel');
-            var gridEl = document.getElementById('calendarGrid');
-            var legendEl = document.getElementById('calendarLegend');
-            var statusEl = document.getElementById('calendarStatus');
-            var emptyEl = document.getElementById('calendarEmpty');
-            var printBtn = document.getElementById('calendarPrintBtn');
+            var monthLabelEl = modalEl.querySelector('#classesCalendarMonthLabel');
+            var gridEl = modalEl.querySelector('#classesCalendarGrid');
+            var legendEl = modalEl.querySelector('#classesCalendarLegend');
+            var statusEl = modalEl.querySelector('#classesCalendarStatus');
+            var emptyEl = modalEl.querySelector('#classesCalendarEmpty');
+            var printBtn = modalEl.querySelector('#classesCalendarPrintBtn');
+            var monthSelectEl = modalEl.querySelector('#classesCalendarMonthSelect');
             var navButtons = modalEl.querySelectorAll('[data-calendar-nav]');
             var calendarUrl = "{{ route('admin.gym-management.schedules.all') }}";
 
@@ -1459,6 +1460,28 @@
                 var month = String(date.getMonth() + 1).padStart(2, '0');
                 var day = String(date.getDate()).padStart(2, '0');
                 return year + '-' + month + '-' + day;
+            };
+
+            var formatMonthValue = function (date) {
+                var year = date.getFullYear();
+                var month = String(date.getMonth() + 1).padStart(2, '0');
+                return year + '-' + month;
+            };
+
+            var parseMonthValue = function (value) {
+                if (!value) {
+                    return null;
+                }
+                var parts = String(value).split('-');
+                if (parts.length < 2) {
+                    return null;
+                }
+                var year = parseInt(parts[0], 10);
+                var month = parseInt(parts[1], 10) - 1;
+                if (Number.isNaN(year) || Number.isNaN(month)) {
+                    return null;
+                }
+                return { year: year, month: month };
             };
 
             var normalizeRecurringDays = function (value) {
@@ -1560,6 +1583,93 @@
                 }
                 statusEl.textContent = message;
                 statusEl.classList.remove('d-none');
+            };
+
+            var buildMonthOptions = function (items) {
+                if (!monthSelectEl) {
+                    return;
+                }
+
+                var minDate = null;
+                var maxDate = null;
+                var considerDate = function (date) {
+                    if (!date) {
+                        return;
+                    }
+                    if (!minDate || date < minDate) {
+                        minDate = date;
+                    }
+                    if (!maxDate || date > maxDate) {
+                        maxDate = date;
+                    }
+                };
+
+                items.forEach(function (schedule) {
+                    considerDate(parseDateString(schedule.class_start_date));
+                    considerDate(parseDateString(schedule.class_end_date));
+                    considerDate(parseDateString(schedule.series_start_date));
+                    considerDate(parseDateString(schedule.series_end_date));
+
+                    var overridesList = normalizeOverrides(schedule.session_overrides);
+                    overridesList.forEach(function (override) {
+                        considerDate(parseDateString(override.original_date));
+                        considerDate(parseDateString(override.new_date));
+                    });
+                });
+
+                var today = new Date();
+                considerDate(new Date(today.getFullYear(), today.getMonth(), 1));
+                if (!minDate) {
+                    minDate = new Date(today.getFullYear(), today.getMonth(), 1);
+                }
+                if (!maxDate) {
+                    maxDate = minDate;
+                }
+
+                var startMonth = new Date(minDate.getFullYear(), minDate.getMonth(), 1);
+                var endMonth = new Date(maxDate.getFullYear(), maxDate.getMonth(), 1);
+                if (startMonth > endMonth) {
+                    var temp = startMonth;
+                    startMonth = endMonth;
+                    endMonth = temp;
+                }
+
+                var options = [];
+                var cursor = new Date(startMonth.getFullYear(), startMonth.getMonth(), 1);
+                var maxMonths = 120;
+                while (cursor <= endMonth && options.length < maxMonths) {
+                    options.push(new Date(cursor.getFullYear(), cursor.getMonth(), 1));
+                    cursor.setMonth(cursor.getMonth() + 1);
+                }
+
+                if (!options.length) {
+                    options.push(new Date(today.getFullYear(), today.getMonth(), 1));
+                }
+
+                monthSelectEl.innerHTML = '';
+                options.forEach(function (monthDate) {
+                    var option = document.createElement('option');
+                    option.value = formatMonthValue(monthDate);
+                    option.textContent = monthDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                    monthSelectEl.appendChild(option);
+                });
+
+                monthSelectEl.disabled = false;
+                var currentValue = formatMonthValue(calendarCursor);
+                if (!monthSelectEl.querySelector('option[value="' + currentValue + '"]')) {
+                    calendarCursor = new Date(options[0].getFullYear(), options[0].getMonth(), 1);
+                }
+                monthSelectEl.value = formatMonthValue(calendarCursor);
+            };
+
+            var syncMonthSelect = function () {
+                if (!monthSelectEl || monthSelectEl.disabled) {
+                    return;
+                }
+                var currentValue = formatMonthValue(calendarCursor);
+                if (monthSelectEl.value !== currentValue) {
+                    monthSelectEl.value = currentValue;
+                }
             };
 
             var buildOccurrencesForMonth = function (items, year, month) {
@@ -1687,6 +1797,7 @@
                 var year = calendarCursor.getFullYear();
                 var month = calendarCursor.getMonth();
                 monthLabelEl.textContent = calendarCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                syncMonthSelect();
 
                 var result = buildOccurrencesForMonth(schedules, year, month);
                 var occurrences = result.occurrences;
@@ -1800,6 +1911,9 @@
                 }
                 dataLoading = true;
                 setStatus('Loading classes...');
+                if (monthSelectEl) {
+                    monthSelectEl.disabled = true;
+                }
 
                 fetch(calendarUrl, { headers: { 'Accept': 'application/json' } })
                     .then(function (response) {
@@ -1813,11 +1927,16 @@
                         dataLoaded = true;
                         dataLoading = false;
                         setStatus('');
+                        buildMonthOptions(schedules);
                         renderCalendar();
                     })
                     .catch(function () {
                         dataLoading = false;
                         setStatus('Unable to load classes right now.');
+                        if (monthSelectEl) {
+                            monthSelectEl.innerHTML = '<option selected>Unavailable</option>';
+                            monthSelectEl.disabled = true;
+                        }
                     });
             };
 
@@ -1841,6 +1960,17 @@
                     renderCalendar();
                 });
             });
+
+            if (monthSelectEl) {
+                monthSelectEl.addEventListener('change', function () {
+                    var parsed = parseMonthValue(monthSelectEl.value);
+                    if (!parsed) {
+                        return;
+                    }
+                    calendarCursor = new Date(parsed.year, parsed.month, 1);
+                    renderCalendar();
+                });
+            }
 
             if (printBtn) {
                 printBtn.addEventListener('click', function () {
