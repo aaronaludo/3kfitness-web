@@ -728,12 +728,48 @@
                 });
             }
 
+            function extractTokenFromScan(content) {
+                if (!content) {
+                    return null;
+                }
+
+                if (typeof content === 'object') {
+                    const objectToken = content.token || content.qr_token || content.qrToken;
+                    return typeof objectToken === 'string' ? objectToken.trim() : null;
+                }
+
+                const trimmed = String(content).trim();
+                if (!trimmed.length) {
+                    return null;
+                }
+
+                if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+                    try {
+                        const parsed = JSON.parse(trimmed);
+                        const parsedToken = parsed?.token || parsed?.qr_token || parsed?.qrToken;
+                        if (typeof parsedToken === 'string') {
+                            return parsedToken.trim();
+                        }
+                    } catch (error) {
+                        console.warn('Unable to parse QR payload', error);
+                    }
+                }
+
+                return trimmed;
+            }
+
             function sendScannedData(content) {
                 const csrfMeta = document.querySelector("meta[name='csrf-token']");
                 const csrfToken = csrfMeta ? csrfMeta.getAttribute('content') : null;
+                const token = extractTokenFromScan(content);
 
                 if (!csrfToken) {
                     console.warn('CSRF token missing; skipping attendance lookup');
+                    return;
+                }
+
+                if (!token) {
+                    setCameraStatus('Invalid QR code', 'danger');
                     return;
                 }
 
@@ -744,7 +780,7 @@
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ result: content })
+                    body: JSON.stringify({ result: token })
                 })
                     .then(response => response.json())
                     .then(data => {

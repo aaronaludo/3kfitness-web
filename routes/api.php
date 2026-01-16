@@ -79,6 +79,7 @@ use App\Http\Controllers\Mobile\BannerController;
 use App\Http\Controllers\Mobile\TrainerBannerController;
 use App\Http\Controllers\Mobile\AttendanceController;
 use App\Http\Controllers\Mobile\MembershipController;
+use App\Http\Controllers\Mobile\QrCodeController;
 
 Route::get('/banners', [BannerController::class, 'index'])->name('banners.index');
 Route::get('/trainers/banners', [TrainerBannerController::class, 'index'])->name('trainers.banners.index');
@@ -104,6 +105,7 @@ Route::prefix('trainers')->group(function () {
 Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('/attendance-histories', [AttendanceController::class, 'index'])->name('attendance-histories.index');
     Route::get('/memberships/status', [MembershipController::class, 'status'])->name('memberships.status');
+    Route::post('/qr-codes/issue', [QrCodeController::class, 'issue'])->name('qr-codes.issue');
     
     Route::prefix('members')->group(function () {
         Route::get('/memberships', [MemberMembershipController::class, 'index'])->name('members.membership.index');

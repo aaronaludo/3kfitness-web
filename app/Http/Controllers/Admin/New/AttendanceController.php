@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Attendance;
 use App\Models\Attendance2;
+use App\Models\UserQrCode;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
 use PhpOffice\PhpWord\IOFactory;
@@ -170,18 +171,80 @@ class AttendanceController extends Controller
     
     public function fetchScanner2(Request $request)
     {
-        $email = $request->result;
+        $rawResult = $request->input('result');
         $action = $request->input('action');
 
         if ($action && !in_array($action, ['clockin', 'clockout'], true)) {
             return response()->json(['data' => 'Invalid action provided.']);
         }
-    
-        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-            return response()->json(['data' => 'Invalid email format.']);
+
+        $extractPayloadValue = function ($payload, array $keys) {
+            if (is_array($payload)) {
+                foreach ($keys as $key) {
+                    if (isset($payload[$key]) && is_string($payload[$key])) {
+                        $candidate = trim($payload[$key]);
+                        if ($candidate !== '') {
+                            return $candidate;
+                        }
+                    }
+                }
+            }
+
+            if (is_string($payload)) {
+                $trimmed = trim($payload);
+                if ($trimmed === '') {
+                    return null;
+                }
+                if (str_starts_with($trimmed, '{') && str_ends_with($trimmed, '}')) {
+                    $decoded = json_decode($trimmed, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        foreach ($keys as $key) {
+                            if (isset($decoded[$key]) && is_string($decoded[$key])) {
+                                $candidate = trim($decoded[$key]);
+                                if ($candidate !== '') {
+                                    return $candidate;
+                                }
+                            }
+                        }
+                    }
+                }
+                return $trimmed;
+            }
+
+            return null;
+        };
+
+        $email = null;
+        $token = null;
+        if ($action) {
+            $email = $extractPayloadValue($rawResult, ['email', 'user_email', 'userEmail']);
+        } else {
+            $token = $extractPayloadValue($rawResult, ['token', 'qr_token', 'qrToken']);
         }
-    
-        $user = User::where('email', $email)->first();
+
+        $user = null;
+        if ($action) {
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                return response()->json(['data' => 'Invalid email format.']);
+            }
+
+            $user = User::where('email', $email)->first();
+        } else {
+            if (!$token) {
+                return response()->json(['data' => 'Invalid QR code.']);
+            }
+
+            $qrCode = UserQrCode::where('token', $token)
+                ->where('is_active', true)
+                ->orderByDesc('issued_at')
+                ->first();
+
+            if (!$qrCode) {
+                return response()->json(['data' => 'QR code expired or invalid.']);
+            }
+
+            $user = $qrCode->user;
+        }
     
         if (!$user) {
             return response()->json(['data' => 'No data found']);

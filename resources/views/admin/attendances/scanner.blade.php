@@ -65,8 +65,46 @@
         console.error(error);
     });
 
+    function extractTokenFromScan(content) {
+        if (!content) {
+            return null;
+        }
+
+        if (typeof content === 'object') {
+            const objectToken = content.token || content.qr_token || content.qrToken;
+            return typeof objectToken === 'string' ? objectToken.trim() : null;
+        }
+
+        const trimmed = String(content).trim();
+        if (!trimmed.length) {
+            return null;
+        }
+
+        if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+            try {
+                const parsed = JSON.parse(trimmed);
+                const parsedToken = parsed?.token || parsed?.qr_token || parsed?.qrToken;
+                if (typeof parsedToken === 'string') {
+                    return parsedToken.trim();
+                }
+            } catch (error) {
+                console.warn('Unable to parse QR payload', error);
+            }
+        }
+
+        return trimmed;
+    }
+
     function sendScannedData(content) {
         const csrfToken = document.querySelector("meta[name='csrf-token']").getAttribute('content');
+        const token = extractTokenFromScan(content);
+
+        if (!token) {
+            document.getElementById('modalContent').textContent = 'Invalid QR code.';
+            const scannerModal = new bootstrap.Modal(document.getElementById('scannerModal'));
+            scannerModal.show();
+            return;
+        }
 
         fetch("{{ route('admin.staff-account-management.attendances.scanner2.fetch') }}", {
             method: 'POST',
@@ -75,7 +113,7 @@
                 'Content-Type': 'application/json',
                 'Accept': 'application/json'
             },
-            body: JSON.stringify({ result: content })
+            body: JSON.stringify({ result: token })
         })
         .then(response => response.json())
         .then(data => {
