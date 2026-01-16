@@ -53,6 +53,26 @@
     .payroll-table th { text-transform: uppercase; letter-spacing: 0.02em; font-size: 0.8rem; }
     .payroll-table td .muted { color: #6b7280; font-size: 0.9rem; }
     .deduction-list { color: #6b7280; font-size: 0.85rem; margin: 0; }
+    .details-toggle-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 0.48rem 0.9rem;
+        border-radius: 10px;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        color: #475569;
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+    .details-toggle-btn.is-active {
+        border-color: rgba(220, 53, 69, 0.4);
+        color: #b91c1c;
+        background: rgba(220, 53, 69, 0.08);
+    }
+    .sales-month-filter {
+        min-width: 180px;
+    }
 </style>
 @endsection
 
@@ -60,15 +80,24 @@
 <div class="container-fluid">
     <div class="row">
         @php
+            $hasFilterPreset = !empty(request()->except(['page']));
             $focus = request('focus', 'trainer');
             $search = trim(request('search', ''));
             $startDateInput = request('start_date');
             $endDateInput = request('end_date');
             $datePreset = request('date_preset');
+
+            if (!$hasFilterPreset) {
+                $startDateInput = null;
+                $endDateInput = null;
+                $datePreset = null;
+            }
             if (!$datePreset && ($startDateInput || $endDateInput)) {
                 $datePreset = 'custom';
             }
-            $datePreset = $datePreset ?: 'all_time';
+            if ($hasFilterPreset) {
+                $datePreset = $datePreset ?: 'all_time';
+            }
 
             $today = \Carbon\Carbon::now();
             $resolveDateRange = function ($preset) use ($today) {
@@ -139,7 +168,7 @@
                 return [$start->format('Y-m-d'), $end->format('Y-m-d')];
             };
 
-            if ($datePreset !== 'custom') {
+            if ($datePreset && $datePreset !== 'custom') {
                 [$startDateInput, $endDateInput] = $resolveDateRange($datePreset);
             }
 
@@ -160,101 +189,27 @@
                 'last_year' => 'Last Year',
                 'all_time' => 'All Time',
             ];
-            $dateRangeLabel = $datePreset === 'custom'
-                ? trim(($startDateInput ?: '—') . ' → ' . ($endDateInput ?: '—'))
-                : (($presetLabels[$datePreset] ?? 'All Time') . ($startDateInput && $endDateInput ? ' (' . $startDateInput . ' → ' . $endDateInput . ')' : ''));
+            $dateRangeLabel = !$hasFilterPreset
+                ? '—'
+                : ($datePreset === 'custom'
+                    ? trim(($startDateInput ?: '—') . ' → ' . ($endDateInput ?: '—'))
+                    : (($presetLabels[$datePreset] ?? 'All Time') . ($startDateInput && $endDateInput ? ' (' . $startDateInput . ' → ' . $endDateInput . ')' : '')));
             $perPage = 10;
-            $runsQuery = \App\Models\PayrollRun::with(['user.role'])
-                ->orderByDesc('processed_at')
-                ->orderByDesc('id');
-
+            $currencySymbol = '₱';
             $focusLabel = 'All payroll runs';
             if ($focus === 'trainer') {
                 $focusLabel = 'Trainer payroll runs';
-                $runsQuery->whereHas('user.role', function ($q) {
-                    $q->where('name', 'like', '%trainer%');
-                });
             } elseif ($focus === 'staff') {
                 $focusLabel = 'Staff payroll runs';
-                $runsQuery->where(function ($q) {
-                    $q->whereHas('user.role', function ($role) {
-                        $role->where('name', 'not like', '%trainer%');
-                    })->orWhereDoesntHave('user.role');
-                });
             }
 
-            if ($search !== '') {
-                $like = '%' . $search . '%';
-                $integerSearch = ctype_digit($search) ? (int) $search : null;
-                $parsedDate = null;
-                try {
-                    $parsedDate = \Carbon\Carbon::parse($search)->toDateString();
-                } catch (\Throwable $th) {
-                    $parsedDate = null;
-                }
-
-                $runsQuery->where(function ($query) use ($like, $integerSearch, $parsedDate) {
-                    $query->where('period_month', 'like', $like)
-                        ->orWhere('total_hours', 'like', $like)
-                        ->orWhere('gross_pay', 'like', $like)
-                        ->orWhere('deduction_sss', 'like', $like)
-                        ->orWhere('deduction_philhealth', 'like', $like)
-                        ->orWhere('deduction_pagibig', 'like', $like)
-                        ->orWhere('deduction_app_cut', 'like', $like)
-                        ->orWhere('net_pay', 'like', $like)
-                        ->orWhere('processed_at', 'like', $like)
-                        ->orWhere('created_at', 'like', $like)
-                        ->orWhereHas('user', function ($userQuery) use ($like) {
-                            $userQuery
-                                ->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
-                                ->orWhere('first_name', 'like', $like)
-                                ->orWhere('last_name', 'like', $like)
-                                ->orWhere('email', 'like', $like)
-                                ->orWhere('user_code', 'like', $like)
-                                ->orWhereHas('role', function ($roleQuery) use ($like) {
-                                    $roleQuery->where('name', 'like', $like);
-                                });
-                        });
-
-                    if (!is_null($integerSearch)) {
-                        $query->orWhere('id', $integerSearch)
-                            ->orWhere('user_id', $integerSearch);
-                    }
-
-                    if ($parsedDate) {
-                        $query->orWhereDate('processed_at', $parsedDate)
-                            ->orWhereDate('created_at', $parsedDate);
-                    }
-                });
-            }
-
-            if ($startDate || $endDate) {
-                $runsQuery->where(function ($query) use ($startDate, $endDate) {
-                    $query->where(function ($q) use ($startDate, $endDate) {
-                        if ($startDate) {
-                            $q->where('processed_at', '>=', $startDate);
-                        }
-                        if ($endDate) {
-                            $q->where('processed_at', '<=', $endDate);
-                        }
-                    })
-                    ->orWhere(function ($q) use ($startDate, $endDate) {
-                        $q->whereNull('processed_at');
-                        if ($startDate) {
-                            $q->where('created_at', '>=', $startDate);
-                        }
-                        if ($endDate) {
-                            $q->where('created_at', '<=', $endDate);
-                        }
-                    });
-                });
-            }
-
-            $runsQueryForAll = clone $runsQuery;
-            $filteredRuns = $runsQuery->paginate($perPage)->appends(request()->query());
-            $filteredTotal = $filteredRuns->total();
-            $filteredCollection = $runsQueryForAll->get();
-            $currencySymbol = '₱';
+            $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+            $filteredRuns = new \Illuminate\Pagination\LengthAwarePaginator([], 0, $perPage, $currentPage, [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]);
+            $filteredTotal = 0;
+            $filteredCollection = collect();
             $filteredTotals = [
                 'gross' => round($filteredCollection->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
                 'net' => round($filteredCollection->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
@@ -271,6 +226,112 @@
                 'pagibig' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
                 'app_cut' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_app_cut ?? 0)), 2),
             ];
+
+            if ($hasFilterPreset) {
+                $runsQuery = \App\Models\PayrollRun::with(['user.role'])
+                    ->orderByDesc('processed_at')
+                    ->orderByDesc('id');
+
+                if ($focus === 'trainer') {
+                    $runsQuery->whereHas('user.role', function ($q) {
+                        $q->where('name', 'like', '%trainer%');
+                    });
+                } elseif ($focus === 'staff') {
+                    $runsQuery->where(function ($q) {
+                        $q->whereHas('user.role', function ($role) {
+                            $role->where('name', 'not like', '%trainer%');
+                        })->orWhereDoesntHave('user.role');
+                    });
+                }
+
+                if ($search !== '') {
+                    $like = '%' . $search . '%';
+                    $integerSearch = ctype_digit($search) ? (int) $search : null;
+                    $parsedDate = null;
+                    try {
+                        $parsedDate = \Carbon\Carbon::parse($search)->toDateString();
+                    } catch (\Throwable $th) {
+                        $parsedDate = null;
+                    }
+
+                    $runsQuery->where(function ($query) use ($like, $integerSearch, $parsedDate) {
+                        $query->where('period_month', 'like', $like)
+                            ->orWhere('total_hours', 'like', $like)
+                            ->orWhere('gross_pay', 'like', $like)
+                            ->orWhere('deduction_sss', 'like', $like)
+                            ->orWhere('deduction_philhealth', 'like', $like)
+                            ->orWhere('deduction_pagibig', 'like', $like)
+                            ->orWhere('deduction_app_cut', 'like', $like)
+                            ->orWhere('net_pay', 'like', $like)
+                            ->orWhere('processed_at', 'like', $like)
+                            ->orWhere('created_at', 'like', $like)
+                            ->orWhereHas('user', function ($userQuery) use ($like) {
+                                $userQuery
+                                    ->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
+                                    ->orWhere('first_name', 'like', $like)
+                                    ->orWhere('last_name', 'like', $like)
+                                    ->orWhere('email', 'like', $like)
+                                    ->orWhere('user_code', 'like', $like)
+                                    ->orWhereHas('role', function ($roleQuery) use ($like) {
+                                        $roleQuery->where('name', 'like', $like);
+                                    });
+                            });
+
+                        if (!is_null($integerSearch)) {
+                            $query->orWhere('id', $integerSearch)
+                                ->orWhere('user_id', $integerSearch);
+                        }
+
+                        if ($parsedDate) {
+                            $query->orWhereDate('processed_at', $parsedDate)
+                                ->orWhereDate('created_at', $parsedDate);
+                        }
+                    });
+                }
+
+                if ($startDate || $endDate) {
+                    $runsQuery->where(function ($query) use ($startDate, $endDate) {
+                        $query->where(function ($q) use ($startDate, $endDate) {
+                            if ($startDate) {
+                                $q->where('processed_at', '>=', $startDate);
+                            }
+                            if ($endDate) {
+                                $q->where('processed_at', '<=', $endDate);
+                            }
+                        })
+                        ->orWhere(function ($q) use ($startDate, $endDate) {
+                            $q->whereNull('processed_at');
+                            if ($startDate) {
+                                $q->where('created_at', '>=', $startDate);
+                            }
+                            if ($endDate) {
+                                $q->where('created_at', '<=', $endDate);
+                            }
+                        });
+                    });
+                }
+
+                $runsQueryForAll = clone $runsQuery;
+                $filteredRuns = $runsQuery->paginate($perPage)->appends(request()->query());
+                $filteredTotal = $filteredRuns->total();
+                $filteredCollection = $runsQueryForAll->get();
+                $filteredTotals = [
+                    'gross' => round($filteredCollection->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+                    'net' => round($filteredCollection->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+                    'sss' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_sss ?? 0)), 2),
+                    'philhealth' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_philhealth ?? 0)), 2),
+                    'pagibig' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
+                    'app_cut' => round($filteredCollection->sum(fn ($run) => (float) ($run->deduction_app_cut ?? 0)), 2),
+                ];
+                $pageTotals = [
+                    'gross' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+                    'net' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+                    'sss' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_sss ?? 0)), 2),
+                    'philhealth' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_philhealth ?? 0)), 2),
+                    'pagibig' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
+                    'app_cut' => round(collect($filteredRuns->items() ?? [])->sum(fn ($run) => (float) ($run->deduction_app_cut ?? 0)), 2),
+                ];
+            }
 
             $mapRun = function ($run) {
                 $staff = $run->user;
@@ -338,17 +399,59 @@
                 'count' => $printAllRuns->count(),
                 'items' => $printAllRuns,
             ];
+            $baseMonth = now()->startOfMonth();
+            $monthFilterOptions = collect(range(0, 36))
+                ->map(function ($offset) use ($baseMonth) {
+                    $month = $baseMonth->copy()->subMonths($offset);
+                    return [
+                        'value' => $month->format('Y-m'),
+                        'label' => $month->format('F Y'),
+                        'start' => $month->copy()->startOfMonth()->format('Y-m-d'),
+                        'end' => $month->copy()->endOfMonth()->format('Y-m-d'),
+                    ];
+                })
+                ->sortByDesc('start')
+                ->values();
+            $monthFilterSelection = null;
+            if (!empty($datePreset) && $datePreset === 'this_month') {
+                $monthFilterSelection = now()->format('Y-m');
+            } elseif (!empty($datePreset) && $datePreset === 'last_month') {
+                $monthFilterSelection = now()->subMonth()->format('Y-m');
+            } elseif (!empty($startDateInput) && !empty($endDateInput)) {
+                try {
+                    $startCarbon = \Carbon\Carbon::parse($startDateInput);
+                    $endCarbon = \Carbon\Carbon::parse($endDateInput);
+                    if (
+                        $startCarbon->isSameDay($startCarbon->copy()->startOfMonth()) &&
+                        $endCarbon->isSameDay($endCarbon->copy()->endOfMonth()) &&
+                        $startCarbon->isSameMonth($endCarbon)
+                    ) {
+                        $monthFilterSelection = $startCarbon->format('Y-m');
+                    }
+                } catch (\Exception $e) {
+                    $monthFilterSelection = null;
+                }
+            }
         @endphp
         <div class="col-12 d-flex justify-content-between align-items-start flex-wrap gap-3 mb-4 mt-2">
             <div>
                 <h2 class="title mb-1">Payroll Report</h2>
                 <p class="text-muted mb-0">Snapshot of payroll totals across all processed runs.</p>
             </div>
-            <div class="d-flex align-items-center flex-wrap gap-3 h-100">
-                <div class="text-end text-muted small">
-                    <div>Total runs: {{ $runsCount }}</div>
-                    <div>Last updated: {{ now()->format('M d, Y g:i A') }}</div>
-                </div>
+            <div class="d-flex align-items-center gap-3 h-100">
+                <select class="form-select sales-month-filter" id="payroll-month-filter" aria-label="Filter by month">
+                    <option value="">Filter month</option>
+                    @foreach ($monthFilterOptions as $option)
+                        <option
+                            value="{{ $option['value'] }}"
+                            data-start="{{ $option['start'] }}"
+                            data-end="{{ $option['end'] }}"
+                            {{ $monthFilterSelection === $option['value'] ? 'selected' : '' }}
+                        >
+                            {{ $option['label'] }}
+                        </option>
+                    @endforeach
+                </select>
                 <form action="#" method="POST" id="print-form">
                     @csrf
                     <button
@@ -494,6 +597,10 @@
 
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
                                     <a href="{{ route('admin.payrolls.report') }}" class="btn btn-link text-decoration-none text-muted px-0">Reset</a>
+                                    <button type="button" class="details-toggle-btn" id="payroll-details-toggle" aria-pressed="true">
+                                        <i class="fa-solid fa-eye-slash"></i>
+                                        Hide Details
+                                    </button>
                                     <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
                                         <i class="fa-solid fa-filter"></i>
                                         Apply
@@ -534,92 +641,90 @@
                 </div>
             </div>
 
-            <div class="col-12 mb-4">
-                <div class="card shadow-sm border-0 rounded-4">
-                    <div class="card-body p-4">
-                        <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
-                            <div>
-                                <h5 class="fw-semibold mb-1">Payroll runs</h5>
-                                <p class="text-muted small mb-2">Styled to match the Sales Report table.</p>
-                                <div class="table-meta">
-                                    <span class="pill-soft">{{ $focusLabel }}</span>
-                                    <span class="pill-soft">Total runs: {{ $filteredTotal }}</span>
-                                    <span class="pill-soft">Date: {{ $dateRangeLabel }}</span>
+            @if($hasFilterPreset)
+                <div class="col-12 mb-4">
+                    <div class="card shadow-sm border-0 rounded-4 report-detail-section">
+                        <div class="card-body p-4">
+                            <div class="d-flex align-items-start justify-content-between flex-wrap gap-3 mb-3">
+                                <div>
+                                    <h5 class="fw-semibold mb-1">Payroll runs</h5>
+                                    <p class="text-muted small mb-2">Styled to match the Sales Report table.</p>
+                                    <div class="table-meta">
+                                        <span class="pill-soft">{{ $focusLabel }}</span>
+                                        <span class="pill-soft">Total runs: {{ $filteredTotal }}</span>
+                                        <span class="pill-soft">Date: {{ $dateRangeLabel }}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="text-muted small text-end">
-                                <div>Gross total: ₱{{ number_format($filteredTotals['gross'] ?? 0, 2) }}</div>
-                                <div>Net total: ₱{{ number_format($filteredTotals['net'] ?? 0, 2) }}</div>
-                            </div>
-                        </div>
 
-                        @if($filteredRuns->count() === 0)
-                            <div class="text-center text-muted py-5">
-                                <i class="fa-regular fa-file-lines fa-2x mb-3"></i>
-                                <h6 class="fw-semibold mb-1">No payroll runs match this filter</h6>
-                                <p class="mb-0">Adjust the search or payroll type to see results.</p>
-                            </div>
-                        @else
-                            <div class="table-responsive">
-                                <table class="table table-hover align-middle payroll-table mb-0">
-                                    <thead class="table-light">
-                                        <tr>
-                                            <th scope="col">#</th>
-                                            <th scope="col">Staff</th>
-                                            <th scope="col">Role</th>
-                                            <th scope="col">Period</th>
-                                            <th scope="col">Hours</th>
-                                            <th scope="col">Gross</th>
-                                            <th scope="col">Deductions</th>
-                                            <th scope="col">Net</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        @foreach($filteredRuns as $run)
-                                            @php
-                                                $staff = $run->user;
-                                                $name = trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? ''));
-                                                $email = $staff->email ?? '—';
-                                                $code = $staff->user_code ?? '—';
-                                                $roleName = optional($staff->role)->name ?? '—';
-                                                $periodLabel = $run->period_month
-                                                    ? \Carbon\Carbon::parse($run->period_month . '-01')->format('M Y')
-                                                    : '—';
-                                                $deductionTotal = ($run->deduction_sss ?? 0) + ($run->deduction_philhealth ?? 0) + ($run->deduction_pagibig ?? 0) + ($run->deduction_app_cut ?? 0);
-                                            @endphp
+                            @if($filteredRuns->count() === 0)
+                                <div class="text-center text-muted py-5">
+                                    <i class="fa-regular fa-file-lines fa-2x mb-3"></i>
+                                    <h6 class="fw-semibold mb-1">No payroll runs match this filter</h6>
+                                    <p class="mb-0">Adjust the search or payroll type to see results.</p>
+                                </div>
+                            @else
+                                <div class="table-responsive">
+                                    <table class="table table-hover align-middle payroll-table mb-0">
+                                        <thead class="table-light">
                                             <tr>
-                                                <td class="text-muted">#{{ $run->id }}</td>
-                                                <td>
-                                                    <div class="fw-semibold">{{ $name !== '' ? $name : '—' }}</div>
-                                                    <div class="muted">{{ $email }}</div>
-                                                    <div class="muted">Code: {{ $code }}</div>
-                                                </td>
-                                                <td>
-                                                    <span class="badge bg-light text-dark border">{{ $roleName !== '' ? $roleName : '—' }}</span>
-                                                </td>
-                                                <td>{{ $periodLabel }}</td>
-                                                <td>{{ number_format((float) ($run->total_hours ?? 0), 2) }}</td>
-                                                <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
-                                                <td>
-                                                    <div class="fw-semibold">₱{{ number_format((float) $deductionTotal, 2) }}</div>
-                                                    <ul class="deduction-list list-unstyled mb-0">
-                                                        <li>SSS: ₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</li>
-                                                        <li>PhilHealth: ₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</li>
-                                                        <li>Pag-IBIG: ₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</li>
-                                                        <li>App cut: ₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</li>
-                                                    </ul>
-                                                </td>
-                                                <td class="fw-semibold text-success">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
+                                                <th scope="col">#</th>
+                                                <th scope="col">Staff</th>
+                                                <th scope="col">Role</th>
+                                                <th scope="col">Period</th>
+                                                <th scope="col">Hours</th>
+                                                <th scope="col">Gross</th>
+                                                <th scope="col">Deductions</th>
+                                                <th scope="col">Net</th>
                                             </tr>
-                                        @endforeach
-                                    </tbody>
-                                </table>
-                                {{ $filteredRuns->links() }}
-                            </div>
-                        @endif
+                                        </thead>
+                                        <tbody>
+                                            @foreach($filteredRuns as $run)
+                                                @php
+                                                    $staff = $run->user;
+                                                    $name = trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? ''));
+                                                    $email = $staff->email ?? '—';
+                                                    $code = $staff->user_code ?? '—';
+                                                    $roleName = optional($staff->role)->name ?? '—';
+                                                    $periodLabel = $run->period_month
+                                                        ? \Carbon\Carbon::parse($run->period_month . '-01')->format('M Y')
+                                                        : '—';
+                                                    $deductionTotal = ($run->deduction_sss ?? 0) + ($run->deduction_philhealth ?? 0) + ($run->deduction_pagibig ?? 0) + ($run->deduction_app_cut ?? 0);
+                                                @endphp
+                                                <tr>
+                                                    <td class="text-muted">#{{ $run->id }}</td>
+                                                    <td>
+                                                        <div class="fw-semibold">{{ $name !== '' ? $name : '—' }}</div>
+                                                        <div class="muted">{{ $email }}</div>
+                                                        <div class="muted">Code: {{ $code }}</div>
+                                                    </td>
+                                                    <td>
+                                                        <span class="badge bg-light text-dark border">{{ $roleName !== '' ? $roleName : '—' }}</span>
+                                                    </td>
+                                                    <td>{{ $periodLabel }}</td>
+                                                    <td>{{ number_format((float) ($run->total_hours ?? 0), 2) }}</td>
+                                                    <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
+                                                    <td>
+                                                        <div class="fw-semibold">₱{{ number_format((float) $deductionTotal, 2) }}</div>
+                                                        <ul class="deduction-list list-unstyled mb-0">
+                                                            <li>SSS: ₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</li>
+                                                            <li>PhilHealth: ₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</li>
+                                                            <li>Pag-IBIG: ₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</li>
+                                                            <li>App cut: ₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</li>
+                                                        </ul>
+                                                    </td>
+                                                    <td class="fw-semibold text-success">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
+                                                </tr>
+                                            @endforeach
+                                        </tbody>
+                                    </table>
+                                    {{ $filteredRuns->links() }}
+                                </div>
+                            @endif
+                        </div>
                     </div>
                 </div>
-            </div>
+            @endif
         @endif
     </div>
 </div>
@@ -634,6 +739,11 @@
         const endDateInput = document.getElementById('end_date');
         const focusButtons = document.querySelectorAll('.focus-chip');
         const focusField = document.getElementById('payroll-focus');
+        const detailsToggle = document.getElementById('payroll-details-toggle');
+        const detailSections = document.querySelectorAll('.report-detail-section');
+        const detailsStorageKey = 'payrollReportShowDetails';
+        const reportForm = document.getElementById('payroll-report-filter-form');
+        const monthFilter = document.getElementById('payroll-month-filter');
 
         function buildFilters(filters) {
             const chips = [];
@@ -760,7 +870,21 @@
                     return;
                 }
 
-                const payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                let payloadToUse = scope === 'all' && allPayload ? allPayload : payload;
+                let detailsVisible = true;
+                try {
+                    detailsVisible = localStorage.getItem(detailsStorageKey) !== '0';
+                } catch (err) {
+                    detailsVisible = true;
+                }
+
+                if (payloadToUse && !detailsVisible) {
+                    payloadToUse = JSON.parse(JSON.stringify(payloadToUse));
+                    payloadToUse.meta = payloadToUse.meta || {};
+                    payloadToUse.meta.hide_table = true;
+                    payloadToUse.items = [];
+                    payloadToUse.count = 0;
+                }
                 const handled = payloadToUse ? renderPrintWindow(payloadToUse) : false;
 
                 if (!handled) {
@@ -923,6 +1047,24 @@
             });
         }
 
+        if (monthFilter) {
+            monthFilter.addEventListener('change', function () {
+                const selected = monthFilter.options[monthFilter.selectedIndex];
+                const startValue = selected ? selected.getAttribute('data-start') : null;
+                const endValue = selected ? selected.getAttribute('data-end') : null;
+                if (!startValue || !endValue) {
+                    return;
+                }
+                if (startDateInput) startDateInput.value = startValue;
+                if (endDateInput) endDateInput.value = endValue;
+                if (datePresetSelect) datePresetSelect.value = 'custom';
+                applyDatePreset('custom', true);
+                if (reportForm) {
+                    reportForm.submit();
+                }
+            });
+        }
+
         focusButtons.forEach(function (btn) {
             btn.addEventListener('click', function () {
                 const selected = this.dataset.focus || 'trainer';
@@ -935,6 +1077,39 @@
                 }
             });
         });
+
+        if (reportForm) {
+            reportForm.addEventListener('submit', function () {
+                localStorage.setItem(detailsStorageKey, '1');
+            });
+        }
+
+        if (detailsToggle && detailSections.length) {
+            let isVisible = true;
+            try {
+                isVisible = localStorage.getItem(detailsStorageKey) !== '0';
+            } catch (err) {
+                isVisible = true;
+            }
+
+            const setDetailsVisibility = function (visible) {
+                isVisible = visible;
+                detailSections.forEach(function (section) {
+                    section.classList.toggle('d-none', !visible);
+                });
+                detailsToggle.setAttribute('aria-pressed', visible ? 'true' : 'false');
+                detailsToggle.classList.toggle('is-active', !visible);
+                detailsToggle.innerHTML = visible
+                    ? '<i class="fa-solid fa-eye-slash"></i> Hide Details'
+                    : '<i class="fa-solid fa-eye"></i> Show Details';
+                localStorage.setItem(detailsStorageKey, visible ? '1' : '0');
+            };
+
+            setDetailsVisibility(isVisible);
+            detailsToggle.addEventListener('click', function () {
+                setDetailsVisibility(!isVisible);
+            });
+        }
     });
 </script>
 @endsection
