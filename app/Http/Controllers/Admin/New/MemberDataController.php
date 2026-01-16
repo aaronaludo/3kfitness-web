@@ -56,6 +56,7 @@ class MemberDataController extends Controller
 
         $current_time = Carbon::now();
         $hasPaymentArchiveColumn = Schema::hasColumn('membership_payments', 'is_archive');
+        $memberships = Membership::where('is_archive', 0)->get();
 
         $activeMembersBase = User::where('role_id', 3)->where('is_archive', 0);
         $totalMembers = (clone $activeMembersBase)->count();
@@ -171,7 +172,7 @@ class MemberDataController extends Controller
             ->paginate(10, ['*'], 'archive_page')
             ->appends($queryParamsWithoutMainPage);
 
-        return view('admin.gymmanagement.memberdata', compact('gym_members', 'archivedData', 'current_time', 'statusTallies', 'printAllActive', 'printAllArchived'));
+        return view('admin.gymmanagement.memberdata', compact('gym_members', 'archivedData', 'current_time', 'statusTallies', 'printAllActive', 'printAllArchived', 'memberships'));
     }
     
     public function view(Request $request, $id)

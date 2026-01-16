@@ -613,6 +613,11 @@
                                             $expirationAt   = $membershipActive ? optional($latestMembershipPayment)->expiration_at : 'No Expiration Date';
 
                                             $hasMembership = $membershipActive;
+                                            $membershipStatusLabel = $membershipActive ? 'Active membership' : 'No active membership';
+                                            $membershipExpiresLabel = $membershipActive && $latestMembershipPayment && $latestMembershipPayment->expiration_at
+                                                ? \Carbon\Carbon::parse($latestMembershipPayment->expiration_at)->format('F j, Y g:iA')
+                                                : ($membershipActive ? 'No Expiration Date' : 'No active membership');
+                                            $membershipId = $membershipActive && $membership ? $membership->id : '';
 
                                             $approvedBy = $membershipActive
                                                 ? optional($latestMembershipPayment)->created_by
@@ -685,6 +690,27 @@
                                                             <i class="fa-solid fa-right-from-bracket me-1"></i>Clock Out
                                                         </button>
                                                     </div>
+
+                                                    @if (!$hasMembership)
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-outline-primary btn-sm renew-membership-button"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#renewMembershipModal"
+                                                            data-member-id="{{ $item->id }}"
+                                                            data-member-name="{{ $item->first_name }} {{ $item->last_name }}"
+                                                            data-member-email="{{ $item->email }}"
+                                                            data-member-phone="{{ $item->phone_number }}"
+                                                            data-member-code="{{ $memberCode }}"
+                                                            data-membership-status="{{ $membershipStatusLabel }}"
+                                                            data-membership-name="{{ $membershipName }}"
+                                                            data-membership-expires="{{ $membershipExpiresLabel }}"
+                                                            data-membership-id="{{ $membershipId }}"
+                                                            data-membership-active="{{ $hasMembership ? '1' : '0' }}"
+                                                        >
+                                                            <i class="fa-solid fa-arrows-rotate me-1"></i>Renew Account
+                                                        </button>
+                                                    @endif
 
                                                     <div class="d-flex align-items-center gap-2">
                                                         <div class="action-button">
@@ -959,6 +985,78 @@
                 </div>
                 @endif
             </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="renewMembershipModal" tabindex="-1" aria-labelledby="renewMembershipModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-md">
+            <div class="modal-content rounded-4 border-0 shadow">
+                <div class="modal-header border-0 pb-0">
+                    <div>
+                        <p class="text-uppercase text-muted small mb-1">Membership renewal</p>
+                        <h5 class="modal-title fw-semibold" id="renewMembershipModalLabel">Renew Account</h5>
+                    </div>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form
+                    id="renewMembershipForm"
+                    method="POST"
+                    action="{{ route('admin.gym-management.members.update', 0) }}"
+                    data-action-base="{{ url('/admin/members') }}"
+                >
+                    @csrf
+                    @method('PUT')
+                    <div class="modal-body">
+                        <div class="d-flex flex-column gap-3">
+                            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
+                                <div>
+                                    <div class="text-muted small text-uppercase">Member</div>
+                                    <div class="fw-semibold" id="renewMemberName">—</div>
+                                    <div class="text-muted small" id="renewMemberEmail">—</div>
+                                    <div class="text-muted small" id="renewMemberPhone">—</div>
+                                    <div class="text-muted small" id="renewMemberCode">—</div>
+                                </div>
+                                <div class="text-end">
+                                    <span class="badge bg-secondary" id="renewMembershipStatusBadge">Inactive</span>
+                                    <div class="text-muted small mt-2" id="renewMembershipStatusText">—</div>
+                                </div>
+                            </div>
+
+                            <div class="border rounded-3 p-3 bg-light">
+                                <div class="row g-2">
+                                    <div class="col-12 col-sm-6">
+                                        <div class="text-muted small text-uppercase">Current membership</div>
+                                        <div class="fw-semibold" id="renewMembershipName">No Membership</div>
+                                    </div>
+                                    <div class="col-12 col-sm-6">
+                                        <div class="text-muted small text-uppercase">Expiration</div>
+                                        <div class="fw-semibold" id="renewMembershipExpires">—</div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="form-label fw-semibold" for="renewMembershipSelect">Renew to</label>
+                                <select class="form-control" id="renewMembershipSelect" name="membership_id" required>
+                                    <option value="" disabled selected>Select a membership</option>
+                                    @foreach ($memberships as $membershipOption)
+                                        <option value="{{ $membershipOption->id }}">{{ $membershipOption->name }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+
+                            <div class="alert alert-warning mb-0 d-none" id="renewMembershipNotice"></div>
+                        </div>
+                    </div>
+                    <div class="modal-footer border-0 pt-0">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-danger" id="renewMembershipSubmitBtn">
+                            <span id="renewMembershipLoader" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                            Renew membership
+                        </button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -1285,6 +1383,147 @@
                 btn.addEventListener('click', function () {
                     applyRange(this.dataset.range);
                 });
+            });
+        });
+    </script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const renewButtons = document.querySelectorAll('.renew-membership-button');
+            const renewModalEl = document.getElementById('renewMembershipModal');
+
+            if (!renewModalEl || !renewButtons.length) {
+                return;
+            }
+
+            const renewForm = renewModalEl.querySelector('#renewMembershipForm');
+            const actionBase = renewForm ? renewForm.getAttribute('data-action-base') : '';
+            const nameEl = renewModalEl.querySelector('#renewMemberName');
+            const emailEl = renewModalEl.querySelector('#renewMemberEmail');
+            const phoneEl = renewModalEl.querySelector('#renewMemberPhone');
+            const codeEl = renewModalEl.querySelector('#renewMemberCode');
+            const statusBadgeEl = renewModalEl.querySelector('#renewMembershipStatusBadge');
+            const statusTextEl = renewModalEl.querySelector('#renewMembershipStatusText');
+            const membershipNameEl = renewModalEl.querySelector('#renewMembershipName');
+            const membershipExpiresEl = renewModalEl.querySelector('#renewMembershipExpires');
+            const selectEl = renewModalEl.querySelector('#renewMembershipSelect');
+            const noticeEl = renewModalEl.querySelector('#renewMembershipNotice');
+            const submitBtn = renewModalEl.querySelector('#renewMembershipSubmitBtn');
+            const loaderEl = renewModalEl.querySelector('#renewMembershipLoader');
+
+            const hasSelectableMemberships = function () {
+                if (!selectEl) {
+                    return false;
+                }
+                return Array.from(selectEl.options).some((option) => option.value);
+            };
+
+            const setStatusBadge = function (active) {
+                if (!statusBadgeEl) {
+                    return;
+                }
+                statusBadgeEl.textContent = active ? 'Active' : 'Inactive';
+                statusBadgeEl.classList.remove('bg-success', 'bg-secondary');
+                statusBadgeEl.classList.add(active ? 'bg-success' : 'bg-secondary');
+            };
+
+            const setNotice = function (message) {
+                if (!noticeEl) {
+                    return;
+                }
+                if (message) {
+                    noticeEl.textContent = message;
+                    noticeEl.classList.remove('d-none');
+                } else {
+                    noticeEl.textContent = '';
+                    noticeEl.classList.add('d-none');
+                }
+            };
+
+            const setSelectValue = function (value) {
+                if (!selectEl) {
+                    return;
+                }
+                const options = Array.from(selectEl.options).filter((option) => option.value);
+                if (value && options.some((option) => option.value === value)) {
+                    selectEl.value = value;
+                } else if (options.length) {
+                    selectEl.value = options[0].value;
+                } else {
+                    selectEl.value = '';
+                }
+            };
+
+            renewButtons.forEach(function (button) {
+                button.addEventListener('click', function () {
+                    const data = button.dataset;
+                    const memberId = data.memberId;
+
+                    if (renewForm && actionBase && memberId) {
+                        renewForm.action = `${actionBase}/${memberId}`;
+                    }
+
+                    if (nameEl) nameEl.textContent = data.memberName || '—';
+                    if (emailEl) emailEl.textContent = data.memberEmail || '—';
+                    if (phoneEl) phoneEl.textContent = data.memberPhone || '—';
+                    if (codeEl) {
+                        const rawCode = data.memberCode || '';
+                        codeEl.textContent = rawCode ? (rawCode.startsWith('#') ? rawCode : `#${rawCode}`) : '—';
+                    }
+                    if (statusTextEl) statusTextEl.textContent = data.membershipStatus || '—';
+                    if (membershipNameEl) membershipNameEl.textContent = data.membershipName || 'No Membership';
+                    if (membershipExpiresEl) membershipExpiresEl.textContent = data.membershipExpires || '—';
+
+                    const isActive = data.membershipActive === '1';
+                    setStatusBadge(isActive);
+                    setSelectValue(data.membershipId || '');
+
+                    const selectable = hasSelectableMemberships();
+                    const canRenew = !isActive && selectable;
+
+                    if (selectEl) {
+                        selectEl.disabled = !canRenew;
+                    }
+                    if (submitBtn) {
+                        submitBtn.disabled = !canRenew;
+                    }
+
+                    if (isActive) {
+                        setNotice('Membership is active. Renewals are available after expiration.');
+                    } else if (!selectable) {
+                        setNotice('No active membership plans are available to renew.');
+                    } else {
+                        setNotice('');
+                    }
+
+                    if (loaderEl) {
+                        loaderEl.classList.add('d-none');
+                    }
+                });
+            });
+
+            renewForm?.addEventListener('submit', function () {
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                }
+                if (loaderEl) {
+                    loaderEl.classList.remove('d-none');
+                }
+            });
+
+            renewModalEl.addEventListener('hidden.bs.modal', function () {
+                if (loaderEl) {
+                    loaderEl.classList.add('d-none');
+                }
+                if (submitBtn) {
+                    submitBtn.disabled = false;
+                }
+                if (selectEl) {
+                    selectEl.disabled = false;
+                }
+                setNotice('');
+                if (renewForm) {
+                    renewForm.reset();
+                }
             });
         });
     </script>
