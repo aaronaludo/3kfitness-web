@@ -1689,8 +1689,8 @@
                 .filter((value, index, arr) => arr.indexOf(value) === index);
         }
 
-        function normalizeRanges() {
-            processingRanges = processingRanges
+        function getNormalizedRanges() {
+            return processingRanges
                 .map((range) => {
                     const from = parseInt(range.from, 10);
                     const to = parseInt(range.to ?? 31, 10);
@@ -1728,15 +1728,12 @@
                         const toVal = node.querySelector('input[name*="[to]"]')?.value;
                         const processVal = node.querySelector('input[name*="[process]"]')?.value;
                         processingRanges[index] = { from: fromVal, to: toVal, process: processVal };
-                        normalizeRanges();
-                        renderRangeRows();
                         renderRangePreview();
                         updateProcessButtons();
                     });
                 });
                 node.querySelector('[data-remove-range]')?.addEventListener('click', () => {
                     processingRanges.splice(index, 1);
-                    normalizeRanges();
                     renderRangeRows();
                     renderRangePreview();
                     updateProcessButtons();
@@ -1752,7 +1749,7 @@
         function renderRangePreview() {
             if (!rangePreview) return;
             rangePreview.innerHTML = '';
-            const ranges = processingRanges.length ? processingRanges : [];
+            const ranges = getNormalizedRanges();
             if (!ranges.length) {
                 const span = document.createElement('span');
                 span.className = 'text-muted small';
@@ -1769,7 +1766,9 @@
         }
 
         function getAllowedDays() {
-            const rangeDays = processingRanges.map((r) => r.process).filter((v, i, arr) => arr.indexOf(v) === i);
+            const rangeDays = getNormalizedRanges()
+                .map((r) => r.process)
+                .filter((v, i, arr) => arr.indexOf(v) === i);
             const explicitDays = activationDays;
             return [...new Set([...explicitDays, ...rangeDays])];
         }
@@ -1888,14 +1887,12 @@
         }
 
         normalizeActivationDays();
-        normalizeRanges();
         if (!processingRanges.length) {
             processingRanges = defaultRanges();
         }
 
         addRangeBtn?.addEventListener('click', () => {
             processingRanges.push({ from: '', to: '', process: '' });
-            normalizeRanges();
             renderRangeRows();
             renderRangePreview();
             updateProcessButtons();
@@ -2246,21 +2243,22 @@
         }
 
         function getSelectedRange() {
-            if (!processingRanges.length) return null;
+            const normalizedRanges = getNormalizedRanges();
+            if (!normalizedRanges.length) return null;
 
             if (processDayFilter) {
                 const value = processDayFilter.value;
                 if (value && value !== 'all') {
                     const idx = Number(value);
-                    if (!Number.isNaN(idx) && processingRanges[idx]) {
-                        return processingRanges[idx];
+                    if (!Number.isNaN(idx) && normalizedRanges[idx]) {
+                        return normalizedRanges[idx];
                     }
                 } else if (value === 'all') {
                     return null;
                 }
             }
 
-            return processingRanges.find((range) => {
+            return normalizedRanges.find((range) => {
                 const from = parseInt(range.from, 10);
                 const to = parseInt(range.to ?? 31, 10);
                 return Number.isInteger(from) && Number.isInteger(to) && todayDay >= from && todayDay <= to;
@@ -2390,7 +2388,8 @@
                 pendingProcessForm = form;
                 pendingAssignments = Array.isArray(data) ? data : [];
                 if (processDayFilter) {
-                    const matchingIndex = processingRanges.findIndex((range) => {
+                    const normalizedRanges = getNormalizedRanges();
+                    const matchingIndex = normalizedRanges.findIndex((range) => {
                         const from = parseInt(range.from, 10);
                         const to = parseInt(range.to ?? 31, 10);
                         return Number.isInteger(from) && Number.isInteger(to) && todayDay >= from && todayDay <= to;
