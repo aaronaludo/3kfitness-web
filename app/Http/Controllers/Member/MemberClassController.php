@@ -149,7 +149,13 @@ class MemberClassController extends Controller
 
         $activeMembership = $this->resolveActiveMembershipForUser($user);
 
-        $classLimit = optional(optional($activeMembership)->membership)->class_limit_per_month;
+        if (! $activeMembership) {
+            return response()->json([
+                'message' => 'Your membership has expired. Please renew to join classes.',
+            ], 403);
+        }
+
+        $classLimit = optional($activeMembership->membership)->class_limit_per_month;
 
         if (!is_null($classLimit) && $classLimit > 0) {
             $startOfMonth = now()->copy()->startOfMonth();

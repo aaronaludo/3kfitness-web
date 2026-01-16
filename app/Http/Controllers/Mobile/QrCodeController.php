@@ -4,17 +4,30 @@ namespace App\Http\Controllers\Mobile;
 
 use App\Http\Controllers\Controller;
 use App\Models\UserQrCode;
+use App\Traits\ResolvesActiveMembership;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
 class QrCodeController extends Controller
 {
+    use ResolvesActiveMembership;
+
     public function issue(Request $request)
     {
         $user = $request->user();
 
         if (!$user) {
             return response()->json(['message' => 'Unauthorized'], 401);
+        }
+
+        if ((int) ($user->role_id ?? 0) === 3) {
+            $activeMembership = $this->resolveActiveMembershipForUser($user);
+
+            if (! $activeMembership) {
+                return response()->json([
+                    'message' => 'Your membership has expired. Please renew to access your QR code.',
+                ], 403);
+            }
         }
 
         UserQrCode::where('user_id', $user->id)

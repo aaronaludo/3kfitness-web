@@ -138,10 +138,43 @@ class MemberMembershipController extends Controller
             ->first();
 
         if ($existingMembership) {
-            return response()->json([
-                'message' => 'You already have an active or pending membership. Please wait for it to expire or be approved/rejected before purchasing a new membership.',
-                'pending_membership' => $this->formatMembershipReceipt($existingMembership),
-            ], 400);
+            $isPending = (int) $existingMembership->isapproved === 0;
+
+            if ($isPending) {
+                return response()->json([
+                    'message' => 'You already have a pending membership request. Please wait for approval before creating another.',
+                    'pending_membership' => $this->formatMembershipReceipt($existingMembership),
+                ], 400);
+            }
+
+            $expiresAt = $existingMembership->expiration_at
+                ? Carbon::parse($existingMembership->expiration_at)
+                : null;
+
+            if (! $expiresAt) {
+                return response()->json([
+                    'message' => 'You already have an active membership with no expiry date.',
+                    'pending_membership' => $this->formatMembershipReceipt($existingMembership),
+                ], 400);
+            }
+
+            $renewWindowDays = 7;
+            if ($expiresAt->greaterThan(now()->addDays($renewWindowDays))) {
+                return response()->json([
+                    'message' => 'You already have an active membership. Renewal is available within 7 days of expiry.',
+                    'pending_membership' => $this->formatMembershipReceipt($existingMembership),
+                ], 400);
+            }
+        }
+
+        $baseExpiration = null;
+        if ($existingMembership && (int) $existingMembership->isapproved === 1) {
+            $expiresAt = $existingMembership->expiration_at
+                ? Carbon::parse($existingMembership->expiration_at)
+                : null;
+            if ($expiresAt) {
+                $baseExpiration = $expiresAt->greaterThan(now()) ? $expiresAt : now();
+            }
         }
 
         $payment = new MembershipPayment;
@@ -149,7 +182,7 @@ class MemberMembershipController extends Controller
         $payment->membership_id = $membership->id;
         $payment->isapproved = 0;
         $payment->proof_of_payment = 'blank_for_now';
-        $payment->expiration_at = $this->calculateExpiration($membership);
+        $payment->expiration_at = $this->calculateExpiration($membership, $baseExpiration);
 
         if (Schema::hasColumn('membership_payments', 'created_by')) {
             $payment->created_by = trim(sprintf(
@@ -231,9 +264,9 @@ class MemberMembershipController extends Controller
         ]);
     }
 
-    protected function calculateExpiration(Membership $membership): ?Carbon
+    protected function calculateExpiration(Membership $membership, ?Carbon $baseDate = null): ?Carbon
     {
-        $expiry = Carbon::now();
+        $expiry = $baseDate ? $baseDate->copy() : Carbon::now();
         $hasDuration = false;
 
         if (!empty($membership->year)) {
