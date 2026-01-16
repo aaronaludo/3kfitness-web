@@ -8,6 +8,124 @@
 @section('title', 'Attendances')
 
 @section('content')
+    <style>
+        .manual-clock-modal .modal-content {
+            border-radius: 22px;
+            border: none;
+            background: #f6f5fb;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.2);
+        }
+        .manual-clock-modal .modal-header {
+            border-bottom: none;
+        }
+        .manual-clock-hero {
+            text-align: center;
+        }
+        .manual-clock-icon {
+            width: 72px;
+            height: 72px;
+            border-radius: 50%;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            margin: 0 auto 12px;
+            border: 1px solid transparent;
+        }
+        .manual-clock-icon--success {
+            background: rgba(34, 197, 94, 0.15);
+            color: #16a34a;
+            border-color: rgba(34, 197, 94, 0.35);
+        }
+        .manual-clock-icon--danger {
+            background: rgba(239, 68, 68, 0.12);
+            color: #dc2626;
+            border-color: rgba(239, 68, 68, 0.35);
+        }
+        .manual-clock-icon--warning {
+            background: rgba(245, 158, 11, 0.12);
+            color: #b45309;
+            border-color: rgba(245, 158, 11, 0.35);
+        }
+        .manual-clock-icon--loading {
+            background: rgba(148, 163, 184, 0.18);
+            color: #475569;
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+        .manual-clock-title {
+            font-weight: 800;
+            margin-bottom: 4px;
+        }
+        .manual-clock-subtitle {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-bottom: 16px;
+        }
+        .manual-clock-member-card {
+            background: #fff;
+            border-radius: 16px;
+            padding: 12px 14px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            border: 1px solid #eceef6;
+            box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+        }
+        .manual-clock-avatar {
+            width: 56px;
+            height: 56px;
+            border-radius: 14px;
+            object-fit: cover;
+            border: 1px solid #e5e7eb;
+            background: #f8fafc;
+            flex: 0 0 auto;
+        }
+        .manual-clock-member-info {
+            flex: 1;
+            min-width: 0;
+        }
+        .manual-clock-member-name {
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        .manual-clock-member-meta {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-bottom: 2px;
+            word-break: break-word;
+        }
+        .manual-clock-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 6px;
+        }
+        .manual-clock-chip {
+            font-size: 0.7rem;
+            font-weight: 700;
+            padding: 4px 8px;
+            border-radius: 999px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+        }
+        .manual-clock-chip--active {
+            background: rgba(34, 197, 94, 0.15);
+            color: #15803d;
+            border-color: rgba(34, 197, 94, 0.35);
+        }
+        .manual-clock-chip--inactive {
+            background: rgba(148, 163, 184, 0.15);
+            color: #64748b;
+            border-color: rgba(148, 163, 184, 0.35);
+        }
+        @media (max-width: 575px) {
+            .manual-clock-member-card {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
     <div class="container-fluid">
         <div class="row">
             @php
@@ -627,18 +745,43 @@
     </div>
     @endif
 
-    <div class="modal fade" id="scannerModal" tabindex="-1" aria-labelledby="scannerModalLabel" aria-hidden="true">
-        <div class="modal-dialog">
+    <div
+        class="modal fade manual-clock-modal"
+        id="scanClockModal"
+        tabindex="-1"
+        aria-labelledby="scanClockModalLabel"
+        aria-hidden="true"
+        data-default-avatar="{{ asset('assets/images/profile-45x45.png') }}"
+    >
+        <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="scannerModalLabel">Scanned Data</h5>
+                <div class="modal-header pb-0">
+                    <h5 class="modal-title" id="scanClockModalLabel">Scan attendance</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <p id="modalContent" class="mb-0"></p>
+                <div class="modal-body p-4">
+                    <div class="manual-clock-hero">
+                        <div class="manual-clock-icon manual-clock-icon--success" id="scanClockIcon">
+                            <i class="fa-solid fa-check"></i>
+                        </div>
+                        <h4 class="manual-clock-title" id="scanClockTitle">Attendance updated</h4>
+                        <p class="manual-clock-subtitle" id="scanClockSubtitle">Ready to scan.</p>
+                    </div>
+                    <div class="manual-clock-member-card">
+                        <img src="{{ asset('assets/images/profile-45x45.png') }}" alt="Member photo" class="manual-clock-avatar" id="scanClockAvatar">
+                        <div class="manual-clock-member-info">
+                            <div class="manual-clock-member-name" id="scanClockMemberName">Member</div>
+                            <div class="manual-clock-member-meta" id="scanClockMemberEmail">member@email.com</div>
+                            <div class="manual-clock-member-meta" id="scanClockMemberPhone">No phone</div>
+                            <div class="manual-clock-chips">
+                                <span class="manual-clock-chip" id="scanClockMemberCode">#---</span>
+                                <span class="manual-clock-chip manual-clock-chip--inactive" id="scanClockMemberMembership">No Membership</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <div class="modal-footer border-0 pt-0">
+                    <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Close</button>
                 </div>
             </div>
         </div>
@@ -651,8 +794,20 @@
             const enableCameraBtn = document.getElementById('enable-camera-btn');
             const disableCameraBtn = document.getElementById('disable-camera-btn');
             const cameraStatusText = document.getElementById('camera-status-text');
-            const modalContent = document.getElementById('modalContent');
-            const scannerModalElement = document.getElementById('scannerModal');
+            const scanClockModalEl = document.getElementById('scanClockModal');
+            const scanClockIconEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockIcon') : null;
+            const scanClockTitleEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockTitle') : null;
+            const scanClockSubtitleEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockSubtitle') : null;
+            const scanClockAvatarEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockAvatar') : null;
+            const scanClockMemberNameEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockMemberName') : null;
+            const scanClockMemberEmailEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockMemberEmail') : null;
+            const scanClockMemberPhoneEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockMemberPhone') : null;
+            const scanClockMemberCodeEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockMemberCode') : null;
+            const scanClockMemberMembershipEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockMemberMembership') : null;
+            const scanClockModal = scanClockModalEl && typeof bootstrap !== 'undefined'
+                ? new bootstrap.Modal(scanClockModalEl)
+                : null;
+            const defaultAvatar = scanClockModalEl ? scanClockModalEl.getAttribute('data-default-avatar') : '';
 
             let scannerInstance = null;
             let availableCameras = [];
@@ -683,6 +838,67 @@
 
                 cameraStatusText.classList.add(variantClassMap[variant] ?? 'text-muted');
             }
+
+            const scanIconMap = {
+                clockin: { icon: 'fa-solid fa-circle-check', className: 'manual-clock-icon--success' },
+                clockout: { icon: 'fa-regular fa-clock', className: 'manual-clock-icon--danger' },
+                error: { icon: 'fa-solid fa-triangle-exclamation', className: 'manual-clock-icon--warning' },
+                loading: { icon: 'fa-solid fa-spinner fa-spin', className: 'manual-clock-icon--loading' },
+                success: { icon: 'fa-solid fa-circle-check', className: 'manual-clock-icon--success' },
+            };
+
+            const normalizeScanUser = function (payload) {
+                return {
+                    name: payload?.name || 'Member',
+                    email: payload?.email || 'No email',
+                    phone: payload?.phone || 'No phone',
+                    code: payload?.code || '#---',
+                    membership: payload?.membership || 'No Membership',
+                    membershipActive: payload?.membership_active === true,
+                    avatar: payload?.avatar || defaultAvatar,
+                };
+            };
+
+            const updateScanMemberCard = function (member) {
+                if (scanClockAvatarEl) {
+                    scanClockAvatarEl.src = member.avatar || defaultAvatar || scanClockAvatarEl.src;
+                }
+                if (scanClockMemberNameEl) scanClockMemberNameEl.textContent = member.name || 'Member';
+                if (scanClockMemberEmailEl) scanClockMemberEmailEl.textContent = member.email || 'No email';
+                if (scanClockMemberPhoneEl) scanClockMemberPhoneEl.textContent = member.phone || 'No phone';
+                if (scanClockMemberCodeEl) scanClockMemberCodeEl.textContent = member.code || '#---';
+                if (scanClockMemberMembershipEl) {
+                    scanClockMemberMembershipEl.textContent = member.membership || 'No Membership';
+                    scanClockMemberMembershipEl.classList.remove('manual-clock-chip--active', 'manual-clock-chip--inactive');
+                    scanClockMemberMembershipEl.classList.add(member.membershipActive ? 'manual-clock-chip--active' : 'manual-clock-chip--inactive');
+                }
+            };
+
+            const setScanModalState = function (state, options) {
+                const config = scanIconMap[state] || scanIconMap.success;
+                if (scanClockIconEl) {
+                    scanClockIconEl.className = `manual-clock-icon ${config.className}`;
+                    scanClockIconEl.innerHTML = `<i class="${config.icon}"></i>`;
+                }
+
+                if (scanClockTitleEl) scanClockTitleEl.textContent = options.title || 'Attendance update';
+                if (scanClockSubtitleEl) {
+                    scanClockSubtitleEl.textContent = options.subtitle || '';
+                    scanClockSubtitleEl.classList.toggle('d-none', !options.subtitle);
+                }
+            };
+
+            const showScanModal = function () {
+                if (scanClockModal) {
+                    scanClockModal.show();
+                } else if (scanClockTitleEl) {
+                    alert(scanClockTitleEl.textContent);
+                }
+            };
+
+            const isErrorMessage = function (message) {
+                return /unable|invalid|no data|no valid|already|cannot|error|unexpected|expired/i.test(message);
+            };
 
             function syncCameraButtons() {
                 if (enableCameraBtn) {
@@ -770,8 +986,21 @@
 
                 if (!token) {
                     setCameraStatus('Invalid QR code', 'danger');
+                    updateScanMemberCard(normalizeScanUser({}));
+                    setScanModalState('error', {
+                        title: 'Invalid QR code',
+                        subtitle: 'Please scan a valid code.'
+                    });
+                    showScanModal();
                     return;
                 }
+
+                updateScanMemberCard(normalizeScanUser({}));
+                setScanModalState('loading', {
+                    title: 'Updating attendance',
+                    subtitle: 'Please wait while we confirm the scan.'
+                });
+                showScanModal();
 
                 fetch("{{ route('admin.staff-account-management.attendances.scanner2.fetch') }}", {
                     method: 'POST',
@@ -784,17 +1013,44 @@
                 })
                     .then(response => response.json())
                     .then(data => {
-                        if (modalContent) {
-                            modalContent.textContent = data.data ?? 'No data returned';
+                        const message = data?.data ?? 'Attendance updated.';
+                        const status = data?.status || (isErrorMessage(message) ? 'error' : 'success');
+                        const member = normalizeScanUser(data?.user || {});
+                        updateScanMemberCard(member);
+
+                        if (status === 'clockout') {
+                            setScanModalState('clockout', {
+                                title: 'Clocked Out Successfully',
+                                subtitle: message
+                            });
+                        } else if (status === 'clockin') {
+                            setScanModalState('clockin', {
+                                title: 'Clocked In Successfully',
+                                subtitle: message
+                            });
+                        } else if (status === 'error') {
+                            setScanModalState('error', {
+                                title: 'Unable to update attendance',
+                                subtitle: message
+                            });
+                        } else {
+                            setScanModalState('success', {
+                                title: 'Attendance updated',
+                                subtitle: message
+                            });
                         }
-                        if (scannerModalElement) {
-                            const scannerModal = new bootstrap.Modal(scannerModalElement);
-                            scannerModal.show();
-                        }
+
+                        showScanModal();
                     })
                     .catch(error => {
                         console.error(error);
                         setCameraStatus('Scan failed — see console', 'danger');
+                        updateScanMemberCard(normalizeScanUser({}));
+                        setScanModalState('error', {
+                            title: 'Scan failed',
+                            subtitle: 'Unable to process attendance right now.'
+                        });
+                        showScanModal();
                     });
             }
 

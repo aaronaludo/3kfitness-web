@@ -223,15 +223,47 @@ class AttendanceController extends Controller
         }
 
         $user = null;
+        $membership = null;
+        $membershipName = null;
+        $membershipActive = null;
+        $userPayload = null;
+
+        $buildUserPayload = function ($user, $membershipName, $membershipActive) {
+            $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+            $avatar = $user->profile_picture
+                ? asset($user->profile_picture)
+                : asset('assets/images/profile-45x45.png');
+            $codeValue = $user->user_code ?? $user->id;
+            $formattedCode = $codeValue ? (str_starts_with((string) $codeValue, '#') ? (string) $codeValue : '#' . $codeValue) : '#---';
+
+            return [
+                'name' => $name !== '' ? $name : ($user->name ?? 'User'),
+                'email' => $user->email ?? '',
+                'phone' => $user->phone_number ?? '',
+                'code' => $formattedCode,
+                'membership' => $membershipName ?? 'No Membership',
+                'membership_active' => (bool) $membershipActive,
+                'avatar' => $avatar,
+            ];
+        };
+
+        $respond = function ($message, $status = 'error', $userPayload = null) {
+            return response()->json([
+                'data' => $message,
+                'status' => $status,
+                'user' => $userPayload,
+            ]);
+        };
+
         if ($action) {
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                return response()->json(['data' => 'Invalid email format.']);
+                return $respond('Invalid email format.', 'error');
             }
 
             $user = User::where('email', $email)->first();
         } else {
             if (!$token) {
-                return response()->json(['data' => 'Invalid QR code.']);
+                return $respond('Invalid QR code.', 'error');
             }
 
             $qrCode = UserQrCode::where('token', $token)
@@ -240,14 +272,14 @@ class AttendanceController extends Controller
                 ->first();
 
             if (!$qrCode) {
-                return response()->json(['data' => 'QR code expired or invalid.']);
+                return $respond('QR code expired or invalid.', 'error');
             }
 
             $user = $qrCode->user;
         }
     
         if (!$user) {
-            return response()->json(['data' => 'No data found']);
+            return $respond('No data found', 'error');
         }
     
         if ($user->role_id == 3) {
@@ -258,8 +290,19 @@ class AttendanceController extends Controller
                 ->first();
     
             if (!$membership) {
-                return response()->json(['data' => 'No valid membership found']);
+                $membershipName = 'No Membership';
+                $membershipActive = false;
+                $userPayload = $buildUserPayload($user, $membershipName, $membershipActive);
+                return $respond('No valid membership found', 'error', $userPayload);
             }
+
+            $membershipName = optional($membership->membership)->name ?? 'Active Membership';
+            $membershipActive = true;
+            $userPayload = $buildUserPayload($user, $membershipName, $membershipActive);
+        } else {
+            $membershipName = optional(optional($user)->role)->name ?? 'Staff';
+            $membershipActive = true;
+            $userPayload = $buildUserPayload($user, $membershipName, $membershipActive);
         }
     
         // Check if the user has already clocked in or out for today (active records only)
@@ -272,7 +315,7 @@ class AttendanceController extends Controller
         // Explicit manual action: clock in only
         if ($action === 'clockin') {
             if ($attendance && !$attendance->clockout_at) {
-                return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' already clocked in today.']);
+                return $respond($user->first_name . ' ' . $user->last_name . ' already clocked in today.', 'error', $userPayload);
             }
 
             $attendance = new Attendance2();
@@ -280,19 +323,19 @@ class AttendanceController extends Controller
             $attendance->clockin_at = now();
             $attendance->save();
 
-            return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' has clocked in successfully.']);
+            return $respond($user->first_name . ' ' . $user->last_name . ' has clocked in successfully.', 'clockin', $userPayload);
         }
 
         // Explicit manual action: clock out only
         if ($action === 'clockout') {
             if (!$attendance || $attendance->clockout_at) {
-                return response()->json(['data' => 'No active clock-in found for today.']);
+                return $respond('No active clock-in found for today.', 'error', $userPayload);
             }
 
             $attendance->clockout_at = now();
             $attendance->save();
 
-            return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' has clocked out successfully.']);
+            return $respond($user->first_name . ' ' . $user->last_name . ' has clocked out successfully.', 'clockout', $userPayload);
         }
 
         // Default behavior: toggle clock-in/clock-out
@@ -303,7 +346,7 @@ class AttendanceController extends Controller
             $attendance->clockin_at = now();
             $attendance->save();
     
-            return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' has clocked in successfully.']);
+            return $respond($user->first_name . ' ' . $user->last_name . ' has clocked in successfully.', 'clockin', $userPayload);
         }
     
         if ($attendance && !$attendance->clockout_at) {
@@ -311,10 +354,10 @@ class AttendanceController extends Controller
             $attendance->clockout_at = now();
             $attendance->save();
     
-            return response()->json(['data' => $user->first_name . ' ' . $user->last_name . ' has clocked out successfully.']);
+            return $respond($user->first_name . ' ' . $user->last_name . ' has clocked out successfully.', 'clockout', $userPayload);
         }
     
-        return response()->json(['data' => 'An unexpected error occurred.']);
+        return $respond('An unexpected error occurred.', 'error', $userPayload);
     }
     
     public function delete(Request $request)
