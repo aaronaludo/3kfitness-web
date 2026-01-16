@@ -693,6 +693,177 @@ class PayrollController extends Controller
         ]);
     }
 
+    public function cashRelease(Request $request)
+    {
+        $search = trim((string) $request->input('search', ''));
+        $month = $request->input('month');
+        $year = $request->input('year');
+        $period = $request->input('period_month');
+        $role = $request->input('role', 'all');
+
+        if (!$period && $year && $month) {
+            $period = sprintf('%04d-%02d', (int) $year, (int) $month);
+        }
+
+        if ($period && preg_match('/^(\\d{4})-(\\d{2})$/', $period, $matches)) {
+            $year = $matches[1];
+            $month = $matches[2];
+        }
+
+        $periodYear = (!$period && $year) ? (string) $year : null;
+
+        $baseQuery = PayrollRun::with(['user', 'releasedByUser'])
+            ->whereNotNull('released_at')
+            ->when($search, function ($query) use ($search) {
+                $like = '%' . $search . '%';
+                $integerSearch = ctype_digit($search) ? (int) $search : null;
+                $parsedDate = null;
+                try {
+                    $parsedDate = Carbon::parse($search)->toDateString();
+                } catch (\Throwable $th) {
+                    $parsedDate = null;
+                }
+
+                $query->where(function ($subQuery) use ($like, $integerSearch, $parsedDate) {
+                    $subQuery
+                        ->whereHas('user', function ($userQuery) use ($like) {
+                            $userQuery->whereRaw("CONCAT(first_name, ' ', last_name) LIKE ?", [$like])
+                                ->orWhere('email', 'like', $like)
+                                ->orWhere('user_code', 'like', $like);
+                        })
+                        ->orWhere('period_month', 'like', $like)
+                        ->orWhere('processed_at', 'like', $like)
+                        ->orWhere('released_at', 'like', $like);
+
+                    if (!is_null($integerSearch)) {
+                        $subQuery->orWhere('id', $integerSearch)
+                            ->orWhere('user_id', $integerSearch);
+                    }
+
+                    if ($parsedDate) {
+                        $subQuery->orWhereDate('processed_at', $parsedDate)
+                            ->orWhereDate('released_at', $parsedDate);
+                    }
+                });
+            })
+            ->when($period, function ($query, $period) {
+                $query->where('period_month', $period);
+            })
+            ->when($periodYear, function ($query, $periodYear) {
+                $query->where('period_month', 'like', $periodYear . '-%');
+            })
+            ->when($role === 'trainer', function ($query) {
+                $query->whereHas('user', function ($userQuery) {
+                    $userQuery->where('role_id', 5);
+                });
+            })
+            ->when($role === 'staff', function ($query) {
+                $query->whereHas('user', function ($userQuery) {
+                    $userQuery->where('role_id', 2);
+                });
+            });
+
+        $yearOptions = (clone $baseQuery)
+            ->selectRaw('DISTINCT LEFT(period_month, 4) as year')
+            ->orderByDesc('year')
+            ->pluck('year')
+            ->filter()
+            ->values();
+
+        if ($yearOptions->isEmpty()) {
+            $yearOptions = collect([now()->year]);
+        }
+
+        $monthOptions = collect(range(1, 12))->map(function ($value) {
+            return [
+                'value' => str_pad((string) $value, 2, '0', STR_PAD_LEFT),
+                'label' => Carbon::createFromDate(2000, $value, 1)->format('F'),
+            ];
+        })->values();
+
+        $runs = (clone $baseQuery)
+            ->orderByDesc('released_at')
+            ->orderByDesc('id')
+            ->paginate(10)
+            ->withQueryString();
+
+        $printAllRuns = (clone $baseQuery)
+            ->orderByDesc('released_at')
+            ->orderByDesc('id')
+            ->get();
+
+        $currencySymbol = '₱';
+        $mapRun = function ($run) {
+            $staff = $run->user;
+            $releasedBy = $run->releasedByUser;
+            $processedAt = $run->processed_at
+                ? $run->processed_at->format('M d, Y g:i A')
+                : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+            $releasedAt = $run->released_at
+                ? $run->released_at->format('M d, Y g:i A')
+                : '—';
+            $releasedByName = $releasedBy
+                ? trim(($releasedBy->first_name ?? '') . ' ' . ($releasedBy->last_name ?? ''))
+                : '—';
+
+            return [
+                'id' => $run->id,
+                'name' => $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : '—',
+                'email' => optional($staff)->email ?? '—',
+                'period' => $run->period_month ?? '—',
+                'net' => number_format((float) ($run->net_pay ?? 0), 2),
+                'processed_at' => $processedAt,
+                'released_at' => $releasedAt,
+                'released_by' => $releasedByName !== '' ? $releasedByName : '—',
+            ];
+        };
+
+        $printRuns = collect($runs->items() ?? [])->map($mapRun)->values();
+        $printAllPayloadRuns = collect($printAllRuns ?? [])->map($mapRun)->values();
+
+        $printPayload = [
+            'title' => 'Payroll cash release',
+            'generated_at' => now()->format('M d, Y g:i A'),
+            'filters' => [
+                'search' => $search,
+                'month' => $month,
+                'year' => $year,
+                'role' => $role,
+            ],
+            'currency_symbol' => $currencySymbol,
+            'count' => $printRuns->count(),
+            'items' => $printRuns,
+        ];
+
+        $printAllPayload = [
+            'title' => 'Payroll cash release (all pages)',
+            'generated_at' => now()->format('M d, Y g:i A'),
+            'filters' => [
+                'search' => $search,
+                'month' => $month,
+                'year' => $year,
+                'role' => $role,
+                'scope' => 'all',
+            ],
+            'currency_symbol' => $currencySymbol,
+            'count' => $printAllPayloadRuns->count(),
+            'items' => $printAllPayloadRuns,
+        ];
+
+        return view('admin.payrolls.cash-release', [
+            'runs' => $runs,
+            'monthOptions' => $monthOptions,
+            'yearOptions' => $yearOptions,
+            'selectedMonth' => $month ? str_pad((string) $month, 2, '0', STR_PAD_LEFT) : '',
+            'selectedYear' => $year ?? '',
+            'searchTerm' => $search,
+            'roleFilter' => $role,
+            'printPayload' => $printPayload,
+            'printAllPayload' => $printAllPayload,
+            'currencySymbol' => $currencySymbol,
+        ]);
+    }
+
     public function report()
     {
         $deductionSettings = $this->currentDeductionSettings();
@@ -1216,6 +1387,8 @@ class PayrollController extends Controller
                 'deduction_app_cut' => $deductions['app_cut'],
                 'processed_by' => Auth::id(),
                 'processed_at' => Carbon::now(),
+                'released_at' => null,
+                'released_by' => null,
                 'processed_session_series' => null,
                 'processed_membership_payments_approved' => $processedMembershipPayments,
             ]
@@ -1408,6 +1581,8 @@ class PayrollController extends Controller
                 'deduction_app_cut' => $deductions['app_cut'],
                 'processed_by' => Auth::id(),
                 'processed_at' => Carbon::now(),
+                'released_at' => null,
+                'released_by' => null,
                 'processed_session_series' => $processedSessionSeries,
                 'processed_membership_payments_approved' => null,
             ]
@@ -1416,6 +1591,22 @@ class PayrollController extends Controller
         $trainerName = trim($trainer->first_name . ' ' . $trainer->last_name);
 
         return redirect()->route('admin.payrolls.index')->with('success', 'Trainer payroll processed and saved for ' . ($trainerName !== '' ? $trainerName : 'trainer'));
+    }
+
+    public function release(PayrollRun $run)
+    {
+        if ($run->released_at) {
+            return redirect()->back()->with('error', 'This payroll run has already been released.');
+        }
+
+        $run->released_at = Carbon::now();
+        $run->released_by = Auth::id();
+        $run->save();
+
+        $staff = $run->user;
+        $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'staff member';
+
+        return redirect()->back()->with('success', 'Cash released for ' . ($name !== '' ? $name : 'staff member') . '.');
     }
     
     public function view($id)

@@ -43,6 +43,10 @@
                     $processedAt = $run->processed_at
                         ? $run->processed_at->format('M d, Y g:i A')
                         : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+                    $releasedAt = $run->released_at
+                        ? $run->released_at->format('M d, Y g:i A')
+                        : '—';
+                    $releaseStatus = $run->released_at ? 'Released' : 'Pending';
                     $processedSessions = collect($run->processed_session_series ?? []);
                     $processedSessionCount = $processedSessions->sum(function ($item) {
                         return collect($item['sessions'] ?? [])->count();
@@ -61,7 +65,9 @@
                         'pagibig' => number_format((float) ($run->deduction_pagibig ?? 0), 2),
                         'app_cut' => number_format((float) ($run->deduction_app_cut ?? 0), 2),
                         'net' => number_format((float) ($run->net_pay ?? 0), 2),
+                        'status' => $releaseStatus,
                         'processed_at' => $processedAt,
+                        'released_at' => $releasedAt,
                         'processed_sessions' => $processedSessionCount,
                     ];
                 };
@@ -289,7 +295,9 @@
                                         <th scope="col">Pag-IBIG</th>
                                         <th scope="col">App cut</th>
                                         <th scope="col">Net</th>
-                                        <th scope="col">Processed Date</th>
+                                        <th scope="col">Status</th>
+                                        <th scope="col">Processed</th>
+                                        <th scope="col">Release Date</th>
                                         <th scope="col" class="text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -302,6 +310,11 @@
                                             $processedAt = $run->processed_at
                                                 ? $run->processed_at->format('M d, Y g:i A')
                                                 : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+                                            $releasedAt = $run->released_at
+                                                ? $run->released_at->format('M d, Y g:i A')
+                                                : null;
+                                            $releaseStatus = $run->released_at ? 'Released' : 'Pending';
+                                            $releaseBadge = $run->released_at ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
                                             $rate = ($run->total_hours ?? 0) > 0
                                                 ? round((float) $run->gross_pay / max((float) $run->total_hours, 0.01), 2)
                                                 : null;
@@ -346,17 +359,34 @@
                                             <td>₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</td>
                                             <td>₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</td>
                                             <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
+                                            <td>
+                                                <span class="badge {{ $releaseBadge }} rounded-pill px-3 py-2">{{ $releaseStatus }}</span>
+                                            </td>
                                             <td>{{ $processedAt }}</td>
+                                            <td>{{ $releasedAt ? $releasedAt : '—' }}</td>
                                             <td class="text-center">
                                                 @if($staff)
-                                                    <button
-                                                        type="button"
-                                                        class="btn btn-outline-secondary btn-sm payslip-btn"
-                                                        data-payslip='@json($payslipData)'
-                                                    >
-                                                        <i class="fa-solid fa-file-pdf me-1"></i>
-                                                        Print payslip
-                                                    </button>
+                                                    @if($releasedAt)
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-outline-secondary btn-sm payslip-btn"
+                                                            data-payslip='@json($payslipData)'
+                                                        >
+                                                            <i class="fa-solid fa-file-pdf me-1"></i>
+                                                            Print payslip
+                                                        </button>
+                                                    @else
+                                                        <button
+                                                            type="button"
+                                                            class="btn btn-outline-secondary btn-sm release-cash-btn"
+                                                            data-release-action="{{ route('admin.payrolls.release', $run->id) }}"
+                                                            data-release-name="{{ $name }}"
+                                                            data-release-code="{{ optional($staff)->user_code ?? '—' }}"
+                                                        >
+                                                            <i class="fa-solid fa-hand-holding-dollar me-1"></i>
+                                                            Release cash
+                                                        </button>
+                                                    @endif
                                                 @else
                                                     <span class="text-muted">—</span>
                                                 @endif
@@ -364,7 +394,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="14" class="text-center text-muted py-4">
+                                            <td colspan="15" class="text-center text-muted py-4">
                                                 No payroll runs found. Adjust your filters or check back later.
                                             </td>
                                         </tr>
@@ -375,6 +405,31 @@
                         </div>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="releaseCashModal" tabindex="-1" aria-labelledby="releaseCashModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-sm">
+                <div class="modal-header">
+                    <h5 class="modal-title fw-semibold" id="releaseCashModalLabel">Release cash</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="release-cash-form" method="POST">
+                    @csrf
+                    <div class="modal-body">
+                        <p class="mb-0">
+                            Are you sure you want to release this payslip for
+                            <strong data-release-name>—</strong>
+                            (<span data-release-code>—</span>)?
+                        </p>
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                        <button type="submit" class="btn btn-success" data-release-submit>Confirm release</button>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -440,6 +495,8 @@
                     fmtMoney(totals.app_cut),
                     `<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`,
                     '',
+                    '',
+                    '',
                 ];
             }
 
@@ -472,7 +529,9 @@
                     `${currencySymbol}${item.pagibig || '0.00'}`,
                     `${currencySymbol}${item.app_cut || '0.00'}`,
                     `<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`,
+                    item.status || 'Pending',
                     item.processed_at || '—',
+                    item.released_at || '—',
                 ]));
 
                 const totalsRow = buildTotalsRow(totals, currencySymbol);
@@ -499,7 +558,9 @@
                     'Pag-IBIG',
                     'App cut',
                     'Net',
-                    'Processed'
+                    'Status',
+                    'Processed',
+                    'Release Date'
                 ];
                 const rows = buildRows(items, payload.totals, currencySymbol);
                 const totalsChips = buildTotalsChips(payload.totals, currencySymbol);
@@ -757,6 +818,36 @@
                     printWindow.document.close();
                 });
             });
+
+            const releaseModalEl = document.getElementById('releaseCashModal');
+            const releaseForm = document.getElementById('release-cash-form');
+            const releaseName = document.querySelector('[data-release-name]');
+            const releaseCode = document.querySelector('[data-release-code]');
+            const releaseSubmit = document.querySelector('[data-release-submit]');
+
+            if (releaseModalEl && releaseModalEl.parentElement !== document.body) {
+                document.body.appendChild(releaseModalEl);
+            }
+
+            document.querySelectorAll('.release-cash-btn').forEach((btn) => {
+                btn.addEventListener('click', () => {
+                    if (!releaseForm || !releaseModalEl) return;
+                    releaseForm.action = btn.dataset.releaseAction || '';
+                    if (releaseName) releaseName.textContent = btn.dataset.releaseName || '—';
+                    if (releaseCode) releaseCode.textContent = btn.dataset.releaseCode || '—';
+                    if (typeof bootstrap !== 'undefined') {
+                        const modal = bootstrap.Modal.getOrCreateInstance(releaseModalEl);
+                        modal.show();
+                    }
+                });
+            });
+
+            if (releaseForm && releaseSubmit) {
+                releaseForm.addEventListener('submit', () => {
+                    releaseSubmit.disabled = true;
+                    releaseSubmit.textContent = 'Releasing...';
+                });
+            }
 
             const processedSeriesModal = document.getElementById('processedSeriesModal');
             const processedSeriesBody = document.getElementById('processed-series-body');

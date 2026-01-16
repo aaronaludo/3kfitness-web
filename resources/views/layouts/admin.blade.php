@@ -968,13 +968,21 @@
                     </a>
                     <ul id="payroll-menu" class="collapse {{ request()->routeIs($payrollRoutes) ? 'show' : '' }}">
                         <li>
-                            <a href="{{ route('admin.payrolls.index') }}" class="{{ request()->routeIs('admin.payrolls.report') ? '' : (request()->routeIs('admin.payrolls.*') ? 'active' : '') }}">
+                            <a
+                                href="{{ route('admin.payrolls.index') }}"
+                                class="{{ request()->routeIs(['admin.payrolls.index', 'admin.payrolls.process', 'admin.payrolls.view']) ? 'active' : '' }}"
+                            >
                                 Overview
                             </a>
                         </li>
                         <li>
                             <a href="{{ route('admin.payrolls.report') }}" class="{{ request()->routeIs('admin.payrolls.report') ? 'active' : '' }}">
                                 Payroll Report
+                            </a>
+                        </li>
+                        <li>
+                            <a href="{{ route('admin.payrolls.cash-release') }}" class="{{ request()->routeIs('admin.payrolls.cash-release') ? 'active' : '' }}">
+                                Payroll Cash Release
                             </a>
                         </li>
                     </ul>
