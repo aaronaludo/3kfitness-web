@@ -12,6 +12,7 @@ use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Style\Language;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Str;
 
 class StaffAccountManagementController extends Controller
 {
@@ -88,6 +89,8 @@ class StaffAccountManagementController extends Controller
     }
     
     public function store(Request $request){
+        $allowSystemLogin = $request->boolean('allow_system_login');
+
         $validator = Validator::make($request->all(), [
             'first_name' => 'required',
             'last_name' => 'required',
@@ -100,9 +103,17 @@ class StaffAccountManagementController extends Controller
                 Rule::unique('users', 'email')
                     ->where(fn ($q) => $q->where('role_id', 2)),
             ],
-            'password' => ['required', 'confirmed'],
-            'rate_per_hour' => 'required',
+            'password' => [$allowSystemLogin ? 'required' : 'nullable', 'confirmed'],
+            'per_month_salary' => ['required', 'numeric', 'min:0'],
             'profile_picture' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
+            'employment_type' => ['required', Rule::in(['salaried', 'contractor'])],
+            'expected_hours_per_week' => ['nullable', 'numeric', 'min:0'],
+            'tin_number' => ['nullable', 'string', 'max:50'],
+            'sss_number' => ['nullable', 'string', 'max:50'],
+            'philhealth_number' => ['nullable', 'string', 'max:50'],
+            'pagibig_number' => ['nullable', 'string', 'max:50'],
+            'allow_system_login' => ['nullable', 'boolean'],
+            'include_statutory_info' => ['nullable', 'boolean'],
         ]);
 
         if ($validator->fails()) {
@@ -119,8 +130,33 @@ class StaffAccountManagementController extends Controller
         $users->address = $request->address;
         $users->phone_number = $request->phone_number;
         $users->email = $request->email;
-        $users->password = $request->password;
-        $users->rate_per_hour = $request->rate_per_hour;
+        $perMonthSalary = (float) $request->input('per_month_salary', 0);
+        $hoursForMonthly = $request->filled('expected_hours_per_week')
+            ? (float) $request->expected_hours_per_week
+            : 40;
+        $weeksPerMonth = 52 / 12;
+        $computedRate = $hoursForMonthly > 0
+            ? $perMonthSalary / ($hoursForMonthly * $weeksPerMonth)
+            : 0;
+        $users->rate_per_hour = round($computedRate, 2);
+        $users->employment_type = $request->employment_type;
+        $users->expected_hours_per_week = $request->filled('expected_hours_per_week')
+            ? $request->expected_hours_per_week
+            : null;
+        $includeStatutory = $request->boolean('include_statutory_info', true);
+        if ($request->employment_type === 'contractor' && !$includeStatutory) {
+            $users->tin_number = null;
+            $users->sss_number = null;
+            $users->philhealth_number = null;
+            $users->pagibig_number = null;
+        } else {
+            $users->tin_number = $request->tin_number;
+            $users->sss_number = $request->sss_number;
+            $users->philhealth_number = $request->philhealth_number;
+            $users->pagibig_number = $request->pagibig_number;
+        }
+        $users->allow_system_login = $allowSystemLogin ? 1 : 0;
+        $users->password = $request->filled('password') ? $request->password : Str::random(24);
         $users->created_by = $request->user()->first_name . " " .  $request->user()->last_name;
 
         $destinationPath = public_path('uploads');
@@ -171,7 +207,15 @@ class StaffAccountManagementController extends Controller
                         ->where(fn ($q) => $q->where('role_id', 2))
                         ->ignore($id),
                 ],
-                'rate_per_hour' => ['required', 'numeric', 'min:0'],
+                'per_month_salary' => ['required', 'numeric', 'min:0'],
+                'employment_type' => ['required', Rule::in(['salaried', 'contractor'])],
+                'expected_hours_per_week' => ['nullable', 'numeric', 'min:0'],
+                'tin_number' => ['nullable', 'string', 'max:50'],
+                'sss_number' => ['nullable', 'string', 'max:50'],
+                'philhealth_number' => ['nullable', 'string', 'max:50'],
+                'pagibig_number' => ['nullable', 'string', 'max:50'],
+                'allow_system_login' => ['nullable', 'boolean'],
+                'include_statutory_info' => ['nullable', 'boolean'],
                 'password' => ['nullable', 'confirmed'],
                 'profile_picture' => ['nullable', 'image', 'mimes:jpeg,png,jpg,gif', 'max:2048'],
                 'remove_profile_picture' => ['nullable', 'boolean'],
@@ -193,7 +237,32 @@ class StaffAccountManagementController extends Controller
             $data->first_name = $request->first_name;
             $data->last_name = $request->last_name;
             $data->email = $request->email;
-            $data->rate_per_hour = $request->rate_per_hour;
+            $perMonthSalary = (float) $request->input('per_month_salary', 0);
+            $hoursForMonthly = $request->filled('expected_hours_per_week')
+                ? (float) $request->expected_hours_per_week
+                : 40;
+            $weeksPerMonth = 52 / 12;
+            $computedRate = $hoursForMonthly > 0
+                ? $perMonthSalary / ($hoursForMonthly * $weeksPerMonth)
+                : 0;
+            $data->rate_per_hour = round($computedRate, 2);
+            $data->employment_type = $request->employment_type;
+            $data->expected_hours_per_week = $request->filled('expected_hours_per_week')
+                ? $request->expected_hours_per_week
+                : null;
+            $includeStatutory = $request->boolean('include_statutory_info', true);
+            if ($request->employment_type === 'contractor' && !$includeStatutory) {
+                $data->tin_number = null;
+                $data->sss_number = null;
+                $data->philhealth_number = null;
+                $data->pagibig_number = null;
+            } else {
+                $data->tin_number = $request->tin_number;
+                $data->sss_number = $request->sss_number;
+                $data->philhealth_number = $request->philhealth_number;
+                $data->pagibig_number = $request->pagibig_number;
+            }
+            $data->allow_system_login = $request->boolean('allow_system_login');
             if ($request->filled('password')) {
                 $data->password = $request->password;
             }

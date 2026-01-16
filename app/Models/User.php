@@ -41,6 +41,8 @@ class User extends Authenticatable
     protected $casts = [
         'email_verified_at' => 'datetime',
         'password' => 'hashed',
+        'allow_system_login' => 'boolean',
+        'expected_hours_per_week' => 'float',
     ];
 
     public function status(){

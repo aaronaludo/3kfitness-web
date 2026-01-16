@@ -15,6 +15,16 @@
         $fullName = trim(($data->first_name ?? '') . ' ' . ($data->last_name ?? ''));
         $roleName = $data->role->name ?? 'Staff';
         $rate = $data->rate_per_hour !== null ? number_format((float) $data->rate_per_hour, 2) : '—';
+        $employmentTypeLabel = match ($data->employment_type ?? '') {
+            'salaried' => 'Salaried (Basic Pay)',
+            'hourly' => 'Hourly Employee',
+            'contractor' => 'Contractor / Freelancer',
+            default => '—',
+        };
+        $expectedHoursLabel = $data->expected_hours_per_week !== null && $data->expected_hours_per_week !== ''
+            ? number_format((float) $data->expected_hours_per_week, 2) . ' hrs/week'
+            : '—';
+        $allowLoginLabel = (int) ($data->allow_system_login ?? 0) === 1 ? 'Enabled' : 'Disabled';
     @endphp
     <div class="container-fluid">
         <div class="detail-hero my-4">
@@ -83,6 +93,34 @@
                         <tr>
                             <th scope="row">Rate per hour</th>
                             <td>{{ $rate }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Employment type</th>
+                            <td>{{ $employmentTypeLabel }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Expected hours per week</th>
+                            <td>{{ $expectedHoursLabel }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">TIN number</th>
+                            <td>{{ $data->tin_number ?? '—' }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">SSS number</th>
+                            <td>{{ $data->sss_number ?? '—' }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">PhilHealth number</th>
+                            <td>{{ $data->philhealth_number ?? '—' }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">Pag-IBIG number</th>
+                            <td>{{ $data->pagibig_number ?? '—' }}</td>
+                        </tr>
+                        <tr>
+                            <th scope="row">System login</th>
+                            <td>{{ $allowLoginLabel }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Created</th>
