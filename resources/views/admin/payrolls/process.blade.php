@@ -579,6 +579,7 @@
                                 $trainerPhilhealth = $processedRun->deduction_philhealth ?? ($assignment['deductions']['philhealth'] ?? round($trainerGross * 0.025, 2));
                                 $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
                                 $trainerAppCut = $assignment['deductions']['app_cut'] ?? 0;
+                                $trainerTotalDeductions = round($trainerSss + $trainerPhilhealth + $trainerPagibig + $trainerAppCut, 2);
                                 $trainerNet = $processedRun->net_pay ?? $assignment['net_pay'];
                                 $displayProjectedGross = $isProcessed ? max((float) $trainerUpcoming, 0) : (float) $trainerProjectedGross;
                                 $displayNet = $isProcessed ? max((float) $trainerUpcoming, 0) : (float) $trainerNet;
@@ -838,229 +839,223 @@
                             <div class="modal fade assignment-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
                                 <div class="modal-dialog modal-xl modal-dialog-scrollable">
                                     <div class="modal-content rounded-4 border-0 shadow-sm">
-                                        <div class="modal-header align-items-center">
-                                            <div>
-                                                <h5 class="modal-title fw-semibold mb-0" id="{{ $modalId }}Label">Assignments for {{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
-                                                <span class="text-muted small">Total estimated: ₱{{ number_format($trainerProjectedGross, 2) }}</span>
+                                        <div class="modal-header border-0 pb-0">
+                                            <div class="flex-grow-1">
+                                                <div class="d-flex flex-wrap align-items-start gap-2">
+                                                    <div>
+                                                        <h5 class="modal-title fw-semibold mb-1" id="{{ $modalId }}Label">Payroll Summary - {{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
+                                                        <div class="text-muted small">Payroll Period: {{ $monthLabel }}</div>
+                                                    </div>
+                                                    <div class="ms-auto text-end">
+                                                        @if($isProcessed)
+                                                            <span class="text-muted small">Payroll locked on {{ optional($processedRun->processed_at)->format('M d, Y') ?? '—' }} - edits disabled</span>
+                                                        @else
+                                                            <span class="text-muted small">Payroll open - edits enabled</span>
+                                                        @endif
+                                                    </div>
+                                                </div>
                                             </div>
-                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                            <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
                                         </div>
-                                        <div class="modal-body">
-                                            <style>
-                                                .assignment-card {
-                                                    border: 1px solid #e5e7eb;
-                                                    background: #fff;
-                                                    border-radius: 16px;
-                                                    box-shadow: 0 8px 24px rgba(0,0,0,0.04);
-                                                    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
-                                                }
-                                                .assignment-card:hover {
-                                                    transform: translateY(-2px);
-                                                    box-shadow: 0 10px 26px rgba(0,0,0,0.06);
-                                                    border-color: #d1d5db;
-                                                }
-                                                .meta-chip {
-                                                    display: inline-flex;
-                                                    align-items: center;
-                                                    gap: 6px;
-                                                    padding: 6px 10px;
-                                                    border-radius: 999px;
-                                                    background: #f8fafc;
-                                                    border: 1px solid #e5e7eb;
-                                                    font-size: 12px;
-                                                    color: #334155;
-                                                }
-                                                .meta-chip .dot {
-                                                    width: 8px;
-                                                    height: 8px;
-                                                    border-radius: 50%;
-                                                    background: currentColor;
-                                                    display: inline-block;
-                                                }
-                                                .mini-card {
-                                                    border: 1px solid #e5e7eb;
-                                                    border-radius: 12px;
-                                                    background: #f9fafb;
-                                                    padding: 12px;
-                                                }
-                                                .timeline-entry {
-                                                    display: grid;
-                                                    grid-template-columns: auto 1fr;
-                                                    gap: 10px;
-                                                    align-items: start;
-                                                    padding: 8px 0;
-                                                    border-bottom: 1px dashed #e5e7eb;
-                                                }
-                                                .timeline-entry:last-child { border-bottom: none; }
-                                                .timeline-dot {
-                                                    width: 12px;
-                                                    height: 12px;
-                                                    border-radius: 50%;
-                                                    margin-top: 4px;
-                                                }
-                                                .timeline-status {
-                                                    font-size: 12px;
-                                                    padding: 3px 8px;
-                                                    border-radius: 999px;
-                                                    border: 1px solid transparent;
-                                                    display: inline-flex;
-                                                    align-items: center;
-                                                    gap: 4px;
-                                                }
-                                            </style>
-                                            <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                                                @if($isProcessed)
-                                                    <span class="badge bg-dark text-white rounded-pill px-3 py-2">Processed gross: ₱{{ number_format((float) ($processedRun->gross_pay ?? 0), 2) }}</span>
-                                                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">Processed net: ₱{{ number_format((float) ($processedRun->net_pay ?? 0), 2) }}</span>
-                                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">Processed at: {{ optional($processedRun->processed_at)->format('M d, Y g:i A') ?? '—' }}</span>
-                                                @endif
-                                                <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">
-                                                    Projected total: ₱{{ number_format($displayProjectedGross, 2) }}
-                                                    @if($isProcessed)
-                                                        <small class="text-muted">(processed excluded)</small>
-                                                    @endif
-                                                </span>
-                                                <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">
-                                                    Net (est): ₱{{ number_format($displayNet, 2) }}
-                                                    @if($isProcessed)
-                                                        <small class="text-muted">(upcoming only)</small>
-                                                    @else
-                                                        <small class="text-muted">(after deductions)</small>
-                                                    @endif
-                                                </span>
-                                                @unless($isProcessed)
-                                                    <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">Completed classes: {{ $assignment['payable_assignments_count'] }}</span>
-                                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">Projected classes: {{ $assignment['salary_assignments_count'] }}</span>
-                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">Hours (completed): {{ number_format($assignment['total_hours'], 2) }}</span>
-                                                @endunless
-                                            </div>
-                                            <div class="row g-3 mb-3">
-                                                <div class="col-12 col-md-6">
-                <div class="border rounded-4 p-3 h-100 bg-light">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-success text-white rounded-circle p-2"><i class="fa-solid fa-calendar-check"></i></span>
-                            <span class="text-muted small text-uppercase fw-semibold">Upcoming</span>
-                        </div>
-                        <span class="text-muted small" data-count-future="{{ $totals['future_count'] }}">{{ $totals['future_count'] }} {{ $totals['future_count'] === 1 ? 'assignment' : 'assignments' }}</span>
-                    </div>
-                    <div class="d-flex align-items-baseline justify-content-between mt-2">
-                        <span class="fs-5 fw-semibold" data-total-future>₱{{ number_format($totals['future_total'], 2) }}</span>
-                        <span class="badge bg-success-subtle text-success rounded-pill px-3" data-payroll-count-future>{{ $totals['future_payroll_count'] }} payroll {{ $totals['future_payroll_count'] === 1 ? 'class' : 'classes' }}</span>
-                    </div>
-                </div>
+                                        <div class="modal-body pt-2">
+    <style>
+        .assignment-modal .modal-body { background: #f8fafc; }
+        .assignment-modal .payroll-summary-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+        .assignment-modal .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .assignment-modal .summary-item { padding: 14px 18px; }
+        .assignment-modal .summary-item + .summary-item { border-left: 1px solid #e5e7eb; }
+        .assignment-modal .summary-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: #6b7280;
+        }
+        .assignment-modal .summary-value { font-size: 20px; font-weight: 700; color: #111827; }
+        .assignment-modal .status-pill {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .assignment-modal .payroll-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .assignment-modal .payroll-card-toggle { background: #f8fafc; border: 0; }
+        .assignment-modal .payroll-card-toggle:focus { box-shadow: none; }
+        .assignment-modal .payroll-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: #eef2ff;
+            color: #4338ca;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .assignment-modal .filter-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            background: #fff;
+        }
+        .assignment-modal .payroll-table {
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .assignment-modal .payroll-table thead th {
+            background: #f8fafc;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: .04em;
+            color: #6b7280;
+        }
+        .assignment-modal .assignment-row { cursor: pointer; }
+        .assignment-modal .assignment-row.is-selected { background: #eef2ff; }
+        @media (max-width: 991.98px) {
+            .assignment-modal .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .assignment-modal .summary-item { border-left: 0; border-top: 1px solid #e5e7eb; }
+            .assignment-modal .summary-item:nth-child(1),
+            .assignment-modal .summary-item:nth-child(2) { border-top: 0; }
+            .assignment-modal .summary-item:nth-child(odd) { border-right: 1px solid #e5e7eb; }
+        }
+        @media (max-width: 575.98px) {
+            .assignment-modal .summary-grid { grid-template-columns: minmax(0, 1fr); }
+            .assignment-modal .summary-item { border-right: 0; }
+        }
+    </style>
+
+    <div class="payroll-summary-card mb-3">
+        <div class="summary-grid">
+            <div class="summary-item">
+                <div class="summary-label">Gross Pay</div>
+                <div class="summary-value">₱{{ number_format((float) $trainerGross, 2) }}</div>
             </div>
-            <div class="col-12 col-md-6">
-                <div class="border rounded-4 p-3 h-100 bg-light">
-                    <div class="d-flex align-items-center justify-content-between">
-                        <div class="d-flex align-items-center gap-2">
-                            <span class="badge bg-secondary text-white rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
-                            <span class="text-muted small text-uppercase fw-semibold">Completed</span>
-                        </div>
-                        <span class="text-muted small" data-count-past="{{ $totals['past_count'] }}">{{ $totals['past_count'] }} {{ $totals['past_count'] === 1 ? 'assignment' : 'assignments' }}</span>
+            <div class="summary-item">
+                <div class="summary-label">Total Deductions</div>
+                <div class="summary-value">₱{{ number_format((float) $trainerTotalDeductions, 2) }}</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Net Pay</div>
+                <div class="summary-value text-success">₱{{ number_format((float) $trainerNet, 2) }}</div>
+            </div>
+            <div class="summary-item">
+                <div class="summary-label">Status</div>
+                @if($isProcessed)
+                    <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Processed</span>
+                @else
+                    <span class="badge status-pill bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i> Pending</span>
+                @endif
+            </div>
+        </div>
+    </div>
+
+    <div class="card payroll-card mb-3">
+        <button
+            class="btn payroll-card-toggle w-100 text-start d-flex align-items-center justify-content-between"
+            type="button"
+            data-bs-toggle="collapse"
+            data-bs-target="#{{ $modalId }}-deductions"
+            aria-expanded="true"
+            aria-controls="{{ $modalId }}-deductions"
+        >
+            <div class="d-flex align-items-center gap-2">
+                <span class="payroll-icon"><i class="fa-solid fa-chart-column"></i></span>
+                <span class="fw-semibold">Deductions Breakdown</span>
+            </div>
+            <i class="fa-solid fa-chevron-down"></i>
+        </button>
+        <div id="{{ $modalId }}-deductions" class="collapse show">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-12 col-lg-7">
+                        <div class="text-muted small text-uppercase fw-semibold mb-2">Deductions</div>
+                        <ul class="list-unstyled small mb-0">
+                            <li class="d-flex justify-content-between">
+                                <span>SSS</span>
+                                <span data-sss>₱{{ number_format($trainerSss, 2) }}</span>
+                            </li>
+                            <li class="d-flex justify-content-between">
+                                <span>PhilHealth</span>
+                                <span data-philhealth>₱{{ number_format($trainerPhilhealth, 2) }}</span>
+                            </li>
+                            <li class="d-flex justify-content-between">
+                                <span>Pag-IBIG</span>
+                                <span data-pagibig>₱{{ number_format($trainerPagibig, 2) }}</span>
+                            </li>
+                            <li class="d-flex justify-content-between">
+                                <span>3kfitness app cut</span>
+                                <span data-appcut>₱{{ number_format($trainerAppCut, 2) }}</span>
+                            </li>
+                        </ul>
                     </div>
-                    <div class="d-flex align-items-baseline justify-content-between mt-2">
-                        <span class="fs-5 fw-semibold" data-total-past>₱{{ number_format($totals['past_total'], 2) }}</span>
-                        <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3" data-payroll-count-past>{{ $totals['past_payroll_count'] }} payroll {{ $totals['past_payroll_count'] === 1 ? 'class' : 'classes' }}</span>
+                    <div class="col-12 col-lg-5">
+                        <div class="deduction-total border rounded-3 p-3 h-100 bg-light">
+                            <div class="text-muted small text-uppercase fw-semibold">Total</div>
+                            <div class="fs-5 fw-semibold">₱{{ number_format((float) $trainerTotalDeductions, 2) }}</div>
+                            <div class="text-muted small mt-2">Gross: ₱{{ number_format((float) $trainerGross, 2) }}</div>
+                            <div class="text-muted small">Net: ₱{{ number_format((float) $trainerNet, 2) }}</div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
+    </div>
 
-                                            <div class="row g-3 mb-3">
-                                                <div class="col-12 col-md-6">
-                                                    <div class="border rounded-4 p-3 h-100 bg-light">
-                                                        <span class="text-muted small text-uppercase fw-semibold d-block">Deductions</span>
-                                                        <ul class="list-unstyled small mb-0">
-                                                            <li class="d-flex justify-content-between">
-                                                                <span>SSS</span>
-                                                                <span data-sss>₱{{ number_format($trainerSss, 2) }}</span>
-                                                            </li>
-                                                            <li class="d-flex justify-content-between">
-                                                                <span>PhilHealth</span>
-                                                                <span data-philhealth>₱{{ number_format($trainerPhilhealth, 2) }}</span>
-                                                            </li>
-                                                            <li class="d-flex justify-content-between">
-                                                                <span>Pag-IBIG</span>
-                                                                <span data-pagibig>₱{{ number_format($trainerPagibig, 2) }}</span>
-                                                            </li>
-                                                            <li class="d-flex justify-content-between">
-                                                                <span>3kfitness app cut</span>
-                                                                <span data-appcut>₱{{ number_format($trainerAppCut, 2) }}</span>
-                                                            </li>
-                                                        </ul>
-                                                    </div>
-                                                </div>
-                                                <div class="col-12 col-md-6 d-flex align-items-center">
-                                                    <div class="w-100 border rounded-4 p-3 bg-light">
-                                                        <div class="d-flex justify-content-between">
-                                                            <span class="text-muted small text-uppercase fw-semibold">Gross (completed classes)</span>
-                                                            <span>₱{{ number_format($trainerGross, 2) }}</span>
-                                                        </div>
-                                                        <div class="d-flex justify-content-between text-muted small mt-1">
-                                                            <span>Upcoming not included</span>
-                                                            <span>₱{{ number_format($trainerUpcoming, 2) }}</span>
-                                                        </div>
-                                                        <div class="d-flex justify-content-between mt-2">
-                                                            <span class="fw-semibold">Net payable</span>
-                                                            <span class="fw-bold text-success" data-net>₱{{ number_format($displayNet, 2) }}</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
+    <div class="filter-card p-3 mb-3">
+        <div class="row g-2 align-items-end">
+            <div class="col-12 col-md-4">
+                <label class="form-label text-muted text-uppercase small mb-1">Month</label>
+                <input type="month" class="form-control form-control-sm" data-filter-month>
+            </div>
+            <div class="col-12 col-md-4">
+                <label class="form-label text-muted text-uppercase small mb-1">Status</label>
+                <select class="form-select form-select-sm" data-filter-select>
+                    <option value="all">All</option>
+                    <option value="future">Upcoming</option>
+                    <option value="past">Completed</option>
+                </select>
+            </div>
+            <div class="col-12 col-md-4 d-flex align-items-end gap-2">
+                <button class="btn btn-primary btn-sm" type="button" data-filter-month-apply>
+                    <i class="fa-solid fa-filter"></i>
+                    Filter
+                </button>
+                <button type="button" class="btn btn-link btn-sm text-decoration-none" data-filter-reset>Reset</button>
+            </div>
+        </div>
+    </div>
 
-                                            <div class="card border-0 shadow-sm bg-light mb-3">
-                                                <div class="card-body">
-                                                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-2">
-                                                        <div class="d-flex align-items-center gap-2">
-                                                            <span class="badge bg-primary-subtle text-primary rounded-circle p-2"><i class="fa-solid fa-filter"></i></span>
-                                                            <span class="text-muted small text-uppercase fw-semibold">Refine assignments</span>
-                                                        </div>
-                                                        <button type="button" class="btn btn-link btn-sm text-decoration-none px-0" data-filter-reset>Reset filters</button>
-                                                    </div>
-                                                    <div class="row g-2 align-items-end">
-                                                        <div class="col-12 col-lg-4">
-                                                            <label class="form-label text-muted text-uppercase small mb-1">Category</label>
-                                                            <div class="btn-group btn-group-sm w-100" role="group">
-                                                                <button type="button" class="btn btn-outline-secondary active" data-filter-button data-filter="all">All</button>
-                                                                <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="future">Upcoming</button>
-                                                                <button type="button" class="btn btn-outline-secondary" data-filter-button data-filter="past">Completed</button>
-                                                            </div>
-                                                        </div>
-                                                        <div class="col-12 col-sm-6 col-lg-4">
-                                                            <label class="form-label text-muted text-uppercase small mb-1">Month</label>
-                                                            <div class="input-group input-group-sm">
-                                                                <input type="month" class="form-control" data-filter-month>
-                                                                <button class="btn btn-outline-primary" type="button" data-filter-month-apply>Load</button>
-                                                            </div>
-                                                            <small class="text-muted d-block mt-1">Loads this month from the server.</small>
-                                                        </div>
-                                                        <div class="col-12 col-sm-4 col-lg-3">
-                                                            <label class="form-label text-muted text-uppercase small mb-1">Processing day range</label>
-                                                            @php $ranges = $deductionSettings['processing_day_ranges'] ?? []; @endphp
-                                                            <select class="form-select form-select-sm" data-filter-range {{ empty($ranges) ? 'disabled' : '' }}>
-                                                                <option value="">All ranges</option>
-                                                                @foreach($ranges as $idx => $range)
-                                                                    <option value="{{ $idx }}">{{ $range['from'] ?? '?' }}-{{ $range['to'] ?? '?' }} → {{ $range['process'] ?? '?' }}</option>
-                                                                @endforeach
-                                                            </select>
-                                                        </div>
-                                                        <div class="col-12 col-sm-4 col-lg-3">
-                                                            <label class="form-label text-muted text-uppercase small mb-1">From date</label>
-                                                            <input type="date" class="form-control form-control-sm" data-filter-start>
-                                                        </div>
-                                                        <div class="col-12 col-sm-4 col-lg-3">
-                                                            <label class="form-label text-muted text-uppercase small mb-1">To date</label>
-                                                            <input type="date" class="form-control form-control-sm" data-filter-end>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-        <div class="row g-3">
-            <div class="col-12 col-lg-7">
-                <div class="assignment-list">
-                    @foreach($assignmentDetails as $detail)
+    <div class="assignment-list">
+        <div class="table-responsive payroll-table">
+            <table class="table table-hover align-middle mb-0">
+                <thead>
+                    <tr>
+                        <th>Date</th>
+                        <th>Class</th>
+                        <th class="text-end">Hours</th>
+                        <th class="text-end">Rate</th>
+                        <th class="text-center">Attendance</th>
+                        <th class="text-end">Gross</th>
+                        <th class="text-end">Payable</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($assignmentDetails as $detail)
                         @php
                             $schedule = $detail['schedule'];
                             $processedMatch = $processedSeries->first(function ($series) use ($schedule) {
@@ -1110,15 +1105,15 @@
                                     return $date;
                                 }
                             })->values();
-                    $startFilterDate = $occurrenceDatesRaw->first() ?? ($detail['start_date'] ?? '');
-                    $endFilterDate = $occurrenceDatesRaw->last() ?? ($detail['end_date'] ?? '');
-                    $occurrenceDays = $occurrenceDatesRaw->map(function ($date) {
-                        try {
-                            return \Carbon\Carbon::parse($date)->day;
-                        } catch (\Throwable $th) {
-                            return null;
-                        }
-                    })->filter()->values();
+                            $startFilterDate = $occurrenceDatesRaw->first() ?? ($detail['start_date'] ?? '');
+                            $endFilterDate = $occurrenceDatesRaw->last() ?? ($detail['end_date'] ?? '');
+                            $occurrenceDays = $occurrenceDatesRaw->map(function ($date) {
+                                try {
+                                    return \Carbon\Carbon::parse($date)->day;
+                                } catch (\Throwable $th) {
+                                    return null;
+                                }
+                            })->filter()->values();
                             $occurrenceTimeline = collect($detail['occurrence_dates'] ?? [])
                                 ->map(function ($date) use ($detail, $processedDates, $processedLabel) {
                                     try {
@@ -1178,10 +1173,24 @@
                                 'timeline' => $occurrenceTimeline->values(),
                             ];
                             $detailJson = json_encode($detailPayload, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
+                            $rowDateLabel = $occurrenceDates->isNotEmpty()
+                                ? $occurrenceDates->take(1)->implode(', ') . ($occurrenceDates->count() > 1 ? ' +' . ($occurrenceDates->count() - 1) . ' more' : '')
+                                : ($start ? $start->format('M d') : '—');
+                            $rateValue = $schedule->trainer_rate_per_hour ?? null;
+                            $hoursValue = $detail['payroll_hours'] ?? $detail['hours'] ?? 0;
+                            $attendanceLabel = $category === 'future'
+                                ? 'Upcoming'
+                                : ($hasAttendance ? 'Present' : 'Absent');
+                            $attendanceClass = $category === 'future'
+                                ? 'bg-warning-subtle text-warning'
+                                : ($hasAttendance ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger');
+                            $grossAmount = $category === 'future'
+                                ? (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0)
+                                : (float) $payableSalary;
+                            $payableAmount = $category === 'past' ? (float) $payableSalary : 0;
                         @endphp
-                        <div
-                            class="assignment-card p-3 mb-3"
-                            style="cursor: pointer;"
+                        <tr
+                            class="assignment-row"
                             data-assignment-card
                             data-category="{{ $category }}"
                             data-start-date="{{ $startFilterDate }}"
@@ -1196,150 +1205,63 @@
                             data-occurrence-days="{{ $occurrenceDays->implode(',') }}"
                             data-detail='{{ $detailJson }}'
                         >
-                            <div class="d-flex justify-content-between align-items-start gap-3">
-                                <div class="d-flex align-items-start gap-3">
-                                    <span class="rounded-circle bg-dark text-white d-inline-flex align-items-center justify-content-center" style="width: 40px; height: 40px;">
-                                        <i class="fa-solid fa-dumbbell"></i>
-                                    </span>
-                                    <div>
-                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                        <div class="text-muted small">
-                                            {{ $detail['time_range'] ?? ($rangeStart !== 'N/A' ? trim($rangeStart . ($rangeEnd ? ' – ' . $rangeEnd : '')) : 'Schedule time not set') }}
-                                        </div>
-                                        @if($start || $end)
-                                            <div class="text-muted small">Series: {{ $rangeStart }} @if($rangeEnd)&ndash; {{ $rangeEnd }}@endif</div>
-                                        @endif
-                                    </div>
-                                </div>
-                                <div class="text-end">
-                                    <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
-                                    <div class="fw-bold {{ $category === 'past' ? 'text-danger' : 'text-primary' }}">
-                                        ₱{{ number_format($category === 'past' ? $payableSalary : $detail['display_salary'], 2) }}
-                                    </div>
-                                    <div class="text-muted small">
-                                        {{ $category === 'past' ? 'Payable (attendance captured)' : 'Projected (upcoming)' }}
-                                    </div>
-                                </div>
-                            </div>
+                            <td class="text-muted small">{{ $rowDateLabel }}</td>
+                            <td>
+                                <div class="fw-semibold">{{ $schedule->name ?? 'Unnamed Schedule' }}</div>
+                                <div class="text-muted small">Code: {{ $schedule->class_code ?? '—' }}</div>
+                            </td>
+                            <td class="text-end">{{ number_format((float) $hoursValue, 2) }}</td>
+                            <td class="text-end">
+                                @if(!is_null($rateValue))
+                                    ₱{{ number_format((float) $rateValue, 2) }}/hr
+                                @else
+                                    —
+                                @endif
+                            </td>
+                            <td class="text-center">
+                                <span class="badge status-pill {{ $attendanceClass }}">{{ $attendanceLabel }}</span>
+                            </td>
+                            <td class="text-end">₱{{ number_format((float) $grossAmount, 2) }}</td>
+                            <td class="text-end fw-semibold">₱{{ number_format((float) $payableAmount, 2) }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="7" class="text-center text-muted small py-4">No assignments found for this period.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
 
-                            <div class="d-flex flex-wrap gap-2 mt-2">
-                                @if(!empty($schedule->class_code))
-                                    <span class="meta-chip"><span class="dot"></span>Code: {{ $schedule->class_code }}</span>
-                                @endif
-                                @if($detail['hours'] > 0)
-                                    <span class="meta-chip"><i class="fa-solid fa-clock"></i> {{ number_format($detail['hours'], 2) }} hrs</span>
-                                @endif
-                                @if(!is_null($schedule->trainer_rate_per_hour))
-                                    <span class="meta-chip"><i class="fa-solid fa-peso-sign"></i> ₱{{ number_format((float) $schedule->trainer_rate_per_hour, 2) }}/hr</span>
-                                @endif
-                                @if($recurringLabel)
-                                    <span class="meta-chip"><i class="fa-solid fa-rotate"></i> {{ $recurringLabel }}</span>
-                                @endif
-                                @if($occurrenceDates->isNotEmpty())
-                                    <span class="meta-chip"><i class="fa-regular fa-calendar"></i> {{ $occurrenceDates->take(3)->implode(', ') }}@if($occurrenceDates->count() > 3)+{{ $occurrenceDates->count() - 3 }} more @endif</span>
-                                @endif
-                                @if($category === 'past')
-                                    <span class="meta-chip {{ $hasAttendance ? '' : 'text-danger' }}">
-                                        <i class="fa-solid fa-user-check"></i>
-                                        {{ $hasAttendance ? 'Attendance logged' : 'Absent / no attendance' }}
-                                    </span>
-                                @endif
-                            </div>
-
-                            <div class="row g-3 mt-3">
-                                <div class="col-12 col-md-6">
-                                    <div class="mini-card h-100">
-                                        <div class="text-muted small text-uppercase fw-semibold mb-1">Sessions</div>
-                                        <div class="d-flex justify-content-between small mb-1">
-                                            <span>Upcoming</span>
-                                            <span class="fw-semibold">{{ $detail['future_occurrence_count'] ?? 0 }} • ₱{{ number_format((float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0), 2) }}</span>
-                                        </div>
-                                        <div class="d-flex justify-content-between small mb-1">
-                                            <span>Completed</span>
-                                            <span class="fw-semibold">{{ $detail['past_occurrence_count'] ?? 0 }} • ₱{{ number_format((float) $payableSalary, 2) }}</span>
-                                        </div>
-                                        <div class="d-flex justify-content-between small">
-                                            <span>Paid sessions</span>
-                                            <span class="fw-semibold text-success">{{ $detail['past_paid_count'] ?? 0 }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="col-12 col-md-6">
-                                    <div class="mini-card h-100">
-                                    <div class="text-muted small text-uppercase fw-semibold mb-1">People & attendance</div>
-                                    <div class="small mb-2">
-                                        Students:
-                                        @if($students->isNotEmpty())
-                                            <span class="fw-semibold">{{ $students->count() }}</span>
-                                            <span class="text-muted">({{ $students->take(3)->implode(', ') }}@if($students->count() > 3) +{{ $students->count() - 3 }} more @endif)</span>
-                                        @else
-                                            <span class="text-muted">No students assigned</span>
-                                        @endif
-                                    </div>
-                                    <div class="small">
-                                        Attendance:
-                                        @if($attendanceRecords->isNotEmpty())
-                                            <span class="fw-semibold">{{ $attendanceRecords->count() }}</span>
-                                            <div class="text-muted small mt-1">
-                                                @foreach($attendanceRecords as $record)
-                                                    @php
-                                                        $clockIn = $record['clockin_at'] ?? null;
-                                                        $clockOut = $record['clockout_at'] ?? null;
-                                                        $clockInLabel = $clockIn ? $clockIn->format('M d, Y g:i A') : '—';
-                                                        $clockOutLabel = $clockOut ? $clockOut->format('M d, Y g:i A') : null;
-                                                    @endphp
-                                                    <div>{{ $clockInLabel }}@if($clockOutLabel) – {{ $clockOutLabel }}@endif</div>
-                                                @endforeach
-                                            </div>
-                                        @else
-                                            <span class="text-muted">No attendance captured.</span>
-                                        @endif
-                                    </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            @if($occurrenceTimeline->isNotEmpty())
-                                <div class="mt-3">
-                                    <span class="text-muted small text-uppercase fw-semibold d-block mb-1">Series of sessions</span>
-                                    @foreach($occurrenceTimeline as $index => $session)
-                                        <div class="timeline-entry" data-session-day="{{ $session['day'] ?? '' }}">
-                                            @php
-                                                $statusClass = $session['status_class'] ?? 'bg-secondary';
-                                                $dotColor = '#6c757d';
-                                                if (strpos($statusClass, 'warning') !== false) $dotColor = '#f59e0b';
-                                                if (strpos($statusClass, 'success') !== false) $dotColor = '#16a34a';
-                                                if (strpos($statusClass, 'danger') !== false) $dotColor = '#dc2626';
-                                            @endphp
-                                            <span class="timeline-dot" style="background: {{ $dotColor }};"></span>
-                                            <div>
-                                                <div class="fw-semibold">{{ $session['label'] }}</div>
-                                                <span class="timeline-status {{ $statusClass }}">{{ $session['status'] }}</span>
-                                                @if(!empty($session['processed']))
-                                                    <span class="timeline-status bg-primary text-white border-0">
-                                                        <i class="fa-solid fa-circle-check"></i>
-                                                        {{ $session['processed_label'] ?? 'Processed' }}
-                                                    </span>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    @endforeach
-                                </div>
-                            @endif
-                        </div>
-                    @endforeach
+        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3">
+            <div class="d-flex align-items-center gap-2 text-muted small">
+                <span>Entries per page:</span>
+                <select class="form-select form-select-sm w-auto" disabled>
+                    <option selected>10</option>
+                </select>
+                <div class="d-flex align-items-center gap-2">
+                    <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                        <i class="fa-solid fa-chevron-left"></i>
+                    </button>
+                    <span>1 of 1</span>
+                    <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                        <i class="fa-solid fa-chevron-right"></i>
+                    </button>
                 </div>
             </div>
-            <div class="col-12 col-lg-5">
-                <div class="border rounded-4 p-3 h-100 bg-light" data-assignment-detail>
-                    <p class="text-muted mb-0">Select a class/schedule to view full details.</p>
-                </div>
+            <div class="d-flex align-items-center gap-2">
+                <button type="button" class="btn btn-outline-secondary btn-sm payslip-btn" data-payslip='{{ $trainerPayslipJson }}'>
+                    <i class="fa-solid fa-download"></i>
+                    Export
+                </button>
+                <button type="button" class="btn btn-success btn-sm" data-bs-dismiss="modal">
+                    <i class="fa-solid fa-xmark"></i>
+                    Close
+                </button>
             </div>
         </div>
-                                        </div>
-                                        <div class="modal-footer">
-                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                                        </div>
+    </div>
+</div>
                                     </div>
                                 </div>
                             </div>
@@ -2526,6 +2448,7 @@
             const startInput = modal.querySelector('[data-filter-start]');
             const endInput = modal.querySelector('[data-filter-end]');
             const monthInput = modal.querySelector('[data-filter-month]');
+            const statusSelect = modal.querySelector('[data-filter-select]');
             const rangeInput = modal.querySelector('[data-filter-range]');
             const processingRanges = Array.isArray(serverProcessingRanges) ? serverProcessingRanges : [];
             const modalId = modal.getAttribute('id');
@@ -2539,6 +2462,9 @@
                 buttons.forEach((btn) => {
                     btn.classList.toggle('active', btn.dataset.filter === targetFilter);
                 });
+                if (statusSelect && statusSelect.value !== targetFilter) {
+                    statusSelect.value = targetFilter;
+                }
             }
 
             function renderDetail(data) {
@@ -2638,8 +2564,8 @@
                     return;
                 }
                 selectedCard = card;
-                cards.forEach((c) => c.classList.remove('border-primary', 'shadow-sm'));
-                card.classList.add('border-primary', 'shadow-sm');
+                cards.forEach((c) => c.classList.remove('is-selected'));
+                card.classList.add('is-selected');
                 let data = null;
                 try {
                     data = JSON.parse(card.dataset.detail || '{}');
@@ -2681,19 +2607,25 @@
             }
 
             function applyFilters() {
+                if (statusSelect && statusSelect.value) {
+                    activeFilter = statusSelect.value;
+                }
+
+                let filterStart = parseDate(startInput?.value);
+                let filterEnd = parseDate(endInput?.value);
                 // If month is chosen, sync start/end to that month
                 if (monthInput && monthInput.value) {
                     const [year, month] = monthInput.value.split('-').map((v) => parseInt(v, 10));
                     if (!Number.isNaN(year) && !Number.isNaN(month)) {
                         const startDate = new Date(year, month - 1, 1);
                         const endDate = new Date(year, month, 0);
+                        filterStart = startDate;
+                        filterEnd = endDate;
                         if (startInput) startInput.valueAsDate = startDate;
                         if (endInput) endInput.valueAsDate = endDate;
                     }
                 }
 
-                const filterStart = parseDate(startInput?.value);
-                const filterEnd = parseDate(endInput?.value);
                 const rangeIndex = rangeInput?.value;
                 selectedRange = (typeof rangeIndex !== 'undefined' && rangeIndex !== '') ? processingRanges?.[Number(rangeIndex)] : null;
                 let visible = 0;
@@ -2853,6 +2785,11 @@
                 });
             });
 
+            statusSelect?.addEventListener('change', () => {
+                setActive(statusSelect.value || 'all');
+                applyFilters();
+            });
+
             [startInput, endInput].forEach((input) => {
                 input?.addEventListener('change', applyFilters);
             });
@@ -2887,6 +2824,9 @@
             });
 
             // Default state
+            if (statusSelect && statusSelect.value) {
+                setActive(statusSelect.value);
+            }
             applyFilters();
             const firstVisible = Array.from(cards).find((card) => !card.classList.contains('d-none'));
             selectCard(firstVisible || null);
