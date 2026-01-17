@@ -28,13 +28,18 @@
                                     </div>
                                 @endif
                                 <input type="hidden" name="id" value="{{ $data->id ?? 0 }}" />
-                                {{-- <div class="mb-3 row">
-                                    <label for="background_image" class="col-sm-12 col-lg-2 col-form-label">Background Image: </label>
-                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center flex-column justify-content-center">
-                                        <img src="{{ asset($data->background_image ?? '' ) }}" alt="{{ $data->title ?? '' }}" style="width: 200px;"/><br/>
-                                        <input type="file" class="form-control" id="background_image" name="background_image"/>
+                                <div class="mb-3 row">
+                                    <label for="background_image" class="col-sm-12 col-lg-2 col-form-label">Background Image:</label>
+                                    <div class="col-lg-10 col-sm-12">
+                                        <div class="d-flex align-items-start flex-column">
+                                            @if (!empty($data->background_image))
+                                                <img src="{{ asset($data->background_image) }}" alt="Trainer banner background" class="img-thumbnail mb-2" style="width: 240px; max-width: 100%;" />
+                                            @endif
+                                            <input type="file" class="form-control" id="background_image" name="background_image" accept="image/*" />
+                                            <small class="text-muted mt-1">Recommended size: 1200x600 or larger.</small>
+                                        </div>
                                     </div>
-                                </div>    --}}
+                                </div>
                                 <div class="mb-3 row">
                                     <label for="title" class="col-sm-12 col-lg-2 col-form-label">Hero Title: </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
