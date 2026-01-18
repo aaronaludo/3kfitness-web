@@ -38,7 +38,7 @@
           </a>
         </li>
         <li>
-          <a href="https://drive.google.com/file/d/1gv-mECmMa0FAX77WSxMWkb32zuxqrO7i/view?usp=sharing" target="_blank" title="Download App">
+          <a href="https://drive.usercontent.google.com/download?id=1fwn9uHVRmEBSnatlU0UNMGPLjeRJ6Kg6&export=download&authuser=0?usp=sharing" target="_blank" title="Download App">
             <i class="fas fa-mobile-alt"></i>
           </a>
         </li>
@@ -51,7 +51,7 @@
     <div class="hero-content">
       <h1>Go Beyond Limits</h1>
       <p>Train like a beast, look like a beauty.</p>
-      <a href="https://drive.google.com/file/d/1gv-mECmMa0FAX77WSxMWkb32zuxqrO7i/view?usp=sharing" target="_blank" class="btn-primary">Get the App</a>
+      <a href="https://drive.usercontent.google.com/download?id=1fwn9uHVRmEBSnatlU0UNMGPLjeRJ6Kg6&export=download&authuser=0?usp=sharing" target="_blank" class="btn-primary">Get the App</a>
     </div>
   </section>
 
