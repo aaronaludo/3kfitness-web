@@ -103,9 +103,13 @@ class AdminAccountController extends Controller
     }
     
     public function updatePassword(Request $request){
+        $strongPasswordRegex = '/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}$/';
+
         $validator = Validator::make($request->all(), [
             'old_password' => 'required',
-            'new_password' => 'required|confirmed',
+            'new_password' => ['required', 'confirmed', "regex:$strongPasswordRegex"],
+        ], [
+            'new_password.regex' => 'Password must be at least 8 characters and include uppercase, lowercase, number, and symbol.',
         ]);
 
         if ($validator->fails()) {

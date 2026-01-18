@@ -24,6 +24,7 @@ class StaffAccountManagementController extends Controller
             'start_date'      => 'nullable|date_format:Y-m-d',
             'end_date'        => 'nullable|date_format:Y-m-d|after_or_equal:start_date',
             'payroll_status'  => 'nullable|in:all,with-payrolls,no-payrolls',
+            'employment_type' => 'nullable|in:all,salaried,contractor',
         ]);
 
         $keyword      = trim((string) $request->input('name', ''));
@@ -32,6 +33,10 @@ class StaffAccountManagementController extends Controller
         $payrollStatus = $request->input('payroll_status', 'all');
         if (empty($payrollStatus)) {
             $payrollStatus = 'all';
+        }
+        $employmentType = $request->input('employment_type', 'all');
+        if (empty($employmentType)) {
+            $employmentType = 'all';
         }
 
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : null;
@@ -46,7 +51,7 @@ class StaffAccountManagementController extends Controller
             'no-payrolls'   => max($totalStaff - $withPayrollsCount, 0),
         ];
 
-        $baseQuery = $this->buildStaffQuery($keyword, $start, $end, $payrollStatus);
+        $baseQuery = $this->buildStaffQuery($keyword, $start, $end, $payrollStatus, $employmentType);
 
         $queryParamsWithoutArchivePage = $request->except('archive_page');
         $queryParamsWithoutMainPage = $request->except('page');
@@ -393,15 +398,20 @@ class StaffAccountManagementController extends Controller
             'search_column'   => 'nullable|string',
             'name'            => 'nullable|string|max:255',
             'payroll_status'  => 'nullable|in:all,with-payrolls,no-payrolls',
+            'employment_type' => 'nullable|in:all,salaried,contractor',
         ]);
 
         $startInput   = $request->input('created_start');
         $endInput     = $request->input('created_end');
         $keyword      = trim((string) $request->input('name', ''));
         $payrollStatus = $request->input('payroll_status', 'all');
+        $employmentType = $request->input('employment_type', 'all');
 
         if (empty($payrollStatus)) {
             $payrollStatus = 'all';
+        }
+        if (empty($employmentType)) {
+            $employmentType = 'all';
         }
 
         $start = $startInput ? Carbon::parse($startInput)->startOfDay() : null;
@@ -413,7 +423,7 @@ class StaffAccountManagementController extends Controller
             $start = Carbon::createFromTimestamp(0)->startOfDay();
         }
 
-        $query = $this->buildStaffQuery($keyword, $start, $end, $payrollStatus)
+        $query = $this->buildStaffQuery($keyword, $start, $end, $payrollStatus, $employmentType)
             ->where('is_archive', 0);
         $data  = $query->get();
 
@@ -495,7 +505,7 @@ class StaffAccountManagementController extends Controller
         return response()->download($fullPath, $fileName)->deleteFileAfterSend(true);
     }
 
-    protected function buildStaffQuery(?string $keyword, ?Carbon $start, ?Carbon $end, string $payrollStatus = 'all')
+    protected function buildStaffQuery(?string $keyword, ?Carbon $start, ?Carbon $end, string $payrollStatus = 'all', string $employmentType = 'all')
     {
         $query = User::where('role_id', 2)
             ->with(['role', 'payrolls'])
@@ -558,6 +568,10 @@ class StaffAccountManagementController extends Controller
             $query->whereHas('payrolls');
         } elseif ($payrollStatus === 'no-payrolls') {
             $query->whereDoesntHave('payrolls');
+        }
+
+        if (!empty($employmentType) && $employmentType !== 'all') {
+            $query->where('employment_type', $employmentType);
         }
 
         return $query;

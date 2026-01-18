@@ -7,7 +7,7 @@
 
 @section('content')
     @php
-        $data->loadMissing(['user'])->loadCount(['activeUserSchedules as user_schedules_count']);
+        $data->loadMissing(['user', 'classAttendances.user'])->loadCount(['activeUserSchedules as user_schedules_count']);
 
         $image = $data->image ? asset($data->image) : asset('assets/images/default-image.png');
         $startDate = $data->class_start_date ? \Carbon\Carbon::parse($data->class_start_date) : null;
@@ -180,6 +180,7 @@
 
                     if ($override) {
                         $sessionOccurrences[] = [
+                            'date_key' => $sessionDateKey,
                             'label' => $cursor->format('M j, Y'),
                             'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
                             'time' => $sessionTimeLabel,
@@ -220,6 +221,7 @@
                         $overrideTimeLabel = $formatTimeLabel($overrideStartTime, $overrideEndTime) ?? $sessionTimeLabel;
 
                         $sessionOccurrences[] = [
+                            'date_key' => $overrideDate->toDateString(),
                             'label' => $overrideDate->format('M j, Y'),
                             'weekday' => $overrideDate->format('l'),
                             'time' => $overrideTimeLabel,
@@ -234,6 +236,7 @@
                         [$sessionStatus, $statusClass] = $computeStatus($sessionStart, $sessionEnd);
 
                         $sessionOccurrences[] = [
+                            'date_key' => $sessionDateKey,
                             'label' => $cursor->format('M j, Y'),
                             'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
                             'time' => $sessionTimeLabel,
@@ -260,6 +263,7 @@
 
             if ($override) {
                 $sessionOccurrences[] = [
+                    'date_key' => $sessionStart->toDateString(),
                     'label' => $sessionStart->format('M j, Y'),
                     'weekday' => $sessionStart->format('l'),
                     'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
@@ -300,6 +304,7 @@
                 $overrideTimeLabel = $formatTimeLabel($overrideStartTime, $overrideEndTime) ?? $sessionTimeLabel ?? $sessionStart->format('g:i A');
 
                 $sessionOccurrences[] = [
+                    'date_key' => $overrideDate->toDateString(),
                     'label' => $overrideDate->format('M j, Y'),
                     'weekday' => $overrideDate->format('l'),
                     'time' => $overrideTimeLabel,
@@ -314,6 +319,7 @@
                 [$sessionStatus, $statusClass] = $computeStatus($sessionStart, $sessionEnd);
 
                 $sessionOccurrences[] = [
+                    'date_key' => $sessionStart->toDateString(),
                     'label' => $sessionStart->format('M j, Y'),
                     'weekday' => $sessionStart->format('l'),
                     'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
@@ -333,6 +339,36 @@
         }
         $sessionCount = is_array($sessionOccurrences) ? count($sessionOccurrences) : 0;
         $sessionLimit = 10;
+
+        $attendanceBySession = $data->classAttendances
+            ->sortByDesc('attended_at')
+            ->groupBy(function ($attendance) {
+                return optional($attendance->session_date)->toDateString() ?? null;
+            })
+            ->filter(function ($value, $key) {
+                return !empty($key);
+            });
+
+        $attendanceSessions = collect($sessionOccurrences)
+            ->filter(function ($session) {
+                return empty($session['is_rescheduled']) && !empty($session['date_key']);
+            })
+            ->values();
+
+        $selectedAttendanceSessionKey = '';
+        if ($attendanceSessions->count()) {
+            $todayKey = $nowSession->toDateString();
+            $selectedSession = $attendanceSessions->firstWhere('date_key', $todayKey);
+            if (!$selectedSession) {
+                $selectedSession = $attendanceSessions->first(function ($session) use ($nowSession) {
+                    return isset($session['sort_key']) && $session['sort_key'] >= $nowSession->timestamp;
+                });
+            }
+            if (!$selectedSession) {
+                $selectedSession = $attendanceSessions->first();
+            }
+            $selectedAttendanceSessionKey = $selectedSession['date_key'] ?? '';
+        }
     @endphp
 
     <div class="container-fluid">
@@ -559,6 +595,95 @@
                 <div class="text-muted">No sessions generated yet. Add a series window and cadence to preview occurrences.</div>
             @endif
         </div>
+
+        <div class="detail-card mt-4" id="attendance-history">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h5 class="mb-1">Attendance history</h5>
+                    <div class="text-muted detail-meta">View members who attended each session in the series.</div>
+                </div>
+                <span class="detail-chip">
+                    <span class="icon"><i class="fa-solid fa-user-check"></i></span>
+                    {{ $data->classAttendances->count() }} records
+                </span>
+            </div>
+
+            @if($attendanceSessions->count())
+                <div class="d-flex flex-nowrap gap-2 overflow-auto pb-2">
+                    @foreach($attendanceSessions as $session)
+                        @php
+                            $sessionKey = $session['date_key'] ?? '';
+                            $isActiveSession = $sessionKey === $selectedAttendanceSessionKey;
+                        @endphp
+                        <button
+                            type="button"
+                            class="btn btn-sm rounded-pill text-start attendance-session-chip {{ $isActiveSession ? 'btn-danger' : 'btn-outline-secondary' }}"
+                            data-session-key="{{ $sessionKey }}"
+                        >
+                            <span class="d-block fw-semibold">{{ $session['label'] }}</span>
+                            <span class="d-block small attendance-session-subtitle {{ $isActiveSession ? 'text-white-50' : 'text-muted' }}">
+                                {{ $session['weekday'] }}
+                            </span>
+                        </button>
+                    @endforeach
+                </div>
+
+                <div class="mt-3">
+                    @foreach($attendanceSessions as $session)
+                        @php
+                            $sessionKey = $session['date_key'] ?? '';
+                            $attendees = $sessionKey ? $attendanceBySession->get($sessionKey, collect()) : collect();
+                            $isHiddenPanel = $sessionKey !== $selectedAttendanceSessionKey;
+                        @endphp
+                        <div class="attendance-session-panel {{ $isHiddenPanel ? 'd-none' : '' }}" data-session-key="{{ $sessionKey }}">
+                            <div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mb-2">
+                                <div>
+                                    <div class="fw-semibold">{{ $session['label'] }}</div>
+                                    <div class="text-muted small">
+                                        {{ $session['weekday'] }}{{ $session['time'] ? ' • ' . $session['time'] : '' }}
+                                    </div>
+                                </div>
+                                <span class="badge bg-light text-dark">{{ $attendees->count() }} present</span>
+                            </div>
+
+                            @if($attendees->count())
+                                <div class="border rounded-3 overflow-hidden">
+                                    @foreach($attendees as $attendance)
+                                        @php
+                                            $attendee = $attendance->user;
+                                            $attendeeName = trim(($attendee->first_name ?? '') . ' ' . ($attendee->last_name ?? ''));
+                                            $attendeeName = $attendeeName !== '' ? $attendeeName : ($attendee->email ?? 'Member');
+                                            $attendedLabel = $attendance->attended_at
+                                                ? $attendance->attended_at->format('M d, Y g:i A')
+                                                : null;
+                                        @endphp
+                                        <div class="d-flex align-items-start justify-content-between gap-3 p-3 {{ $loop->last ? '' : 'border-bottom' }}">
+                                            <div>
+                                                <div class="fw-semibold">{{ $attendeeName }}</div>
+                                                @if(!empty($attendee?->email))
+                                                    <div class="text-muted small">{{ $attendee->email }}</div>
+                                                @endif
+                                                @if(!empty($attendee?->phone_number))
+                                                    <div class="text-muted small">{{ $attendee->phone_number }}</div>
+                                                @endif
+                                            </div>
+                                            <div class="text-end">
+                                                <div class="text-muted small">Checked in</div>
+                                                <div class="fw-semibold">{{ $attendedLabel ?? '—' }}</div>
+                                            </div>
+                                        </div>
+                                    @endforeach
+                                </div>
+                            @else
+                                <div class="text-muted">No attendance recorded for this session.</div>
+                            @endif
+                        </div>
+                    @endforeach
+                </div>
+            @else
+                <div class="text-muted">No sessions available yet to display attendance history.</div>
+            @endif
+        </div>
     </div>
 @endsection
 
@@ -566,33 +691,66 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             var toggleBtn = document.getElementById('session-toggle-btn');
-            if (!toggleBtn) {
+
+            if (toggleBtn) {
+                var hiddenItems = document.querySelectorAll('.session-list .extra-session');
+                var labelEl = toggleBtn.querySelector('.label-text');
+                var expandedText = toggleBtn.getAttribute('data-expanded-text') || 'Show less sessions';
+                var collapsedText = toggleBtn.getAttribute('data-collapsed-text') || 'Show more sessions';
+                var expanded = false;
+
+                var setState = function (show) {
+                    hiddenItems.forEach(function (item) {
+                        item.classList.toggle('d-none', !show);
+                    });
+
+                    if (labelEl) {
+                        labelEl.textContent = show ? expandedText : collapsedText;
+                    } else {
+                        toggleBtn.textContent = show ? expandedText : collapsedText;
+                    }
+                };
+
+                setState(expanded);
+
+                toggleBtn.addEventListener('click', function () {
+                    expanded = !expanded;
+                    setState(expanded);
+                });
+            }
+
+            var sessionChips = document.querySelectorAll('.attendance-session-chip');
+            var sessionPanels = document.querySelectorAll('.attendance-session-panel');
+
+            if (!sessionChips.length || !sessionPanels.length) {
                 return;
             }
 
-            var hiddenItems = document.querySelectorAll('.session-list .extra-session');
-            var labelEl = toggleBtn.querySelector('.label-text');
-            var expandedText = toggleBtn.getAttribute('data-expanded-text') || 'Show less sessions';
-            var collapsedText = toggleBtn.getAttribute('data-collapsed-text') || 'Show more sessions';
-            var expanded = false;
-
-            var setState = function (show) {
-                hiddenItems.forEach(function (item) {
-                    item.classList.toggle('d-none', !show);
+            var setActiveSession = function (sessionKey) {
+                sessionPanels.forEach(function (panel) {
+                    panel.classList.toggle('d-none', panel.dataset.sessionKey !== sessionKey);
                 });
 
-                if (labelEl) {
-                    labelEl.textContent = show ? expandedText : collapsedText;
-                } else {
-                    toggleBtn.textContent = show ? expandedText : collapsedText;
-                }
+                sessionChips.forEach(function (chip) {
+                    var isActive = chip.dataset.sessionKey === sessionKey;
+                    chip.classList.toggle('btn-danger', isActive);
+                    chip.classList.toggle('btn-outline-secondary', !isActive);
+
+                    var subtitle = chip.querySelector('.attendance-session-subtitle');
+                    if (subtitle) {
+                        subtitle.classList.toggle('text-white-50', isActive);
+                        subtitle.classList.toggle('text-muted', !isActive);
+                    }
+                });
             };
 
-            setState(expanded);
-
-            toggleBtn.addEventListener('click', function () {
-                expanded = !expanded;
-                setState(expanded);
+            sessionChips.forEach(function (chip) {
+                chip.addEventListener('click', function () {
+                    var key = chip.dataset.sessionKey;
+                    if (key) {
+                        setActiveSession(key);
+                    }
+                });
             });
         });
     </script>

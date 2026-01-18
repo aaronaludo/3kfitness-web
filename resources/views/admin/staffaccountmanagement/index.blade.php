@@ -10,11 +10,24 @@
                 if (empty($payrollStatus)) {
                     $payrollStatus = 'all';
                 }
+                $employmentType = request('employment_type', 'all');
+                if (empty($employmentType)) {
+                    $employmentType = 'all';
+                }
+
+                $employmentTypeLabels = [
+                    'salaried' => 'Basic Pay',
+                    'contractor' => 'Contractor / Freelancer',
+                    'hourly' => 'Hourly Employee',
+                ];
+                $employmentTypeLabel = function ($type) use ($employmentTypeLabels) {
+                    return $employmentTypeLabels[$type] ?? '—';
+                };
 
                 $printSource = $showArchived ? $archivedData : $data;
                 $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
                 $nowForPrint = now();
-                $mapStaff = function ($item) use ($nowForPrint) {
+                $mapStaff = function ($item) use ($nowForPrint, $employmentTypeLabel) {
                     $currentMonth = $nowForPrint->month;
                     $payrollsThisMonth = collect($item->payrolls ?? [])->filter(function ($payroll) use ($currentMonth) {
                         if (empty($payroll->clockin_at) || empty($payroll->clockout_at)) {
@@ -54,6 +67,7 @@
                         'payrolls' => $item->payrolls_count ?? collect($item->payrolls ?? [])->count(),
                         'net_pay' => $totalHours > 0 ? number_format($netPay, 2) : null,
                         'created_by' => $item->created_by ?? '',
+                        'employment_type' => $employmentTypeLabel($item->employment_type ?? ''),
                     ];
                 };
 
@@ -66,6 +80,7 @@
                     'filters' => [
                         'search' => request('name'),
                         'payroll_status' => $payrollStatus,
+                        'employment_type' => $employmentType,
                         'start' => request('start_date'),
                         'end' => request('end_date'),
                         'show_archived' => $showArchived,
@@ -80,6 +95,7 @@
                     'filters' => [
                         'search' => request('name'),
                         'payroll_status' => $payrollStatus,
+                        'employment_type' => $employmentType,
                         'start' => request('start_date'),
                         'end' => request('end_date'),
                         'show_archived' => $showArchived,
@@ -99,6 +115,7 @@
                         <input type="hidden" name="created_end" value="{{ request('end_date') }}">
                         <input type="hidden" name="name" value="{{ request('name') }}">
                         <input type="hidden" name="payroll_status" value="{{ $payrollStatus }}">
+                        <input type="hidden" name="employment_type" value="{{ $employmentType }}">
                         <button
                             class="btn btn-md btn-danger ms-2"
                             type="submit"
@@ -146,7 +163,9 @@
                         'count' => $payrollTallies['no-payrolls'] ?? null,
                     ],
                 ];
-            $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
+                $advancedFiltersOpen = request()->filled('start_date')
+                    || request()->filled('end_date')
+                    || ($employmentType && $employmentType !== 'all');
             @endphp
 
             <div class="col-12 mb-20">
@@ -247,6 +266,43 @@
                                                     </div>
                                                 </div>
 
+                                                <div>
+                                                    <span class="text-muted text-uppercase small fw-semibold d-block">Employment type</span>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <input
+                                                            type="radio"
+                                                            class="btn-check"
+                                                            name="employment_type"
+                                                            id="employment-type-all"
+                                                            value="all"
+                                                            autocomplete="off"
+                                                            {{ $employmentType === 'all' ? 'checked' : '' }}
+                                                        >
+                                                        <label class="btn btn-outline-secondary btn-sm rounded-pill" for="employment-type-all">All</label>
+
+                                                        <input
+                                                            type="radio"
+                                                            class="btn-check"
+                                                            name="employment_type"
+                                                            id="employment-type-salaried"
+                                                            value="salaried"
+                                                            autocomplete="off"
+                                                            {{ $employmentType === 'salaried' ? 'checked' : '' }}
+                                                        >
+                                                        <label class="btn btn-outline-secondary btn-sm rounded-pill" for="employment-type-salaried">Basic Pay</label>
+
+                                                        <input
+                                                            type="radio"
+                                                            class="btn-check"
+                                                            name="employment_type"
+                                                            id="employment-type-contractor"
+                                                            value="contractor"
+                                                            autocomplete="off"
+                                                            {{ $employmentType === 'contractor' ? 'checked' : '' }}
+                                                        >
+                                                        <label class="btn btn-outline-secondary btn-sm rounded-pill" for="employment-type-contractor">Contractor / Freelancer</label>
+                                                    </div>
+                                                </div>
 
                                                 <div>
                                                     <span class="form-label text-muted text-uppercase small d-block mb-2">Date range</span>
@@ -338,6 +394,7 @@
                                             <th class="sortable" data-column="name">Name <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="email">Email <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="type">Type <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="employment_type">Employment Type <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="phone_number">Phone Number <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_date">Created Date <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="created_by">Created By <i class="fa fa-sort"></i></th>
@@ -385,6 +442,7 @@
                                                 <td>{{ $item->first_name }} {{ $item->last_name }}</td>
                                                 <td>{{ $item->email }}</td>
                                                 <td>{{ $item->role->name }}</td>
+                                                <td>{{ $employmentTypeLabel($item->employment_type ?? '') }}</td>
                                                 <td>{{ $item->phone_number }}</td>
                                                 <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
                                                 <td>{{ $item->created_by }}</td>
@@ -483,6 +541,7 @@
                                             <th>Name</th>
                                             <th>Email</th>
                                             <th>Type</th>
+                                            <th>Employment Type</th>
                                             <th>Contact Number</th>
                                             <th>Created Date</th>
                                             <th>Actions</th>
@@ -528,6 +587,7 @@
                                                 <td>{{ $archive->first_name }} {{ $archive->last_name }}</td>
                                                 <td>{{ $archive->email }}</td>
                                                 <td>{{ optional($archive->role)->name }}</td>
+                                                <td>{{ $employmentTypeLabel($archive->employment_type ?? '') }}</td>
                                                 <td>{{ $archive->phone_number }}</td>
                                                 <td>{{ optional($archive->created_at)->format('F j, Y g:iA') }}</td>
                                                 <td class="action-button">
@@ -630,7 +690,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="10" class="text-center text-muted">No archived staff found.</td>
+                                                <td colspan="9" class="text-center text-muted">No archived staff found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -656,6 +716,11 @@
                 'with-payrolls': 'With payrolls',
                 'no-payrolls': 'No payrolls',
             };
+            const employmentTypeLabels = {
+                salaried: 'Basic Pay',
+                contractor: 'Contractor / Freelancer',
+                hourly: 'Hourly Employee',
+            };
 
             function buildFilters(filters) {
                 const chips = [];
@@ -663,6 +728,10 @@
                 if (filters.payroll_status && filters.payroll_status !== 'all') {
                     const label = payrollStatusLabels[filters.payroll_status] || filters.payroll_status;
                     chips.push({ label: 'Payrolls', value: label });
+                }
+                if (filters.employment_type && filters.employment_type !== 'all') {
+                    const label = employmentTypeLabels[filters.employment_type] || filters.employment_type;
+                    chips.push({ label: 'Employment', value: label });
                 }
                 if (filters.search) {
                     chips.push({
