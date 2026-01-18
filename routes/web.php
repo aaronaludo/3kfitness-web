@@ -44,7 +44,7 @@ use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagem
 // use App\Http\Controllers\Admin\New\WalkInPaymentController as WalkInPayments;
 
 Route::get('/', function () {
-    return redirect('/login');
+    return view('landing');
 });
 
 Route::get('/login', [AdminAuthController::class, 'index'])->name('login');
