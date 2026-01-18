@@ -6,6 +6,24 @@
         $users->loadMissing(['role', 'status']);
         $search = trim(request('search', ''));
         $statusFilter = request('status', '');
+        $startDateValue = request('start_date');
+        $endDateValue = request('end_date');
+        $startDate = null;
+        $endDate = null;
+        if (!empty($startDateValue)) {
+            try {
+                $startDate = \Carbon\Carbon::parse($startDateValue)->startOfDay();
+            } catch (\Exception $e) {
+                $startDate = null;
+            }
+        }
+        if (!empty($endDateValue)) {
+            try {
+                $endDate = \Carbon\Carbon::parse($endDateValue)->endOfDay();
+            } catch (\Exception $e) {
+                $endDate = null;
+            }
+        }
         $showArchived = request()->boolean('show_archived');
         $allAdmins = collect($users);
         $visibleAdmins = $allAdmins
@@ -21,8 +39,31 @@
             ->filter()
             ->unique()
             ->values();
+        $statusTallies = $visibleAdmins
+            ->groupBy(function ($admin) {
+                return optional($admin->status)->name;
+            })
+            ->filter(function ($group, $name) {
+                return !empty($name);
+            })
+            ->map
+            ->count();
+        $statusChipOptions = collect([
+            [
+                'key' => '',
+                'label' => 'All statuses',
+                'count' => $visibleAdmins->count(),
+            ],
+        ])->merge($statusOptions->map(function ($status) use ($statusTallies) {
+            return [
+                'key' => $status,
+                'label' => $status,
+                'count' => $statusTallies->get($status),
+            ];
+        }));
+        $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
         $admins = $visibleAdmins
-            ->filter(function ($admin) use ($search, $statusFilter) {
+            ->filter(function ($admin) use ($search, $statusFilter, $startDate, $endDate) {
                 $matchesSearch = true;
                 $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
                 $roleName = optional($admin->role)->name ?? 'Admin';
@@ -59,7 +100,29 @@
                     $matchesStatus = strcasecmp(optional($admin->status)->name ?? '', $statusFilter) === 0;
                 }
 
-                return $matchesSearch && $matchesStatus;
+                $matchesDate = true;
+                if ($startDate || $endDate) {
+                    $createdAt = $admin->created_at ?? null;
+                    if ($createdAt && !($createdAt instanceof \Carbon\Carbon)) {
+                        try {
+                            $createdAt = \Carbon\Carbon::parse($createdAt);
+                        } catch (\Exception $e) {
+                            $createdAt = null;
+                        }
+                    }
+                    if (!$createdAt) {
+                        $matchesDate = false;
+                    } else {
+                        if ($startDate && $createdAt->lt($startDate)) {
+                            $matchesDate = false;
+                        }
+                        if ($endDate && $createdAt->gt($endDate)) {
+                            $matchesDate = false;
+                        }
+                    }
+                }
+
+                return $matchesSearch && $matchesStatus && $matchesDate;
             })
             ->values();
 
@@ -107,6 +170,8 @@
             'filters' => [
                 'search' => $search ?: null,
                 'status' => $statusFilter ?: 'all',
+                'start' => $startDateValue ?: null,
+                'end' => $endDateValue ?: null,
                 'show_archived' => $showArchived,
             ],
             'count' => $printAdmins->count(),
@@ -118,6 +183,8 @@
             'filters' => [
                 'search' => $search ?: null,
                 'status' => $statusFilter ?: 'all',
+                'start' => $startDateValue ?: null,
+                'end' => $endDateValue ?: null,
                 'show_archived' => $showArchived,
                 'scope' => 'all',
             ],
@@ -172,59 +239,141 @@
                 </div>
             </div>
 
-            <div class="col-12">
-                <div class="card shadow-sm border-0 rounded-4">
+            <div class="col-12 mb-20">
+                <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-body p-4">
-                        <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
                             <div>
-                                <h5 class="fw-semibold mb-1">Filter admins</h5>
-                                <p class="text-muted mb-0">Showing {{ $admins->count() }} of {{ $visibleAdmins->count() }} admins</p>
+                                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Overview</span>
+                                <h4 class="fw-semibold mb-1">Admin directory</h4>
+                                <p class="text-muted mb-0">Review platform administrators, their roles, and account status.</p>
                             </div>
-                            <form action="{{ route('admin.admins.index') }}" method="GET" id="admin-filter-form" class="d-flex flex-wrap align-items-center gap-2">
-                                <input type="hidden" name="status" id="admin-status-filter" value="{{ $statusFilter }}">
-                                @if ($showArchived)
-                                    <input type="hidden" name="show_archived" value="1">
-                                @endif
-                                <div class="position-relative">
-                                    <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
-                                    <input
-                                        type="search"
-                                        class="form-control rounded-pill ps-5"
-                                        name="search"
-                                        placeholder="Search admin by name, code, email, role"
-                                        value="{{ $search }}"
-                                        aria-label="Search admin"
-                                    />
+                            <div class="text-end">
+                                <span class="d-block text-muted small">
+                                    @if ($showArchived)
+                                        Showing {{ $admins->count() }} archived admins
+                                    @else
+                                        Showing {{ $admins->count() }} results
+                                    @endif
+                                </span>
+                            </div>
+                        </div>
+
+                        <form action="{{ route('admin.admins.index') }}" method="GET" id="admin-filter-form" class="mt-4">
+                            <input type="hidden" name="status" id="admin-status-filter" value="{{ $statusFilter }}">
+                            @if ($showArchived)
+                                <input type="hidden" name="show_archived" value="1">
+                            @endif
+
+                            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                    @foreach ($statusChipOptions as $option)
+                                        <button
+                                            type="button"
+                                            class="status-chip btn btn-sm rounded-pill px-3 {{ $statusFilter === $option['key'] ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary text-dark' }}"
+                                            data-status="{{ $option['key'] }}"
+                                        >
+                                            {{ $option['label'] }}
+                                            @if (!is_null($option['count']))
+                                                <span class="badge bg-transparent {{ $statusFilter === $option['key'] ? 'text-white' : 'text-dark' }} fw-semibold ms-2">{{ $option['count'] }}</span>
+                                            @endif
+                                        </button>
+                                    @endforeach
                                 </div>
-                                <div class="d-flex flex-wrap gap-2">
-                                    <a href="{{ route('admin.admins.index') }}" class="btn btn-light">Reset</a>
-                                    <button type="submit" class="btn btn-danger d-flex align-items-center gap-2">
+
+                                <div class="d-flex align-items-center gap-2 flex-wrap">
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 240px;">
+                                        <div class="position-relative">
+                                            <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"><i class="fa-solid fa-magnifying-glass"></i></span>
+                                            <input
+                                                type="search"
+                                                class="form-control rounded-pill ps-5"
+                                                name="search"
+                                                placeholder="Search admin by name, code, email, role"
+                                                value="{{ $search }}"
+                                                aria-label="Search admin"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <a
+                                        href="{{ $showArchived ? route('admin.admins.index', ['show_archived' => 1]) : route('admin.admins.index') }}"
+                                        class="btn btn-link text-decoration-none text-muted px-0"
+                                    >
+                                        Reset
+                                    </a>
+
+                                    <button
+                                        class="btn {{ $advancedFiltersOpen ? 'btn-secondary text-white' : 'btn-outline-secondary' }} rounded-pill px-3"
+                                        type="button"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#adminFiltersModal"
+                                    >
+                                        <i class="fa-solid fa-sliders"></i> Filters
+                                    </button>
+
+                                    <button type="submit" class="btn btn-danger rounded-pill px-4 d-flex align-items-center gap-2">
                                         <i class="fa-solid fa-magnifying-glass"></i>
                                         Apply
                                     </button>
                                 </div>
-                            </form>
-                        </div>
-                        @if ($statusOptions->isNotEmpty())
-                            <div class="d-flex flex-wrap align-items-center gap-2 mt-3">
-                                <button
-                                    type="button"
-                                    class="status-chip btn btn-sm rounded-pill px-3 {{ $statusFilter === '' ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary text-dark' }}"
-                                    data-status=""
-                                >
-                                    All statuses
-                                </button>
-                                @foreach ($statusOptions as $option)
-                                    <button
-                                        type="button"
-                                        class="status-chip btn btn-sm rounded-pill px-3 {{ $statusFilter === $option ? 'btn-dark text-white shadow-sm' : 'btn-outline-secondary text-dark' }}"
-                                        data-status="{{ $option }}"
-                                    >
-                                        {{ $option }}
-                                    </button>
-                                @endforeach
                             </div>
-                        @endif
+
+                            <div class="modal fade" id="adminFiltersModal" tabindex="-1" aria-labelledby="adminFiltersModalLabel" aria-hidden="true">
+                                <div class="modal-dialog modal-dialog-centered modal-md">
+                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                        <div class="modal-header border-0 pb-0">
+                                            <h5 class="modal-title fw-semibold" id="adminFiltersModalLabel">Advanced filters</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                        </div>
+                                        <div class="modal-body">
+                                            <div class="d-flex flex-column gap-4">
+                                                <div>
+                                                    <span class="text-muted text-uppercase small fw-semibold d-block">Quick ranges</span>
+                                                    <div class="d-flex flex-wrap gap-2 mt-2">
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-week">Last week</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-month">Last month</button>
+                                                        <button type="button" class="btn btn-outline-secondary btn-sm rounded-pill range-chip" data-range="last-year">Last year</button>
+                                                    </div>
+                                                </div>
+
+                                                <div>
+                                                    <span class="form-label text-muted text-uppercase small d-block mb-2">Date range</span>
+                                                    <div class="row g-2">
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="admin-start-date" class="form-label small text-muted mb-1">Start date</label>
+                                                            <input
+                                                                type="date"
+                                                                id="admin-start-date"
+                                                                class="form-control rounded-3"
+                                                                name="start_date"
+                                                                value="{{ request('start_date') }}"
+                                                            />
+                                                        </div>
+                                                        <div class="col-12 col-sm-6">
+                                                            <label for="admin-end-date" class="form-label small text-muted mb-1">End date</label>
+                                                            <input
+                                                                type="date"
+                                                                id="admin-end-date"
+                                                                class="form-control rounded-3"
+                                                                name="end_date"
+                                                                value="{{ request('end_date') }}"
+                                                            />
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="modal-footer border-0 pt-0">
+                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="fa-solid fa-magnifying-glass me-2"></i>Apply filters
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
                     </div>
                 </div>
             </div>
@@ -529,6 +678,17 @@
                 if (filters.search) {
                     chips.push({ label: 'Search', value: filters.search });
                 }
+                if (filters.start || filters.end) {
+                    let rangeLabel = '';
+                    if (filters.start && filters.end) {
+                        rangeLabel = `${filters.start} to ${filters.end}`;
+                    } else if (filters.start) {
+                        rangeLabel = `From ${filters.start}`;
+                    } else {
+                        rangeLabel = `Until ${filters.end}`;
+                    }
+                    chips.push({ label: 'Created', value: rangeLabel });
+                }
                 return chips;
             }
 
@@ -631,16 +791,64 @@
     <script>
         document.addEventListener('DOMContentLoaded', function () {
             const form = document.getElementById('admin-filter-form');
+            if (!form) {
+                return;
+            }
             const statusInput = document.getElementById('admin-status-filter');
-            const chips = document.querySelectorAll('.status-chip');
+            const chipButtons = form.querySelectorAll('.status-chip');
+            const rangeButtons = form.querySelectorAll('.range-chip');
+            const startInput = document.getElementById('admin-start-date');
+            const endInput = document.getElementById('admin-end-date');
 
-            chips.forEach(function (chip) {
+            function formatDate(date) {
+                const year = date.getFullYear();
+                const month = String(date.getMonth() + 1).padStart(2, '0');
+                const day = String(date.getDate()).padStart(2, '0');
+                return `${year}-${month}-${day}`;
+            }
+
+            function applyRange(range) {
+                const today = new Date();
+                const end = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const start = new Date(end);
+
+                if (range === 'last-week') {
+                    start.setDate(start.getDate() - 7);
+                } else if (range === 'last-month') {
+                    start.setMonth(start.getMonth() - 1);
+                } else if (range === 'last-year') {
+                    start.setFullYear(start.getFullYear() - 1);
+                }
+
+                if (startInput) startInput.value = formatDate(start);
+                if (endInput) endInput.value = formatDate(end);
+                form.submit();
+            }
+
+            chipButtons.forEach(function (chip) {
                 chip.addEventListener('click', function () {
                     const status = this.dataset.status ?? '';
                     if (statusInput) {
                         statusInput.value = status;
                     }
-                    form?.submit();
+
+                    chipButtons.forEach(function (btn) {
+                        btn.classList.remove('btn-dark', 'text-white', 'shadow-sm');
+                        if (!btn.classList.contains('btn-outline-secondary')) {
+                            btn.classList.add('btn-outline-secondary');
+                        }
+                    });
+
+                    this.classList.remove('btn-outline-secondary');
+                    this.classList.add('btn-dark', 'text-white', 'shadow-sm');
+
+                    form.submit();
+                });
+            });
+
+            rangeButtons.forEach(function (btn) {
+                btn.addEventListener('click', function () {
+                    applyRange(this.dataset.range);
                 });
             });
         });

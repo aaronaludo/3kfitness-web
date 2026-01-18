@@ -159,34 +159,36 @@
 
                         <form action="{{ route('admin.payrolls.index') }}" method="GET" class="mt-4">
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
-                                <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
-                                    <label class="form-label text-muted small mb-1" for="member_name">Search</label>
-                                    <div class="position-relative">
-                                        <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted">
-                                            <i class="fa-solid fa-magnifying-glass"></i>
-                                        </span>
+                                <div class="d-flex flex-wrap align-items-center gap-3 flex-grow-1">
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
+                                        <label class="form-label text-muted small mb-1" for="member_name">Search</label>
+                                        <div class="position-relative">
+                                            <span class="position-absolute top-50 start-0 translate-middle-y ms-3 text-muted">
+                                                <i class="fa-solid fa-magnifying-glass"></i>
+                                            </span>
+                                            <input
+                                                type="search"
+                                                class="form-control rounded-pill ps-5"
+                                                name="member_name"
+                                                id="member_name"
+                                                placeholder="Search #, staff, code, period, date"
+                                                value="{{ $searchTerm }}"
+                                                aria-label="Search payroll runs"
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 220px;">
+                                        <label class="form-label text-muted small mb-1" for="period_month">Period month</label>
                                         <input
-                                            type="search"
-                                            class="form-control rounded-pill ps-5"
-                                            name="member_name"
-                                            id="member_name"
-                                            placeholder="Search #, staff, code, period, date"
-                                            value="{{ $searchTerm }}"
-                                            aria-label="Search payroll runs"
+                                            type="month"
+                                            class="form-control rounded-pill"
+                                            name="period_month"
+                                            id="period_month"
+                                            value="{{ $periodMonth }}"
+                                            aria-label="Filter by payroll month"
                                         />
                                     </div>
-                                </div>
-
-                                <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 220px;">
-                                    <label class="form-label text-muted small mb-1" for="period_month">Period month</label>
-                                    <input
-                                        type="month"
-                                        class="form-control rounded-pill"
-                                        name="period_month"
-                                        id="period_month"
-                                        value="{{ $periodMonth }}"
-                                        aria-label="Filter by payroll month"
-                                    />
                                 </div>
 
                                 <div class="d-flex align-items-center gap-2 flex-wrap">
