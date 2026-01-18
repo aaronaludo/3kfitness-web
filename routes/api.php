@@ -72,6 +72,7 @@ use App\Http\Controllers\Member\MemberClassController;
 
 use App\Http\Controllers\Trainer\TrainerAuthController;
 use App\Http\Controllers\Trainer\TrainerAccountController;
+use App\Http\Controllers\Trainer\TrainerClassAttendanceController;
 use App\Http\Controllers\Trainer\TrainerClassController;
 use App\Http\Controllers\Trainer\TrainerPayrollController;
 
@@ -132,6 +133,9 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('/my-classes', [TrainerClassController::class, 'myclasses'])->name('trainers.my-classes');
         Route::get('/my-classes-by-admin', [TrainerClassController::class, 'myclassesbyadmin'])->name('trainers.my-classes-by-admin');
         Route::get('/classes/{classId}/participants', [TrainerClassController::class, 'participants'])->name('trainers.classes.participants');
+        Route::get('/classes/{classId}/attendance', [TrainerClassAttendanceController::class, 'index'])->name('trainers.classes.attendance.index');
+        Route::post('/classes/{classId}/attendance', [TrainerClassAttendanceController::class, 'store'])->name('trainers.classes.attendance.store');
+        Route::delete('/classes/{classId}/attendance', [TrainerClassAttendanceController::class, 'destroy'])->name('trainers.classes.attendance.destroy');
 
         Route::post('/apply-available-class', [TrainerClassController::class, 'applyavailableclass'])->name('trainers.apply-available-class');
         Route::post('/trainer-approve-class', [TrainerClassController::class, 'trainerapproveclass'])->name('trainers.trainer-approve-class');

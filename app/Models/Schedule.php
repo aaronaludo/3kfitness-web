@@ -45,4 +45,9 @@ class Schedule extends Model
     {
         return $this->hasMany(ScheduleRescheduleRequest::class, 'schedule_id');
     }
+
+    public function classAttendances()
+    {
+        return $this->hasMany(ClassAttendance::class, 'schedule_id');
+    }
 }
