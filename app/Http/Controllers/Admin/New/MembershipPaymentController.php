@@ -7,7 +7,10 @@ use Illuminate\Http\Request;
 use App\Models\MembershipPayment;
 use App\Models\Membership;
 use App\Models\User;
+use App\Mail\MembershipApproved;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log as Logger;
+use Illuminate\Support\Facades\Mail;
 use PhpOffice\PhpWord\IOFactory;
 use PhpOffice\PhpWord\PhpWord;
 use PhpOffice\PhpWord\Style\Language;
@@ -138,10 +141,32 @@ class MembershipPaymentController extends Controller
             'isapproved' => 'required|integer'
         ]);
 
-        $data = MembershipPayment::findOrFail($request->id);
-        $data->isapproved = $request->isapproved;
+        $data = MembershipPayment::with(['user', 'membership'])->findOrFail($request->id);
+        $previousStatus = (int) $data->isapproved;
+        $nextStatus = (int) $request->isapproved;
+
+        $data->isapproved = $nextStatus;
         $data->created_by = $request->user()->user_code ?: trim($request->user()->first_name . " " .  $request->user()->last_name);
         $data->save();
+
+        if ($nextStatus === 1 && $previousStatus !== 1) {
+            $member = $data->user;
+            if ($member && !empty($member->email)) {
+                try {
+                    Mail::to($member->email)->send(new MembershipApproved($data, $data->created_by));
+                    Logger::info('Membership approval email sent.', [
+                        'membership_payment_id' => $data->id,
+                        'user_id' => $member->id,
+                    ]);
+                } catch (\Throwable $e) {
+                    Logger::error('Failed to send membership approval email.', [
+                        'membership_payment_id' => $data->id,
+                        'user_id' => $member->id,
+                        'error' => $e->getMessage(),
+                    ]);
+                }
+            }
+        }
 
         return redirect()->route('admin.staff-account-management.membership-payments')->with('success', 'Membership Payment updated successfully');
     }
