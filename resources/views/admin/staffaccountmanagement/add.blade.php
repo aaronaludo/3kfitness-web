@@ -32,7 +32,6 @@
                                     $employmentType = in_array($employmentType, ['salaried', 'contractor'], true)
                                         ? $employmentType
                                         : 'salaried';
-                                    $allowSystemLogin = old('allow_system_login', '1');
                                     $includeStatutory = old('include_statutory_info', '1');
                                 @endphp
                                 <input type="hidden" name="employment_type" id="employment_type" value="{{ $employmentType }}">
@@ -316,20 +315,7 @@
                                                     <input type="password" class="form-control" id="password_confirmation" name="password_confirmation" autocomplete="new-password" required />
                                                 </div>
                                             </div>
-                                            <div class="form-check mt-3">
-                                                <input
-                                                    class="form-check-input"
-                                                    type="checkbox"
-                                                    id="allow_system_login"
-                                                    name="allow_system_login"
-                                                    value="1"
-                                                    {{ $allowSystemLogin ? 'checked' : '' }}
-                                                />
-                                                <label class="form-check-label fw-semibold" for="allow_system_login">Allow system login</label>
-                                                <div class="text-muted small ms-4">
-                                                    Used for staff portal access only (attendance, schedule, payslips).
-                                                </div>
-                                            </div>
+                                            <input type="hidden" name="allow_system_login" value="1">
                                         </div>
                                     </div>
                                     <div class="card-footer bg-transparent border-0 d-flex flex-wrap justify-content-between align-items-center gap-3 p-4 pt-0">
@@ -410,9 +396,6 @@
         const addressInput = document.getElementById('address');
         const employmentTypeHidden = document.getElementById('employment_type');
         const employmentTypeOptions = document.querySelectorAll('.employment-type-option');
-        const allowSystemLoginToggle = document.getElementById('allow_system_login');
-        const passwordInput = document.getElementById('password');
-        const passwordConfirmationInput = document.getElementById('password_confirmation');
         const computedHourlyRate = document.getElementById('computedHourlyRate');
         const statutoryOptionWrapper = document.getElementById('statutoryOptionWrapper');
         const includeStatutoryYes = document.getElementById('includeStatutoryYes');
@@ -545,27 +528,6 @@
 
         includeStatutoryYes?.addEventListener('change', updateStatutoryFields);
         includeStatutoryNo?.addEventListener('change', updateStatutoryFields);
-
-        const updateSystemAccess = () => {
-            const allowLogin = !!allowSystemLoginToggle?.checked;
-            if (passwordInput) {
-                passwordInput.disabled = !allowLogin;
-                passwordInput.required = allowLogin;
-                if (!allowLogin) {
-                    passwordInput.value = '';
-                }
-            }
-            if (passwordConfirmationInput) {
-                passwordConfirmationInput.disabled = !allowLogin;
-                passwordConfirmationInput.required = allowLogin;
-                if (!allowLogin) {
-                    passwordConfirmationInput.value = '';
-                }
-            }
-        };
-
-        allowSystemLoginToggle?.addEventListener('change', updateSystemAccess);
-        updateSystemAccess();
 
         const buildName = () => {
             const first = firstNameInput?.value?.trim() || '';

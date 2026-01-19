@@ -37,7 +37,6 @@
                                 $perMonthSalaryLabel = $perMonthSalary !== null
                                     ? 'PHP ' . number_format((float) $perMonthSalary, 2)
                                     : '—';
-                                $allowSystemLogin = old('allow_system_login', (int) ($data->allow_system_login ?? 1));
                                 $hasStatutory = !empty($data->tin_number)
                                     || !empty($data->sss_number)
                                     || !empty($data->philhealth_number)
@@ -287,26 +286,7 @@
                                     </div>
                                 </div>
                                 @if($canEditAll)
-                                    <div class="mb-3 row">
-                                        <label class="col-sm-12 col-lg-2 col-form-label">System access:</label>
-                                        <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                            <input type="hidden" name="allow_system_login" value="0">
-                                            <div class="form-check">
-                                                <input
-                                                    class="form-check-input"
-                                                    type="checkbox"
-                                                    id="allow_system_login"
-                                                    name="allow_system_login"
-                                                    value="1"
-                                                    {{ $allowSystemLogin ? 'checked' : '' }}
-                                                />
-                                                <label class="form-check-label fw-semibold" for="allow_system_login">Allow system login</label>
-                                                <div class="text-muted small">
-                                                    Used for staff portal access only (attendance, schedule, payslips).
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
+                                    <input type="hidden" name="allow_system_login" value="{{ old('allow_system_login', (int) ($data->allow_system_login ?? 1)) }}">
                                     <div class="mb-3 row">
                                         <label for="password" class="col-sm-12 col-lg-2 col-form-label">Password:</label>
                                         <div class="col-lg-10 col-sm-12 d-flex align-items-center">
@@ -397,9 +377,6 @@
         const monthlySalaryInput = document.getElementById('per_month_salary');
         const expectedHoursInput = document.getElementById('expected_hours_per_week');
         const employmentTypeInputs = document.querySelectorAll('input[name="employment_type"]');
-        const allowSystemLoginToggle = document.getElementById('allow_system_login');
-        const passwordInput = document.getElementById('password');
-        const passwordConfirmationInput = document.getElementById('password_confirmation');
         const computedHourlyRate = document.getElementById('computedHourlyRate');
         const statutoryOptionWrapper = document.getElementById('statutoryOptionWrapper');
         const includeStatutoryYes = document.getElementById('includeStatutoryYes');
@@ -567,21 +544,6 @@
         expectedHoursInput?.addEventListener('input', updateComputedHourlyRate);
         updateComputedHourlyRate();
 
-        const updateSystemAccess = () => {
-            if (!allowSystemLoginToggle) {
-                return;
-            }
-            const allowLogin = !!allowSystemLoginToggle.checked;
-            if (passwordInput) {
-                passwordInput.disabled = !allowLogin;
-            }
-            if (passwordConfirmationInput) {
-                passwordConfirmationInput.disabled = !allowLogin;
-            }
-        };
-
-        allowSystemLoginToggle?.addEventListener('change', updateSystemAccess);
-        updateSystemAccess();
         updateStatutoryFields();
 
         employmentTypeInputs.forEach((input) => {
