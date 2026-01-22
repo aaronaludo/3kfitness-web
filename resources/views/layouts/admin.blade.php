@@ -305,9 +305,31 @@
         }
 
         .classes-calendar-modal .calendar-event__more {
-            font-size: 0.65rem;
-            color: #6b7280;
-            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 6px;
+            width: 100%;
+            border: 1px dashed #cbd5e1;
+            border-radius: 8px;
+            padding: 4px 6px;
+            background: #f8fafc;
+            color: #475569;
+            font-size: 0.62rem;
+            font-weight: 700;
+            letter-spacing: 0.02em;
+            font-family: inherit;
+            cursor: pointer;
+        }
+
+        .classes-calendar-modal .calendar-event__more:hover {
+            background: #eef2f7;
+        }
+
+        .classes-calendar-modal .calendar-event__more-count {
+            font-size: 0.6rem;
+            font-weight: 800;
+            color: #ef4444;
         }
 
         .classes-calendar-modal .calendar-legend {
@@ -338,6 +360,65 @@
             font-size: 0.85rem;
             color: #6b7280;
             margin-top: 12px;
+        }
+
+        .classes-calendar-day-modal .modal-content {
+            border-radius: 18px;
+            border: none;
+            background: #f7f8fc;
+        }
+
+        .classes-calendar-day-modal .modal-header {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+
+        .classes-calendar-day-modal .calendar-day-details {
+            background: #ffffff;
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+
+        .classes-calendar-day-modal .calendar-day-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .classes-calendar-day-modal .calendar-day-item {
+            border-radius: 12px;
+            border: 1px solid var(--event-border);
+            background: var(--event-bg);
+            color: var(--event-text);
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .classes-calendar-day-modal .calendar-day-item__title {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            gap: 8px;
+            font-weight: 700;
+        }
+
+        .classes-calendar-day-modal .calendar-day-item__code {
+            font-size: 0.75rem;
+            opacity: 0.75;
+        }
+
+        .classes-calendar-day-modal .calendar-day-item__meta {
+            font-size: 0.75rem;
+            opacity: 0.85;
+        }
+
+        .classes-calendar-day-modal .calendar-day-empty {
+            font-size: 0.85rem;
+            color: #6b7280;
+            margin-top: 10px;
         }
 
         .header-actions .navbar-nav {
@@ -1119,6 +1200,28 @@
     </div>
 </div>
 
+<div class="modal fade classes-calendar-day-modal" id="classesCalendarDayModal" tabindex="-1" aria-labelledby="classesCalendarDayModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="classesCalendarDayModalLabel">Classes for this day</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="calendar-day-details">
+                    <div class="calendar-day-list" id="classesCalendarDayList"></div>
+                    <div class="calendar-day-empty d-none" id="classesCalendarDayEmpty">No classes scheduled for this day.</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-target="#classesCalendarModal" data-bs-toggle="modal" data-bs-dismiss="modal">
+                    Back to View Calendar
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @if(auth()->guard('admin')->user()->role_id == 2)
 <div class="modal fade" id="timeActionsModal" tabindex="-1" aria-labelledby="timeActionsModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
@@ -1400,12 +1503,17 @@
             var monthSelectEl = modalEl.querySelector('#classesCalendarMonthSelect');
             var navButtons = modalEl.querySelectorAll('[data-calendar-nav]');
             var calendarUrl = "{{ route('admin.gym-management.schedules.all') }}";
+            var dayModalEl = document.getElementById('classesCalendarDayModal');
+            var dayModalTitleEl = dayModalEl ? dayModalEl.querySelector('#classesCalendarDayModalLabel') : null;
+            var dayModalListEl = dayModalEl ? dayModalEl.querySelector('#classesCalendarDayList') : null;
+            var dayModalEmptyEl = dayModalEl ? dayModalEl.querySelector('#classesCalendarDayEmpty') : null;
 
             var schedules = [];
             var dataLoaded = false;
             var dataLoading = false;
             var calendarCursor = new Date();
             calendarCursor.setDate(1);
+            var currentOccurrences = {};
 
             var palette = [
                 { bg: '#fde8e9', border: '#f7c7cd', text: '#7a1f2d' },
@@ -1468,6 +1576,19 @@
                 var month = String(date.getMonth() + 1).padStart(2, '0');
                 var day = String(date.getDate()).padStart(2, '0');
                 return year + '-' + month + '-' + day;
+            };
+
+            var formatReadableDate = function (value) {
+                var dateObj = value instanceof Date ? value : parseDateString(value);
+                if (!dateObj) {
+                    return value || '';
+                }
+                return dateObj.toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                });
             };
 
             var formatMonthValue = function (date) {
@@ -1797,6 +1918,62 @@
                 return { occurrences: occurrences, legend: legend };
             };
 
+            var renderDayModal = function (dateKey) {
+                if (!dayModalListEl || !dayModalTitleEl) {
+                    return;
+                }
+
+                var events = currentOccurrences[dateKey] ? currentOccurrences[dateKey].slice() : [];
+                events.sort(function (a, b) {
+                    return (a.startMinutes || 0) - (b.startMinutes || 0);
+                });
+
+                dayModalTitleEl.textContent = 'Classes for ' + formatReadableDate(dateKey);
+                dayModalListEl.innerHTML = '';
+
+                if (!events.length) {
+                    if (dayModalEmptyEl) {
+                        dayModalEmptyEl.classList.remove('d-none');
+                    }
+                    return;
+                }
+
+                if (dayModalEmptyEl) {
+                    dayModalEmptyEl.classList.add('d-none');
+                }
+
+                events.forEach(function (event) {
+                    var card = document.createElement('div');
+                    card.className = 'calendar-day-item';
+                    card.style.setProperty('--event-bg', event.color.bg);
+                    card.style.setProperty('--event-border', event.color.border);
+                    card.style.setProperty('--event-text', event.color.text);
+
+                    var header = document.createElement('div');
+                    header.className = 'calendar-day-item__title';
+                    var nameEl = document.createElement('span');
+                    nameEl.textContent = event.name;
+                    var codeEl = document.createElement('span');
+                    codeEl.className = 'calendar-day-item__code';
+                    codeEl.textContent = event.classCode;
+                    header.appendChild(nameEl);
+                    header.appendChild(codeEl);
+
+                    var trainerEl = document.createElement('div');
+                    trainerEl.className = 'calendar-day-item__meta';
+                    trainerEl.textContent = event.trainer;
+
+                    var timeEl = document.createElement('div');
+                    timeEl.className = 'calendar-day-item__meta';
+                    timeEl.textContent = event.timeLabel;
+
+                    card.appendChild(header);
+                    card.appendChild(trainerEl);
+                    card.appendChild(timeEl);
+                    dayModalListEl.appendChild(card);
+                });
+            };
+
             var renderCalendar = function () {
                 if (!dataLoaded || !gridEl || !monthLabelEl) {
                     return;
@@ -1810,6 +1987,7 @@
                 var result = buildOccurrencesForMonth(schedules, year, month);
                 var occurrences = result.occurrences;
                 var legend = result.legend;
+                currentOccurrences = occurrences;
 
                 gridEl.innerHTML = '';
 
@@ -1873,9 +2051,23 @@
                         });
 
                         if (events.length > maxEvents) {
-                            var moreEl = document.createElement('div');
+                            var hiddenCount = events.length - maxEvents;
+                            var moreEl = document.createElement('button');
+                            moreEl.type = 'button';
                             moreEl.className = 'calendar-event__more';
-                            moreEl.textContent = '+' + (events.length - maxEvents) + ' more';
+                            moreEl.setAttribute('data-bs-toggle', 'modal');
+                            moreEl.setAttribute('data-bs-target', '#classesCalendarDayModal');
+                            moreEl.setAttribute('data-date-key', dateKey);
+                            moreEl.setAttribute('aria-label', 'See ' + hiddenCount + ' more classes on ' + formatReadableDate(dateKey));
+
+                            var moreLabel = document.createElement('span');
+                            moreLabel.textContent = 'See more';
+                            var moreCount = document.createElement('span');
+                            moreCount.className = 'calendar-event__more-count';
+                            moreCount.textContent = '+' + hiddenCount;
+
+                            moreEl.appendChild(moreLabel);
+                            moreEl.appendChild(moreCount);
                             eventsContainer.appendChild(moreEl);
                         }
 
@@ -1956,6 +2148,20 @@
                 renderCalendar();
             });
 
+            if (dayModalEl) {
+                dayModalEl.addEventListener('show.bs.modal', function (event) {
+                    var trigger = event.relatedTarget;
+                    if (!trigger) {
+                        return;
+                    }
+                    var dateKey = trigger.getAttribute('data-date-key');
+                    if (!dateKey) {
+                        return;
+                    }
+                    renderDayModal(dateKey);
+                });
+            }
+
             navButtons.forEach(function (button) {
                 button.addEventListener('click', function () {
                     var direction = button.getAttribute('data-calendar-nav');
@@ -2007,7 +2213,8 @@
                         + '.calendar-event__title { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; font-weight: 700; }'
                         + '.calendar-event__code { font-size: 0.6rem; opacity: 0.85; }'
                         + '.calendar-event__meta { font-size: 0.6rem; opacity: 0.9; }'
-                        + '.calendar-event__more { font-size: 0.65rem; color: #6b7280; font-weight: 600; }'
+                        + '.calendar-event__more { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 4px 6px; background: #f8fafc; color: #475569; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.02em; font-family: inherit; }'
+                        + '.calendar-event__more-count { font-size: 0.6rem; font-weight: 800; color: #ef4444; }'
                         + '.calendar-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }'
                         + '.calendar-legend__item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #4b5563; font-weight: 600; }'
                         + '.calendar-legend__swatch { width: 12px; height: 12px; border-radius: 4px; background: var(--legend-bg); border: 1px solid var(--legend-border); }';
