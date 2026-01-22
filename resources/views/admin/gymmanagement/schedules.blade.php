@@ -665,12 +665,12 @@
                     const printForm = document.getElementById('print-form');
                     const printLoader = document.getElementById('print-loader');
 
-                    function getBadgeClass(status) {
-                        if (status === 'Series pending trainer acceptance') return 'badge-soft-muted';
-                        if (status === 'Upcoming') return 'badge-soft-warning';
-                        if (status === 'Ongoing') return 'badge-soft-info';
-                        if (status === 'Completed') return 'badge-soft-success';
-                        return 'badge-soft-muted';
+                    function getStatusPillClass(status) {
+                        if (status === 'Series pending trainer acceptance') return 'status-pill--muted';
+                        if (status === 'Upcoming') return 'status-pill--warning';
+                        if (status === 'Ongoing') return 'status-pill--info';
+                        if (status === 'Completed') return 'status-pill--success';
+                        return 'status-pill--muted';
                     }
 
                     function buildFilters(filters) {
@@ -711,7 +711,7 @@
                                 `<div>${item.trainer || '—'}</div>${trainerRate}`,
                                 `<div>${seriesRange}</div>${timeRange}<div class="muted">Cadence: ${item.cadence || '—'}</div>`,
                                 `<div class="fw">${item.slots ?? 0} slots</div><div class="muted">${item.enrolled ?? 0} enrolled</div>`,
-                                `<span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span>`,
+                                `<span class="status-pill ${getStatusPillClass(item.status)}"><span class="status-pill-dot" aria-hidden="true"></span>${item.status || '—'}</span>`,
                                 `<div class="fw">${creatorName}</div>${creatorRole}`,
                                 `<div>${item.created_at || ''}</div>`,
                             ];
