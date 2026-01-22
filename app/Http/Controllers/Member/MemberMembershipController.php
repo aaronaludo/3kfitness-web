@@ -18,7 +18,7 @@ class MemberMembershipController extends Controller
     public function index(Request $request)
     {
         $user = $request->user();
-        $data = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week', 'class_limit_per_month')
+        $data = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week', 'day', 'class_limit_per_month')
             ->when(Schema::hasColumn('memberships', 'is_archive'), fn ($query) => $query->where('is_archive', 0))
             ->orderBy('price')
             ->get();
@@ -103,7 +103,7 @@ class MemberMembershipController extends Controller
 
     public function catalog()
     {
-        $memberships = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week', 'class_limit_per_month')
+        $memberships = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week', 'day', 'class_limit_per_month')
             ->when(Schema::hasColumn('memberships', 'is_archive'), fn ($query) => $query->where('is_archive', 0))
             ->orderBy('price')
             ->get();
@@ -243,6 +243,7 @@ class MemberMembershipController extends Controller
                         'year'                  => $membership->year,
                         'month'                 => $membership->month,
                         'week'                  => $membership->week,
+                        'day'                   => $membership->day,
                         'class_limit_per_month' => $membership->class_limit_per_month,
                     ] : null,
                 ];
@@ -279,6 +280,10 @@ class MemberMembershipController extends Controller
         }
         if (!empty($membership->week)) {
             $expiry->addWeeks((int) $membership->week);
+            $hasDuration = true;
+        }
+        if (!empty($membership->day)) {
+            $expiry->addDays((int) $membership->day);
             $hasDuration = true;
         }
 

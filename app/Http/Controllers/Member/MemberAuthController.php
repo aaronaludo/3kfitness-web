@@ -220,6 +220,10 @@ class MemberAuthController extends Controller
             $expiry->addWeeks((int) $membership->week);
             $hasDuration = true;
         }
+        if (!empty($membership->day)) {
+            $expiry->addDays((int) $membership->day);
+            $hasDuration = true;
+        }
 
         return $hasDuration ? $expiry : null;
     }

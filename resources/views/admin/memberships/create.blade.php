@@ -60,9 +60,15 @@
                                 <div class="mb-3 row">
                                     <label for="month" class="col-sm-12 col-lg-2 col-form-label">Month: </label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
-                                        <input type="number" class="form-control" id="month" name="month" value="{{ old('month', 0) }}" required/>
+                                        <input type="number" min="0" class="form-control" id="month" name="month" value="{{ old('month', 0) }}" required/>
                                     </div>
                                 </div>       
+                                <div class="mb-3 row">
+                                    <label for="day" class="col-sm-12 col-lg-2 col-form-label">Day: </label>
+                                    <div class="col-lg-10 col-sm-12 d-flex align-items-center">
+                                        <input type="number" min="0" class="form-control" id="day" name="day" value="{{ old('day', 0) }}"/>
+                                    </div>
+                                </div>
                                 <div class="mb-3 row">
                                     <label for="class_limit_per_month" class="col-sm-12 col-lg-2 col-form-label">Classes / Month:</label>
                                     <div class="col-lg-10 col-sm-12 d-flex align-items-center">
@@ -119,6 +125,10 @@
                             <span class="fw-semibold" id="confirmMonth">—</span>
                         </div>
                         <div class="list-group-item d-flex justify-content-between">
+                            <span class="text-muted">Day(s)</span>
+                            <span class="fw-semibold" id="confirmDay">—</span>
+                        </div>
+                        <div class="list-group-item d-flex justify-content-between">
                             <span class="text-muted">Classes / Month</span>
                             <span class="fw-semibold" id="confirmClassLimit">—</span>
                         </div>
@@ -141,10 +151,12 @@
         const nameInput = document.getElementById('name');
         const priceInput = document.getElementById('price');
         const monthInput = document.getElementById('month');
+        const dayInput = document.getElementById('day');
         const classLimitInput = document.getElementById('class_limit_per_month');
         const confirmName = document.getElementById('confirmName');
         const confirmPrice = document.getElementById('confirmPrice');
         const confirmMonth = document.getElementById('confirmMonth');
+        const confirmDay = document.getElementById('confirmDay');
         const confirmClassLimit = document.getElementById('confirmClassLimit');
         const confirmModalEl = document.getElementById('formConfirmModal');
         const confirmModal = confirmModalEl && typeof bootstrap !== 'undefined' ? new bootstrap.Modal(confirmModalEl) : null;
@@ -163,6 +175,7 @@
             confirmName.textContent = nameInput?.value?.trim() || '—';
             confirmPrice.textContent = formatCurrency(priceInput?.value);
             confirmMonth.textContent = monthInput?.value !== '' && monthInput?.value !== null ? monthInput.value : '0';
+            confirmDay.textContent = dayInput?.value !== '' && dayInput?.value !== null ? dayInput.value : '0';
             const classLimit = classLimitInput?.value?.trim();
             confirmClassLimit.textContent = classLimit === '' ? 'Unlimited' : classLimit;
         };

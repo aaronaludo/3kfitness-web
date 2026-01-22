@@ -16,6 +16,7 @@
                         'description' => $item->description ?? '',
                         'price' => $item->price ?? '0',
                         'month' => $item->month ?? '0',
+                        'day' => $item->day ?? '0',
                         'class_limit' => $item->class_limit ?? 'Unlimited',
                         'approved' => $item->members_approved ?? 0,
                         'pending' => $item->members_pending ?? 0,
@@ -308,6 +309,7 @@
                                             <th class="sortable" data-column="description">Description <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="price">Price <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="month">Month <i class="fa fa-sort"></i></th>
+                                            <th class="sortable" data-column="day">Day <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="class_limit_per_month">Classes / Month <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="total_members_approved">Total Members Approved <i class="fa fa-sort"></i></th>
                                             <th class="sortable" data-column="total_members_pending">Total Members Pending <i class="fa fa-sort"></i></th>
@@ -325,6 +327,7 @@
                                                 <td>{{ $item->description }}</td>
                                                 <td>{{ $item->price }}</td>
                                                 <td>{{ $item->month ?? '0' }}</td>
+                                                <td>{{ $item->day ?? '0' }}</td>
                                                 <td>{{ $item->class_limit_per_month !== null ? $item->class_limit_per_month : 'Unlimited' }}</td>
                                                 <td>{{ $item->members_approved }}</td>
                                                 <td>{{ $item->members_pending }}</td>
@@ -431,6 +434,7 @@
                                             <th>Description</th>
                                             <th>Price</th>
                                             <th>Month</th>
+                                            <th>Day</th>
                                             <th>Classes / Month</th>
                                             <th>Members Approved</th>
                                             <th>Members Pending</th>
@@ -448,6 +452,7 @@
                                                 <td>{{ $archive->description }}</td>
                                                 <td>{{ $archive->price }}</td>
                                                 <td>{{ $archive->month ?? '0' }}</td>
+                                                <td>{{ $archive->day ?? '0' }}</td>
                                                 <td>{{ $archive->class_limit_per_month !== null ? $archive->class_limit_per_month : 'Unlimited' }}</td>
                                                 <td>{{ $archive->members_approved }}</td>
                                                 <td>{{ $archive->members_pending }}</td>
@@ -554,7 +559,7 @@
                                             </script>
                                         @empty
                                             <tr>
-                                                <td colspan="11" class="text-center text-muted">No archived memberships found.</td>
+                                                <td colspan="13" class="text-center text-muted">No archived memberships found.</td>
                                             </tr>
                                         @endforelse
                                     </tbody>
@@ -591,18 +596,19 @@
                             if (!cells.length || cells[0].hasAttribute('colspan')) return;
 
                             const isArchived = !!archivedTable && table === archivedTable;
-                            // Active table has 11 data columns before actions; archived has 11 including actions.
+                            // Active table has 12 data columns before actions; archived has 12 including actions.
                             const id = text(cells[0]);
                             const name = text(cells[1]);
                             const description = text(cells[2]);
                             const price = text(cells[3]);
                             const month = text(cells[4]);
-                            const classLimit = text(cells[5]);
-                            const approved = text(cells[6]);
-                            const pending = text(cells[7]);
-                            const rejected = text(cells[8]);
-                            const created = text(cells[9]);
-                            const updated = text(cells[10]);
+                            const day = text(cells[5]);
+                            const classLimit = text(cells[6]);
+                            const approved = text(cells[7]);
+                            const pending = text(cells[8]);
+                            const rejected = text(cells[9]);
+                            const created = text(cells[10]);
+                            const updated = text(cells[11]);
 
                             items.push({
                                 id,
@@ -610,6 +616,7 @@
                                 description,
                                 price,
                                 month,
+                                day,
                                 class_limit: classLimit,
                                 approved,
                                 pending,
@@ -643,7 +650,7 @@
                         return items.map((item) => ([
                             item.id || '—',
                             `<div class="fw">${item.name || '—'}</div><div class="muted">${item.description || ''}</div>`,
-                            `<div>₱${item.price || '0'}</div><div class="muted">Plan length: ${item.month || '0'} mo.</div><div class="muted">Classes/mo: ${item.class_limit || 'Unlimited'}</div>`,
+                            `<div>₱${item.price || '0'}</div><div class="muted">Plan length: ${item.month || '0'} mo., ${item.day || '0'} day(s).</div><div class="muted">Classes/mo: ${item.class_limit || 'Unlimited'}</div>`,
                             `<div class="fw">Approved: ${item.approved || '0'}</div><div class="muted">Pending: ${item.pending || '0'}</div><div class="muted">Rejected: ${item.rejected || '0'}</div>`,
                             `<div>${item.created || ''}</div><div class="muted">${item.updated || ''}</div><div class="muted">${item.archived}</div>`,
                         ]));

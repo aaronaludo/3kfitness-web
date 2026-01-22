@@ -34,7 +34,7 @@ class MembershipController extends Controller
         }
     
         $allowed_columns = [
-            'id', 'name', 'description', 'month', 'class_limit_per_month', 'members_approved', 'members_pending', 'members_reject',
+            'id', 'name', 'description', 'month', 'day', 'class_limit_per_month', 'members_approved', 'members_pending', 'members_reject',
             'created_at', 'updated_at',
         ];
     
@@ -150,6 +150,7 @@ class MembershipController extends Controller
             if ($integerSearch !== null) {
                 $query->orWhere('id', $integerSearch)
                     ->orWhere('month', $integerSearch)
+                    ->orWhere('day', $integerSearch)
                     ->orWhere('class_limit_per_month', $integerSearch);
             }
 
@@ -207,6 +208,8 @@ class MembershipController extends Controller
             'name' => 'required',
             // 'currency' => 'required',
             'price' => 'required',
+            'month' => 'nullable|integer|min:0',
+            'day' => 'nullable|integer|min:0',
             'description' => 'nullable|string|max:2000',
             'class_limit_per_month' => 'nullable|integer|min:0',
         ]);
@@ -217,7 +220,8 @@ class MembershipController extends Controller
         $data->price = $request->price;
         $data->description = $request->description;
         // $data->year = $request->year;
-        $data->month = $request->month;
+        $data->month = $request->filled('month') ? (int) $request->month : 0;
+        $data->day = $request->filled('day') ? (int) $request->day : 0;
         // $data->week = $request->week;
         $data->class_limit_per_month = $request->class_limit_per_month !== null && $request->class_limit_per_month !== '' 
             ? $request->class_limit_per_month 
@@ -233,6 +237,8 @@ class MembershipController extends Controller
             'name' => 'required',
             // 'currency' => 'required',
             'price' => 'required',
+            'month' => 'nullable|integer|min:0',
+            'day' => 'nullable|integer|min:0',
             'description' => 'nullable|string|max:2000',
             'class_limit_per_month' => 'nullable|integer|min:0',
         ]);
@@ -243,7 +249,8 @@ class MembershipController extends Controller
         $data->price = $request->price;
         $data->description = $request->description;
         // $data->year = $request->year;
-        $data->month = $request->month;
+        $data->month = $request->filled('month') ? (int) $request->month : 0;
+        $data->day = $request->filled('day') ? (int) $request->day : 0;
         // $data->week = $request->week;
         $data->class_limit_per_month = $request->class_limit_per_month !== null && $request->class_limit_per_month !== '' 
             ? $request->class_limit_per_month 
@@ -364,7 +371,7 @@ class MembershipController extends Controller
         }
 
         $allowedColumns = [
-            'id', 'name', 'description', 'price', 'month', 'members_approved', 'members_pending', 'members_reject',
+            'id', 'name', 'description', 'price', 'month', 'day', 'members_approved', 'members_pending', 'members_reject',
             'created_at', 'updated_at',
         ];
         if (!in_array($searchColumn, $allowedColumns, true)) {

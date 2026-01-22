@@ -17,6 +17,9 @@
         if (!empty($data->week)) {
             $durationParts[] = $data->week . ' week' . ($data->week > 1 ? 's' : '');
         }
+        if (!empty($data->day)) {
+            $durationParts[] = $data->day . ' day' . ($data->day > 1 ? 's' : '');
+        }
         $durationText = $durationParts ? implode(' • ', $durationParts) : 'Flexible duration';
 
         $classLimit = $data->class_limit_per_month !== null

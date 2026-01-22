@@ -28,6 +28,10 @@ trait FormatsMembershipReceipt
             $weeks = (int) $membership->week;
             $durationParts[] = $weeks === 1 ? '1 week' : "{$weeks} weeks";
         }
+        if (!empty($membership->day)) {
+            $days = (int) $membership->day;
+            $durationParts[] = $days === 1 ? '1 day' : "{$days} days";
+        }
 
         return [
             'payment_id' => $payment->id,

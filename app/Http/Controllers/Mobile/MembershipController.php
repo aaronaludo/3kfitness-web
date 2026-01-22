@@ -16,7 +16,7 @@ class MembershipController extends Controller
 
     public function index()
     {
-        $memberships = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week', 'class_limit_per_month')
+        $memberships = Membership::select('id', 'name', 'currency', 'description', 'price', 'year', 'month', 'week', 'day', 'class_limit_per_month')
             ->when(Schema::hasColumn('memberships', 'is_archive'), fn ($query) => $query->where('is_archive', 0))
             ->orderBy('price')
             ->get();

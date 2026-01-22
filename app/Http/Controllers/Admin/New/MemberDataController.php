@@ -332,6 +332,9 @@ class MemberDataController extends Controller
         if ($membership->week) {
             $currentDate->modify("+{$membership->week} weeks");
         }
+        if ($membership->day) {
+            $currentDate->modify("+{$membership->day} days");
+        }
         $data->expiration_at = $currentDate;
 
         $data->save();
@@ -379,7 +382,7 @@ class MemberDataController extends Controller
         }
 
         if ($validatedData['membership_id'] == 0) {
-            $membership = (object) ['year' => 0, 'month' => 0, 'week' => 0]; 
+            $membership = (object) ['year' => 0, 'month' => 0, 'week' => 0, 'day' => 0]; 
             $validatedData['membership_id'] = null;
         } else {
             $membership = Membership::find($validatedData['membership_id']);
@@ -408,6 +411,9 @@ class MemberDataController extends Controller
         }
         if ($membership->week) {
             $currentDate->modify("+{$membership->week} weeks");
+        }
+        if ($membership->day) {
+            $currentDate->modify("+{$membership->day} days");
         }
         $data->expiration_at = $currentDate;
         

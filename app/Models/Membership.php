@@ -17,6 +17,7 @@ class Membership extends Model
         'year',
         'month',
         'week',
+        'day',
         'class_limit_per_month',
     ];
     
