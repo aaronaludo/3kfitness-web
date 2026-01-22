@@ -121,6 +121,11 @@
             </div>
 
             <section id="staff-payroll-section" class="payroll-section">
+            @php
+                $staffSummariesWithHours = collect($summaries ?? [])->filter(function ($summary) {
+                    return (float) ($summary['total_hours'] ?? 0) > 0;
+                })->values();
+            @endphp
             <div class="col-12 mb-2">
                 <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
                     <div>
@@ -190,7 +195,7 @@
             </div>
 
             <div class="col-12">
-                @forelse ($summaries as $summary)
+                @forelse ($staffSummariesWithHours as $summary)
                     @php
                         $staff = $summary['staff'];
                         $collapseId = 'payroll-breakdown-' . $staff->id;
@@ -499,6 +504,11 @@
             </section>
 
             <section id="trainer-payroll-section" class="payroll-section mt-4">
+            @php
+                $trainerAssignmentsWithHours = collect($trainerAssignments ?? [])->filter(function ($assignment) {
+                    return (float) ($assignment['total_hours'] ?? 0) > 0;
+                })->values();
+            @endphp
             <div class="col-12">
                 <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
                     <div class="card-body p-4">
@@ -509,11 +519,11 @@
                                 <p class="text-muted mb-0">Review trainer class assignments, durations, and estimated payouts using the same streamlined layout.</p>
                             </div>
                             <div class="text-end">
-                                <span class="d-block text-muted small">{{ ($trainerAssignments ?? collect())->count() }} trainers with assignments</span>
+                                <span class="d-block text-muted small">{{ $trainerAssignmentsWithHours->count() }} trainers with assignments</span>
                             </div>
                         </div>
 
-                        @forelse($trainerAssignments as $assignment)
+                        @forelse($trainerAssignmentsWithHours as $assignment)
                             @php
                                 $trainer = $assignment['trainer'];
                                 $modalId = 'trainer-assignments-' . $trainer->id;
@@ -1003,7 +1013,12 @@
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse($assignmentDetails as $detail)
+                    @php
+                        $assignmentDetailsForDisplay = $assignmentDetails->filter(function ($detail) {
+                            return (float) ($detail['payroll_hours'] ?? $detail['hours'] ?? 0) > 0;
+                        })->values();
+                    @endphp
+                    @forelse($assignmentDetailsForDisplay as $detail)
                         @php
                             $schedule = $detail['schedule'];
                             $processedMatch = $processedSeries->first(function ($series) use ($schedule) {
