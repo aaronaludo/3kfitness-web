@@ -119,6 +119,40 @@
             color: #64748b;
             border-color: rgba(148, 163, 184, 0.35);
         }
+        .manual-clock-warning {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+        }
+        .manual-clock-warning-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(245, 158, 11, 0.15);
+            color: #b45309;
+            flex: 0 0 auto;
+            font-size: 1rem;
+        }
+        .manual-clock-warning-title {
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 2px;
+            color: #7c2d12;
+        }
+        .manual-clock-warning-subtitle {
+            font-size: 0.75rem;
+            color: #9a3412;
+            margin-bottom: 0;
+        }
         @media (max-width: 575px) {
             .manual-clock-member-card {
                 flex-direction: column;
@@ -779,6 +813,19 @@
                             </div>
                         </div>
                     </div>
+                    <div class="manual-clock-warning d-none" id="scanClockWarning">
+                        <div class="manual-clock-warning-icon">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div>
+                            <div class="manual-clock-warning-title" id="scanClockWarningTitle">
+                                Warning: Your membership is about to expire soon.
+                            </div>
+                            <div class="manual-clock-warning-subtitle" id="scanClockWarningSubtitle">
+                                Please renew your membership to avoid any interruptions.
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal">Close</button>
@@ -804,6 +851,9 @@
             const scanClockMemberPhoneEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockMemberPhone') : null;
             const scanClockMemberCodeEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockMemberCode') : null;
             const scanClockMemberMembershipEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockMemberMembership') : null;
+            const scanClockWarningEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockWarning') : null;
+            const scanClockWarningTitleEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockWarningTitle') : null;
+            const scanClockWarningSubtitleEl = scanClockModalEl ? scanClockModalEl.querySelector('#scanClockWarningSubtitle') : null;
             const scanClockModal = scanClockModalEl && typeof bootstrap !== 'undefined'
                 ? new bootstrap.Modal(scanClockModalEl)
                 : null;
@@ -847,6 +897,48 @@
                 success: { icon: 'fa-solid fa-circle-check', className: 'manual-clock-icon--success' },
             };
 
+            const parseDaysRemaining = function (value) {
+                if (value === undefined || value === null || value === '') {
+                    return null;
+                }
+                const parsed = parseInt(value, 10);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+
+            const buildWarningCopy = function (daysRemaining) {
+                if (daysRemaining === 0) {
+                    return {
+                        title: 'Warning: Your membership expires today.',
+                        subtitle: 'Please renew your membership to avoid any interruptions.'
+                    };
+                }
+                const dayLabel = daysRemaining === 1 ? '1 day' : `${daysRemaining} days`;
+                return {
+                    title: `Warning: Your membership is about to expire in ${dayLabel}.`,
+                    subtitle: 'Please renew your membership to avoid any interruptions.'
+                };
+            };
+
+            const updateScanWarning = function (member, status) {
+                if (!scanClockWarningEl) {
+                    return;
+                }
+                const daysRemaining = member && typeof member.membershipDaysRemaining === 'number'
+                    ? member.membershipDaysRemaining
+                    : null;
+                const shouldShow = status === 'clockin' && typeof daysRemaining === 'number' && daysRemaining <= 7;
+
+                if (!shouldShow) {
+                    scanClockWarningEl.classList.add('d-none');
+                    return;
+                }
+
+                const copy = buildWarningCopy(daysRemaining);
+                if (scanClockWarningTitleEl) scanClockWarningTitleEl.textContent = copy.title;
+                if (scanClockWarningSubtitleEl) scanClockWarningSubtitleEl.textContent = copy.subtitle;
+                scanClockWarningEl.classList.remove('d-none');
+            };
+
             const normalizeScanUser = function (payload) {
                 return {
                     name: payload?.name || 'Member',
@@ -855,6 +947,7 @@
                     code: payload?.code || '#---',
                     membership: payload?.membership || 'No Membership',
                     membershipActive: payload?.membership_active === true,
+                    membershipDaysRemaining: parseDaysRemaining(payload?.membership_days_remaining),
                     avatar: payload?.avatar || defaultAvatar,
                 };
             };
@@ -987,6 +1080,7 @@
                 if (!token) {
                     setCameraStatus('Invalid QR code', 'danger');
                     updateScanMemberCard(normalizeScanUser({}));
+                    updateScanWarning(null, null);
                     setScanModalState('error', {
                         title: 'Invalid QR code',
                         subtitle: 'Please scan a valid code.'
@@ -996,6 +1090,7 @@
                 }
 
                 updateScanMemberCard(normalizeScanUser({}));
+                updateScanWarning(null, null);
                 setScanModalState('loading', {
                     title: 'Updating attendance',
                     subtitle: 'Please wait while we confirm the scan.'
@@ -1017,6 +1112,7 @@
                         const status = data?.status || (isErrorMessage(message) ? 'error' : 'success');
                         const member = normalizeScanUser(data?.user || {});
                         updateScanMemberCard(member);
+                        updateScanWarning(member, status);
 
                         if (status === 'clockout') {
                             setScanModalState('clockout', {
@@ -1046,6 +1142,7 @@
                         console.error(error);
                         setCameraStatus('Scan failed — see console', 'danger');
                         updateScanMemberCard(normalizeScanUser({}));
+                        updateScanWarning(null, null);
                         setScanModalState('error', {
                             title: 'Scan failed',
                             subtitle: 'Unable to process attendance right now.'

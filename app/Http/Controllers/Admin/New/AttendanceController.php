@@ -226,9 +226,10 @@ class AttendanceController extends Controller
         $membership = null;
         $membershipName = null;
         $membershipActive = null;
+        $membershipDaysRemaining = null;
         $userPayload = null;
 
-        $buildUserPayload = function ($user, $membershipName, $membershipActive) {
+        $buildUserPayload = function ($user, $membershipName, $membershipActive, $membershipDaysRemaining = null) {
             $name = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
             $avatar = $user->profile_picture
                 ? asset($user->profile_picture)
@@ -243,6 +244,7 @@ class AttendanceController extends Controller
                 'code' => $formattedCode,
                 'membership' => $membershipName ?? 'No Membership',
                 'membership_active' => (bool) $membershipActive,
+                'membership_days_remaining' => is_null($membershipDaysRemaining) ? null : (int) $membershipDaysRemaining,
                 'avatar' => $avatar,
             ];
         };
@@ -292,17 +294,21 @@ class AttendanceController extends Controller
             if (!$membership) {
                 $membershipName = 'No Membership';
                 $membershipActive = false;
-                $userPayload = $buildUserPayload($user, $membershipName, $membershipActive);
+                $userPayload = $buildUserPayload($user, $membershipName, $membershipActive, $membershipDaysRemaining);
                 return $respond('No valid membership found', 'error', $userPayload);
             }
 
             $membershipName = optional($membership->membership)->name ?? 'Active Membership';
             $membershipActive = true;
-            $userPayload = $buildUserPayload($user, $membershipName, $membershipActive);
+            if (!empty($membership->expiration_at)) {
+                $expirationDate = \Carbon\Carbon::parse($membership->expiration_at);
+                $membershipDaysRemaining = max(0, now()->diffInDays($expirationDate, false));
+            }
+            $userPayload = $buildUserPayload($user, $membershipName, $membershipActive, $membershipDaysRemaining);
         } else {
             $membershipName = optional(optional($user)->role)->name ?? 'Staff';
             $membershipActive = true;
-            $userPayload = $buildUserPayload($user, $membershipName, $membershipActive);
+            $userPayload = $buildUserPayload($user, $membershipName, $membershipActive, $membershipDaysRemaining);
         }
     
         // Check if the user has already clocked in or out for today (active records only)

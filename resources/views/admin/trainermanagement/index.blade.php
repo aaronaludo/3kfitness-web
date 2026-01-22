@@ -116,6 +116,40 @@
             color: #64748b;
             border-color: rgba(148, 163, 184, 0.35);
         }
+        .manual-clock-warning {
+            margin-top: 12px;
+            padding: 10px 12px;
+            border-radius: 14px;
+            background: #fff7ed;
+            border: 1px solid #fed7aa;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+        }
+        .manual-clock-warning-icon {
+            width: 36px;
+            height: 36px;
+            border-radius: 10px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: rgba(245, 158, 11, 0.15);
+            color: #b45309;
+            flex: 0 0 auto;
+            font-size: 1rem;
+        }
+        .manual-clock-warning-title {
+            font-weight: 700;
+            font-size: 0.85rem;
+            margin-bottom: 2px;
+            color: #7c2d12;
+        }
+        .manual-clock-warning-subtitle {
+            font-size: 0.75rem;
+            color: #9a3412;
+            margin-bottom: 0;
+        }
         @media (max-width: 575px) {
             .manual-clock-member-card {
                 flex-direction: column;
@@ -508,6 +542,22 @@
                                                 <td>{{ $item->phone_number }}</td>
                                                 <td>{{ $item->email }}</td>
                                                 @php
+                                                    $latestMembershipPayment = $item->membershipPayments()
+                                                        ->where('isapproved', 1)
+                                                        ->where('expiration_at', '>=', now())
+                                                        ->where('is_archive', 0)
+                                                        ->with('membership')
+                                                        ->orderBy('created_at', 'desc')
+                                                        ->first();
+                                                    $membership = optional($latestMembershipPayment)->membership;
+                                                    $paymentIsArchived = (int) optional($latestMembershipPayment)->is_archive === 1;
+                                                    $membershipIsArchived = (int) optional($membership)->is_archive === 1;
+                                                    $membershipActive = $latestMembershipPayment && !$paymentIsArchived && $membership && !$membershipIsArchived;
+                                                    $membershipDaysRemaining = null;
+                                                    if ($membershipActive && $latestMembershipPayment && $latestMembershipPayment->expiration_at) {
+                                                        $expirationDate = \Carbon\Carbon::parse($latestMembershipPayment->expiration_at);
+                                                        $membershipDaysRemaining = max(0, now()->diffInDays($expirationDate, false));
+                                                    }
                                                     $trainerSchedules = collect($item->trainerSchedules ?? []);
 
                                                     $salaryEligibleSchedules = $trainerSchedules->filter(function ($schedule) {
@@ -654,6 +704,7 @@
                                                                 data-member-code="{{ $trainerCode }}"
                                                                 data-membership="{{ $assignmentLabel }}"
                                                                 data-membership-active="{{ $assignmentActive ? '1' : '0' }}"
+                                                                data-membership-days="{{ $membershipDaysRemaining ?? '' }}"
                                                                 data-avatar="{{ $profilePicture }}"
                                                                 data-action="clockin"
                                                             >
@@ -668,6 +719,7 @@
                                                                 data-member-code="{{ $trainerCode }}"
                                                                 data-membership="{{ $assignmentLabel }}"
                                                                 data-membership-active="{{ $assignmentActive ? '1' : '0' }}"
+                                                                data-membership-days="{{ $membershipDaysRemaining ?? '' }}"
                                                                 data-avatar="{{ $profilePicture }}"
                                                                 data-action="clockout"
                                                             >
@@ -1499,6 +1551,19 @@
                             </div>
                         </div>
                     </div>
+                    <div class="manual-clock-warning d-none" id="manualClockWarning">
+                        <div class="manual-clock-warning-icon">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                        </div>
+                        <div>
+                            <div class="manual-clock-warning-title" id="manualClockWarningTitle">
+                                Warning: Your membership is about to expire soon.
+                            </div>
+                            <div class="manual-clock-warning-subtitle" id="manualClockWarningSubtitle">
+                                Please renew your membership to avoid any interruptions.
+                            </div>
+                        </div>
+                    </div>
                 </div>
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal" id="manualClockCloseBtn">Close</button>
@@ -1522,6 +1587,9 @@
             const manualClockMemberPhoneEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockMemberPhone') : null;
             const manualClockMemberCodeEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockMemberCode') : null;
             const manualClockMemberMembershipEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockMemberMembership') : null;
+            const manualClockWarningEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockWarning') : null;
+            const manualClockWarningTitleEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockWarningTitle') : null;
+            const manualClockWarningSubtitleEl = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockWarningSubtitle') : null;
             const manualClockCloseBtn = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockCloseBtn') : null;
             const manualClockConfirmBtn = manualClockModalEl ? manualClockModalEl.querySelector('#manualClockConfirmBtn') : null;
             const manualClockModal = manualClockModalEl && typeof bootstrap !== 'undefined'
@@ -1544,6 +1612,48 @@
                 loading: { icon: 'fa-solid fa-spinner fa-spin', className: 'manual-clock-icon--loading' }
             };
 
+            const parseDaysRemaining = function (value) {
+                if (value === undefined || value === null || value === '') {
+                    return null;
+                }
+                const parsed = parseInt(value, 10);
+                return Number.isFinite(parsed) ? parsed : null;
+            };
+
+            const buildWarningCopy = function (daysRemaining) {
+                if (daysRemaining === 0) {
+                    return {
+                        title: 'Warning: Your membership expires today.',
+                        subtitle: 'Please renew your membership to avoid any interruptions.'
+                    };
+                }
+                const dayLabel = daysRemaining === 1 ? '1 day' : `${daysRemaining} days`;
+                return {
+                    title: `Warning: Your membership is about to expire in ${dayLabel}.`,
+                    subtitle: 'Please renew your membership to avoid any interruptions.'
+                };
+            };
+
+            const updateWarning = function (member, action) {
+                if (!manualClockWarningEl) {
+                    return;
+                }
+                const daysRemaining = member && typeof member.membershipDaysRemaining === 'number'
+                    ? member.membershipDaysRemaining
+                    : null;
+                const shouldShow = action === 'clockin' && typeof daysRemaining === 'number' && daysRemaining <= 7;
+
+                if (!shouldShow) {
+                    manualClockWarningEl.classList.add('d-none');
+                    return;
+                }
+
+                const copy = buildWarningCopy(daysRemaining);
+                if (manualClockWarningTitleEl) manualClockWarningTitleEl.textContent = copy.title;
+                if (manualClockWarningSubtitleEl) manualClockWarningSubtitleEl.textContent = copy.subtitle;
+                manualClockWarningEl.classList.remove('d-none');
+            };
+
             const normalizeMemberData = function (button) {
                 const memberCode = button.dataset.memberCode || '';
                 const formattedCode = memberCode.startsWith('#') ? memberCode : `#${memberCode || '---'}`;
@@ -1554,6 +1664,7 @@
                     code: formattedCode,
                     membership: button.dataset.membership || 'No upcoming classes',
                     membershipActive: button.dataset.membershipActive === '1',
+                    membershipDaysRemaining: parseDaysRemaining(button.dataset.membershipDays),
                     avatar: button.dataset.avatar || defaultAvatar
                 };
             };
@@ -1630,6 +1741,7 @@
             const submitManualClock = function (action, member, button) {
                 if (!csrfToken || !member.email || !action) {
                     updateMemberCard(member);
+                    updateWarning(member, action);
                     setModalState('error', {
                         title: 'Unable to update attendance',
                         subtitle: 'Missing required trainer details.'
@@ -1640,6 +1752,7 @@
 
                 setButtonLoading(button, action === 'clockout' ? 'Clocking out...' : 'Clocking in...');
                 updateMemberCard(member);
+                updateWarning(member, action);
                 setModalState('loading', {
                     title: action === 'clockout' ? 'Clocking Out' : 'Clocking In',
                     subtitle: 'Please wait while we update attendance.'
@@ -1701,6 +1814,9 @@
                     if (manualClockCloseBtn) {
                         manualClockCloseBtn.textContent = 'Close';
                     }
+                    if (manualClockWarningEl) {
+                        manualClockWarningEl.classList.add('d-none');
+                    }
                 });
             }
 
@@ -1715,6 +1831,7 @@
                     pendingRequest.button = targetButton;
 
                     updateMemberCard(member);
+                    updateWarning(member, action);
 
                     if (action === 'clockout') {
                         setModalState('confirm', {
