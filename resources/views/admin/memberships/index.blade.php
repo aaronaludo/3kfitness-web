@@ -9,7 +9,22 @@
                 $printSource = $showArchived ? $archivedData : $data;
                 $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
 
+                $printUser = auth()->user();
+                $printUserName = $printUser
+                    ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                    : '';
+                if ($printUser && $printUserName === '') {
+                    $printUserName = $printUser->name ?? $printUser->email ?? '';
+                }
+                $printUserRole = $printUser ? optional($printUser->role)->name : null;
+                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+                if ($printUserRole) {
+                    $printGeneratedBy .= " ({$printUserRole})";
+                }
+
                 $mapMembership = function ($item) {
+                    $classLimitPerMonth = $item->class_limit_per_month;
+                    $classesPerMonth = $classLimitPerMonth !== null ? (int) $classLimitPerMonth : 'Unlimited';
                     return [
                         'id' => $item->id ?? '—',
                         'name' => $item->name ?? '—',
@@ -17,7 +32,7 @@
                         'price' => $item->price ?? '0',
                         'month' => $item->month ?? '0',
                         'day' => $item->day ?? '0',
-                        'class_limit' => $item->class_limit ?? 'Unlimited',
+                        'classes_per_month' => $classesPerMonth,
                         'approved' => $item->members_approved ?? 0,
                         'pending' => $item->members_pending ?? 0,
                         'rejected' => $item->members_reject ?? 0,
@@ -33,6 +48,9 @@
                 $printPayload = [
                     'title' => $showArchived ? 'Archived memberships' : 'Membership performance',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'membership_status' => request('membership_status', 'all') ?: 'all',
@@ -47,6 +65,9 @@
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived memberships (all pages)' : 'Membership performance (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'membership_status' => request('membership_status', 'all') ?: 'all',
@@ -617,7 +638,7 @@
                                 price,
                                 month,
                                 day,
-                                class_limit: classLimit,
+                                classes_per_month: classLimit,
                                 approved,
                                 pending,
                                 rejected,
@@ -641,7 +662,8 @@
                             });
                         }
                         if (filters.start || filters.end) {
-                            chips.push({ label: 'Date', value: `${filters.start || '—'} → ${filters.end || '—'}` });
+                            const rangeLabel = `${filters.start || '—'} → ${filters.end || '—'}`;
+                            chips.push({ label: 'Date', value: `<span class="fw">${rangeLabel}</span>` });
                         }
                         return chips;
                     }
@@ -650,9 +672,13 @@
                         return items.map((item) => ([
                             item.id || '—',
                             `<div class="fw">${item.name || '—'}</div><div class="muted">${item.description || ''}</div>`,
-                            `<div>₱${item.price || '0'}</div><div class="muted">Plan length: ${item.month || '0'} mo., ${item.day || '0'} day(s).</div><div class="muted">Classes/mo: ${item.class_limit || 'Unlimited'}</div>`,
-                            `<div class="fw">Approved: ${item.approved || '0'}</div><div class="muted">Pending: ${item.pending || '0'}</div><div class="muted">Rejected: ${item.rejected || '0'}</div>`,
-                            `<div>${item.created || ''}</div><div class="muted">${item.updated || ''}</div><div class="muted">${item.archived}</div>`,
+                            `<div>₱${item.price || '0'}</div><div class="muted">Plan length: ${item.month || '0'} mo., ${item.day || '0'} day(s).</div><div class="muted">Classes/mo: ${item.classes_per_month !== null && item.classes_per_month !== undefined && item.classes_per_month !== '' ? item.classes_per_month : 'Unlimited'}</div>`,
+                            `<div class="member-stats">
+                                <span class="member-pill member-pill--success"><span class="member-pill-label">Approved</span>${item.approved || '0'}</span>
+                                <span class="member-pill member-pill--warning"><span class="member-pill-label">Pending</span>${item.pending || '0'}</span>
+                                <span class="member-pill member-pill--danger"><span class="member-pill-label">Rejected</span>${item.rejected || '0'}</span>
+                            </div>`,
+                            `<div>${item.created || ''}</div>`,
                         ]));
                     }
 
@@ -661,7 +687,7 @@
                             ? payload.items
                             : collectTableItems();
                         const filters = buildFilters(payload.filters || {});
-                        const headers = ['#', 'Membership', 'Plan', 'Members', 'Audit'];
+                        const headers = ['#', 'Membership', 'Plan', 'Members', 'Created At'];
                         const rows = buildRows(items);
 
                         return window.PrintPreview
