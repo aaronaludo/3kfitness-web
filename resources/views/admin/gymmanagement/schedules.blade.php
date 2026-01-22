@@ -18,8 +18,178 @@
 
                 $printSource = $showArchived ? $archivedData : $data;
                 $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
+                $printUser = auth()->user();
+                $printUserName = $printUser
+                    ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                    : '';
+                if ($printUser && $printUserName === '') {
+                    $printUserName = $printUser->name ?? $printUser->email ?? '';
+                }
+                $printUserRole = $printUser ? optional($printUser->role)->name : null;
+                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+                if ($printUserRole) {
+                    $printGeneratedBy .= " ({$printUserRole})";
+                }
                 $nowForPrint = now();
-                $printSchedules = collect($printSource->items())->map(function ($item) use ($weekdayLookup, $nowForPrint) {
+                $resolveScheduleStatus = function ($item) use ($nowForPrint) {
+                    $startDate = $item->class_start_date ? \Carbon\Carbon::parse($item->class_start_date) : null;
+                    $endDate   = $item->class_end_date ? \Carbon\Carbon::parse($item->class_end_date) : null;
+                    $dayKeys   = is_array($item->recurring_days) ? $item->recurring_days : json_decode($item->recurring_days ?? '[]', true);
+                    $recurringDayKeys = collect($dayKeys ?? [])->map(function ($d) {
+                        return strtolower($d);
+                    })->toArray();
+                    $seriesStart = $item->series_start_date ? \Carbon\Carbon::parse($item->series_start_date)->startOfDay() : ($startDate ? $startDate->copy()->startOfDay() : null);
+                    $seriesEnd = $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->endOfDay() : ($endDate ? $endDate->copy()->endOfDay() : null);
+                    $sessionOverridesRaw = is_array($item->session_overrides)
+                        ? $item->session_overrides
+                        : json_decode($item->session_overrides ?? '[]', true);
+                    $sessionOverrides = collect($sessionOverridesRaw ?? [])
+                        ->map(function ($override) {
+                            try {
+                                $originalCarbon = isset($override['original_date'])
+                                    ? \Carbon\Carbon::parse($override['original_date'])->startOfDay()
+                                    : null;
+                            } catch (\Throwable $th) {
+                                $originalCarbon = null;
+                            }
+
+                            if (! $originalCarbon) {
+                                return null;
+                            }
+
+                            try {
+                                $newCarbon = isset($override['new_date'])
+                                    ? \Carbon\Carbon::parse($override['new_date'])->startOfDay()
+                                    : null;
+                            } catch (\Throwable $th) {
+                                $newCarbon = null;
+                            }
+
+                            return [
+                                'original_date' => $originalCarbon->toDateString(),
+                                'original_carbon' => $originalCarbon,
+                                'new_date' => $newCarbon ? $newCarbon->toDateString() : null,
+                                'new_carbon' => $newCarbon,
+                                'start_time' => $override['start_time'] ?? null,
+                                'end_time' => $override['end_time'] ?? null,
+                            ];
+                        })
+                        ->filter()
+                        ->keyBy('original_date');
+                    $hasOngoingSession = false;
+                    $hasFutureSession = false;
+                    $hasAnySession = false;
+
+                    $computeStatus = function ($sessionStart, $sessionEnd) use (&$hasOngoingSession, &$hasFutureSession, $nowForPrint) {
+                        if ($nowForPrint->between($sessionStart, $sessionEnd, true)) {
+                            $hasOngoingSession = true;
+                            return;
+                        }
+
+                        if ($nowForPrint->gt($sessionEnd)) {
+                            return;
+                        }
+
+                        $hasFutureSession = true;
+                    };
+
+                    if ($seriesStart && $seriesEnd && count($recurringDayKeys)) {
+                        $cursor = $seriesStart->copy();
+                        while ($cursor->lte($seriesEnd)) {
+                            $dayKey = strtolower(substr($cursor->format('D'), 0, 3));
+                            if (in_array($dayKey, $recurringDayKeys, true)) {
+                                $hasAnySession = true;
+                                $sessionDateKey = $cursor->toDateString();
+                                $sessionStart = $item->class_start_time
+                                    ? $cursor->copy()->setTimeFromTimeString($item->class_start_time)
+                                    : $cursor->copy()->startOfDay();
+                                $sessionEnd = $item->class_end_time
+                                    ? $cursor->copy()->setTimeFromTimeString($item->class_end_time)
+                                    : $cursor->copy()->endOfDay();
+
+                                $override = $sessionOverrides[$sessionDateKey] ?? null;
+
+                                if ($override) {
+                                    $overrideDate = $override['new_carbon'] ?: $cursor->copy();
+                                    $overrideStart = $overrideDate->copy();
+                                    $overrideEnd = $overrideDate->copy();
+                                    $overrideStartTime = $override['start_time'] ?? $item->class_start_time;
+                                    $overrideEndTime = $override['end_time'] ?? $item->class_end_time;
+
+                                    if ($overrideStartTime) {
+                                        $overrideStart->setTimeFromTimeString($overrideStartTime);
+                                    } else {
+                                        $overrideStart->startOfDay();
+                                    }
+
+                                    if ($overrideEndTime) {
+                                        $overrideEnd->setTimeFromTimeString($overrideEndTime);
+                                        if ($overrideStartTime && $overrideEnd->lt($overrideStart)) {
+                                            $overrideEnd->addDay();
+                                        }
+                                    } elseif ($overrideStartTime) {
+                                        $overrideEnd = $overrideStart->copy();
+                                    } else {
+                                        $overrideEnd->endOfDay();
+                                    }
+
+                                    $computeStatus($overrideStart, $overrideEnd);
+                                } else {
+                                    $computeStatus($sessionStart, $sessionEnd);
+                                }
+                            }
+                            $cursor->addDay();
+                        }
+                    }
+
+                    if (!$hasAnySession && $startDate) {
+                        $sessionStart = $startDate->copy();
+                        $sessionEnd = $endDate ?: ($item->class_end_time
+                            ? $sessionStart->copy()->setTimeFromTimeString($item->class_end_time)
+                            : $sessionStart->copy()->endOfDay());
+
+                        $override = $sessionOverrides[$sessionStart->toDateString()] ?? null;
+
+                        if ($override) {
+                            $overrideDate = $override['new_carbon'] ?: $sessionStart->copy();
+                            $overrideStart = $overrideDate->copy();
+                            $overrideEnd = $overrideDate->copy();
+                            $overrideStartTime = $override['start_time'] ?? $item->class_start_time;
+                            $overrideEndTime = $override['end_time'] ?? $item->class_end_time;
+
+                            if ($overrideStartTime) {
+                                $overrideStart->setTimeFromTimeString($overrideStartTime);
+                            } else {
+                                $overrideStart->startOfDay();
+                            }
+
+                            if ($overrideEndTime) {
+                                $overrideEnd->setTimeFromTimeString($overrideEndTime);
+                                if ($overrideStartTime && $overrideEnd->lt($overrideStart)) {
+                                    $overrideEnd->addDay();
+                                }
+                            } elseif ($overrideStartTime) {
+                                $overrideEnd = $overrideStart->copy();
+                            } else {
+                                $overrideEnd->endOfDay();
+                            }
+
+                            $computeStatus($overrideStart, $overrideEnd);
+                        } else {
+                            $computeStatus($sessionStart, $sessionEnd);
+                        }
+                    }
+
+                    $scheduleStatus = 'Upcoming';
+                    if ($hasOngoingSession) {
+                        $scheduleStatus = 'Ongoing';
+                    } elseif (!$hasFutureSession) {
+                        $scheduleStatus = 'Completed';
+                    }
+
+                    return $scheduleStatus;
+                };
+                $printSchedules = collect($printSource->items())->map(function ($item) use ($weekdayLookup, $nowForPrint, $resolveScheduleStatus) {
                     $startDate = $item->class_start_date ? \Carbon\Carbon::parse($item->class_start_date) : null;
                     $endDate   = $item->class_end_date ? \Carbon\Carbon::parse($item->class_end_date) : null;
                     $dayKeys   = is_array($item->recurring_days) ? $item->recurring_days : json_decode($item->recurring_days ?? '[]', true);
@@ -29,9 +199,10 @@
 
                     $seriesStart = $item->series_start_date ? \Carbon\Carbon::parse($item->series_start_date)->startOfDay() : ($startDate ? $startDate->copy()->startOfDay() : null);
                     $seriesEnd = $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->endOfDay() : ($endDate ? $endDate->copy()->endOfDay() : null);
-                    $statusLabel = 'Past';
-                    if ($seriesEnd && $nowForPrint->lte($seriesEnd)) {
-                        $statusLabel = ($seriesStart && $nowForPrint->lt($seriesStart)) ? 'Upcoming' : 'Present';
+                    $trainerAcceptanceStatus = (int) ($item->istrainerapproved ?? 0);
+                    $statusLabel = $resolveScheduleStatus($item);
+                    if ($trainerAcceptanceStatus === 0) {
+                        $statusLabel = 'Series pending trainer acceptance';
                     }
 
                     $adminAcceptance = $item->isadminapproved == 0 ? 'Pending' :
@@ -48,6 +219,8 @@
                     $timeRange = $item->class_start_time && $item->class_end_time
                         ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
                         : null;
+                    $seriesStartLabel = $seriesStart ? $seriesStart->format('M j, Y') : null;
+                    $seriesEndLabel = $seriesEnd ? $seriesEnd->format('M j, Y') : null;
 
                     return [
                         'id' => $item->id,
@@ -59,8 +232,10 @@
                             : null,
                         'slots' => $item->slots,
                         'enrolled' => $item->user_schedules_count ?? 0,
-                        'start' => $startDate ? $startDate->format('M j, Y g:i A') : 'Not set',
-                        'end' => $endDate ? $endDate->format('M j, Y g:i A') : '—',
+                        'start' => $startDate ? $startDate->format('M j, Y') : 'Not set',
+                        'end' => $endDate ? $endDate->format('M j, Y') : '—',
+                        'series_start' => $seriesStartLabel,
+                        'series_end' => $seriesEndLabel,
                         'time_range' => $timeRange,
                         'cadence' => $cadence ?: 'One-time',
                         'status' => $statusLabel,
@@ -76,6 +251,9 @@
                 $printPayload = [
                     'title' => $showArchived ? 'Archived classes' : 'Class schedules',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'status' => request('status', 'all') ?: 'all',
@@ -88,7 +266,7 @@
                     'items' => $printSchedules,
                 ];
 
-                $printAllSchedules = collect($printAllSource ?? [])->map(function ($item) use ($weekdayLookup, $nowForPrint) {
+                $printAllSchedules = collect($printAllSource ?? [])->map(function ($item) use ($weekdayLookup, $nowForPrint, $resolveScheduleStatus) {
                     $startDate = $item->class_start_date ? \Carbon\Carbon::parse($item->class_start_date) : null;
                     $endDate   = $item->class_end_date ? \Carbon\Carbon::parse($item->class_end_date) : null;
                     $dayKeys   = is_array($item->recurring_days) ? $item->recurring_days : json_decode($item->recurring_days ?? '[]', true);
@@ -98,9 +276,10 @@
 
                     $seriesStart = $item->series_start_date ? \Carbon\Carbon::parse($item->series_start_date)->startOfDay() : ($startDate ? $startDate->copy()->startOfDay() : null);
                     $seriesEnd = $item->series_end_date ? \Carbon\Carbon::parse($item->series_end_date)->endOfDay() : ($endDate ? $endDate->copy()->endOfDay() : null);
-                    $statusLabel = 'Past';
-                    if ($seriesEnd && $nowForPrint->lte($seriesEnd)) {
-                        $statusLabel = ($seriesStart && $nowForPrint->lt($seriesStart)) ? 'Upcoming' : 'Present';
+                    $trainerAcceptanceStatus = (int) ($item->istrainerapproved ?? 0);
+                    $statusLabel = $resolveScheduleStatus($item);
+                    if ($trainerAcceptanceStatus === 0) {
+                        $statusLabel = 'Series pending trainer acceptance';
                     }
 
                     $adminAcceptance = $item->isadminapproved == 0 ? 'Pending' :
@@ -117,6 +296,8 @@
                     $timeRange = $item->class_start_time && $item->class_end_time
                         ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
                         : null;
+                    $seriesStartLabel = $seriesStart ? $seriesStart->format('M j, Y') : null;
+                    $seriesEndLabel = $seriesEnd ? $seriesEnd->format('M j, Y') : null;
 
                     return [
                         'id' => $item->id,
@@ -128,8 +309,10 @@
                             : null,
                         'slots' => $item->slots,
                         'enrolled' => $item->user_schedules_count ?? 0,
-                        'start' => $startDate ? $startDate->format('M j, Y g:i A') : 'Not set',
-                        'end' => $endDate ? $endDate->format('M j, Y g:i A') : '—',
+                        'start' => $startDate ? $startDate->format('M j, Y') : 'Not set',
+                        'end' => $endDate ? $endDate->format('M j, Y') : '—',
+                        'series_start' => $seriesStartLabel,
+                        'series_end' => $seriesEndLabel,
                         'time_range' => $timeRange,
                         'cadence' => $cadence ?: 'One-time',
                         'status' => $statusLabel,
@@ -145,6 +328,9 @@
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived classes (all pages)' : 'Class schedules (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'status' => request('status', 'all') ?: 'all',
@@ -480,9 +666,10 @@
                     const printLoader = document.getElementById('print-loader');
 
                     function getBadgeClass(status) {
-                        if (status === 'Upcoming') return 'badge-soft-info';
-                        if (status === 'Present') return 'badge-soft-success';
-                        if (status === 'Past') return 'badge-soft-secondary';
+                        if (status === 'Series pending trainer acceptance') return 'badge-soft-muted';
+                        if (status === 'Upcoming') return 'badge-soft-warning';
+                        if (status === 'Ongoing') return 'badge-soft-info';
+                        if (status === 'Completed') return 'badge-soft-success';
                         return 'badge-soft-muted';
                     }
 
@@ -497,7 +684,8 @@
                             });
                         }
                         if (filters.start || filters.end) {
-                            chips.push({ label: 'Date', value: `${filters.start || '—'} → ${filters.end || '—'}` });
+                            const rangeLabel = `${filters.start || '—'} → ${filters.end || '—'}`;
+                            chips.push({ label: 'Date', value: `<span class="fw">${rangeLabel}</span>` });
                         }
                         return chips;
                     }
@@ -514,15 +702,18 @@
                                 ? `<div class="muted">${item.created_role}</div>`
                                 : '';
                             const creatorName = item.created_by || '—';
+                            const seriesRange = item.series_start || item.series_end
+                                ? `${item.series_start || '—'} → ${item.series_end || '—'}`
+                                : `${item.start || 'Not set'} → ${item.end || '—'}`;
                             return [
                                 item.id ?? '—',
                                 `<div class="fw">${item.name || '—'}</div><div class="muted">${item.class_code || ''}</div>`,
                                 `<div>${item.trainer || '—'}</div>${trainerRate}`,
-                                `<div>${item.start || 'Not set'}</div><div class="muted">${item.end || '—'}</div>${timeRange}<div class="muted">Cadence: ${item.cadence || '—'}</div>`,
+                                `<div>${seriesRange}</div>${timeRange}<div class="muted">Cadence: ${item.cadence || '—'}</div>`,
                                 `<div class="fw">${item.slots ?? 0} slots</div><div class="muted">${item.enrolled ?? 0} enrolled</div>`,
                                 `<span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span>`,
                                 `<div class="fw">${creatorName}</div>${creatorRole}`,
-                                `<div>${item.created_at || ''}</div><div class="muted">${item.updated_at || ''}</div>`,
+                                `<div>${item.created_at || ''}</div>`,
                             ];
                         });
                     }
@@ -531,7 +722,7 @@
                         const rawItems = payload && payload.items ? payload.items : [];
                         const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                         const filters = buildFilters(payload.filters || {});
-                        const headers = ['#', 'Class', 'Trainer', 'Schedule', 'Enrollment', 'Status', 'Created By', 'Audit'];
+                        const headers = ['#', 'Class', 'Trainer', 'Schedule', 'Enrollment', 'Status', 'Created By', 'Created At'];
                         const rows = buildRows(items);
 
                         return window.PrintPreview
