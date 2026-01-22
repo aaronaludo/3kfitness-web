@@ -404,6 +404,10 @@ class PayrollController extends Controller
         $period = $request->input('period_month');
         $processedFromInput = $request->input('processed_from');
         $processedToInput = $request->input('processed_to');
+        $roleFilter = $request->input('role', 'all');
+        if (!in_array($roleFilter, ['all', 'staff', 'trainer'], true)) {
+            $roleFilter = 'all';
+        }
         $deductionSettings = $this->currentDeductionSettings();
         $appCutRate = max((float) $request->input('app_cut_rate', $deductionSettings['app_cut_rate']), 0);
 
@@ -463,6 +467,12 @@ class PayrollController extends Controller
             })
             ->when($period, function ($query, $period) {
                 $query->where('period_month', $period);
+            })
+            ->when($roleFilter !== 'all', function ($query) use ($roleFilter) {
+                $roleId = $roleFilter === 'trainer' ? 5 : 2;
+                $query->whereHas('user', function ($userQuery) use ($roleId) {
+                    $userQuery->where('role_id', $roleId);
+                });
             })
             ->when($processedFrom || $processedTo, function ($query) use ($processedFrom, $processedTo) {
                 $query->where(function ($dateQuery) use ($processedFrom, $processedTo) {
@@ -690,6 +700,7 @@ class PayrollController extends Controller
             'deductionSettings' => $deductionSettings,
             'payslipDetails' => $payslipDetails,
             'totals' => $totals,
+            'roleFilter' => $roleFilter,
         ]);
     }
 

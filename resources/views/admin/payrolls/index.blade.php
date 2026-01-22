@@ -9,6 +9,7 @@
                 $periodMonth = request('period_month');
                 $processedFrom = request('processed_from');
                 $processedTo = request('processed_to');
+                $roleFilter = $roleFilter ?? request('role', 'all');
                 $advancedFiltersOpen = request()->filled('processed_from') || request()->filled('processed_to');
                 $printSource = $runs;
                 $printAllSource = $printAllRuns ?? collect();
@@ -83,6 +84,7 @@
                         'period_month' => $periodMonth,
                         'processed_from' => $processedFrom,
                         'processed_to' => $processedTo,
+                        'role' => $roleFilter,
                     ],
                     'currency_symbol' => $currencySymbol,
                     'totals' => $pageTotals,
@@ -98,6 +100,7 @@
                         'period_month' => $periodMonth,
                         'processed_from' => $processedFrom,
                         'processed_to' => $processedTo,
+                        'role' => $roleFilter,
                         'scope' => 'all',
                     ],
                     'currency_symbol' => $currencySymbol,
@@ -126,6 +129,7 @@
                         <input type="hidden" name="period_month" value="{{ $periodMonth }}">
                         <input type="hidden" name="processed_from" value="{{ $processedFrom }}">
                         <input type="hidden" name="processed_to" value="{{ $processedTo }}">
+                        <input type="hidden" name="role" value="{{ $roleFilter }}">
                         <button
                             type="submit"
                             class="btn btn-danger d-flex align-items-center gap-2"
@@ -157,7 +161,7 @@
                             </div>
                         </div>
 
-                        <form action="{{ route('admin.payrolls.index') }}" method="GET" class="mt-4">
+                        <form action="{{ route('admin.payrolls.index') }}" method="GET" class="mt-4" id="payroll-filter-form">
                             <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
                                 <div class="d-flex flex-wrap align-items-center gap-3 flex-grow-1">
                                     <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 260px;">
@@ -188,6 +192,41 @@
                                             value="{{ $periodMonth }}"
                                             aria-label="Filter by payroll month"
                                         />
+                                    </div>
+
+                                    <div class="flex-grow-1 flex-lg-grow-0">
+                                        <label class="form-label text-muted small mb-1 d-block">Quick filter</label>
+                                        <div class="btn-group" role="group" aria-label="Quick filter trainer and staff">
+                                            <input
+                                                type="radio"
+                                                class="btn-check"
+                                                name="role"
+                                                id="payroll_role_staff"
+                                                value="staff"
+                                                {{ $roleFilter === 'staff' ? 'checked' : '' }}
+                                            >
+                                            <label class="btn btn-outline-dark" for="payroll_role_staff">Staff payroll</label>
+
+                                            <input
+                                                type="radio"
+                                                class="btn-check"
+                                                name="role"
+                                                id="payroll_role_trainer"
+                                                value="trainer"
+                                                {{ $roleFilter === 'trainer' ? 'checked' : '' }}
+                                            >
+                                            <label class="btn btn-outline-dark" for="payroll_role_trainer">Trainer payroll</label>
+
+                                            <input
+                                                type="radio"
+                                                class="btn-check"
+                                                name="role"
+                                                id="payroll_role_all"
+                                                value="all"
+                                                {{ $roleFilter === 'all' ? 'checked' : '' }}
+                                            >
+                                            <label class="btn btn-outline-dark" for="payroll_role_all">Show both</label>
+                                        </div>
                                     </div>
                                 </div>
 
@@ -297,8 +336,8 @@
                                         <th scope="col">Pag-IBIG</th>
                                         <th scope="col">App cut</th>
                                         <th scope="col">Net</th>
-                                        <th scope="col">Status</th>
                                         <th scope="col">Processed</th>
+                                        <th scope="col">Release status</th>
                                         <th scope="col">Release Date</th>
                                         <th scope="col" class="text-center">Actions</th>
                                     </tr>
@@ -361,10 +400,10 @@
                                             <td>₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</td>
                                             <td>₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</td>
                                             <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
+                                            <td>{{ $processedAt }}</td>
                                             <td>
                                                 <span class="badge {{ $releaseBadge }} rounded-pill px-3 py-2">{{ $releaseStatus }}</span>
                                             </td>
-                                            <td>{{ $processedAt }}</td>
                                             <td>{{ $releasedAt ? $releasedAt : '—' }}</td>
                                             <td class="text-center">
                                                 @if($staff)
@@ -458,6 +497,8 @@
             const printButton = document.getElementById('print-submit-button');
             const printForm = document.getElementById('print-form');
             const printLoader = document.getElementById('print-loader');
+            const payrollFilterForm = document.getElementById('payroll-filter-form');
+            const roleQuickFilters = document.querySelectorAll('input[name="role"]');
             function buildFilters(filters) {
                 const formatDate = (value) => {
                     if (!value) return null;
@@ -476,6 +517,9 @@
                     const from = formatDate(filters.processed_from) || 'Any';
                     const to = formatDate(filters.processed_to) || 'Any';
                     chips.push({ label: 'Processed', value: `${from} → ${to}` });
+                }
+                if (filters.role && filters.role !== 'all') {
+                    chips.push({ label: 'Role', value: filters.role === 'trainer' ? 'Trainer only' : 'Staff only' });
                 }
                 return chips;
             }
@@ -531,8 +575,8 @@
                     `${currencySymbol}${item.pagibig || '0.00'}`,
                     `${currencySymbol}${item.app_cut || '0.00'}`,
                     `<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`,
-                    item.status || 'Pending',
                     item.processed_at || '—',
+                    item.status || 'Pending',
                     item.released_at || '—',
                 ]));
 
@@ -560,8 +604,8 @@
                     'Pag-IBIG',
                     'App cut',
                     'Net',
-                    'Status',
                     'Processed',
+                    'Release status',
                     'Release Date'
                 ];
                 const rows = buildRows(items, payload.totals, currencySymbol);
@@ -617,6 +661,18 @@
 
                     printButton.disabled = false;
                     if (printLoader) printLoader.classList.add('d-none');
+                });
+            }
+
+            if (payrollFilterForm && roleQuickFilters.length) {
+                roleQuickFilters.forEach((input) => {
+                    input.addEventListener('change', () => {
+                        if (typeof payrollFilterForm.requestSubmit === 'function') {
+                            payrollFilterForm.requestSubmit();
+                        } else {
+                            payrollFilterForm.submit();
+                        }
+                    });
                 });
             }
 
