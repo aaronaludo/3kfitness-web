@@ -163,6 +163,18 @@
                 $showArchived = request()->boolean('show_archived');
                 $printSource = $showArchived ? $archivedData : $gym_members;
                 $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
+                $printUser = auth()->user();
+                $printUserName = $printUser
+                    ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                    : '';
+                if ($printUser && $printUserName === '') {
+                    $printUserName = $printUser->name ?? $printUser->email ?? '';
+                }
+                $printUserRole = $printUser ? optional($printUser->role)->name : null;
+                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+                if ($printUserRole) {
+                    $printGeneratedBy .= " ({$printUserRole})";
+                }
                 $printMembers = collect($printSource->items() ?? [])->map(function ($item) use ($current_time) {
                     $latestMembershipPayment = optional($item->membershipPayments)->first();
                     $membership = optional($latestMembershipPayment)->membership;
@@ -194,6 +206,9 @@
                 $printPayload = [
                     'title' => $showArchived ? 'Archived members' : 'Member directory',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'membership_status' => request('membership_status', 'all') ?: 'all',
@@ -236,6 +251,9 @@
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived members (all pages)' : 'Member directory (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'membership_status' => request('membership_status', 'all') ?: 'all',
@@ -331,7 +349,8 @@
                             });
                         }
                         if (filters.start || filters.end) {
-                            chips.push({ label: 'Date', value: `${filters.start || '—'} → ${filters.end || '—'}` });
+                            const rangeLabel = `${filters.start || '—'} → ${filters.end || '—'}`;
+                            chips.push({ label: 'Date', value: `<span class="fw">${rangeLabel}</span>` });
                         }
                         return chips;
                     }
@@ -342,7 +361,8 @@
                                 `<div class="fw">${item.user_code || item.id || '—'}</div><div class="muted">ID: ${item.id ?? '—'}</div>`,
                                 `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div><div class="muted">${item.phone || ''}</div>`,
                                 `<div>${item.membership || 'No membership'}</div><div class="muted">${item.membership_status || ''}</div><div class="muted">Expires: ${item.membership_expires || '—'}</div>`,
-                                `<div>${item.created || ''}</div><div class="muted">${item.updated || ''}</div><div class="muted">Approved by: ${item.approved_by || 'Pending staff approval'}</div>`,
+                                `<div>${item.created || ''}</div>`,
+                                `<div>${item.approved_by || 'Pending staff approval'}</div>`,
                             ];
                         });
                     }
@@ -351,7 +371,7 @@
                         const rawItems = payload && payload.items ? payload.items : [];
                         const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                         const filters = buildFilters(payload.filters || {});
-                        const headers = ['#', 'Member', 'Membership', 'Audit'];
+                        const headers = ['#', 'Member', 'Membership', 'Created At', 'Approved By'];
                         const rows = buildRows(items);
 
                         return window.PrintPreview
