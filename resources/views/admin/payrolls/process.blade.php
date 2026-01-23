@@ -295,6 +295,51 @@
                                             : (!empty($summary['processed_run'])
                                                 ? 'Already processed for this period'
                                                 : ($staffNoData ? 'Processing disabled: no attendance data yet' : 'Process and save payroll'));
+                                        $rangeEntries = $summary['entries']->map(function ($entry) {
+                                            $clockIn = $entry['clockin_at'] ?? null;
+                                            $clockOut = $entry['clockout_at'] ?? null;
+                                            $dateSource = $clockIn ?: $clockOut;
+                                            $dateLabel = $dateSource ? $dateSource->format('M j, Y') : '—';
+                                            $day = $dateSource ? $dateSource->day : null;
+                                            $timeRange = '—';
+                                            if ($clockIn && $clockOut) {
+                                                $timeRange = $clockIn->format('g:i A') . ' - ' . $clockOut->format('g:i A');
+                                            } elseif ($clockIn) {
+                                                $timeRange = $clockIn->format('g:i A') . ' - —';
+                                            }
+                                            $hours = $entry['hours'] ?? null;
+                                            $metaParts = [];
+                                            if ($timeRange !== '—') {
+                                                $metaParts[] = $timeRange;
+                                            }
+                                            if (!is_null($hours)) {
+                                                $metaParts[] = number_format((float) $hours, 2) . ' hrs';
+                                            }
+                                            $meta = implode(' • ', $metaParts);
+                                            $isComplete = ($entry['status'] ?? '') === 'complete';
+                                            $title = 'Attendance entry';
+                                            if (!empty($entry['id'])) {
+                                                $title .= ' #' . $entry['id'];
+                                            }
+
+                                            return [
+                                                'type' => 'staff_entry',
+                                                'title' => $title,
+                                                'meta' => $meta !== '' ? $meta : null,
+                                                'timeline' => [
+                                                    [
+                                                        'label' => $dateLabel,
+                                                        'day' => $day,
+                                                        'status' => $isComplete ? 'Completed (paid)' : 'Pending',
+                                                        'payable' => $isComplete ? 1 : 0,
+                                                    ],
+                                                ],
+                                                'amounts' => [
+                                                    'completed' => (float) ($entry['amount'] ?? 0),
+                                                ],
+                                            ];
+                                        })->values();
+                                        $rangeEntriesJson = json_encode($rangeEntries, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
                                     @endphp
                                     <form action="{{ route('admin.payrolls.process-staff') }}" method="POST" class="d-inline">
                                         @csrf
@@ -305,6 +350,7 @@
                                             class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2 process-payroll-btn"
                                             data-base-disabled="{{ $staffProcessDisabled ? '1' : '0' }}"
                                             data-base-title="{{ $staffProcessTitle }}"
+                                            data-range-entries='{{ $rangeEntriesJson }}'
                                             data-role="staff"
                                             data-name="{{ $staff->first_name }} {{ $staff->last_name }}"
                                             data-month="{{ $monthLabel }}"
@@ -1831,7 +1877,7 @@
                 <div class="modal-header">
                     <div>
                         <h5 class="modal-title fw-semibold mb-0" id="processPreviewModalLabel">Assignments to be processed</h5>
-                        <p class="text-muted small mb-0">Only class sessions with attendance inside the processing window are queued.</p>
+                        <p class="text-muted small mb-0" data-process-subtitle>Only class sessions with attendance inside the processing window are queued.</p>
                     </div>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -1867,7 +1913,7 @@
                                     <option value="{{ $idx }}">{{ $range['from'] ?? '?' }}-{{ $range['to'] ?? '?' }} → process on day {{ $range['process'] ?? '?' }}</option>
                                 @endforeach
                             </select>
-                            <div class="form-text">Pick a range to see included classes.</div>
+                            <div class="form-text" data-process-helper>Pick a range to see included classes.</div>
                         </div>
                     </div>
 
@@ -2490,7 +2536,7 @@
             }
         });
 
-        // Process preview modal (trainer processing)
+        // Process preview modal (trainer + staff processing)
         const processModalEl = document.getElementById('processPreviewModal');
         const processRangeList = document.getElementById('process-range-list');
         const processRangeSummary = document.getElementById('process-range-summary');
@@ -2499,9 +2545,13 @@
         const processRangeCount = document.getElementById('process-range-count');
         const processDayFilter = document.getElementById('process-day-filter');
         const processConfirmBtn = document.getElementById('process-range-confirm');
+        const processPreviewTitle = document.getElementById('processPreviewModalLabel');
+        const processPreviewSubtitle = document.querySelector('[data-process-subtitle]');
+        const processPreviewHelper = document.querySelector('[data-process-helper]');
         let pendingProcessForm = null;
         let pendingAssignments = [];
         let pendingProcessMeta = {
+            role: 'trainer',
             hasSss: false,
             hasPhilhealth: false,
             hasPagibig: false,
@@ -2542,12 +2592,13 @@
             const hasSss = pendingProcessMeta?.hasSss === true;
             const hasPhilhealth = pendingProcessMeta?.hasPhilhealth === true;
             const hasPagibig = pendingProcessMeta?.hasPagibig === true;
+            const isTrainer = pendingProcessMeta?.role === 'trainer';
 
             const sss = hasSss ? +(gross * sssRate).toFixed(2) : 0;
             const philhealth = hasPhilhealth ? +(gross * philRate).toFixed(2) : 0;
             const pagibigBase = pagibigCap > 0 ? Math.min(gross, pagibigCap) : gross;
             const pagibig = hasPagibig ? +(pagibigBase * pagibigRate).toFixed(2) : 0;
-            const appCut = +(gross * appCutRateTrainer).toFixed(2);
+            const appCut = isTrainer ? +(gross * appCutRateTrainer).toFixed(2) : 0;
             const totalDeductions = +(sss + philhealth + pagibig + appCut).toFixed(2);
 
             return {
@@ -2563,6 +2614,8 @@
             if (!processRangeList) return;
             processRangeList.innerHTML = '';
             const selectedRange = getSelectedRange();
+            const itemLabel = pendingProcessMeta?.role === 'staff' ? 'entry' : 'assignment';
+            const emptyLabel = pendingProcessMeta?.role === 'staff' ? 'entries' : 'assignments';
             const isCompletedSessionInRange = (session) => {
                 const isPayable = Number(session?.payable || 0) === 1;
                 if (!isPayable) return false;
@@ -2585,11 +2638,11 @@
             if (!filtered.length) {
                 const empty = document.createElement('div');
                 empty.className = 'text-center text-muted';
-                empty.textContent = 'No assignments match the selected processing day range.';
+                empty.textContent = `No ${emptyLabel} match the selected processing day range.`;
                 processRangeList.appendChild(empty);
                 if (processRangeTotal) processRangeTotal.textContent = `Gross pay ${formatPeso(0)}`;
                 if (processRangeDeductions) processRangeDeductions.textContent = `Deductions ${formatPeso(0)}`;
-                if (processRangeCount) processRangeCount.textContent = '0 assignments';
+                if (processRangeCount) processRangeCount.textContent = `0 ${emptyLabel}`;
                 return;
             }
 
@@ -2637,16 +2690,19 @@
                     }).join('')
                     : '<div class="text-muted small">No session dates listed.</div>';
 
+                const metaLine = item.meta
+                    ? `<div class="text-muted small">${item.meta}</div>`
+                    : (item.code ? `<div class="text-muted small">Code: ${item.code}</div>` : '');
                 const card = document.createElement('div');
                 card.className = 'process-card';
                 card.innerHTML = `
                     <div class="d-flex align-items-start justify-content-between gap-2">
                         <div>
                             <div class="fw-semibold">${item.title || 'Unnamed Schedule'}</div>
-                            ${item.code ? `<div class="text-muted small">Code: ${item.code}</div>` : ''}
+                            ${metaLine}
                         </div>
                         <div class="text-end">
-                            <div class="fw-bold text-success">₱${amount.toFixed(2)}</div>
+                            <div class="fw-bold text-success">${formatPeso(amount)}</div>
                             <div class="text-muted small">
                                 ${selectedRange ? `Processing on day ${selectedRange.process}` : 'Processing day not set for this selection'}
                             </div>
@@ -2666,17 +2722,18 @@
                 processRangeDeductions.textContent = `Deductions ${formatPeso(totalDeductions)}`;
             }
             if (processRangeCount) {
-                processRangeCount.textContent = `${filtered.length} ${filtered.length === 1 ? 'assignment' : 'assignments'}`;
+                processRangeCount.textContent = `${filtered.length} ${filtered.length === 1 ? itemLabel : `${itemLabel}s`}`;
             }
         }
 
         document.querySelectorAll('.process-payroll-btn').forEach((btn) => {
-            if (!btn.dataset.rangeAssignments) return;
+            const previewData = btn.dataset.rangeAssignments || btn.dataset.rangeEntries;
+            if (!previewData) return;
             btn.addEventListener('click', (e) => {
                 const form = btn.closest('form');
                 let data = [];
                 try {
-                    data = JSON.parse(btn.dataset.rangeAssignments || '[]');
+                    data = JSON.parse(previewData || '[]');
                 } catch (err) {
                     data = [];
                 }
@@ -2685,11 +2742,26 @@
                 e.preventDefault();
                 pendingProcessForm = form;
                 pendingAssignments = Array.isArray(data) ? data : [];
-                const trainerCard = btn.closest('[data-trainer-card]');
+                const role = (btn.dataset.role || (btn.dataset.rangeAssignments ? 'trainer' : 'staff')).toLowerCase();
+                if (processPreviewTitle) {
+                    processPreviewTitle.textContent = role === 'staff' ? 'Entries to be processed' : 'Assignments to be processed';
+                }
+                if (processPreviewSubtitle) {
+                    processPreviewSubtitle.textContent = role === 'staff'
+                        ? 'Only completed clock-ins inside the processing window are queued.'
+                        : 'Only class sessions with attendance inside the processing window are queued.';
+                }
+                if (processPreviewHelper) {
+                    processPreviewHelper.textContent = role === 'staff'
+                        ? 'Pick a range to see included entries.'
+                        : 'Pick a range to see included classes.';
+                }
+                const parentCard = btn.closest('[data-trainer-card], [data-payroll-card]');
                 pendingProcessMeta = {
-                    hasSss: trainerCard?.dataset.hasSss === '1',
-                    hasPhilhealth: trainerCard?.dataset.hasPhilhealth === '1',
-                    hasPagibig: trainerCard?.dataset.hasPagibig === '1',
+                    role,
+                    hasSss: parentCard?.dataset.hasSss === '1',
+                    hasPhilhealth: parentCard?.dataset.hasPhilhealth === '1',
+                    hasPagibig: parentCard?.dataset.hasPagibig === '1',
                 };
                 if (processDayFilter) {
                     const normalizedRanges = getNormalizedRanges();
@@ -2711,7 +2783,7 @@
         });
 
         document.querySelectorAll('.process-payroll-btn').forEach((btn) => {
-            if (btn.dataset.rangeAssignments) return;
+            if (btn.dataset.rangeAssignments || btn.dataset.rangeEntries) return;
             btn.addEventListener('click', (e) => {
                 if (btn.disabled) return;
                 const form = btn.closest('form');
