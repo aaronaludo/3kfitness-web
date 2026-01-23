@@ -502,6 +502,11 @@
                                             color: #6b7280;
                                         }
                                         .staff-payroll-modal .entry-row { cursor: default; }
+                                        .staff-payroll-modal .entries-select {
+                                            min-width: 64px;
+                                            padding-right: 28px;
+                                            text-align: center;
+                                        }
                                         @media (max-width: 991.98px) {
                                             .staff-payroll-modal .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
                                             .staff-payroll-modal .summary-item { border-left: 0; border-top: 1px solid #e5e7eb; }
@@ -746,25 +751,25 @@
                                     </div>
 
                                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3">
-                                        <div class="d-flex align-items-center gap-2 text-muted small">
-                                            <span>Entries per page:</span>
-                                            <select class="form-select form-select-sm w-auto" disabled>
+                                        <div class="d-flex flex-wrap align-items-center gap-2 text-muted small">
+                                            <span class="text-uppercase fw-semibold">Entries per page:</span>
+                                            <select class="form-select form-select-sm w-auto entries-select" disabled>
                                                 <option selected>10</option>
                                             </select>
-                                            <div class="d-flex align-items-center gap-2">
-                                                <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                                            <div class="btn-group btn-group-sm" role="group" aria-label="Pagination">
+                                                <button class="btn btn-outline-secondary" type="button" disabled>
                                                     <i class="fa-solid fa-chevron-left"></i>
                                                 </button>
-                                                <span>1 of 1</span>
-                                                <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                                                <span class="btn btn-outline-secondary disabled">1 of 1</span>
+                                                <button class="btn btn-outline-secondary" type="button" disabled>
                                                     <i class="fa-solid fa-chevron-right"></i>
                                                 </button>
                                             </div>
                                         </div>
                                         <div class="d-flex align-items-center gap-2">
-                                            <button type="button" class="btn btn-outline-secondary btn-sm payslip-btn" data-payslip='{{ $payslipJson }}'>
-                                                <i class="fa-solid fa-download"></i>
-                                                Export
+                                            <button type="button" class="btn btn-danger btn-sm payslip-btn" data-payslip='{{ $payslipJson }}'>
+                                                <i class="fa-solid fa-print"></i>
+                                                Print
                                             </button>
                                             <button type="button" class="btn btn-success btn-sm" data-bs-dismiss="modal">
                                                 <i class="fa-solid fa-xmark"></i>
@@ -1207,6 +1212,11 @@
         }
         .assignment-modal .assignment-row { cursor: pointer; }
         .assignment-modal .assignment-row.is-selected { background: #eef2ff; }
+        .assignment-modal .entries-select {
+            min-width: 64px;
+            padding-right: 28px;
+            text-align: center;
+        }
         @media (max-width: 991.98px) {
             .assignment-modal .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
             .assignment-modal .summary-item { border-left: 0; border-top: 1px solid #e5e7eb; }
@@ -1526,25 +1536,25 @@
         </div>
 
         <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3">
-            <div class="d-flex align-items-center gap-2 text-muted small">
-                <span>Entries per page:</span>
-                <select class="form-select form-select-sm w-auto" disabled>
+            <div class="d-flex flex-wrap align-items-center gap-2 text-muted small">
+                <span class="text-uppercase fw-semibold">Entries per page:</span>
+                <select class="form-select form-select-sm w-auto entries-select" disabled>
                     <option selected>10</option>
                 </select>
-                <div class="d-flex align-items-center gap-2">
-                    <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                <div class="btn-group btn-group-sm" role="group" aria-label="Pagination">
+                    <button class="btn btn-outline-secondary" type="button" disabled>
                         <i class="fa-solid fa-chevron-left"></i>
                     </button>
-                    <span>1 of 1</span>
-                    <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                    <span class="btn btn-outline-secondary disabled">1 of 1</span>
+                    <button class="btn btn-outline-secondary" type="button" disabled>
                         <i class="fa-solid fa-chevron-right"></i>
                     </button>
                 </div>
             </div>
             <div class="d-flex align-items-center gap-2">
-                <button type="button" class="btn btn-outline-secondary btn-sm payslip-btn" data-payslip='{{ $trainerPayslipJson }}'>
-                    <i class="fa-solid fa-download"></i>
-                    Export
+                <button type="button" class="btn btn-danger btn-sm payslip-btn" data-payslip='{{ $trainerPayslipJson }}'>
+                    <i class="fa-solid fa-print"></i>
+                    Print
                 </button>
                 <button type="button" class="btn btn-success btn-sm" data-bs-dismiss="modal">
                     <i class="fa-solid fa-xmark"></i>
