@@ -97,7 +97,73 @@ class PayrollController extends Controller
         ];
     }
 
-    private function buildTrainerScheduleDetails(User $trainer, Carbon $startOfMonth, Carbon $endOfMonth)
+    private function getActiveProcessingRanges(array $settings, ?Carbon $referenceDate = null): array
+    {
+        $ranges = $settings['processing_day_ranges'] ?? [];
+        if (!is_array($ranges) || empty($ranges)) {
+            return [];
+        }
+
+        $referenceDate = $referenceDate ? $referenceDate->copy() : Carbon::now();
+        $day = (int) $referenceDate->day;
+
+        return collect($ranges)
+            ->filter(function ($range) use ($day) {
+                $process = (int) ($range['process'] ?? 0);
+                return $process === $day;
+            })
+            ->values()
+            ->toArray();
+    }
+
+    private function dateMatchesProcessingRanges($date, Carbon $targetMonth, array $ranges): bool
+    {
+        if (!$date) {
+            return false;
+        }
+
+        $parsed = $date instanceof Carbon ? $date : Carbon::parse($date);
+        if ($parsed->year !== $targetMonth->year || $parsed->month !== $targetMonth->month) {
+            return false;
+        }
+
+        $day = (int) $parsed->day;
+        foreach ($ranges as $range) {
+            $from = (int) ($range['from'] ?? 1);
+            $to = (int) ($range['to'] ?? 31);
+            if ($day >= $from && $day <= $to) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function filterAttendancesForProcessingRanges($attendances, Carbon $targetMonth, array $ranges)
+    {
+        $collection = collect($attendances);
+        if (empty($ranges)) {
+            return $collection;
+        }
+
+        return $collection->filter(function ($attendance) use ($targetMonth, $ranges) {
+            $dates = [
+                $attendance->clockin_at ?? null,
+                $attendance->clockout_at ?? null,
+                $attendance->created_at ?? null,
+            ];
+
+            foreach ($dates as $date) {
+                if ($this->dateMatchesProcessingRanges($date, $targetMonth, $ranges)) {
+                    return true;
+                }
+            }
+
+            return false;
+        })->values();
+    }
+
+    private function buildTrainerScheduleDetails(User $trainer, Carbon $startOfMonth, Carbon $endOfMonth, array $processingRanges = [])
     {
         $trainer->loadMissing(['trainerSchedules.activeUserSchedules.user']);
 
@@ -145,7 +211,9 @@ class PayrollController extends Controller
             'sat' => 'Saturday',
         ];
 
-        return collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth, $trainerAttendances, $weekdayKeys, $weekdayLabels, $classAttendanceLookup) {
+        $applyProcessingRanges = !empty($processingRanges);
+
+        return collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth, $trainerAttendances, $weekdayKeys, $weekdayLabels, $classAttendanceLookup, $processingRanges, $applyProcessingRanges) {
             $seriesStart = !empty($schedule->series_start_date)
                 ? Carbon::parse($schedule->series_start_date)->startOfDay()
                 : (!empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date)->startOfDay() : null);
@@ -272,6 +340,26 @@ class PayrollController extends Controller
                 ];
             });
 
+            if ($applyProcessingRanges) {
+                $occurrenceDetails = $occurrenceDetails
+                    ->filter(function ($occurrence) use ($processingRanges) {
+                        $start = $occurrence['start'] ?? null;
+                        if (!($start instanceof Carbon)) {
+                            return false;
+                        }
+                        $day = (int) $start->day;
+                        foreach ($processingRanges as $range) {
+                            $from = (int) ($range['from'] ?? 1);
+                            $to = (int) ($range['to'] ?? 31);
+                            if ($day >= $from && $day <= $to) {
+                                return true;
+                            }
+                        }
+                        return false;
+                    })
+                    ->values();
+            }
+
             $pastOccurrences = $occurrenceDetails->where('category', 'past');
             $futureOccurrences = $occurrenceDetails->where('category', 'future');
             $payrollOccurrences = $pastOccurrences->where('has_attendance', true);
@@ -296,6 +384,9 @@ class PayrollController extends Controller
 
             $category = ($seriesEnd && $seriesEnd->lt($now)) ? 'past' : 'future';
             $inMonth = $periodStart->lte($endOfMonth) && $periodEnd->gte($startOfMonth);
+            if ($applyProcessingRanges) {
+                $inMonth = $inMonth && $occurrenceDetails->isNotEmpty();
+            }
 
             return [
                 'schedule' => $schedule,
@@ -1039,6 +1130,7 @@ class PayrollController extends Controller
 
         $startOfMonth = $targetMonth->copy()->startOfMonth();
         $endOfMonth = $targetMonth->copy()->endOfMonth();
+        $activeProcessingRanges = $this->getActiveProcessingRanges($deductionSettings, Carbon::now());
 
         $staffQuery = User::where('role_id', 2)
             ->where('is_archive', 0);
@@ -1078,8 +1170,13 @@ class PayrollController extends Controller
             ->get()
             ->keyBy('user_id');
 
-        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser, $deductionSettings, $staffPaymentLookup, $startOfMonth, $endOfMonth) {
-            $entries = collect($attendanceByUser->get($staff->id) ?? [])->map(function ($attendance) use ($staff) {
+        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser, $deductionSettings, $staffPaymentLookup, $startOfMonth, $endOfMonth, $targetMonth, $activeProcessingRanges) {
+            $attendanceRecords = $this->filterAttendancesForProcessingRanges(
+                $attendanceByUser->get($staff->id) ?? [],
+                $targetMonth,
+                $activeProcessingRanges
+            );
+            $entries = $attendanceRecords->map(function ($attendance) use ($staff) {
                 $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
                 $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
 
@@ -1222,8 +1319,8 @@ class PayrollController extends Controller
             ->keyBy('user_id');
 
         $trainerAssignments = $trainers
-            ->map(function ($trainer) use ($startOfMonth, $endOfMonth, $trainerProcessedRuns, $deductionSettings) {
-                $scheduleDetails = $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth);
+            ->map(function ($trainer) use ($startOfMonth, $endOfMonth, $trainerProcessedRuns, $deductionSettings, $activeProcessingRanges) {
+                $scheduleDetails = $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth, $activeProcessingRanges);
                 $salaryEligibleSchedules = $scheduleDetails->where('salary_eligible', true)->where('in_month', true);
                 $payableSchedules = $salaryEligibleSchedules->filter(fn ($detail) => ($detail['past_paid_count'] ?? 0) > 0);
 
@@ -1320,6 +1417,8 @@ class PayrollController extends Controller
             })
             ->orderBy('clockin_at')
             ->get();
+        $activeProcessingRanges = $this->getActiveProcessingRanges($deductionSettings, Carbon::now());
+        $attendanceRecords = $this->filterAttendancesForProcessingRanges($attendanceRecords, $targetMonth, $activeProcessingRanges);
 
         $entryDateBounds = $attendanceRecords->reduce(function ($carry, $attendance) {
             $times = collect([$attendance->clockin_at ?? null, $attendance->clockout_at ?? null])
@@ -1472,7 +1571,8 @@ class PayrollController extends Controller
         $startOfMonth = $targetMonth->copy()->startOfMonth();
         $endOfMonth = $targetMonth->copy()->endOfMonth();
 
-        $scheduleDetails = $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth);
+        $activeProcessingRanges = $this->getActiveProcessingRanges($deductionSettings, Carbon::now());
+        $scheduleDetails = $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth, $activeProcessingRanges);
         $eligibleSchedules = collect($scheduleDetails)
             ->filter(function ($detail) {
                 return ($detail['salary_eligible'] ?? false)

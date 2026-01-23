@@ -2591,6 +2591,12 @@
                 }
             }
 
+            const processMatch = normalizedRanges.find((range) => {
+                const processDay = parseInt(range.process, 10);
+                return Number.isInteger(processDay) && processDay === todayDay;
+            });
+            if (processMatch) return processMatch;
+
             return normalizedRanges.find((range) => {
                 const from = parseInt(range.from, 10);
                 const to = parseInt(range.to ?? 31, 10);
@@ -2780,11 +2786,17 @@
                 };
                 if (processDayFilter) {
                     const normalizedRanges = getNormalizedRanges();
-                    const matchingIndex = normalizedRanges.findIndex((range) => {
-                        const from = parseInt(range.from, 10);
-                        const to = parseInt(range.to ?? 31, 10);
-                        return Number.isInteger(from) && Number.isInteger(to) && todayDay >= from && todayDay <= to;
+                    let matchingIndex = normalizedRanges.findIndex((range) => {
+                        const processDay = parseInt(range.process, 10);
+                        return Number.isInteger(processDay) && processDay === todayDay;
                     });
+                    if (matchingIndex < 0) {
+                        matchingIndex = normalizedRanges.findIndex((range) => {
+                            const from = parseInt(range.from, 10);
+                            const to = parseInt(range.to ?? 31, 10);
+                            return Number.isInteger(from) && Number.isInteger(to) && todayDay >= from && todayDay <= to;
+                        });
+                    }
                     if (matchingIndex >= 0 && processDayFilter.querySelector(`option[value="${matchingIndex}"]`)) {
                         processDayFilter.value = String(matchingIndex);
                     } else if (processDayFilter.options.length) {
