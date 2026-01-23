@@ -527,6 +527,87 @@ class PayrollController extends Controller
             ->values()
             ->toArray();
     }
+
+    private function formatProcessedSessionSeriesForPayslip($processedSeries): array
+    {
+        return collect($processedSeries ?? [])
+            ->filter(function ($series) {
+                return !empty($series['sessions']);
+            })
+            ->map(function ($series) {
+                $sessions = collect($series['sessions'] ?? [])
+                    ->map(function ($session) {
+                        $date = $session['date'] ?? null;
+                        $label = $session['label'] ?? null;
+                        $parsed = null;
+                        if ($date) {
+                            try {
+                                $parsed = Carbon::parse($date);
+                            } catch (\Throwable $th) {
+                                $parsed = null;
+                            }
+                        }
+
+                        if (!$label && $parsed) {
+                            $label = $parsed->format('M d, Y');
+                        }
+
+                        return [
+                            'label' => $label,
+                            'status' => $session['status'] ?? null,
+                            'sort' => $parsed ? $parsed->getTimestamp() : PHP_INT_MAX,
+                        ];
+                    })
+                    ->filter(function ($session) {
+                        return !empty($session['label']);
+                    })
+                    ->sortBy('sort')
+                    ->values();
+
+                $dateLabels = $sessions->pluck('label')->filter()->values();
+                $timeRange = $series['time_range'] ?? null;
+                $attendance = $sessions->map(function ($session) use ($timeRange) {
+                    $status = trim((string) ($session['status'] ?? ''));
+                    if ($status !== '') {
+                        return $status;
+                    }
+
+                    $range = trim((string) ($timeRange ?? ''));
+                    if ($range !== '') {
+                        return $range;
+                    }
+
+                    return 'Attendance recorded';
+                })->filter()->values();
+
+                $hours = (float) ($series['payroll_hours'] ?? 0);
+                if ($hours <= 0) {
+                    $hoursPerSession = (float) ($series['hours_per_session'] ?? 0);
+                    if ($hoursPerSession > 0 && $sessions->isNotEmpty()) {
+                        $hours = $hoursPerSession * $sessions->count();
+                    }
+                }
+
+                $attendancePayload = $attendance->isNotEmpty()
+                    ? $attendance->toArray()
+                    : ($timeRange ? [$timeRange] : ['Attendance recorded']);
+
+                return [
+                    'title' => $series['schedule_name'] ?? 'Class schedule',
+                    'code' => $series['class_code'] ?? null,
+                    'date' => $dateLabels->isNotEmpty() ? $dateLabels->implode(', ') : '—',
+                    'time' => $timeRange ?? '—',
+                    'hours' => $hours,
+                    'salary' => (float) ($series['payroll_salary'] ?? 0),
+                    'attendance' => $attendancePayload,
+                    'recurrence' => '',
+                    'status' => 'Present',
+                ];
+            })
+            ->values()
+            ->toArray();
+    }
+
     public function index(Request $request)
     {
         $search = trim((string) $request->input('member_name', ''));
@@ -791,8 +872,13 @@ class PayrollController extends Controller
                     'assignments' => [],
                 ];
             } elseif ($user->role_id === 5) {
-                $scheduleDetails = $this->buildTrainerScheduleDetails($user, $startOfMonth, $endOfMonth);
-                $assignments = $this->formatTrainerAssignmentsForPayslip($scheduleDetails);
+                $processedSeries = collect($run->processed_session_series ?? []);
+                if ($processedSeries->isNotEmpty()) {
+                    $assignments = $this->formatProcessedSessionSeriesForPayslip($processedSeries);
+                } else {
+                    $scheduleDetails = $this->buildTrainerScheduleDetails($user, $startOfMonth, $endOfMonth);
+                    $assignments = $this->formatTrainerAssignmentsForPayslip($scheduleDetails);
+                }
 
                 $payslipDetails[$run->id] = [
                     'entries' => [],
