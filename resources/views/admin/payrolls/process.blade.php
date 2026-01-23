@@ -1383,8 +1383,10 @@
                             $start = $detail['start'];
                             $end = $detail['end'];
                             $category = $detail['category'];
-                            $categoryLabel = $category === 'future' ? 'Upcoming' : 'Completed';
-                            $badgeClass = $category === 'future' ? 'bg-success text-white' : 'bg-secondary';
+                            $paidDatesRaw = collect($detail['paid_dates'] ?? [])->filter();
+                            $hasPaid = $paidDatesRaw->isNotEmpty() || (int) ($detail['past_paid_count'] ?? 0) > 0;
+                            $categoryLabel = $hasPaid ? 'Completed' : ($category === 'future' ? 'Upcoming' : 'Completed');
+                            $badgeClass = $categoryLabel === 'Upcoming' ? 'bg-success text-white' : 'bg-secondary';
                             $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
                             $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
                             $students = $detail['students'];
@@ -1400,16 +1402,18 @@
                             $payableSalary = $detail['payroll_salary'] ?? 0;
                             $recurringLabel = $detail['recurring_label'] ?? '';
                             $occurrenceDatesRaw = collect($detail['occurrence_dates'] ?? collect())->filter();
-                            $occurrenceDates = $occurrenceDatesRaw->map(function ($date) {
+                            $displayDatesRaw = $hasPaid ? $paidDatesRaw : $occurrenceDatesRaw;
+                            $displayDates = $displayDatesRaw->map(function ($date) {
                                 try {
                                     return \Carbon\Carbon::parse($date)->format('M d');
                                 } catch (\Throwable $th) {
                                     return $date;
                                 }
                             })->values();
-                            $startFilterDate = $occurrenceDatesRaw->first() ?? ($detail['start_date'] ?? '');
-                            $endFilterDate = $occurrenceDatesRaw->last() ?? ($detail['end_date'] ?? '');
-                            $occurrenceDays = $occurrenceDatesRaw->map(function ($date) {
+                            $startFilterDate = $displayDatesRaw->first() ?? ($detail['start_date'] ?? '');
+                            $endFilterDate = $displayDatesRaw->last() ?? ($detail['end_date'] ?? '');
+                            $occurrenceDaysSource = $displayDatesRaw->isNotEmpty() ? $displayDatesRaw : $occurrenceDatesRaw;
+                            $occurrenceDays = $occurrenceDaysSource->map(function ($date) {
                                 try {
                                     return \Carbon\Carbon::parse($date)->day;
                                 } catch (\Throwable $th) {
@@ -1475,26 +1479,27 @@
                                 'timeline' => $occurrenceTimeline->values(),
                             ];
                             $detailJson = json_encode($detailPayload, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
-                            $rowDateLabel = $occurrenceDates->isNotEmpty()
-                                ? $occurrenceDates->take(1)->implode(', ') . ($occurrenceDates->count() > 1 ? ' +' . ($occurrenceDates->count() - 1) . ' more' : '')
+                            $rowDateLabel = $displayDates->isNotEmpty()
+                                ? $displayDates->take(1)->implode(', ') . ($displayDates->count() > 1 ? ' +' . ($displayDates->count() - 1) . ' more' : '')
                                 : ($start ? $start->format('M d') : '—');
                             $rateValue = $schedule->trainer_rate_per_hour ?? null;
-                            $hoursValue = $detail['payroll_hours'] ?? $detail['hours'] ?? 0;
-                            $attendanceLabel = $category === 'future'
-                                ? 'Upcoming'
-                                : ($hasAttendance ? 'Present' : 'Absent');
-                            $attendanceClass = $category === 'future'
-                                ? 'bg-warning-subtle text-warning'
-                                : ($hasAttendance ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger');
-                            $grossAmount = $category === 'future'
-                                ? (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0)
-                                : (float) $payableSalary;
-                            $payableAmount = $category === 'past' ? (float) $payableSalary : 0;
+                            $hoursValue = $hasPaid ? ($detail['payroll_hours'] ?? 0) : ($detail['hours'] ?? 0);
+                            $attendanceLabel = ($hasPaid || $hasAttendance)
+                                ? 'Present'
+                                : ((int) ($detail['past_occurrence_count'] ?? 0) > 0 ? 'Absent' : 'Upcoming');
+                            $attendanceClass = ($hasPaid || $hasAttendance)
+                                ? 'bg-success-subtle text-success'
+                                : ((int) ($detail['past_occurrence_count'] ?? 0) > 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning');
+                            $grossAmount = $hasPaid
+                                ? (float) $payableSalary
+                                : (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0);
+                            $payableAmount = $hasPaid ? (float) $payableSalary : 0;
+                            $rowCategory = $hasPaid ? 'past' : $category;
                         @endphp
                         <tr
                             class="assignment-row"
                             data-assignment-card
-                            data-category="{{ $category }}"
+                            data-category="{{ $rowCategory }}"
                             data-start-date="{{ $startFilterDate }}"
                             data-end-date="{{ $endFilterDate }}"
                             data-future-salary="{{ (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0) }}"
