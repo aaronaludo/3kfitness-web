@@ -358,7 +358,7 @@ class ScheduleController extends Controller
     {
         $request->validate([
             'name' => 'required',
-            'image' => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'slots' => 'required|integer|min:1',
             'class_start_date' => 'required|date',
             'class_end_date' => 'required|date|after:class_start_date',

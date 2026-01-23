@@ -9,7 +9,7 @@
     @php
         $data->loadMissing(['user', 'classAttendances.user'])->loadCount(['activeUserSchedules as user_schedules_count']);
 
-        $image = $data->image ? asset($data->image) : asset('assets/images/default-image.png');
+        $image = $data->image ? asset($data->image) : asset('assets/images/icon.png');
         $startDate = $data->class_start_date ? \Carbon\Carbon::parse($data->class_start_date) : null;
         $endDate = $data->class_end_date ? \Carbon\Carbon::parse($data->class_end_date) : null;
         $seriesStart = $data->series_start_date ? \Carbon\Carbon::parse($data->series_start_date) : null;
