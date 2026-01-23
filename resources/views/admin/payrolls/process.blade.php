@@ -200,13 +200,26 @@
                         $staff = $summary['staff'];
                         $modalId = 'staff-payroll-modal-' . $staff->id;
                         $staffProcessedRun = $summary['processed_run'] ?? null;
-                        $staffIsProcessed = !empty($staffProcessedRun);
+                        $staffProcessedTotals = $summary['processed_totals'] ?? [
+                            'count' => 0,
+                            'hours' => 0,
+                            'gross' => 0,
+                            'net' => 0,
+                            'sss' => 0,
+                            'philhealth' => 0,
+                            'pagibig' => 0,
+                            'app_cut' => 0,
+                            'last_processed_at' => null,
+                        ];
+                        $hasStaffProcessed = (int) ($staffProcessedTotals['count'] ?? 0) > 0;
+                        $hasStaffRemaining = ($summary['entries'] ?? collect())->count() > 0;
+                        $staffLastProcessedAt = $staffProcessedTotals['last_processed_at'] ?? null;
                         $staffHasTin = !empty($staff->tin_number);
                         $staffHasSss = $staffHasTin && !empty($staff->sss_number);
                         $staffHasPhilhealth = $staffHasTin && !empty($staff->philhealth_number);
                         $staffHasPagibig = $staffHasTin && !empty($staff->pagibig_number);
                         $hasStaffData = ($summary['entries'] ?? collect())->count() > 0;
-                        $staffNoData = !$hasStaffData && empty($summary['processed_run']);
+                        $staffNoData = !$hasStaffRemaining;
                         $staffDeductions = $summary['deductions'] ?? [];
                         $staffNetWithoutAppCut = max(
                             round(
@@ -249,22 +262,25 @@
                                     <div class="text-start">
                                         <div class="text-muted small text-uppercase">Hours</div>
                                         <div class="fw-bold fs-5">{{ number_format($summary['total_hours'], 2) }}</div>
-                                        @if(!empty($summary['processed_run']))
-                                            <div class="text-muted small">Processed: {{ number_format($summary['processed_run']->total_hours, 2) }} hrs</div>
+                                        @if($hasStaffProcessed)
+                                            <div class="text-muted small">
+                                                Processed ({{ $staffProcessedTotals['count'] ?? 0 }} run{{ ($staffProcessedTotals['count'] ?? 0) === 1 ? '' : 's' }}):
+                                                {{ number_format((float) ($staffProcessedTotals['hours'] ?? 0), 2) }} hrs
+                                            </div>
                                         @endif
                                     </div>
                                     <div class="text-start">
                                         <div class="text-muted small text-uppercase">Gross</div>
                                         <div class="fw-bold fs-5">₱{{ number_format($summary['gross_pay'], 2) }}</div>
-                                        @if(!empty($summary['processed_run']))
-                                            <div class="text-muted small">Processed: ₱{{ number_format($summary['processed_run']->gross_pay, 2) }}</div>
+                                        @if($hasStaffProcessed)
+                                            <div class="text-muted small">Processed: ₱{{ number_format((float) ($staffProcessedTotals['gross'] ?? 0), 2) }}</div>
                                         @endif
                                     </div>
                                     <div class="text-start">
                                         <div class="text-muted small text-uppercase">Net</div>
                                         <div class="fw-bold fs-5 text-success" data-net>₱{{ number_format($staffNetWithoutAppCut, 2) }}</div>
-                                        @if(!empty($summary['processed_run']))
-                                            <div class="text-muted small">Processed: ₱{{ number_format($summary['processed_run']->net_pay, 2) }}</div>
+                                        @if($hasStaffProcessed)
+                                            <div class="text-muted small">Processed: ₱{{ number_format((float) ($staffProcessedTotals['net'] ?? 0), 2) }}</div>
                                         @endif
                                     </div>
                                     <div class="text-start">
@@ -279,22 +295,24 @@
                     @endif
                 </div>
                                     <div>
-                                        @if(!empty($summary['processed_run']))
-                                            <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
-                                            <div class="text-muted small" data-cooldown-display></div>
-                                        @else
+                                        @if($hasStaffRemaining)
                                             <span class="badge {{ $summary['pending_entries'] ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
                                                 {{ $summary['pending_entries'] ? $summary['pending_entries'] . ' pending entries' : 'Ready to finalize' }}
                                             </span>
+                                        @elseif($hasStaffProcessed)
+                                            <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
+                                            <div class="text-muted small" data-cooldown-display></div>
+                                        @else
+                                            <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No attendance data</span>
                                         @endif
                                     </div>
                                     @php
-                                        $staffProcessDisabled = $summary['pending_entries'] || !empty($summary['processed_run']) || $staffNoData;
+                                        $staffProcessDisabled = $summary['pending_entries'] || $staffNoData;
                                         $staffProcessTitle = $summary['pending_entries']
                                             ? 'Clock-out pending entries before processing'
-                                            : (!empty($summary['processed_run'])
-                                                ? 'Already processed for this period'
-                                                : ($staffNoData ? 'Processing disabled: no attendance data yet' : 'Process and save payroll'));
+                                            : ($staffNoData
+                                                ? ($hasStaffProcessed ? 'All entries already processed for this period' : 'Processing disabled: no attendance data yet')
+                                                : 'Process and save payroll');
                                         $rangeEntries = $summary['entries']->map(function ($entry) {
                                             $clockIn = $entry['clockin_at'] ?? null;
                                             $clockOut = $entry['clockout_at'] ?? null;
@@ -363,10 +381,12 @@
                                             title="{{ $staffProcessTitle }}"
                                         >
                                             <i class="fa-solid fa-circle-check"></i>
-                                            {{ !empty($summary['processed_run']) ? 'Processed' : 'Process payroll' }}
+                                            {{ $staffProcessDisabled ? ($hasStaffProcessed ? 'Processed' : 'Process payroll') : 'Process payroll' }}
                                         </button>
-                                        @if($staffNoData && empty($summary['processed_run']))
+                                        @if($staffNoData && !$hasStaffProcessed)
                                             <div class="text-muted small mt-1">Process is disabled because there is no attendance data yet.</div>
+                                        @elseif($staffNoData && $hasStaffProcessed)
+                                            <div class="text-muted small mt-1">All attendance entries in this period have already been processed.</div>
                                         @endif
                                     </form>
                                     @php
@@ -424,8 +444,8 @@
                                                 <div class="text-muted small">Payroll Period: {{ $monthLabel }}</div>
                                             </div>
                                             <div class="ms-auto text-end">
-                                                @if($staffIsProcessed)
-                                                    <span class="text-muted small">Payroll locked on {{ optional($staffProcessedRun->processed_at)->format('M d, Y') ?? '—' }} - edits disabled</span>
+                                                @if(!$hasStaffRemaining && $hasStaffProcessed)
+                                                    <span class="text-muted small">Payroll locked on {{ $staffLastProcessedAt ? $staffLastProcessedAt->format('M d, Y') : '—' }} - edits disabled</span>
                                                 @else
                                                     <span class="text-muted small">Payroll open - edits enabled</span>
                                                 @endif
@@ -536,12 +556,14 @@
                                             </div>
                                             <div class="summary-item">
                                                 <div class="summary-label">Status</div>
-                                                @if($staffIsProcessed)
-                                                    <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Processed</span>
-                                                @elseif($summary['pending_entries'])
+                                                @if($hasStaffRemaining && $summary['pending_entries'])
                                                     <span class="badge status-pill bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i> Pending</span>
-                                                @else
+                                                @elseif($hasStaffRemaining)
                                                     <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Ready</span>
+                                                @elseif($hasStaffProcessed)
+                                                    <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Processed</span>
+                                                @else
+                                                    <span class="badge status-pill bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i> Pending</span>
                                                 @endif
                                             </div>
                                         </div>

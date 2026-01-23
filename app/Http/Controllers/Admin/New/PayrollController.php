@@ -593,6 +593,72 @@ class PayrollController extends Controller
         ];
     }
 
+    private function buildProcessedAttendanceIdSet($runs): array
+    {
+        return collect($runs ?? [])
+            ->flatMap(function ($run) {
+                return $run->processed_attendance_ids ?? [];
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    private function buildProcessedMembershipPaymentIdSet($runs): array
+    {
+        return collect($runs ?? [])
+            ->flatMap(function ($run) {
+                $payments = $run->processed_membership_payments_approved ?? [];
+                $items = is_array($payments) ? ($payments['items'] ?? []) : [];
+                return collect($items)->pluck('id');
+            })
+            ->filter()
+            ->unique()
+            ->values()
+            ->toArray();
+    }
+
+    private function buildProcessedAttendanceIdSetWithFallback($runs, $attendanceRecords, Carbon $targetMonth, array $settings): array
+    {
+        $processedIds = $this->buildProcessedAttendanceIdSet($runs);
+        $ranges = $settings['processing_day_ranges'] ?? [];
+        if (empty($ranges)) {
+            return $processedIds;
+        }
+
+        $attendanceRecords = collect($attendanceRecords ?? []);
+
+        foreach (collect($runs ?? []) as $run) {
+            if (!empty($run->processed_attendance_ids)) {
+                continue;
+            }
+            $processedAt = $run->processed_at ?? null;
+            if (!$processedAt) {
+                continue;
+            }
+            $day = (int) $processedAt->day;
+            $runRanges = collect($ranges)
+                ->filter(function ($range) use ($day) {
+                    return (int) ($range['process'] ?? 0) === $day;
+                })
+                ->values()
+                ->toArray();
+
+            if (empty($runRanges)) {
+                continue;
+            }
+
+            $runAttendances = $this->filterAttendancesForProcessingRanges($attendanceRecords, $targetMonth, $runRanges);
+            $ids = collect($runAttendances)->pluck('id')->filter()->values()->toArray();
+            if (!empty($ids)) {
+                $processedIds = array_values(array_unique(array_merge($processedIds, $ids)));
+            }
+        }
+
+        return $processedIds;
+    }
+
     private function mergeProcessedSessionSeries($runs): array
     {
         $merged = [];
@@ -903,15 +969,36 @@ class PayrollController extends Controller
             $endOfMonth = $targetMonth->copy()->endOfMonth();
 
             if ($user->role_id === 2) {
-                $attendanceRecords = Attendance2::where('user_id', $user->id)
-                    ->where('is_archive', 0)
-                    ->where(function ($query) use ($startOfMonth, $endOfMonth) {
-                        $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
-                            ->orWhereBetween('clockout_at', [$startOfMonth, $endOfMonth])
-                            ->orWhereBetween('created_at', [$startOfMonth, $endOfMonth]);
-                    })
-                    ->orderBy('clockin_at')
-                    ->get();
+                $processedAttendanceIds = $run->processed_attendance_ids ?? [];
+                if (is_array($processedAttendanceIds) && !empty($processedAttendanceIds)) {
+                    $attendanceRecords = Attendance2::whereIn('id', $processedAttendanceIds)
+                        ->orderBy('clockin_at')
+                        ->get();
+                } else {
+                    $attendanceRecords = Attendance2::where('user_id', $user->id)
+                        ->where('is_archive', 0)
+                        ->where(function ($query) use ($startOfMonth, $endOfMonth) {
+                            $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
+                                ->orWhereBetween('clockout_at', [$startOfMonth, $endOfMonth])
+                                ->orWhereBetween('created_at', [$startOfMonth, $endOfMonth]);
+                        })
+                        ->orderBy('clockin_at')
+                        ->get();
+
+                    $fallbackIds = $this->buildProcessedAttendanceIdSetWithFallback(
+                        [$run],
+                        $attendanceRecords,
+                        $targetMonth,
+                        $deductionSettings
+                    );
+                    if (!empty($fallbackIds)) {
+                        $attendanceRecords = $attendanceRecords
+                            ->filter(function ($attendance) use ($fallbackIds) {
+                                return in_array($attendance->id, $fallbackIds, true);
+                            })
+                            ->values();
+                    }
+                }
 
                 $entryDateBounds = $attendanceRecords->reduce(function ($carry, $attendance) {
                     $times = collect([$attendance->clockin_at ?? null, $attendance->clockout_at ?? null])
@@ -1419,15 +1506,27 @@ class PayrollController extends Controller
             ->groupBy('user_id');
         $processedRuns = PayrollRun::whereIn('user_id', $staffMembers->pluck('id'))
             ->where('period_month', $month)
+            ->orderByDesc('processed_at')
             ->get()
-            ->keyBy('user_id');
+            ->groupBy('user_id');
 
-        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser, $deductionSettings, $staffPaymentLookup, $startOfMonth, $endOfMonth, $targetMonth, $activeProcessingRanges) {
+        $summaries = $staffMembers->map(function ($staff) use ($attendanceByUser, $deductionSettings, $staffPaymentLookup, $startOfMonth, $endOfMonth, $targetMonth, $activeProcessingRanges, $processedRuns, $month) {
+            $staffRuns = $processedRuns->get($staff->id, collect());
+            $attendanceRecordsAll = $attendanceByUser->get($staff->id) ?? collect();
+            $processedAttendanceIds = $this->buildProcessedAttendanceIdSetWithFallback($staffRuns, $attendanceRecordsAll, $targetMonth, $deductionSettings);
+            $processedMembershipIds = $this->buildProcessedMembershipPaymentIdSet($staffRuns);
             $attendanceRecords = $this->filterAttendancesForProcessingRanges(
-                $attendanceByUser->get($staff->id) ?? [],
+                $attendanceRecordsAll,
                 $targetMonth,
                 $activeProcessingRanges
             );
+            if (!empty($processedAttendanceIds)) {
+                $attendanceRecords = collect($attendanceRecords)
+                    ->filter(function ($attendance) use ($processedAttendanceIds) {
+                        return !in_array($attendance->id, $processedAttendanceIds, true);
+                    })
+                    ->values();
+            }
             $entries = $attendanceRecords->map(function ($attendance) use ($staff) {
                 $clockIn = $attendance->clockin_at ? Carbon::parse($attendance->clockin_at) : null;
                 $clockOut = $attendance->clockout_at ? Carbon::parse($attendance->clockout_at) : null;
@@ -1483,7 +1582,10 @@ class PayrollController extends Controller
             $staffCodeKey = strtolower(trim($staff->user_code ?? ''));
             $matchedPayments = $staffCodeKey !== '' ? ($staffPaymentLookup->get($staffCodeKey) ?? collect()) : collect();
             $membershipPaymentItems = $matchedPayments
-                ->filter(function ($payment) use ($entryStart, $entryEnd) {
+                ->filter(function ($payment) use ($entryStart, $entryEnd, $processedMembershipIds) {
+                    if (!empty($processedMembershipIds) && in_array($payment->id, $processedMembershipIds, true)) {
+                        return false;
+                    }
                     $approvedAt = $payment->updated_at ?: $payment->created_at;
                     if (!$approvedAt) {
                         return false;
@@ -1509,6 +1611,8 @@ class PayrollController extends Controller
 
             $membershipPaymentTotal = $membershipPaymentItems->sum(fn ($item) => $item['price'] ?? 0);
             $membershipPaymentCurrency = $membershipPaymentItems->first()['currency'] ?? 'PHP';
+            $latestProcessedRun = $staffRuns->sortByDesc('processed_at')->first();
+            $processedTotals = $this->summarizeProcessedRuns($staffRuns);
 
             return [
                 'staff' => $staff,
@@ -1525,33 +1629,12 @@ class PayrollController extends Controller
                     'currency' => $membershipPaymentCurrency,
                     'items' => $membershipPaymentItems,
                 ],
+                'processed_run' => $latestProcessedRun,
+                'processed_runs' => $staffRuns,
+                'processed_totals' => $processedTotals,
+                'period_month' => $month,
             ];
-        })->filter(fn ($summary) => $summary['entries']->count() > 0)->values()->map(function ($summary) use ($processedRuns, $month) {
-            $staff = $summary['staff'];
-            $run = $processedRuns->get($staff->id);
-
-            if ($run) {
-                // Zero out on-screen values once processed, but keep run info for badges/messages.
-                $summary['total_hours'] = 0;
-                $summary['gross_pay'] = 0;
-                $summary['net_pay'] = 0;
-                $summary['deductions'] = [
-                    'sss' => 0,
-                    'philhealth' => 0,
-                    'pagibig' => 0,
-                    'app_cut' => 0,
-                    'total' => 0,
-                ];
-                $summary['entries'] = collect(); // Hide entries after processing
-                $summary['pending_entries'] = 0;
-                $summary['completed_entries'] = 0;
-            }
-
-            $summary['processed_run'] = $run;
-            $summary['period_month'] = $month;
-
-            return $summary;
-        });
+        })->filter(fn ($summary) => $summary['entries']->count() > 0)->values();
 
         $stats = [
             'staff_count' => $summaries->count(),
@@ -1659,6 +1742,10 @@ class PayrollController extends Controller
 
         $startOfMonth = $targetMonth->copy()->startOfMonth();
         $endOfMonth = $targetMonth->copy()->endOfMonth();
+        $existingRuns = PayrollRun::where('user_id', $staff->id)
+            ->where('period_month', $request->month)
+            ->get();
+        $processedMembershipIds = $this->buildProcessedMembershipPaymentIdSet($existingRuns);
 
         $attendanceRecords = Attendance2::where('user_id', $staff->id)
             ->where('is_archive', 0)
@@ -1669,8 +1756,21 @@ class PayrollController extends Controller
             })
             ->orderBy('clockin_at')
             ->get();
+        $processedAttendanceIds = $this->buildProcessedAttendanceIdSetWithFallback(
+            $existingRuns,
+            $attendanceRecords,
+            $targetMonth,
+            $deductionSettings
+        );
         $activeProcessingRanges = $this->getActiveProcessingRanges($deductionSettings, Carbon::now());
         $attendanceRecords = $this->filterAttendancesForProcessingRanges($attendanceRecords, $targetMonth, $activeProcessingRanges);
+        if (!empty($processedAttendanceIds)) {
+            $attendanceRecords = collect($attendanceRecords)
+                ->filter(function ($attendance) use ($processedAttendanceIds) {
+                    return !in_array($attendance->id, $processedAttendanceIds, true);
+                })
+                ->values();
+        }
 
         $entryDateBounds = $attendanceRecords->reduce(function ($carry, $attendance) {
             $times = collect([$attendance->clockin_at ?? null, $attendance->clockout_at ?? null])
@@ -1709,6 +1809,7 @@ class PayrollController extends Controller
             $amount = $hours ? round($hours * (float) ($staff->rate_per_hour ?? 0), 2) : 0;
 
             return [
+                'id' => $attendance->id,
                 'hours' => $hours ?? 0,
                 'amount' => $amount,
             ];
@@ -1729,7 +1830,10 @@ class PayrollController extends Controller
                 ->whereBetween('created_at', [$startOfMonth, $endOfMonth])
                 ->with(['membership', 'user'])
                 ->get()
-                ->filter(function ($payment) use ($staffCodeKey, $entryStart, $entryEnd) {
+                ->filter(function ($payment) use ($staffCodeKey, $entryStart, $entryEnd, $processedMembershipIds) {
+                    if (!empty($processedMembershipIds) && in_array($payment->id, $processedMembershipIds, true)) {
+                        return false;
+                    }
                     $createdBy = strtolower(trim($payment->created_by ?? ''));
                     if ($createdBy !== $staffCodeKey) {
                         return false;
@@ -1775,27 +1879,33 @@ class PayrollController extends Controller
 
         $net = max($gross - $deductions['total'], 0);
 
-        PayrollRun::updateOrCreate(
-            [
-                'user_id' => $staff->id,
-                'period_month' => $request->month,
-            ],
-            [
-                'total_hours' => $totalHours,
-                'gross_pay' => $gross,
-                'net_pay' => $net,
-                'deduction_sss' => $deductions['sss'],
-                'deduction_philhealth' => $deductions['philhealth'],
-                'deduction_pagibig' => $deductions['pagibig'],
-                'deduction_app_cut' => $deductions['app_cut'],
-                'processed_by' => Auth::id(),
-                'processed_at' => Carbon::now(),
-                'released_at' => null,
-                'released_by' => null,
-                'processed_session_series' => null,
-                'processed_membership_payments_approved' => $processedMembershipPayments,
-            ]
-        );
+        $processedAttendanceIdsForRun = $entries
+            ->filter(function ($entry) {
+                return (float) ($entry['hours'] ?? 0) > 0;
+            })
+            ->pluck('id')
+            ->filter()
+            ->values()
+            ->toArray();
+
+        PayrollRun::create([
+            'user_id' => $staff->id,
+            'period_month' => $request->month,
+            'total_hours' => $totalHours,
+            'gross_pay' => $gross,
+            'net_pay' => $net,
+            'deduction_sss' => $deductions['sss'],
+            'deduction_philhealth' => $deductions['philhealth'],
+            'deduction_pagibig' => $deductions['pagibig'],
+            'deduction_app_cut' => $deductions['app_cut'],
+            'processed_by' => Auth::id(),
+            'processed_at' => Carbon::now(),
+            'released_at' => null,
+            'released_by' => null,
+            'processed_session_series' => null,
+            'processed_membership_payments_approved' => $processedMembershipPayments,
+            'processed_attendance_ids' => $processedAttendanceIdsForRun,
+        ]);
 
         return redirect()->route('admin.payrolls.index')->with('success', 'Payroll processed and saved for ' . trim($staff->first_name . ' ' . $staff->last_name));
     }

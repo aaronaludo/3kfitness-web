@@ -25,6 +25,7 @@ class PayrollRun extends Model
         'released_at',
         'processed_session_series',
         'processed_membership_payments_approved',
+        'processed_attendance_ids',
     ];
 
     protected $casts = [
@@ -32,6 +33,7 @@ class PayrollRun extends Model
         'released_at' => 'datetime',
         'processed_session_series' => 'array',
         'processed_membership_payments_approved' => 'array',
+        'processed_attendance_ids' => 'array',
     ];
 
     public function user()
