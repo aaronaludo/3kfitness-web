@@ -12,7 +12,11 @@
             'processing_days' => [],
             'processing_day_ranges' => [],
         ];
-        $staffAppCutTotal = collect($summaries ?? collect())
+        $summaryTotalsSource = $summariesAll ?? ($summaries ?? collect());
+        $summaryTotalsCollection = $summaryTotalsSource instanceof \Illuminate\Pagination\AbstractPaginator
+            ? collect($summaryTotalsSource->items())
+            : collect($summaryTotalsSource);
+        $staffAppCutTotal = $summaryTotalsCollection
             ->sum(function ($summary) {
                 $deductions = $summary['deductions'] ?? [];
                 return $deductions['app_cut'] ?? 0;
@@ -122,7 +126,11 @@
 
             <section id="staff-payroll-section" class="payroll-section mb-4">
             @php
-                $staffSummariesWithHours = collect($summaries ?? [])->filter(function ($summary) {
+                $staffSummariesSource = $summaries ?? collect();
+                $staffSummariesCollection = $staffSummariesSource instanceof \Illuminate\Pagination\AbstractPaginator
+                    ? collect($staffSummariesSource->items())
+                    : collect($staffSummariesSource);
+                $staffSummariesWithHours = $staffSummariesCollection->filter(function ($summary) {
                     return (float) ($summary['total_hours'] ?? 0) > 0;
                 })->values();
             @endphp
@@ -195,245 +203,259 @@
             </div>
 
             <div class="col-12">
-                @forelse ($staffSummariesWithHours as $summary)
-                    @php
-                        $staff = $summary['staff'];
-                        $modalId = 'staff-payroll-modal-' . $staff->id;
-                        $staffProcessedRun = $summary['processed_run'] ?? null;
-                        $staffProcessedTotals = $summary['processed_totals'] ?? [
-                            'count' => 0,
-                            'hours' => 0,
-                            'gross' => 0,
-                            'net' => 0,
-                            'sss' => 0,
-                            'philhealth' => 0,
-                            'pagibig' => 0,
-                            'app_cut' => 0,
-                            'last_processed_at' => null,
-                        ];
-                        $hasStaffProcessed = (int) ($staffProcessedTotals['count'] ?? 0) > 0;
-                        $hasStaffRemaining = ($summary['entries'] ?? collect())->count() > 0;
-                        $staffLastProcessedAt = $staffProcessedTotals['last_processed_at'] ?? null;
-                        $staffHasTin = !empty($staff->tin_number);
-                        $staffHasSss = $staffHasTin && !empty($staff->sss_number);
-                        $staffHasPhilhealth = $staffHasTin && !empty($staff->philhealth_number);
-                        $staffHasPagibig = $staffHasTin && !empty($staff->pagibig_number);
-                        $hasStaffData = ($summary['entries'] ?? collect())->count() > 0;
-                        $staffNoData = !$hasStaffRemaining;
-                        $staffDeductions = $summary['deductions'] ?? [];
-                        $staffNetWithoutAppCut = max(
-                            round(
-                                ($summary['gross_pay'] ?? 0)
-                                - (($staffDeductions['sss'] ?? 0) + ($staffDeductions['philhealth'] ?? 0) + ($staffDeductions['pagibig'] ?? 0)),
-                                2
-                            ),
-                            0
-                        );
-                        $staffDeductionsForDisplay = array_merge($staffDeductions, ['app_cut' => 0]);
-                        $staffTotalDeductions = ($staffDeductionsForDisplay['sss'] ?? 0)
-                            + ($staffDeductionsForDisplay['philhealth'] ?? 0)
-                            + ($staffDeductionsForDisplay['pagibig'] ?? 0)
-                            + ($staffDeductionsForDisplay['app_cut'] ?? 0);
-                        $staffMembershipPayments = $summary['membership_payments'] ?? ['count' => 0, 'total' => 0, 'currency' => 'PHP', 'items' => collect()];
-                        $staffMembershipPaymentsItems = collect($staffMembershipPayments['items'] ?? []);
-                    @endphp
-                    <div
-                        class="card border-0 shadow-sm rounded-4 mb-3"
-                        data-payroll-card
-                        data-modal-id="{{ $modalId }}"
-                        data-has-tin="{{ $staffHasTin ? '1' : '0' }}"
-                        data-has-sss="{{ $staffHasSss ? '1' : '0' }}"
-                        data-has-philhealth="{{ $staffHasPhilhealth ? '1' : '0' }}"
-                        data-has-pagibig="{{ $staffHasPagibig ? '1' : '0' }}"
-                        data-gross="{{ $summary['gross_pay'] }}"
-                        data-rate="{{ $staff->rate_per_hour ?? 0 }}"
-                        data-appcut="0"
-                    >
-                        <div class="card-body p-4">
-                            <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-                                <div>
-                                    <h5 class="fw-semibold mb-1">{{ $staff->first_name }} {{ $staff->last_name }}</h5>
-                                    <div class="text-muted small">{{ $staff->email }}</div>
-                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2 mt-2">
-                                        ₱{{ number_format($staff->rate_per_hour ?? 0, 2) }} / hr
-                                    </span>
-                                </div>
-                                <div class="d-flex flex-wrap align-items-center gap-3">
-                                    <div class="text-start">
-                                        <div class="text-muted small text-uppercase">Hours</div>
-                                        <div class="fw-bold fs-5">{{ number_format($summary['total_hours'], 2) }}</div>
-                                        @if($hasStaffProcessed)
-                                            <div class="text-muted small">
-                                                Processed ({{ $staffProcessedTotals['count'] ?? 0 }} run{{ ($staffProcessedTotals['count'] ?? 0) === 1 ? '' : 's' }}):
-                                                {{ number_format((float) ($staffProcessedTotals['hours'] ?? 0), 2) }} hrs
-                                            </div>
-                                        @endif
-                                    </div>
-                                    <div class="text-start">
-                                        <div class="text-muted small text-uppercase">Gross</div>
-                                        <div class="fw-bold fs-5">₱{{ number_format($summary['gross_pay'], 2) }}</div>
-                                        @if($hasStaffProcessed)
-                                            <div class="text-muted small">Processed: ₱{{ number_format((float) ($staffProcessedTotals['gross'] ?? 0), 2) }}</div>
-                                        @endif
-                                    </div>
-                                    <div class="text-start">
-                                        <div class="text-muted small text-uppercase">Net</div>
-                                        <div class="fw-bold fs-5 text-success" data-net>₱{{ number_format($staffNetWithoutAppCut, 2) }}</div>
-                                        @if($hasStaffProcessed)
-                                            <div class="text-muted small">Processed: ₱{{ number_format((float) ($staffProcessedTotals['net'] ?? 0), 2) }}</div>
-                                        @endif
-                                    </div>
-                                    <div class="text-start">
-                    <div class="text-muted small text-uppercase">Membership payments</div>
-                    @if(($staffMembershipPayments['count'] ?? 0) > 0)
-                        <div class="fw-bold fs-6">
-                            {{ $staffMembershipPayments['currency'] ?? 'PHP' }} {{ number_format((float) ($staffMembershipPayments['total'] ?? 0), 2) }}
-                        </div>
-                        <div class="text-muted small">{{ $staffMembershipPayments['count'] ?? 0 }} approved in this period</div>
-                    @else
-                        <span class="text-muted small">None</span>
-                    @endif
-                </div>
-                                    <div>
-                                        @if($hasStaffRemaining)
-                                            <span class="badge {{ $summary['pending_entries'] ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
-                                                {{ $summary['pending_entries'] ? $summary['pending_entries'] . ' pending entries' : 'Ready to finalize' }}
-                                            </span>
-                                        @elseif($hasStaffProcessed)
-                                            <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
-                                            <div class="text-muted small" data-cooldown-display></div>
-                                        @else
-                                            <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No attendance data</span>
-                                        @endif
-                                    </div>
-                                    @php
-                                        $staffProcessDisabled = $summary['pending_entries'] || $staffNoData;
-                                        $staffProcessTitle = $summary['pending_entries']
-                                            ? 'Clock-out pending entries before processing'
-                                            : ($staffNoData
-                                                ? ($hasStaffProcessed ? 'All entries already processed for this period' : 'Processing disabled: no attendance data yet')
-                                                : 'Process and save payroll');
-                                        $rangeEntries = $summary['entries']->map(function ($entry) {
-                                            $clockIn = $entry['clockin_at'] ?? null;
-                                            $clockOut = $entry['clockout_at'] ?? null;
-                                            $dateSource = $clockIn ?: $clockOut;
-                                            $dateLabel = $dateSource ? $dateSource->format('M j, Y') : '—';
-                                            $day = $dateSource ? $dateSource->day : null;
-                                            $timeRange = '—';
-                                            if ($clockIn && $clockOut) {
-                                                $timeRange = $clockIn->format('g:i A') . ' - ' . $clockOut->format('g:i A');
-                                            } elseif ($clockIn) {
-                                                $timeRange = $clockIn->format('g:i A') . ' - —';
-                                            }
-                                            $hours = $entry['hours'] ?? null;
-                                            $metaParts = [];
-                                            if ($timeRange !== '—') {
-                                                $metaParts[] = $timeRange;
-                                            }
-                                            if (!is_null($hours)) {
-                                                $metaParts[] = number_format((float) $hours, 2) . ' hrs';
-                                            }
-                                            $meta = implode(' • ', $metaParts);
-                                            $isComplete = ($entry['status'] ?? '') === 'complete';
-                                            $title = 'Attendance entry';
-                                            if (!empty($entry['id'])) {
-                                                $title .= ' #' . $entry['id'];
-                                            }
-
-                                            return [
-                                                'type' => 'staff_entry',
-                                                'title' => $title,
-                                                'meta' => $meta !== '' ? $meta : null,
-                                                'timeline' => [
-                                                    [
-                                                        'label' => $dateLabel,
-                                                        'day' => $day,
-                                                        'status' => $isComplete ? 'Completed (paid)' : 'Pending',
-                                                        'payable' => $isComplete ? 1 : 0,
-                                                    ],
-                                                ],
-                                                'amounts' => [
-                                                    'completed' => (float) ($entry['amount'] ?? 0),
-                                                ],
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Staff</th>
+                                        <th>Rate</th>
+                                        <th>Hours</th>
+                                        <th>Gross</th>
+                                        <th>Net</th>
+                                        <th>Membership payments</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse ($staffSummariesWithHours as $summary)
+                                        @php
+                                            $staff = $summary['staff'];
+                                            $modalId = 'staff-payroll-modal-' . $staff->id;
+                                            $staffProcessedRun = $summary['processed_run'] ?? null;
+                                            $staffProcessedTotals = $summary['processed_totals'] ?? [
+                                                'count' => 0,
+                                                'hours' => 0,
+                                                'gross' => 0,
+                                                'net' => 0,
+                                                'sss' => 0,
+                                                'philhealth' => 0,
+                                                'pagibig' => 0,
+                                                'app_cut' => 0,
+                                                'last_processed_at' => null,
                                             ];
-                                        })->values();
-                                        $rangeEntriesJson = json_encode($rangeEntries, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
-                                    @endphp
-                                    <form action="{{ route('admin.payrolls.process-staff') }}" method="POST" class="d-inline">
-                                        @csrf
-                                        <input type="hidden" name="staff_id" value="{{ $staff->id }}">
-                                        <input type="hidden" name="month" value="{{ $month }}">
-                                        <button
-                                            type="submit"
-                                            class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2 process-payroll-btn"
-                                            data-base-disabled="{{ $staffProcessDisabled ? '1' : '0' }}"
-                                            data-base-title="{{ $staffProcessTitle }}"
-                                            data-range-entries='{{ $rangeEntriesJson }}'
-                                            data-role="staff"
-                                            data-name="{{ $staff->first_name }} {{ $staff->last_name }}"
-                                            data-month="{{ $monthLabel }}"
-                                            data-hours="{{ number_format($summary['total_hours'], 2, '.', '') }}"
-                                            data-gross="{{ number_format($summary['gross_pay'], 2, '.', '') }}"
-                                            data-net="{{ number_format($staffNetWithoutAppCut, 2, '.', '') }}"
-                                            data-pending="{{ (int) $summary['pending_entries'] }}"
-                                            data-basis="Attendance clock-ins/outs"
-                                            {{ $staffProcessDisabled ? 'disabled' : '' }}
-                                            title="{{ $staffProcessTitle }}"
+                                            $hasStaffProcessed = (int) ($staffProcessedTotals['count'] ?? 0) > 0;
+                                            $hasStaffRemaining = ($summary['entries'] ?? collect())->count() > 0;
+                                            $staffLastProcessedAt = $staffProcessedTotals['last_processed_at'] ?? null;
+                                            $staffHasTin = !empty($staff->tin_number);
+                                            $staffHasSss = $staffHasTin && !empty($staff->sss_number);
+                                            $staffHasPhilhealth = $staffHasTin && !empty($staff->philhealth_number);
+                                            $staffHasPagibig = $staffHasTin && !empty($staff->pagibig_number);
+                                            $hasStaffData = ($summary['entries'] ?? collect())->count() > 0;
+                                            $staffNoData = !$hasStaffRemaining;
+                                            $staffDeductions = $summary['deductions'] ?? [];
+                                            $staffNetWithoutAppCut = max(
+                                                round(
+                                                    ($summary['gross_pay'] ?? 0)
+                                                    - (($staffDeductions['sss'] ?? 0) + ($staffDeductions['philhealth'] ?? 0) + ($staffDeductions['pagibig'] ?? 0)),
+                                                    2
+                                                ),
+                                                0
+                                            );
+                                            $staffDeductionsForDisplay = array_merge($staffDeductions, ['app_cut' => 0]);
+                                            $staffTotalDeductions = ($staffDeductionsForDisplay['sss'] ?? 0)
+                                                + ($staffDeductionsForDisplay['philhealth'] ?? 0)
+                                                + ($staffDeductionsForDisplay['pagibig'] ?? 0)
+                                                + ($staffDeductionsForDisplay['app_cut'] ?? 0);
+                                            $staffMembershipPayments = $summary['membership_payments'] ?? ['count' => 0, 'total' => 0, 'currency' => 'PHP', 'items' => collect()];
+                                            $staffMembershipPaymentsItems = collect($staffMembershipPayments['items'] ?? []);
+                                        @endphp
+                                        <tr
+                                            data-payroll-card
+                                            data-modal-id="{{ $modalId }}"
+                                            data-has-tin="{{ $staffHasTin ? '1' : '0' }}"
+                                            data-has-sss="{{ $staffHasSss ? '1' : '0' }}"
+                                            data-has-philhealth="{{ $staffHasPhilhealth ? '1' : '0' }}"
+                                            data-has-pagibig="{{ $staffHasPagibig ? '1' : '0' }}"
+                                            data-gross="{{ $summary['gross_pay'] }}"
+                                            data-rate="{{ $staff->rate_per_hour ?? 0 }}"
+                                            data-appcut="0"
                                         >
-                                            <i class="fa-solid fa-circle-check"></i>
-                                            {{ $staffProcessDisabled ? ($hasStaffProcessed ? 'Processed' : 'Process payroll') : 'Process payroll' }}
-                                        </button>
-                                        @if($staffNoData && !$hasStaffProcessed)
-                                            <div class="text-muted small mt-1">Process is disabled because there is no attendance data yet.</div>
-                                        @elseif($staffNoData && $hasStaffProcessed)
-                                            <div class="text-muted small mt-1">All attendance entries in this period have already been processed.</div>
-                                        @endif
-                                    </form>
-                                    @php
-                                        $printEntries = $summary['entries']->map(function ($entry) {
-                                            return [
-                                                'id' => $entry['id'],
-                                                'clockin' => $entry['clockin_at'] ? $entry['clockin_at']->format('M d, Y g:i A') : '—',
-                                            'clockout' => $entry['clockout_at'] ? $entry['clockout_at']->format('M d, Y g:i A') : '—',
-                                            'hours' => $entry['hours'],
-                                            'amount' => $entry['amount'],
-                                            'status' => $entry['status'],
-                                        ];
-                                    })->values();
+                                            <td>
+                                                <div class="fw-semibold">{{ $staff->first_name }} {{ $staff->last_name }}</div>
+                                                <div class="text-muted small">{{ $staff->email }}</div>
+                                            </td>
+                                            <td>
+                                                <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
+                                                    ₱{{ number_format($staff->rate_per_hour ?? 0, 2) }} / hr
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">{{ number_format($summary['total_hours'], 2) }} hrs</div>
+                                                @if($hasStaffProcessed)
+                                                    <div class="text-muted small">
+                                                        Processed ({{ $staffProcessedTotals['count'] ?? 0 }} run{{ ($staffProcessedTotals['count'] ?? 0) === 1 ? '' : 's' }}):
+                                                        {{ number_format((float) ($staffProcessedTotals['hours'] ?? 0), 2) }} hrs
+                                                    </div>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">₱{{ number_format($summary['gross_pay'], 2) }}</div>
+                                                @if($hasStaffProcessed)
+                                                    <div class="text-muted small">Processed: ₱{{ number_format((float) ($staffProcessedTotals['gross'] ?? 0), 2) }}</div>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold text-success" data-net>₱{{ number_format($staffNetWithoutAppCut, 2) }}</div>
+                                                @if($hasStaffProcessed)
+                                                    <div class="text-muted small">Processed: ₱{{ number_format((float) ($staffProcessedTotals['net'] ?? 0), 2) }}</div>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if(($staffMembershipPayments['count'] ?? 0) > 0)
+                                                    <div class="fw-semibold">
+                                                        {{ $staffMembershipPayments['currency'] ?? 'PHP' }} {{ number_format((float) ($staffMembershipPayments['total'] ?? 0), 2) }}
+                                                    </div>
+                                                    <div class="text-muted small">{{ $staffMembershipPayments['count'] ?? 0 }} approved in this period</div>
+                                                @else
+                                                    <span class="text-muted small">None</span>
+                                                @endif
+                                            </td>
+                                            <td>
+                                                @if($hasStaffRemaining)
+                                                    <span class="badge {{ $summary['pending_entries'] ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
+                                                        {{ $summary['pending_entries'] ? $summary['pending_entries'] . ' pending entries' : 'Ready to finalize' }}
+                                                    </span>
+                                                @elseif($hasStaffProcessed)
+                                                    <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
+                                                    <div class="text-muted small" data-cooldown-display></div>
+                                                @else
+                                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No attendance data</span>
+                                                @endif
+                                            </td>
+                                            <td class="text-end">
+                                                <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+                                                    @php
+                                                        $staffProcessDisabled = $summary['pending_entries'] || $staffNoData;
+                                                        $staffProcessTitle = $summary['pending_entries']
+                                                            ? 'Clock-out pending entries before processing'
+                                                            : ($staffNoData
+                                                                ? ($hasStaffProcessed ? 'All entries already processed for this period' : 'Processing disabled: no attendance data yet')
+                                                                : 'Process and save payroll');
+                                                        $rangeEntries = $summary['entries']->map(function ($entry) {
+                                                            $clockIn = $entry['clockin_at'] ?? null;
+                                                            $clockOut = $entry['clockout_at'] ?? null;
+                                                            $dateSource = $clockIn ?: $clockOut;
+                                                            $dateLabel = $dateSource ? $dateSource->format('M j, Y') : '—';
+                                                            $day = $dateSource ? $dateSource->day : null;
+                                                            $timeRange = '—';
+                                                            if ($clockIn && $clockOut) {
+                                                                $timeRange = $clockIn->format('g:i A') . ' - ' . $clockOut->format('g:i A');
+                                                            } elseif ($clockIn) {
+                                                                $timeRange = $clockIn->format('g:i A') . ' - —';
+                                                            }
+                                                            $hours = $entry['hours'] ?? null;
+                                                            $metaParts = [];
+                                                            if ($timeRange !== '—') {
+                                                                $metaParts[] = $timeRange;
+                                                            }
+                                                            if (!is_null($hours)) {
+                                                                $metaParts[] = number_format((float) $hours, 2) . ' hrs';
+                                                            }
+                                                            $meta = implode(' • ', $metaParts);
+                                                            $isComplete = ($entry['status'] ?? '') === 'complete';
+                                                            $title = 'Attendance entry';
+                                                            if (!empty($entry['id'])) {
+                                                                $title .= ' #' . $entry['id'];
+                                                            }
 
-                                    $payslipData = [
-                                        'type' => 'staff',
-                                        'name' => $staff->first_name . ' ' . $staff->last_name,
-                                        'email' => $staff->email,
-                                        'rate' => $staff->rate_per_hour ?? 0,
-                                        'gross' => $summary['gross_pay'],
-                                        'net' => $staffNetWithoutAppCut,
-                                            'deductions' => $staffDeductionsForDisplay,
-                                            'month' => $monthLabel,
-                                            'entries' => $printEntries,
-                                            'membership_payments' => [
-                                                'count' => $staffMembershipPayments['count'] ?? 0,
-                                                'total' => $staffMembershipPayments['total'] ?? 0,
-                                                'currency' => $staffMembershipPayments['currency'] ?? 'PHP',
-                                                'items' => $staffMembershipPaymentsItems,
-                                            ],
-                                        ];
+                                                            return [
+                                                                'type' => 'staff_entry',
+                                                                'title' => $title,
+                                                                'meta' => $meta !== '' ? $meta : null,
+                                                                'timeline' => [
+                                                                    [
+                                                                        'label' => $dateLabel,
+                                                                        'day' => $day,
+                                                                        'status' => $isComplete ? 'Completed (paid)' : 'Pending',
+                                                                        'payable' => $isComplete ? 1 : 0,
+                                                                    ],
+                                                                ],
+                                                                'amounts' => [
+                                                                    'completed' => (float) ($entry['amount'] ?? 0),
+                                                                ],
+                                                            ];
+                                                        })->values();
+                                                        $rangeEntriesJson = json_encode($rangeEntries, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
+                                                    @endphp
+                                                    <form action="{{ route('admin.payrolls.process-staff') }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <input type="hidden" name="staff_id" value="{{ $staff->id }}">
+                                                        <input type="hidden" name="month" value="{{ $month }}">
+                                                        <button
+                                                            type="submit"
+                                                            class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2 process-payroll-btn"
+                                                            data-base-disabled="{{ $staffProcessDisabled ? '1' : '0' }}"
+                                                            data-base-title="{{ $staffProcessTitle }}"
+                                                            data-range-entries='{{ $rangeEntriesJson }}'
+                                                            data-role="staff"
+                                                            data-name="{{ $staff->first_name }} {{ $staff->last_name }}"
+                                                            data-month="{{ $monthLabel }}"
+                                                            data-hours="{{ number_format($summary['total_hours'], 2, '.', '') }}"
+                                                            data-gross="{{ number_format($summary['gross_pay'], 2, '.', '') }}"
+                                                            data-net="{{ number_format($staffNetWithoutAppCut, 2, '.', '') }}"
+                                                            data-pending="{{ (int) $summary['pending_entries'] }}"
+                                                            data-basis="Attendance clock-ins/outs"
+                                                            {{ $staffProcessDisabled ? 'disabled' : '' }}
+                                                            title="{{ $staffProcessTitle }}"
+                                                        >
+                                                            <i class="fa-solid fa-circle-check"></i>
+                                                            {{ $staffProcessDisabled ? ($hasStaffProcessed ? 'Processed' : 'Process payroll') : 'Process payroll' }}
+                                                        </button>
+                                                    </form>
+                                                    @php
+                                                        $printEntries = $summary['entries']->map(function ($entry) {
+                                                            return [
+                                                                'id' => $entry['id'],
+                                                                'clockin' => $entry['clockin_at'] ? $entry['clockin_at']->format('M d, Y g:i A') : '—',
+                                                                'clockout' => $entry['clockout_at'] ? $entry['clockout_at']->format('M d, Y g:i A') : '—',
+                                                                'hours' => $entry['hours'],
+                                                                'amount' => $entry['amount'],
+                                                                'status' => $entry['status'],
+                                                            ];
+                                                        })->values();
 
-                                        $payslipJson = json_encode($payslipData);
-                                    @endphp
-                                    <button
-                                        class="btn btn-outline-primary rounded-pill px-3"
-                                        type="button"
-                                        data-bs-toggle="modal"
-                                        data-bs-target="#{{ $modalId }}"
-                                    >
-                                        Review details
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="modal fade staff-payroll-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
+                                                        $payslipData = [
+                                                            'type' => 'staff',
+                                                            'name' => $staff->first_name . ' ' . $staff->last_name,
+                                                            'email' => $staff->email,
+                                                            'rate' => $staff->rate_per_hour ?? 0,
+                                                            'gross' => $summary['gross_pay'],
+                                                            'net' => $staffNetWithoutAppCut,
+                                                            'deductions' => $staffDeductionsForDisplay,
+                                                            'month' => $monthLabel,
+                                                            'entries' => $printEntries,
+                                                            'membership_payments' => [
+                                                                'count' => $staffMembershipPayments['count'] ?? 0,
+                                                                'total' => $staffMembershipPayments['total'] ?? 0,
+                                                                'currency' => $staffMembershipPayments['currency'] ?? 'PHP',
+                                                                'items' => $staffMembershipPaymentsItems,
+                                                            ],
+                                                        ];
+
+                                                        $payslipJson = json_encode($payslipData);
+                                                    @endphp
+                                                    <button
+                                                        class="btn btn-outline-primary rounded-pill px-3"
+                                                        type="button"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#{{ $modalId }}"
+                                                    >
+                                                        Review details
+                                                    </button>
+                                                </div>
+                                                @if($staffNoData && !$hasStaffProcessed)
+                                                    <div class="text-muted small mt-1 text-start">Process is disabled because there is no attendance data yet.</div>
+                                                @elseif($staffNoData && $hasStaffProcessed)
+                                                    <div class="text-muted small mt-1 text-start">All attendance entries in this period have already been processed.</div>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr class="d-none">
+                                            <td colspan="8">
+<div class="modal fade staff-payroll-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
                         <div class="modal-dialog modal-xl modal-dialog-scrollable">
                             <div class="modal-content rounded-4 border-0 shadow-sm">
                                 <div class="modal-header border-0 pb-0">
@@ -803,24 +825,38 @@
                             </div>
                         </div>
                     </div>
-                @empty
-                    <div class="card border-0 shadow-sm rounded-4">
-                        <div class="card-body text-center py-5">
-                            <h5 class="fw-semibold mb-2">No payroll data found</h5>
-                            <p class="text-muted mb-3">Try selecting a different month or adjusting your search filters.</p>
-                            <a href="{{ route('admin.payrolls.index') }}" class="btn btn-danger rounded-pill px-4">Go back to payroll list</a>
+                                            </td>
+                                        </tr>
+                                    @empty
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">
+                                                <div class="fw-semibold mb-2">No payroll data found</div>
+                                                <p class="text-muted mb-3">Try selecting a different month or adjusting your search filters.</p>
+                                                <a href="{{ route('admin.payrolls.index') }}" class="btn btn-danger rounded-pill px-4">Go back to payroll list</a>
+                                            </td>
+                                        </tr>
+                                    @endforelse
+                                </tbody>
+                            </table>
+                            @if($summaries instanceof \Illuminate\Pagination\AbstractPaginator)
+                                {{ $summaries->links() }}
+                            @endif
                         </div>
                     </div>
-                @endforelse
+                </div>
             </div>
             </section>
 
             <section id="trainer-payroll-section" class="payroll-section">
             @php
-                $trainerAssignmentsWithHours = collect($trainerAssignments ?? [])->filter(function ($assignment) {
+                $trainerAssignmentsSource = $trainerAssignments ?? collect();
+                $trainerAssignmentsCollection = $trainerAssignmentsSource instanceof \Illuminate\Pagination\AbstractPaginator
+                    ? collect($trainerAssignmentsSource->items())
+                    : collect($trainerAssignmentsSource);
+                $trainerAssignmentsWithHours = $trainerAssignmentsCollection->filter(function ($assignment) {
                     return (float) ($assignment['total_hours'] ?? 0) > 0;
                 })->values();
-                $trainerStats = [
+                $trainerStats = $trainerStats ?? [
                     'trainer_count' => $trainerAssignmentsWithHours->count(),
                     'payable_classes' => $trainerAssignmentsWithHours->sum(function ($assignment) {
                         return (int) ($assignment['payable_assignments_count'] ?? 0);
@@ -892,8 +928,25 @@
             </div>
 
             <div class="col-12">
-                @forelse($trainerAssignmentsWithHours as $assignment)
-                            @php
+                <div class="card border-0 shadow-sm rounded-4">
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover align-middle mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Trainer</th>
+                                        <th>Assignments</th>
+                                        <th>Hours</th>
+                                        <th>Gross</th>
+                                        <th>Net</th>
+                                        <th>Upcoming</th>
+                                        <th>Status</th>
+                                        <th class="text-end">Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @forelse($trainerAssignmentsWithHours as $assignment)
+                                        @php
                                 $trainer = $assignment['trainer'];
                                 $modalId = 'trainer-assignments-' . $trainer->id;
                                 $trainerHasTin = !empty($trainer->tin_number);
@@ -1009,66 +1062,60 @@
                                 $trainerNoData = !$hasRemaining;
                                 $canProcessTrainer = $hasRemaining;
                             @endphp
-                            <div
-                                class="card border-0 shadow-sm rounded-4 mb-3"
-                                data-trainer-card
-                                data-modal-id="{{ $modalId }}"
-                                data-has-tin="{{ $trainerHasTin ? '1' : '0' }}"
-                                data-has-sss="{{ $trainerHasSss ? '1' : '0' }}"
-                                data-has-philhealth="{{ $trainerHasPhilhealth ? '1' : '0' }}"
-                                data-has-pagibig="{{ $trainerHasPagibig ? '1' : '0' }}"
-                                data-gross="{{ $trainerGross }}"
-                                data-sss="{{ $trainerSss }}"
-                                data-philhealth="{{ $trainerPhilhealth }}"
-                                data-pagibig="{{ $trainerPagibig }}"
-                                data-appcut="{{ $trainerAppCut }}"
-                                data-net="{{ $displayNet }}"
-                            >
-                                <div class="card-body p-4">
-                                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
-                                        <div>
-                                            <h5 class="fw-semibold mb-1">{{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
-                                            <div class="text-muted small">{{ $trainer->email }}</div>
-                                            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                                                <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
-                                                    Assignments: {{ $assignment['assignments_count'] }}
-                                                </span>
-                                                <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
-                                                    Payable classes: {{ $assignment['payable_assignments_count'] }}
-                                                </span>
-                                            </div>
-                                        </div>
-                                        <div class="d-flex flex-wrap align-items-center gap-3">
-                                            <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Hours</div>
-                                                <div class="fw-bold fs-5">{{ number_format($assignment['total_hours'] ?? 0, 2) }}</div>
+                                        <tr
+                                            data-trainer-card
+                                            data-modal-id="{{ $modalId }}"
+                                            data-has-tin="{{ $trainerHasTin ? '1' : '0' }}"
+                                            data-has-sss="{{ $trainerHasSss ? '1' : '0' }}"
+                                            data-has-philhealth="{{ $trainerHasPhilhealth ? '1' : '0' }}"
+                                            data-has-pagibig="{{ $trainerHasPagibig ? '1' : '0' }}"
+                                            data-gross="{{ $trainerGross }}"
+                                            data-sss="{{ $trainerSss }}"
+                                            data-philhealth="{{ $trainerPhilhealth }}"
+                                            data-pagibig="{{ $trainerPagibig }}"
+                                            data-appcut="{{ $trainerAppCut }}"
+                                            data-net="{{ $displayNet }}"
+                                        >
+                                            <td>
+                                                <div class="fw-semibold">{{ $trainer->first_name }} {{ $trainer->last_name }}</div>
+                                                <div class="text-muted small">{{ $trainer->email }}</div>
+                                            </td>
+                                            <td>
+                                                <div class="d-flex flex-wrap align-items-center gap-2">
+                                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
+                                                        Assignments: {{ $assignment['assignments_count'] }}
+                                                    </span>
+                                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
+                                                        Payable classes: {{ $assignment['payable_assignments_count'] }}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">{{ number_format($assignment['total_hours'] ?? 0, 2) }} hrs</div>
                                                 @if($hasProcessed)
                                                     <div class="text-muted small">
                                                         Processed ({{ $processedTotals['count'] ?? 0 }} run{{ ($processedTotals['count'] ?? 0) === 1 ? '' : 's' }}):
                                                         {{ number_format((float) ($processedTotals['hours'] ?? 0), 2) }} hrs
                                                     </div>
                                                 @endif
-                                            </div>
-                                            <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Gross</div>
-                                                <div class="fw-bold fs-5">₱{{ number_format($trainerGross, 2) }}</div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">₱{{ number_format($trainerGross, 2) }}</div>
                                                 @if($hasProcessed)
                                                     <div class="text-muted small">Processed: ₱{{ number_format((float) ($processedTotals['gross'] ?? 0), 2) }}</div>
                                                 @endif
-                                            </div>
-                                            <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Net</div>
-                                                <div class="fw-bold fs-5 text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
                                                 @if($hasProcessed)
                                                     <div class="text-muted small">Processed: ₱{{ number_format((float) ($processedTotals['net'] ?? 0), 2) }}</div>
                                                 @endif
-                                            </div>
-                                            <div class="text-start">
-                                                <div class="text-muted small text-uppercase">Upcoming</div>
-                                                <div class="fw-bold fs-6">₱{{ number_format($trainerUpcoming, 2) }}</div>
+                                            </td>
+                                            <td>
+                                                <div class="fw-semibold">₱{{ number_format($trainerUpcoming, 2) }}</div>
                                                 <div class="text-muted small">{{ $totals['future_payroll_count'] ?? 0 }} upcoming sessions</div>
-                                            </div>
-                                            <div>
+                                            </td>
+                                            <td>
                                                 @if($hasRemaining)
                                                     <span class="badge bg-success rounded-pill px-3 py-2">Ready to finalize</span>
                                                 @elseif($hasProcessed)
@@ -1076,90 +1123,93 @@
                                                 @else
                                                     <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No completed assignments</span>
                                                 @endif
-                                            </div>
-                                            @php
-                                                $trainerProcessDisabled = !$canProcessTrainer;
-                                                $trainerProcessTitle = $canProcessTrainer
-                                                    ? 'Process and save payroll'
-                                                    : ($hasProcessed
-                                                        ? 'All assignments already processed for this period'
-                                                        : 'Processing disabled: no completed assignments for this period');
-                                            @endphp
-                                            <form action="{{ route('admin.payrolls.process-trainer') }}" method="POST" class="d-inline">
-                                                @csrf
-                                                <input type="hidden" name="trainer_id" value="{{ $trainer->id }}">
-                                                <input type="hidden" name="month" value="{{ $month }}">
-                                                @php
-                                                    $rangeAssignments = $assignmentDetails->map(function ($detail) {
-                                                        $timeline = collect($detail['occurrence_dates'] ?? [])->map(function ($date) use ($detail) {
-                                                            try {
-                                                                $parsed = \Carbon\Carbon::parse($date);
-                                                            } catch (\Throwable $th) {
-                                                                return null;
-                                                            }
-                                                            $dateKey = $parsed->toDateString();
-                                                            $isPaid = collect($detail['paid_dates'] ?? [])->contains($dateKey);
-                                                            $isPast = collect($detail['past_dates'] ?? [])->contains($dateKey);
-                                                            $isFuture = collect($detail['future_dates'] ?? [])->contains($dateKey);
-                                                            $status = $isFuture ? 'Upcoming' : ($isPaid ? 'Completed (paid)' : ($isPast ? 'Completed' : '—'));
+                                            </td>
+                                            <td class="text-end">
+                                                <div class="d-flex flex-wrap align-items-center justify-content-end gap-2">
+                                                    @php
+                                                        $trainerProcessDisabled = !$canProcessTrainer;
+                                                        $trainerProcessTitle = $canProcessTrainer
+                                                            ? 'Process and save payroll'
+                                                            : ($hasProcessed
+                                                                ? 'All assignments already processed for this period'
+                                                                : 'Processing disabled: no completed assignments for this period');
+                                                    @endphp
+                                                    <form action="{{ route('admin.payrolls.process-trainer') }}" method="POST" class="d-inline">
+                                                        @csrf
+                                                        <input type="hidden" name="trainer_id" value="{{ $trainer->id }}">
+                                                        <input type="hidden" name="month" value="{{ $month }}">
+                                                        @php
+                                                            $rangeAssignments = $assignmentDetails->map(function ($detail) {
+                                                                $timeline = collect($detail['occurrence_dates'] ?? [])->map(function ($date) use ($detail) {
+                                                                    try {
+                                                                        $parsed = \Carbon\Carbon::parse($date);
+                                                                    } catch (\Throwable $th) {
+                                                                        return null;
+                                                                    }
+                                                                    $dateKey = $parsed->toDateString();
+                                                                    $isPaid = collect($detail['paid_dates'] ?? [])->contains($dateKey);
+                                                                    $isPast = collect($detail['past_dates'] ?? [])->contains($dateKey);
+                                                                    $isFuture = collect($detail['future_dates'] ?? [])->contains($dateKey);
+                                                                    $status = $isFuture ? 'Upcoming' : ($isPaid ? 'Completed (paid)' : ($isPast ? 'Completed' : '—'));
 
-                                                            return [
-                                                                'label' => $parsed->format('M j, Y'),
-                                                                'day' => $parsed->day,
-                                                                'status' => $status,
-                                                                'payable' => $isPaid ? 1 : 0,
-                                                            ];
-                                                        })->filter()->values();
+                                                                    return [
+                                                                        'label' => $parsed->format('M j, Y'),
+                                                                        'day' => $parsed->day,
+                                                                        'status' => $status,
+                                                                        'payable' => $isPaid ? 1 : 0,
+                                                                    ];
+                                                                })->filter()->values();
 
-                                                        return [
-                                                            'title' => $detail['schedule']->name ?? 'Unnamed Schedule',
-                                                            'code' => $detail['schedule']->class_code ?? null,
-                                                            'timeline' => $timeline,
-                                                            'amounts' => [
-                                                                'upcoming' => $detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0,
-                                                                'completed' => $detail['payroll_salary'] ?? 0,
-                                                            ],
-                                                        ];
-                                                    })->values();
-                                                    $rangeAssignmentsJson = json_encode($rangeAssignments, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
-                                                @endphp
-                                                <button
-                                                    type="submit"
-                                                    class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2 process-payroll-btn"
-                                                    data-base-disabled="{{ $trainerProcessDisabled ? '1' : '0' }}"
-                                                    data-base-title="{{ $trainerProcessTitle }}"
-                                                    data-range-assignments='{{ $rangeAssignmentsJson }}'
-                                                    data-role="trainer"
-                                                    data-name="{{ $trainer->first_name }} {{ $trainer->last_name }}"
-                                                    data-month="{{ $monthLabel }}"
-                                                    data-hours="{{ number_format($assignment['total_hours'] ?? 0, 2, '.', '') }}"
-                                                    data-gross="{{ number_format($trainerGross, 2, '.', '') }}"
-                                                    data-net="{{ number_format($displayNet, 2, '.', '') }}"
-                                                    data-pending="0"
-                                                    data-basis="Classes with attendance"
-                                                    {{ $trainerProcessDisabled ? 'disabled' : '' }}
-                                                    title="{{ $trainerProcessTitle }}"
-                                                >
-                                                    <i class="fa-solid fa-circle-check"></i>
-                                                    {{ $hasRemaining ? 'Process payroll' : ($hasProcessed ? 'Processed' : 'Process payroll') }}
-                                                </button>
-                                            </form>
-                                            <button
-                                                class="btn btn-outline-primary rounded-pill px-3"
-                                                type="button"
-                                                data-bs-toggle="modal"
-                                                data-bs-target="#{{ $modalId }}"
-                                            >
-                                                Review details
-                                            </button>
-                                        </div>
-                                    </div>
-                                    @if($trainerNoData && empty($processedRun))
-                                        <div class="text-muted small mt-1">Process is disabled because there is no class data with attendance yet.</div>
-                                    @endif
-                                </div>
-                            </div>
-                            <div class="modal fade assignment-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
+                                                                return [
+                                                                    'title' => $detail['schedule']->name ?? 'Unnamed Schedule',
+                                                                    'code' => $detail['schedule']->class_code ?? null,
+                                                                    'timeline' => $timeline,
+                                                                    'amounts' => [
+                                                                        'upcoming' => $detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0,
+                                                                        'completed' => $detail['payroll_salary'] ?? 0,
+                                                                    ],
+                                                                ];
+                                                            })->values();
+                                                            $rangeAssignmentsJson = json_encode($rangeAssignments, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
+                                                        @endphp
+                                                        <button
+                                                            type="submit"
+                                                            class="btn btn-success rounded-pill px-3 d-flex align-items-center gap-2 process-payroll-btn"
+                                                            data-base-disabled="{{ $trainerProcessDisabled ? '1' : '0' }}"
+                                                            data-base-title="{{ $trainerProcessTitle }}"
+                                                            data-range-assignments='{{ $rangeAssignmentsJson }}'
+                                                            data-role="trainer"
+                                                            data-name="{{ $trainer->first_name }} {{ $trainer->last_name }}"
+                                                            data-month="{{ $monthLabel }}"
+                                                            data-hours="{{ number_format($assignment['total_hours'] ?? 0, 2, '.', '') }}"
+                                                            data-gross="{{ number_format($trainerGross, 2, '.', '') }}"
+                                                            data-net="{{ number_format($displayNet, 2, '.', '') }}"
+                                                            data-pending="0"
+                                                            data-basis="Classes with attendance"
+                                                            {{ $trainerProcessDisabled ? 'disabled' : '' }}
+                                                            title="{{ $trainerProcessTitle }}"
+                                                        >
+                                                            <i class="fa-solid fa-circle-check"></i>
+                                                            {{ $hasRemaining ? 'Process payroll' : ($hasProcessed ? 'Processed' : 'Process payroll') }}
+                                                        </button>
+                                                    </form>
+                                                    <button
+                                                        class="btn btn-outline-primary rounded-pill px-3"
+                                                        type="button"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#{{ $modalId }}"
+                                                    >
+                                                        Review details
+                                                    </button>
+                                                </div>
+                                                @if($trainerNoData && empty($processedRun))
+                                                    <div class="text-muted small mt-1 text-start">Process is disabled because there is no class data with attendance yet.</div>
+                                                @endif
+                                            </td>
+                                        </tr>
+                                        <tr class="d-none">
+                                            <td colspan="8">
+<div class="modal fade assignment-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
                                 <div class="modal-dialog modal-xl modal-dialog-scrollable">
                                     <div class="modal-content rounded-4 border-0 shadow-sm">
                                         <div class="modal-header border-0 pb-0">

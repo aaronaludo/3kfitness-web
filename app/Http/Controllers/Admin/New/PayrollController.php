@@ -13,6 +13,7 @@ use App\Models\ClassAttendance;
 use App\Models\DeductionSetting;
 use App\Models\MembershipPayment;
 use Carbon\Carbon;
+use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 
 class PayrollController extends Controller
@@ -840,6 +841,18 @@ class PayrollController extends Controller
             ->toArray();
     }
 
+    private function paginateCollection($items, int $perPage, string $pageName, Request $request): LengthAwarePaginator
+    {
+        $collection = collect($items ?? []);
+        $page = LengthAwarePaginator::resolveCurrentPage($pageName);
+        $pageItems = $collection->forPage($page, $perPage)->values();
+
+        return (new LengthAwarePaginator($pageItems, $collection->count(), $perPage, $page, [
+            'path' => LengthAwarePaginator::resolveCurrentPath(),
+            'pageName' => $pageName,
+        ]))->withQueryString();
+    }
+
     public function index(Request $request)
     {
         $search = trim((string) $request->input('member_name', ''));
@@ -1642,6 +1655,10 @@ class PayrollController extends Controller
             'total_hours' => $summaries->sum(fn ($summary) => $summary['total_hours']),
             'projected_net' => $summaries->sum(fn ($summary) => $summary['net_pay']),
         ];
+        $staffSummariesDisplay = $summaries
+            ->filter(fn ($summary) => (float) ($summary['total_hours'] ?? 0) > 0)
+            ->values();
+        $staffSummariesPaginated = $this->paginateCollection($staffSummariesDisplay, 10, 'staff_page', $request);
 
         $trainers = User::where('role_id', 5)
             ->where('is_archive', 0)
@@ -1709,14 +1726,32 @@ class PayrollController extends Controller
             })
             ->filter(fn ($assignment) => $assignment['assignments_count'] > 0)
             ->values();
+        $trainerAssignmentsDisplay = $trainerAssignments
+            ->filter(fn ($assignment) => (float) ($assignment['total_hours'] ?? 0) > 0)
+            ->values();
+        $trainerStats = [
+            'trainer_count' => $trainerAssignmentsDisplay->count(),
+            'payable_classes' => $trainerAssignmentsDisplay->sum(function ($assignment) {
+                return (int) ($assignment['payable_assignments_count'] ?? 0);
+            }),
+            'total_hours' => $trainerAssignmentsDisplay->sum(function ($assignment) {
+                return (float) ($assignment['total_hours'] ?? 0);
+            }),
+            'projected_net' => $trainerAssignmentsDisplay->sum(function ($assignment) {
+                return (float) ($assignment['net_pay'] ?? 0);
+            }),
+        ];
+        $trainerAssignmentsPaginated = $this->paginateCollection($trainerAssignmentsDisplay, 10, 'trainer_page', $request);
 
         return view('admin.payrolls.process', [
-            'summaries' => $summaries,
+            'summaries' => $staffSummariesPaginated,
+            'summariesAll' => $summaries,
             'stats' => $stats,
             'search' => $search,
             'month' => $month,
             'monthLabel' => $targetMonth->format('F Y'),
-            'trainerAssignments' => $trainerAssignments,
+            'trainerAssignments' => $trainerAssignmentsPaginated,
+            'trainerStats' => $trainerStats,
             'deductionSettings' => $deductionSettings,
         ]);
     }
