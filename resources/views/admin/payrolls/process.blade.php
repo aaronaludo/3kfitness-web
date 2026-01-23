@@ -1019,6 +1019,7 @@
                                                                 'label' => $parsed->format('M j, Y'),
                                                                 'day' => $parsed->day,
                                                                 'status' => $status,
+                                                                'payable' => $isPaid ? 1 : 0,
                                                             ];
                                                         })->filter()->values();
 
@@ -1849,8 +1850,9 @@
                                 <div class="text-muted small mb-0">Choose a processing day range to preview what will be processed.</div>
                             </div>
                             <div class="d-flex flex-wrap gap-2 justify-content-end">
-                                <span class="pill-badge info" id="process-range-summary">Showing all scheduled days</span>
-                                <span class="pill-badge success" id="process-range-total">₱0.00 total</span>
+                                <span class="pill-badge info" id="process-range-summary">Select a processing day range</span>
+                                <span class="pill-badge" id="process-range-total">Gross pay ₱0.00</span>
+                                <span class="pill-badge success" id="process-range-deductions">Deductions ₱0.00</span>
                                 <span class="pill-badge" id="process-range-count">0 assignments</span>
                             </div>
                         </div>
@@ -1861,7 +1863,6 @@
                         <div class="col-12 col-sm-6 col-lg-4">
                             <label class="form-label text-muted text-uppercase small mb-1">Processing day range</label>
                             <select class="form-select form-select-sm" id="process-day-filter" {{ empty($ranges) ? 'disabled' : '' }}>
-                                <option value="all">All scheduled days</option>
                                 @foreach($ranges as $idx => $range)
                                     <option value="{{ $idx }}">{{ $range['from'] ?? '?' }}-{{ $range['to'] ?? '?' }} → process on day {{ $range['process'] ?? '?' }}</option>
                                 @endforeach
@@ -2494,11 +2495,17 @@
         const processRangeList = document.getElementById('process-range-list');
         const processRangeSummary = document.getElementById('process-range-summary');
         const processRangeTotal = document.getElementById('process-range-total');
+        const processRangeDeductions = document.getElementById('process-range-deductions');
         const processRangeCount = document.getElementById('process-range-count');
         const processDayFilter = document.getElementById('process-day-filter');
         const processConfirmBtn = document.getElementById('process-range-confirm');
         let pendingProcessForm = null;
         let pendingAssignments = [];
+        let pendingProcessMeta = {
+            hasSss: false,
+            hasPhilhealth: false,
+            hasPagibig: false,
+        };
 
         // Ensure the preview modal lives under body to avoid overflow clipping
         if (processModalEl && processModalEl.parentElement !== document.body) {
@@ -2511,13 +2518,11 @@
 
             if (processDayFilter) {
                 const value = processDayFilter.value;
-                if (value && value !== 'all') {
+                if (value !== '') {
                     const idx = Number(value);
                     if (!Number.isNaN(idx) && normalizedRanges[idx]) {
                         return normalizedRanges[idx];
                     }
-                } else if (value === 'all') {
-                    return null;
                 }
             }
 
@@ -2528,14 +2533,39 @@
             }) || null;
         }
 
+        function computeProcessDeductions(gross) {
+            const sssRate = Number(sssInput?.value || 0) / 100;
+            const philRate = Number(philhealthInput?.value || 0) / 100;
+            const pagibigRate = Number(pagibigInput?.value || 0) / 100;
+            const pagibigCap = Number(pagibigCapInput?.value || 0);
+            const appCutRateTrainer = Number(appCutInput?.value || 0) / 100;
+            const hasSss = pendingProcessMeta?.hasSss === true;
+            const hasPhilhealth = pendingProcessMeta?.hasPhilhealth === true;
+            const hasPagibig = pendingProcessMeta?.hasPagibig === true;
+
+            const sss = hasSss ? +(gross * sssRate).toFixed(2) : 0;
+            const philhealth = hasPhilhealth ? +(gross * philRate).toFixed(2) : 0;
+            const pagibigBase = pagibigCap > 0 ? Math.min(gross, pagibigCap) : gross;
+            const pagibig = hasPagibig ? +(pagibigBase * pagibigRate).toFixed(2) : 0;
+            const appCut = +(gross * appCutRateTrainer).toFixed(2);
+            const totalDeductions = +(sss + philhealth + pagibig + appCut).toFixed(2);
+
+            return {
+                sss,
+                philhealth,
+                pagibig,
+                appCut,
+                totalDeductions,
+            };
+        }
+
         function renderProcessAssignments() {
             if (!processRangeList) return;
             processRangeList.innerHTML = '';
             const selectedRange = getSelectedRange();
             const isCompletedSessionInRange = (session) => {
-                const status = (session.status || '').toLowerCase();
-                const isCompleted = status.includes('completed');
-                if (!isCompleted) return false;
+                const isPayable = Number(session?.payable || 0) === 1;
+                if (!isPayable) return false;
                 if (!selectedRange) return true;
                 const day = parseInt(session.day, 10);
                 if (!Number.isInteger(day)) return true;
@@ -2550,14 +2580,15 @@
             if (processRangeSummary) {
                 processRangeSummary.textContent = selectedRange
                     ? `Range ${selectedRange.from}-${selectedRange.to} → process on day ${selectedRange.process}`
-                    : 'Showing all scheduled days';
+                    : 'Select a processing day range';
             }
             if (!filtered.length) {
                 const empty = document.createElement('div');
                 empty.className = 'text-center text-muted';
                 empty.textContent = 'No assignments match the selected processing day range.';
                 processRangeList.appendChild(empty);
-                if (processRangeTotal) processRangeTotal.textContent = '₱0.00 total';
+                if (processRangeTotal) processRangeTotal.textContent = `Gross pay ${formatPeso(0)}`;
+                if (processRangeDeductions) processRangeDeductions.textContent = `Deductions ${formatPeso(0)}`;
                 if (processRangeCount) processRangeCount.textContent = '0 assignments';
                 return;
             }
@@ -2569,7 +2600,7 @@
                 const filteredTimeline = timeline.filter((t) => isCompletedSessionInRange(t));
 
                 const dates = filteredTimeline.map((t) => t.label || '').filter(Boolean).join(', ');
-                const totalCompleted = timeline.filter((t) => (t.status || '').toLowerCase().includes('completed')).length;
+                const totalCompleted = timeline.filter((t) => Number(t?.payable || 0) === 1).length;
                 const filteredCompleted = filteredTimeline.length;
                 const completedAmount = Number(item.amounts?.completed || 0);
                 const amountShare = totalCompleted > 0 ? (filteredCompleted / totalCompleted) : 0;
@@ -2628,7 +2659,11 @@
             });
 
             if (processRangeTotal) {
-                processRangeTotal.textContent = `₱${totalAmount.toFixed(2)} total`;
+                processRangeTotal.textContent = `Gross pay ${formatPeso(totalAmount)}`;
+            }
+            if (processRangeDeductions) {
+                const { totalDeductions } = computeProcessDeductions(totalAmount);
+                processRangeDeductions.textContent = `Deductions ${formatPeso(totalDeductions)}`;
             }
             if (processRangeCount) {
                 processRangeCount.textContent = `${filtered.length} ${filtered.length === 1 ? 'assignment' : 'assignments'}`;
@@ -2650,6 +2685,12 @@
                 e.preventDefault();
                 pendingProcessForm = form;
                 pendingAssignments = Array.isArray(data) ? data : [];
+                const trainerCard = btn.closest('[data-trainer-card]');
+                pendingProcessMeta = {
+                    hasSss: trainerCard?.dataset.hasSss === '1',
+                    hasPhilhealth: trainerCard?.dataset.hasPhilhealth === '1',
+                    hasPagibig: trainerCard?.dataset.hasPagibig === '1',
+                };
                 if (processDayFilter) {
                     const normalizedRanges = getNormalizedRanges();
                     const matchingIndex = normalizedRanges.findIndex((range) => {
@@ -2659,8 +2700,6 @@
                     });
                     if (matchingIndex >= 0 && processDayFilter.querySelector(`option[value="${matchingIndex}"]`)) {
                         processDayFilter.value = String(matchingIndex);
-                    } else if (processDayFilter.querySelector('option[value="all"]')) {
-                        processDayFilter.value = 'all';
                     } else if (processDayFilter.options.length) {
                         processDayFilter.selectedIndex = 0;
                     }
