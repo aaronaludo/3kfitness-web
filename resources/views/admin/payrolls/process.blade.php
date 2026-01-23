@@ -120,7 +120,7 @@
                 </button>
             </div>
 
-            <section id="staff-payroll-section" class="payroll-section">
+            <section id="staff-payroll-section" class="payroll-section mb-4">
             @php
                 $staffSummariesWithHours = collect($summaries ?? [])->filter(function ($summary) {
                     return (float) ($summary['total_hours'] ?? 0) > 0;
@@ -535,10 +535,6 @@
                                                                     <span data-pagibig>₱{{ number_format($staffDeductionsForDisplay['pagibig'] ?? 0, 2) }}</span>
                                                                 </li>
                                                             @endif
-                                                            <li class="d-flex justify-content-between">
-                                                                <span>3kfitness app cut</span>
-                                                                <span data-appcut>₱{{ number_format($staffDeductionsForDisplay['app_cut'] ?? 0, 2) }}</span>
-                                                            </li>
                                                         </ul>
                                                     </div>
                                                     <div class="col-12 col-lg-5">
@@ -746,7 +742,7 @@
             </div>
             </section>
 
-            <section id="trainer-payroll-section" class="payroll-section mt-4">
+            <section id="trainer-payroll-section" class="payroll-section">
             @php
                 $trainerAssignmentsWithHours = collect($trainerAssignments ?? [])->filter(function ($assignment) {
                     return (float) ($assignment['total_hours'] ?? 0) > 0;
