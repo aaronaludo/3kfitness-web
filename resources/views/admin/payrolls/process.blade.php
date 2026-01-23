@@ -198,7 +198,13 @@
                 @forelse ($staffSummariesWithHours as $summary)
                     @php
                         $staff = $summary['staff'];
-                        $collapseId = 'payroll-breakdown-' . $staff->id;
+                        $modalId = 'staff-payroll-modal-' . $staff->id;
+                        $staffProcessedRun = $summary['processed_run'] ?? null;
+                        $staffIsProcessed = !empty($staffProcessedRun);
+                        $staffHasTin = !empty($staff->tin_number);
+                        $staffHasSss = $staffHasTin && !empty($staff->sss_number);
+                        $staffHasPhilhealth = $staffHasTin && !empty($staff->philhealth_number);
+                        $staffHasPagibig = $staffHasTin && !empty($staff->pagibig_number);
                         $hasStaffData = ($summary['entries'] ?? collect())->count() > 0;
                         $staffNoData = !$hasStaffData && empty($summary['processed_run']);
                         $staffDeductions = $summary['deductions'] ?? [];
@@ -211,12 +217,21 @@
                             0
                         );
                         $staffDeductionsForDisplay = array_merge($staffDeductions, ['app_cut' => 0]);
+                        $staffTotalDeductions = ($staffDeductionsForDisplay['sss'] ?? 0)
+                            + ($staffDeductionsForDisplay['philhealth'] ?? 0)
+                            + ($staffDeductionsForDisplay['pagibig'] ?? 0)
+                            + ($staffDeductionsForDisplay['app_cut'] ?? 0);
                         $staffMembershipPayments = $summary['membership_payments'] ?? ['count' => 0, 'total' => 0, 'currency' => 'PHP', 'items' => collect()];
                         $staffMembershipPaymentsItems = collect($staffMembershipPayments['items'] ?? []);
                     @endphp
                     <div
                         class="card border-0 shadow-sm rounded-4 mb-3"
                         data-payroll-card
+                        data-modal-id="{{ $modalId }}"
+                        data-has-tin="{{ $staffHasTin ? '1' : '0' }}"
+                        data-has-sss="{{ $staffHasSss ? '1' : '0' }}"
+                        data-has-philhealth="{{ $staffHasPhilhealth ? '1' : '0' }}"
+                        data-has-pagibig="{{ $staffHasPagibig ? '1' : '0' }}"
                         data-gross="{{ $summary['gross_pay'] }}"
                         data-rate="{{ $staff->rate_per_hour ?? 0 }}"
                         data-appcut="0"
@@ -340,78 +355,256 @@
 
                                         $payslipJson = json_encode($payslipData);
                                     @endphp
-                                    @if(empty($summary['processed_run']))
-                                        <button
-                                            type="button"
-                                            class="btn btn-danger rounded-pill px-3 d-flex align-items-center gap-2 payslip-btn"
-                                            data-payslip='{{ $payslipJson }}'
-                                        >
-                                            <i class="fa-solid fa-file-pdf"></i>
-                                            Print payslip
-                                        </button>
-                                    @endif
                                     <button
                                         class="btn btn-outline-primary rounded-pill px-3"
                                         type="button"
-                                        data-bs-toggle="collapse"
-                                        data-bs-target="#{{ $collapseId }}"
-                                        aria-expanded="{{ $loop->first ? 'true' : 'false' }}"
-                                        aria-controls="{{ $collapseId }}"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#{{ $modalId }}"
                                     >
                                         Review details
                                     </button>
                                 </div>
                             </div>
-
-                            <div class="collapse {{ $loop->first ? 'show' : '' }} mt-3" id="{{ $collapseId }}">
-                                <div class="row g-3">
-                                    <div class="col-12 col-lg-4">
-                                        <div class="border rounded-4 p-3 h-100 bg-light">
-                                            <h6 class="fw-semibold mb-3">Payroll summary</h6>
-                                                <ul class="list-unstyled small mb-0">
-                                                    <li class="d-flex justify-content-between mb-2">
-                                                        <span>Gross pay</span>
-                                                        <span>₱{{ number_format($summary['gross_pay'], 2) }}</span>
-                                                    </li>
-                                                    <li class="d-flex justify-content-between mb-2">
-                                                        <span>SSS</span>
-                                                        <span data-sss>₱{{ number_format($staffDeductionsForDisplay['sss'] ?? 0, 2) }}</span>
-                                                    </li>
-                                                    <li class="d-flex justify-content-between mb-2">
-                                                        <span>PhilHealth</span>
-                                                        <span data-philhealth>₱{{ number_format($staffDeductionsForDisplay['philhealth'] ?? 0, 2) }}</span>
-                                                    </li>
-                                                    <li class="d-flex justify-content-between mb-2">
-                                                        <span>Pag-IBIG</span>
-                                                        <span data-pagibig>₱{{ number_format($staffDeductionsForDisplay['pagibig'] ?? 0, 2) }}</span>
-                                                    </li>
-                                                    <li class="d-flex justify-content-between mb-2">
-                                                        <span>3kfitness app cut</span>
-                                                        <span data-appcut>₱{{ number_format($staffDeductionsForDisplay['app_cut'] ?? 0, 2) }}</span>
-                                                    </li>
-                                                    <li class="d-flex justify-content-between fw-semibold pt-2 border-top">
-                                                        <span>Net pay</span>
-                                                        <span data-net>₱{{ number_format($staffNetWithoutAppCut, 2) }}</span>
-                                                    </li>
-                                                </ul>
+                        </div>
+                    </div>
+                    <div class="modal fade staff-payroll-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
+                        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                            <div class="modal-content rounded-4 border-0 shadow-sm">
+                                <div class="modal-header border-0 pb-0">
+                                    <div class="flex-grow-1">
+                                        <div class="d-flex flex-wrap align-items-start gap-2">
+                                            <div>
+                                                <h5 class="modal-title fw-semibold mb-1" id="{{ $modalId }}Label">Payroll Summary - {{ $staff->first_name }} {{ $staff->last_name }}</h5>
+                                                <div class="text-muted small">Payroll Period: {{ $monthLabel }}</div>
+                                            </div>
+                                            <div class="ms-auto text-end">
+                                                @if($staffIsProcessed)
+                                                    <span class="text-muted small">Payroll locked on {{ optional($staffProcessedRun->processed_at)->format('M d, Y') ?? '—' }} - edits disabled</span>
+                                                @else
+                                                    <span class="text-muted small">Payroll open - edits enabled</span>
+                                                @endif
+                                            </div>
                                         </div>
                                     </div>
-                                    <div class="col-12 col-lg-8">
-                                        <div class="table-responsive">
-                                            <table class="table align-middle mb-0">
-                                                <thead class="table-light">
+                                    <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body pt-2">
+                                    <style>
+                                        .staff-payroll-modal .modal-body { background: #f8fafc; }
+                                        .staff-payroll-modal .payroll-summary-card {
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 18px;
+                                            background: #fff;
+                                            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+                                        }
+                                        .staff-payroll-modal .summary-grid {
+                                            display: grid;
+                                            grid-template-columns: repeat(4, minmax(0, 1fr));
+                                        }
+                                        .staff-payroll-modal .summary-item { padding: 14px 18px; }
+                                        .staff-payroll-modal .summary-item + .summary-item { border-left: 1px solid #e5e7eb; }
+                                        .staff-payroll-modal .summary-label {
+                                            font-size: 12px;
+                                            text-transform: uppercase;
+                                            letter-spacing: .04em;
+                                            color: #6b7280;
+                                        }
+                                        .staff-payroll-modal .summary-value { font-size: 20px; font-weight: 700; color: #111827; }
+                                        .staff-payroll-modal .status-pill {
+                                            padding: 6px 12px;
+                                            border-radius: 999px;
+                                            font-size: 12px;
+                                            font-weight: 600;
+                                            display: inline-flex;
+                                            align-items: center;
+                                            gap: 6px;
+                                        }
+                                        .staff-payroll-modal .payroll-card {
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 16px;
+                                            overflow: hidden;
+                                            background: #fff;
+                                        }
+                                        .staff-payroll-modal .payroll-card-toggle { background: #f8fafc; border: 0; }
+                                        .staff-payroll-modal .payroll-card-toggle:focus { box-shadow: none; }
+                                        .staff-payroll-modal .payroll-icon {
+                                            width: 32px;
+                                            height: 32px;
+                                            border-radius: 10px;
+                                            background: #eef2ff;
+                                            color: #4338ca;
+                                            display: inline-flex;
+                                            align-items: center;
+                                            justify-content: center;
+                                        }
+                                        .staff-payroll-modal .filter-card {
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 16px;
+                                            background: #fff;
+                                        }
+                                        .staff-payroll-modal .payroll-table {
+                                            border: 1px solid #e5e7eb;
+                                            border-radius: 16px;
+                                            overflow: hidden;
+                                            background: #fff;
+                                        }
+                                        .staff-payroll-modal .payroll-table thead th {
+                                            background: #f8fafc;
+                                            font-size: 12px;
+                                            text-transform: uppercase;
+                                            letter-spacing: .04em;
+                                            color: #6b7280;
+                                        }
+                                        .staff-payroll-modal .entry-row { cursor: default; }
+                                        @media (max-width: 991.98px) {
+                                            .staff-payroll-modal .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+                                            .staff-payroll-modal .summary-item { border-left: 0; border-top: 1px solid #e5e7eb; }
+                                            .staff-payroll-modal .summary-item:nth-child(1),
+                                            .staff-payroll-modal .summary-item:nth-child(2) { border-top: 0; }
+                                            .staff-payroll-modal .summary-item:nth-child(odd) { border-right: 1px solid #e5e7eb; }
+                                        }
+                                        @media (max-width: 575.98px) {
+                                            .staff-payroll-modal .summary-grid { grid-template-columns: minmax(0, 1fr); }
+                                            .staff-payroll-modal .summary-item { border-right: 0; }
+                                        }
+                                    </style>
+
+                                    <div class="payroll-summary-card mb-3">
+                                        <div class="summary-grid">
+                                            <div class="summary-item">
+                                                <div class="summary-label">Gross Pay</div>
+                                                <div class="summary-value">₱{{ number_format((float) $summary['gross_pay'], 2) }}</div>
+                                            </div>
+                                            <div class="summary-item">
+                                                <div class="summary-label">Total Deductions</div>
+                                                <div class="summary-value" data-total-deductions>₱{{ number_format((float) $staffTotalDeductions, 2) }}</div>
+                                            </div>
+                                            <div class="summary-item">
+                                                <div class="summary-label">Net Pay</div>
+                                                <div class="summary-value text-success" data-net>₱{{ number_format((float) $staffNetWithoutAppCut, 2) }}</div>
+                                            </div>
+                                            <div class="summary-item">
+                                                <div class="summary-label">Status</div>
+                                                @if($staffIsProcessed)
+                                                    <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Processed</span>
+                                                @elseif($summary['pending_entries'])
+                                                    <span class="badge status-pill bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i> Pending</span>
+                                                @else
+                                                    <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Ready</span>
+                                                @endif
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="card payroll-card mb-3">
+                                        <button
+                                            class="btn payroll-card-toggle w-100 text-start d-flex align-items-center justify-content-between"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#{{ $modalId }}-deductions"
+                                            aria-expanded="true"
+                                            aria-controls="{{ $modalId }}-deductions"
+                                        >
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="payroll-icon"><i class="fa-solid fa-chart-column"></i></span>
+                                                <span class="fw-semibold">Deductions Breakdown</span>
+                                            </div>
+                                            <i class="fa-solid fa-chevron-down"></i>
+                                        </button>
+                                        <div id="{{ $modalId }}-deductions" class="collapse show">
+                                            <div class="card-body">
+                                                <div class="row g-3">
+                                                    <div class="col-12 col-lg-7">
+                                                        <div class="text-muted small text-uppercase fw-semibold mb-2">Deductions</div>
+                                                        <ul class="list-unstyled small mb-0">
+                                                            @if($staffHasSss)
+                                                                <li class="d-flex justify-content-between">
+                                                                    <span>SSS</span>
+                                                                    <span data-sss>₱{{ number_format($staffDeductionsForDisplay['sss'] ?? 0, 2) }}</span>
+                                                                </li>
+                                                            @endif
+                                                            @if($staffHasPhilhealth)
+                                                                <li class="d-flex justify-content-between">
+                                                                    <span>PhilHealth</span>
+                                                                    <span data-philhealth>₱{{ number_format($staffDeductionsForDisplay['philhealth'] ?? 0, 2) }}</span>
+                                                                </li>
+                                                            @endif
+                                                            @if($staffHasPagibig)
+                                                                <li class="d-flex justify-content-between">
+                                                                    <span>Pag-IBIG</span>
+                                                                    <span data-pagibig>₱{{ number_format($staffDeductionsForDisplay['pagibig'] ?? 0, 2) }}</span>
+                                                                </li>
+                                                            @endif
+                                                            <li class="d-flex justify-content-between">
+                                                                <span>3kfitness app cut</span>
+                                                                <span data-appcut>₱{{ number_format($staffDeductionsForDisplay['app_cut'] ?? 0, 2) }}</span>
+                                                            </li>
+                                                        </ul>
+                                                    </div>
+                                                    <div class="col-12 col-lg-5">
+                                                        <div class="deduction-total border rounded-3 p-3 h-100 bg-light">
+                                                            <div class="text-muted small text-uppercase fw-semibold">Total</div>
+                                                            <div class="fs-5 fw-semibold" data-total-deductions>₱{{ number_format((float) $staffTotalDeductions, 2) }}</div>
+                                                            <div class="text-muted small mt-2">Gross: ₱{{ number_format((float) $summary['gross_pay'], 2) }}</div>
+                                                            <div class="text-muted small">Net: <span data-net>₱{{ number_format((float) $staffNetWithoutAppCut, 2) }}</span></div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="filter-card p-3 mb-3">
+                                        <div class="row g-2 align-items-end">
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label text-muted text-uppercase small mb-1">Month</label>
+                                                <input type="month" class="form-control form-control-sm" value="{{ $month }}" data-staff-filter-month>
+                                            </div>
+                                            <div class="col-12 col-md-4">
+                                                <label class="form-label text-muted text-uppercase small mb-1">Status</label>
+                                                <select class="form-select form-select-sm" data-staff-filter-select>
+                                                    <option value="all">All</option>
+                                                    <option value="complete">Complete</option>
+                                                    <option value="pending">Pending</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-12 col-md-4 d-flex align-items-end gap-2">
+                                                <button class="btn btn-primary btn-sm" type="button" data-staff-filter-apply>
+                                                    <i class="fa-solid fa-filter"></i>
+                                                    Filter
+                                                </button>
+                                                <button type="button" class="btn btn-link btn-sm text-decoration-none" data-staff-filter-reset>Reset</button>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="assignment-list">
+                                        <div class="table-responsive payroll-table">
+                                            <table class="table table-hover align-middle mb-0">
+                                                <thead>
                                                     <tr>
-                                                        <th scope="col">Entry ID</th>
-                                                        <th scope="col">Clock in</th>
-                                                        <th scope="col">Clock out</th>
-                                                        <th scope="col">Hours</th>
-                                                        <th scope="col">Amount</th>
-                                                        <th scope="col">Status</th>
+                                                        <th>Entry ID</th>
+                                                        <th>Clock in</th>
+                                                        <th>Clock out</th>
+                                                        <th class="text-end">Hours</th>
+                                                        <th class="text-end">Amount</th>
+                                                        <th class="text-center">Status</th>
                                                     </tr>
                                                 </thead>
                                                 <tbody>
                                                     @forelse ($summary['entries'] as $entry)
-                                                        <tr>
+                                                        @php
+                                                            $entryDate = $entry['clockin_at']
+                                                                ? $entry['clockin_at']->toDateString()
+                                                                : ($entry['clockout_at'] ? $entry['clockout_at']->toDateString() : '');
+                                                            $entryStatus = $entry['status'] ?? 'pending';
+                                                        @endphp
+                                                        <tr
+                                                            class="entry-row"
+                                                            data-entry-row
+                                                            data-entry-status="{{ $entryStatus }}"
+                                                            data-entry-date="{{ $entryDate }}"
+                                                        >
                                                             <td class="text-muted">#{{ $entry['id'] }}</td>
                                                             <td>
                                                                 {{ $entry['clockin_at'] ? $entry['clockin_at']->format('M d, Y g:i A') : '—' }}
@@ -419,11 +612,11 @@
                                                             <td>
                                                                 {{ $entry['clockout_at'] ? $entry['clockout_at']->format('M d, Y g:i A') : '—' }}
                                                             </td>
-                                                            <td>{{ $entry['hours'] ? number_format($entry['hours'], 2) . ' hrs' : 'Pending' }}</td>
-                                                            <td>
+                                                            <td class="text-end">{{ $entry['hours'] ? number_format($entry['hours'], 2) . ' hrs' : 'Pending' }}</td>
+                                                            <td class="text-end">
                                                                 {{ $entry['amount'] ? '₱' . number_format($entry['amount'], 2) : '—' }}
                                                             </td>
-                                                            <td>
+                                                            <td class="text-center">
                                                                 @if ($entry['status'] === 'complete')
                                                                     <span class="badge bg-success-subtle text-success fw-semibold rounded-pill px-3 py-2">Complete</span>
                                                                 @else
@@ -438,53 +631,103 @@
                                                             </td>
                                                         </tr>
                                                     @endforelse
+                                                    @if(($summary['entries'] ?? collect())->count() > 0)
+                                                        <tr class="text-center text-muted d-none" data-staff-filter-empty>
+                                                            <td colspan="6" class="py-3">No entries match this filter.</td>
+                                                        </tr>
+                                                    @endif
                                                 </tbody>
                                             </table>
                                         </div>
                                     </div>
-                                    <div class="col-12">
-                                        <div class="border rounded-4 p-3 h-100 bg-white">
-                                            <div class="d-flex align-items-center justify-content-between mb-2">
-                                                <h6 class="fw-semibold mb-0">Membership payments approved ({{ $monthLabel }})</h6>
-                                                @if(($staffMembershipPayments['count'] ?? 0) > 0)
-                                                    <span class="badge bg-light text-dark">Total: {{ $staffMembershipPayments['currency'] ?? 'PHP' }} {{ number_format((float) ($staffMembershipPayments['total'] ?? 0), 2) }}</span>
-                                                @endif
+
+                                    <div class="card payroll-card mt-3">
+                                        <button
+                                            class="btn payroll-card-toggle w-100 text-start d-flex align-items-center justify-content-between"
+                                            type="button"
+                                            data-bs-toggle="collapse"
+                                            data-bs-target="#{{ $modalId }}-memberships"
+                                            aria-expanded="true"
+                                            aria-controls="{{ $modalId }}-memberships"
+                                        >
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span class="payroll-icon"><i class="fa-solid fa-user-check"></i></span>
+                                                <span class="fw-semibold">Membership payments approved</span>
                                             </div>
-                                            <div class="table-responsive">
-                                                <table class="table align-middle mb-0">
-                                                    <thead class="table-light">
-                                                        <tr>
-                                                            <th>#</th>
-                                                            <th>Member</th>
-                                                            <th>Membership</th>
-                                                            <th class="text-end">Amount</th>
-                                                            <th class="text-end">Approved</th>
-                                                            <th class="text-end">Updated</th>
-                                                            <th class="text-end">Expires</th>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        @forelse($staffMembershipPaymentsItems as $payment)
+                                            <i class="fa-solid fa-chevron-down"></i>
+                                        </button>
+                                        <div id="{{ $modalId }}-memberships" class="collapse show">
+                                            <div class="card-body">
+                                                <div class="d-flex align-items-center justify-content-between mb-2">
+                                                    <div class="text-muted small">Period: {{ $monthLabel }}</div>
+                                                    @if(($staffMembershipPayments['count'] ?? 0) > 0)
+                                                        <span class="badge bg-light text-dark">Total: {{ $staffMembershipPayments['currency'] ?? 'PHP' }} {{ number_format((float) ($staffMembershipPayments['total'] ?? 0), 2) }}</span>
+                                                    @endif
+                                                </div>
+                                                <div class="table-responsive">
+                                                    <table class="table align-middle mb-0">
+                                                        <thead class="table-light">
                                                             <tr>
-                                                                <td class="text-muted">#{{ $payment['id'] }}</td>
-                                                                <td>
-                                                                    <div class="fw-semibold">{{ $payment['member_name'] ?? '—' }}</div>
-                                                                    <div class="text-muted small">Code: {{ $payment['member_code'] ?? '—' }}</div>
-                                                                </td>
-                                                                <td>{{ $payment['membership'] ?? '—' }}</td>
-                                                                <td class="text-end">{{ $payment['currency'] ?? 'PHP' }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
-                                                                <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
-                                                                <td class="text-end">{{ $payment['updated_at'] ?? '—' }}</td>
-                                                                <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
+                                                                <th>#</th>
+                                                                <th>Member</th>
+                                                                <th>Membership</th>
+                                                                <th class="text-end">Amount</th>
+                                                                <th class="text-end">Approved</th>
+                                                                <th class="text-end">Updated</th>
+                                                                <th class="text-end">Expires</th>
                                                             </tr>
-                                                        @empty
-                                                            <tr>
-                                                                <td colspan="7" class="text-center text-muted small">No approved membership payments for this staff in {{ $monthLabel }}.</td>
-                                                            </tr>
-                                                        @endforelse
-                                                    </tbody>
-                                                </table>
+                                                        </thead>
+                                                        <tbody>
+                                                            @forelse($staffMembershipPaymentsItems as $payment)
+                                                                <tr>
+                                                                    <td class="text-muted">#{{ $payment['id'] }}</td>
+                                                                    <td>
+                                                                        <div class="fw-semibold">{{ $payment['member_name'] ?? '—' }}</div>
+                                                                        <div class="text-muted small">Code: {{ $payment['member_code'] ?? '—' }}</div>
+                                                                    </td>
+                                                                    <td>{{ $payment['membership'] ?? '—' }}</td>
+                                                                    <td class="text-end">{{ $payment['currency'] ?? 'PHP' }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
+                                                                    <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
+                                                                    <td class="text-end">{{ $payment['updated_at'] ?? '—' }}</td>
+                                                                    <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
+                                                                </tr>
+                                                            @empty
+                                                                <tr>
+                                                                    <td colspan="7" class="text-center text-muted small">No approved membership payments for this staff in {{ $monthLabel }}.</td>
+                                                                </tr>
+                                                            @endforelse
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3">
+                                        <div class="d-flex align-items-center gap-2 text-muted small">
+                                            <span>Entries per page:</span>
+                                            <select class="form-select form-select-sm w-auto" disabled>
+                                                <option selected>10</option>
+                                            </select>
+                                            <div class="d-flex align-items-center gap-2">
+                                                <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                                                    <i class="fa-solid fa-chevron-left"></i>
+                                                </button>
+                                                <span>1 of 1</span>
+                                                <button class="btn btn-outline-secondary btn-sm" type="button" disabled>
+                                                    <i class="fa-solid fa-chevron-right"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button type="button" class="btn btn-outline-secondary btn-sm payslip-btn" data-payslip='{{ $payslipJson }}'>
+                                                <i class="fa-solid fa-download"></i>
+                                                Export
+                                            </button>
+                                            <button type="button" class="btn btn-success btn-sm" data-bs-dismiss="modal">
+                                                <i class="fa-solid fa-xmark"></i>
+                                                Close
+                                            </button>
                                         </div>
                                     </div>
                                 </div>
@@ -508,25 +751,86 @@
                 $trainerAssignmentsWithHours = collect($trainerAssignments ?? [])->filter(function ($assignment) {
                     return (float) ($assignment['total_hours'] ?? 0) > 0;
                 })->values();
+                $trainerStats = [
+                    'trainer_count' => $trainerAssignmentsWithHours->count(),
+                    'payable_classes' => $trainerAssignmentsWithHours->sum(function ($assignment) {
+                        return (int) ($assignment['payable_assignments_count'] ?? 0);
+                    }),
+                    'total_hours' => $trainerAssignmentsWithHours->sum(function ($assignment) {
+                        return (float) ($assignment['total_hours'] ?? 0);
+                    }),
+                    'projected_net' => $trainerAssignmentsWithHours->sum(function ($assignment) {
+                        return (float) ($assignment['net_pay'] ?? 0);
+                    }),
+                ];
             @endphp
-            <div class="col-12">
-                <div class="card shadow-sm border-0 rounded-4 overflow-hidden">
-                    <div class="card-body p-4">
-                        <div class="d-flex flex-wrap align-items-start justify-content-between gap-3 mb-3">
-                            <div>
-                                <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Trainer Payroll</span>
-                                <h4 class="fw-semibold mb-1">Assignments & earnings</h4>
-                                <p class="text-muted mb-0">Review trainer class assignments, durations, and estimated payouts using the same streamlined layout.</p>
-                            </div>
-                            <div class="text-end">
-                                <span class="d-block text-muted small">{{ $trainerAssignmentsWithHours->count() }} trainers with assignments</span>
+            <div class="col-12 mb-2">
+                <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
+                    <div>
+                        <span class="badge bg-dark text-white fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Trainer payroll</span>
+                        <h4 class="fw-semibold mb-0">Trainer payout review</h4>
+                    </div>
+                    <span class="text-muted small">Focused on classes with attendance</span>
+                </div>
+            </div>
+            <div class="col-12 mb-3">
+                <div class="row g-3">
+                    <div class="col-12 col-md-3">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted small text-uppercase fw-semibold">Trainers in this run</div>
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <i class="fa-solid fa-user-group text-danger fs-4"></i>
+                                    <span class="fs-4 fw-bold">{{ $trainerStats['trainer_count'] }}</span>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted small text-uppercase fw-semibold">Payable classes</div>
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <i class="fa-solid fa-calendar-check text-warning fs-4"></i>
+                                    <span class="fs-4 fw-bold">{{ $trainerStats['payable_classes'] }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted small text-uppercase fw-semibold">Total hours</div>
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <i class="fa-solid fa-clock-rotate-left text-primary fs-4"></i>
+                                    <span class="fs-4 fw-bold">{{ number_format($trainerStats['total_hours'], 2) }} hrs</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-12 col-md-3">
+                        <div class="card border-0 shadow-sm rounded-4 h-100">
+                            <div class="card-body">
+                                <div class="text-muted small text-uppercase fw-semibold">Net payout</div>
+                                <div class="d-flex align-items-center justify-content-between mt-2">
+                                    <i class="fa-solid fa-peso-sign text-success fs-4"></i>
+                                    <span class="fs-4 fw-bold">₱{{ number_format($trainerStats['projected_net'], 2) }}</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-                        @forelse($trainerAssignmentsWithHours as $assignment)
+            <div class="col-12">
+                @forelse($trainerAssignmentsWithHours as $assignment)
                             @php
                                 $trainer = $assignment['trainer'];
                                 $modalId = 'trainer-assignments-' . $trainer->id;
+                                $trainerHasTin = !empty($trainer->tin_number);
+                                $trainerHasSss = $trainerHasTin && !empty($trainer->sss_number);
+                                $trainerHasPhilhealth = $trainerHasTin && !empty($trainer->philhealth_number);
+                                $trainerHasPagibig = $trainerHasTin && !empty($trainer->pagibig_number);
                                 $totals = $assignment['totals'];
                                 $processedRun = $assignment['processed_run'] ?? null;
                                 $isProcessed = !empty($processedRun);
@@ -623,12 +927,14 @@
                                 $trainerNoData = ($assignment['payable_assignments_count'] ?? 0) <= 0 && empty($processedRun);
                                 $canProcessTrainer = ($assignment['payable_assignments_count'] ?? 0) > 0 && empty($processedRun);
                             @endphp
-                            @php
-                                $trainerInitials = strtoupper(substr($trainer->first_name, 0, 1) . substr($trainer->last_name, 0, 1));
-                            @endphp
                             <div
                                 class="card border-0 shadow-sm rounded-4 mb-3"
                                 data-trainer-card
+                                data-modal-id="{{ $modalId }}"
+                                data-has-tin="{{ $trainerHasTin ? '1' : '0' }}"
+                                data-has-sss="{{ $trainerHasSss ? '1' : '0' }}"
+                                data-has-philhealth="{{ $trainerHasPhilhealth ? '1' : '0' }}"
+                                data-has-pagibig="{{ $trainerHasPagibig ? '1' : '0' }}"
                                 data-gross="{{ $trainerGross }}"
                                 data-sss="{{ $trainerSss }}"
                                 data-philhealth="{{ $trainerPhilhealth }}"
@@ -637,67 +943,56 @@
                                 data-net="{{ $displayNet }}"
                             >
                                 <div class="card-body p-4">
-                                    <div class="row g-3 align-items-center">
-                                        <div class="col-12 col-lg-4 d-flex align-items-start gap-3">
-                                            <div
-                                                class="rounded-circle bg-light d-flex align-items-center justify-content-center fw-bold text-danger flex-shrink-0"
-                                                style="width: 52px; height: 52px;"
-                                            >
-                                                {{ $trainerInitials }}
+                                    <div class="d-flex flex-wrap align-items-start justify-content-between gap-3">
+                                        <div>
+                                            <h5 class="fw-semibold mb-1">{{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
+                                            <div class="text-muted small">{{ $trainer->email }}</div>
+                                            <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                                                <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
+                                                    Assignments: {{ $assignment['assignments_count'] }}
+                                                </span>
+                                                <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
+                                                    Payable classes: {{ $assignment['payable_assignments_count'] }}
+                                                </span>
                                             </div>
-                                            <div class="flex-grow-1">
-                                                <h5 class="fw-semibold mb-1">{{ $trainer->first_name }} {{ $trainer->last_name }}</h5>
-                                                <div class="text-muted small">{{ $trainer->email }}</div>
-                                                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
-                                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
-                                                        Assignments: {{ $assignment['assignments_count'] }}
+                                        </div>
+                                        <div class="d-flex flex-wrap align-items-center gap-3">
+                                            <div class="text-start">
+                                                <div class="text-muted small text-uppercase">Hours</div>
+                                                <div class="fw-bold fs-5">{{ number_format($assignment['total_hours'] ?? 0, 2) }}</div>
+                                                @if(!empty($processedRun))
+                                                    <div class="text-muted small">Processed: {{ number_format($processedRun->total_hours ?? 0, 2) }} hrs</div>
+                                                @endif
+                                            </div>
+                                            <div class="text-start">
+                                                <div class="text-muted small text-uppercase">Gross</div>
+                                                <div class="fw-bold fs-5">₱{{ number_format($trainerGross, 2) }}</div>
+                                                @if(!empty($processedRun))
+                                                    <div class="text-muted small">Processed: ₱{{ number_format($processedRun->gross_pay ?? 0, 2) }}</div>
+                                                @endif
+                                            </div>
+                                            <div class="text-start">
+                                                <div class="text-muted small text-uppercase">Net</div>
+                                                <div class="fw-bold fs-5 text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
+                                                @if(!empty($processedRun))
+                                                    <div class="text-muted small">Processed: ₱{{ number_format($processedRun->net_pay ?? 0, 2) }}</div>
+                                                @endif
+                                            </div>
+                                            <div class="text-start">
+                                                <div class="text-muted small text-uppercase">Upcoming</div>
+                                                <div class="fw-bold fs-6">₱{{ number_format($trainerUpcoming, 2) }}</div>
+                                                <div class="text-muted small">{{ $totals['future_payroll_count'] ?? 0 }} upcoming sessions</div>
+                                            </div>
+                                            <div>
+                                                @if(!empty($processedRun))
+                                                    <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
+                                                    <div class="text-muted small" data-cooldown-display></div>
+                                                @else
+                                                    <span class="badge {{ $trainerNoData ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
+                                                        {{ $trainerNoData ? 'No completed assignments' : 'Ready to finalize' }}
                                                     </span>
-                                                    @if($isProcessed)
-                                                        <span class="badge bg-secondary text-white rounded-pill px-3 py-2">
-                                                            Processed: {{ optional($processedRun->processed_at)->format('M d, Y g:i A') ?? 'Saved' }}
-                                                        </span>
-                                                        <span class="badge bg-dark text-white rounded-pill px-3 py-2">
-                                                            Gross ₱{{ number_format((float) ($processedRun->gross_pay ?? 0), 2) }}
-                                                        </span>
-                                                        <span class="badge bg-success text-white rounded-pill px-3 py-2">
-                                                            Net ₱{{ number_format((float) ($processedRun->net_pay ?? 0), 2) }}
-                                                        </span>
-                                                        <div class="text-muted small" data-cooldown-display></div>
-                                                    @endif
-                                                </div>
+                                                @endif
                                             </div>
-                                        </div>
-                                        <div class="col-12 col-lg-5">
-                                            <div class="d-flex flex-column flex-lg-row gap-3 w-100">
-                                                <div class="text-center text-lg-start flex-fill">
-                                                    <div class="text-muted small text-uppercase">Payable classes</div>
-                                                    <div class="fw-bold fs-5">{{ $assignment['payable_assignments_count'] }}</div>
-                                                </div>
-                                                <div class="text-center text-lg-start flex-fill">
-                                                    <div class="text-muted small text-uppercase">Projected total (incl. upcoming)</div>
-                                                    <div class="fw-bold fs-5">₱{{ number_format($displayProjectedGross, 2) }}</div>
-                                                    <div class="text-muted small">
-                                                        @if($isProcessed)
-                                                            Processed excluded • Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}
-                                                        @else
-                                                            Upcoming: ₱{{ number_format($trainerUpcoming, 2) }}
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                                <div class="text-center text-lg-start flex-fill">
-                                                    <div class="text-muted small text-uppercase">Net (after deductions)</div>
-                                                    <div class="fw-bold fs-6 text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
-                                                    <div class="text-muted small">
-                                                        @if($isProcessed)
-                                                            Upcoming only (processed excluded)
-                                                        @else
-                                                            Completed classes only
-                                                        @endif
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="col-12 col-lg-3 d-flex flex-wrap align-items-center gap-2 justify-content-lg-end text-lg-end">
                                             @php
                                                 $trainerProcessDisabled = !$canProcessTrainer;
                                                 $trainerProcessTitle = $canProcessTrainer
@@ -764,33 +1059,18 @@
                                                     {{ !empty($processedRun) ? 'Processed' : 'Process payroll' }}
                                                 </button>
                                             </form>
-                                            @if(empty($processedRun))
-                                                <button
-                                                    type="button"
-                                                    class="btn btn-danger rounded-pill px-3 d-flex align-items-center gap-2 payslip-btn"
-                                                    data-payslip='{{ $trainerPayslipJson }}'
-                                                >
-                                                    <i class="fa-solid fa-file-pdf"></i>
-                                                    Print payslip
-                                                </button>
-                                            @endif
                                             <button
                                                 class="btn btn-outline-primary rounded-pill px-3"
                                                 type="button"
                                                 data-bs-toggle="modal"
                                                 data-bs-target="#{{ $modalId }}"
                                             >
-                                                View assignments
+                                                Review details
                                             </button>
-                                            @if(!empty($processedRun))
-                                                <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
-                                            @elseif(($assignment['payable_assignments_count'] ?? 0) === 0)
-                                                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No completed assignments</span>
-                                            @endif
                                         </div>
                                     </div>
                                     @if($trainerNoData && empty($processedRun))
-                                        <div class="text-muted small mt-2">Process is disabled because there is no class data with attendance yet.</div>
+                                        <div class="text-muted small mt-1">Process is disabled because there is no class data with attendance yet.</div>
                                     @endif
                                 </div>
                             </div>
@@ -905,11 +1185,11 @@
             </div>
             <div class="summary-item">
                 <div class="summary-label">Total Deductions</div>
-                <div class="summary-value">₱{{ number_format((float) $trainerTotalDeductions, 2) }}</div>
+                <div class="summary-value" data-total-deductions>₱{{ number_format((float) $trainerTotalDeductions, 2) }}</div>
             </div>
             <div class="summary-item">
                 <div class="summary-label">Net Pay</div>
-                <div class="summary-value text-success">₱{{ number_format((float) $trainerNet, 2) }}</div>
+                <div class="summary-value text-success" data-net>₱{{ number_format((float) $trainerNet, 2) }}</div>
             </div>
             <div class="summary-item">
                 <div class="summary-label">Status</div>
@@ -943,18 +1223,24 @@
                     <div class="col-12 col-lg-7">
                         <div class="text-muted small text-uppercase fw-semibold mb-2">Deductions</div>
                         <ul class="list-unstyled small mb-0">
-                            <li class="d-flex justify-content-between">
-                                <span>SSS</span>
-                                <span data-sss>₱{{ number_format($trainerSss, 2) }}</span>
-                            </li>
-                            <li class="d-flex justify-content-between">
-                                <span>PhilHealth</span>
-                                <span data-philhealth>₱{{ number_format($trainerPhilhealth, 2) }}</span>
-                            </li>
-                            <li class="d-flex justify-content-between">
-                                <span>Pag-IBIG</span>
-                                <span data-pagibig>₱{{ number_format($trainerPagibig, 2) }}</span>
-                            </li>
+                            @if($trainerHasSss)
+                                <li class="d-flex justify-content-between">
+                                    <span>SSS</span>
+                                    <span data-sss>₱{{ number_format($trainerSss, 2) }}</span>
+                                </li>
+                            @endif
+                            @if($trainerHasPhilhealth)
+                                <li class="d-flex justify-content-between">
+                                    <span>PhilHealth</span>
+                                    <span data-philhealth>₱{{ number_format($trainerPhilhealth, 2) }}</span>
+                                </li>
+                            @endif
+                            @if($trainerHasPagibig)
+                                <li class="d-flex justify-content-between">
+                                    <span>Pag-IBIG</span>
+                                    <span data-pagibig>₱{{ number_format($trainerPagibig, 2) }}</span>
+                                </li>
+                            @endif
                             <li class="d-flex justify-content-between">
                                 <span>3kfitness app cut</span>
                                 <span data-appcut>₱{{ number_format($trainerAppCut, 2) }}</span>
@@ -964,9 +1250,9 @@
                     <div class="col-12 col-lg-5">
                         <div class="deduction-total border rounded-3 p-3 h-100 bg-light">
                             <div class="text-muted small text-uppercase fw-semibold">Total</div>
-                            <div class="fs-5 fw-semibold">₱{{ number_format((float) $trainerTotalDeductions, 2) }}</div>
+                            <div class="fs-5 fw-semibold" data-total-deductions>₱{{ number_format((float) $trainerTotalDeductions, 2) }}</div>
                             <div class="text-muted small mt-2">Gross: ₱{{ number_format((float) $trainerGross, 2) }}</div>
-                            <div class="text-muted small">Net: ₱{{ number_format((float) $trainerNet, 2) }}</div>
+                            <div class="text-muted small">Net: <span data-net>₱{{ number_format((float) $trainerNet, 2) }}</span></div>
                         </div>
                     </div>
                 </div>
@@ -1229,13 +1515,17 @@
                                 </div>
                             </div>
                         @empty
-                            <div class="text-center text-muted">No trainer assignments found for this period.</div>
+                            <div class="card border-0 shadow-sm rounded-4">
+                                <div class="card-body text-center py-5">
+                                    <h5 class="fw-semibold mb-2">No trainer payroll data found</h5>
+                                    <p class="text-muted mb-3">Try selecting a different month or adjusting your search filters.</p>
+                                    <a href="{{ route('admin.payrolls.index') }}" class="btn btn-danger rounded-pill px-4">Go back to payroll list</a>
+                                </div>
+                            </div>
                         @endforelse
                     </div>
-                    </div>
-                </div>
-            </div>
             </section>
+        </div>
     </div>
 
     {{-- Deduction rules modal --}}
@@ -2088,31 +2378,45 @@
             document.querySelectorAll('[data-payroll-card], [data-trainer-card]').forEach((card) => {
                 const gross = Number(card.dataset.gross || 0);
                 const isTrainer = card.hasAttribute('data-trainer-card');
+                const hasSss = card.dataset.hasSss === '1';
+                const hasPhilhealth = card.dataset.hasPhilhealth === '1';
+                const hasPagibig = card.dataset.hasPagibig === '1';
 
-                const sss = +(gross * sssRate).toFixed(2);
-                const philhealth = +(gross * philRate).toFixed(2);
+                const sss = hasSss ? +(gross * sssRate).toFixed(2) : 0;
+                const philhealth = hasPhilhealth ? +(gross * philRate).toFixed(2) : 0;
                 const pagibigBase = pagibigCap > 0 ? Math.min(gross, pagibigCap) : gross;
-                const pagibig = +(pagibigBase * pagibigRate).toFixed(2);
+                const pagibig = hasPagibig ? +(pagibigBase * pagibigRate).toFixed(2) : 0;
                 const appCut = isTrainer ? +(gross * appCutRateTrainer).toFixed(2) : 0;
-                const net = Math.max(gross - (sss + philhealth + pagibig + appCut), 0);
+                const totalDeductions = +(sss + philhealth + pagibig + appCut).toFixed(2);
+                const net = Math.max(gross - totalDeductions, 0);
 
-                card.querySelectorAll('[data-sss]').forEach((el) => el.textContent = formatPeso(sss));
-                card.querySelectorAll('[data-philhealth]').forEach((el) => el.textContent = formatPeso(philhealth));
-                card.querySelectorAll('[data-pagibig]').forEach((el) => el.textContent = formatPeso(pagibig));
-                card.querySelectorAll('[data-appcut]').forEach((el) => el.textContent = formatPeso(appCut));
-                card.querySelectorAll('[data-net]').forEach((el) => el.textContent = formatPeso(net));
+                const updateContainer = (container) => {
+                    if (!container) return;
+                    container.querySelectorAll('[data-sss]').forEach((el) => el.textContent = formatPeso(sss));
+                    container.querySelectorAll('[data-philhealth]').forEach((el) => el.textContent = formatPeso(philhealth));
+                    container.querySelectorAll('[data-pagibig]').forEach((el) => el.textContent = formatPeso(pagibig));
+                    container.querySelectorAll('[data-appcut]').forEach((el) => el.textContent = formatPeso(appCut));
+                    container.querySelectorAll('[data-total-deductions]').forEach((el) => el.textContent = formatPeso(totalDeductions));
+                    container.querySelectorAll('[data-net]').forEach((el) => el.textContent = formatPeso(net));
 
-                const payslipBtn = card.querySelector('.payslip-btn');
-                if (payslipBtn) {
-                    let data = {};
-                    try {
-                        data = JSON.parse(payslipBtn.dataset.payslip || '{}');
-                    } catch (e) {
-                        data = {};
+                    const payslipBtn = container.querySelector('.payslip-btn');
+                    if (payslipBtn) {
+                        let data = {};
+                        try {
+                            data = JSON.parse(payslipBtn.dataset.payslip || '{}');
+                        } catch (e) {
+                            data = {};
+                        }
+                        data.deductions = { sss, philhealth, pagibig, app_cut: appCut };
+                        data.net = net;
+                        payslipBtn.dataset.payslip = JSON.stringify(data);
                     }
-                    data.deductions = { sss, philhealth, pagibig, app_cut: appCut };
-                    data.net = net;
-                    payslipBtn.dataset.payslip = JSON.stringify(data);
+                };
+
+                updateContainer(card);
+                const modalId = card.dataset.modalId;
+                if (modalId) {
+                    updateContainer(document.getElementById(modalId));
                 }
             });
         }
@@ -2398,6 +2702,71 @@
                 modalInstance.show();
             }
         }
+
+        const staffModalId = params.get('staff_modal');
+        if (staffModalId) {
+            const targetModal = document.getElementById(staffModalId);
+            if (targetModal) {
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(targetModal);
+                modalInstance.show();
+            }
+        }
+
+        // Staff modal filters
+        document.querySelectorAll('.staff-payroll-modal').forEach((modal) => {
+            if (modal.parentElement !== document.body) {
+                document.body.appendChild(modal);
+            }
+            const rows = modal.querySelectorAll('[data-entry-row]');
+            const statusSelect = modal.querySelector('[data-staff-filter-select]');
+            const resetBtn = modal.querySelector('[data-staff-filter-reset]');
+            const monthInput = modal.querySelector('[data-staff-filter-month]');
+            const applyBtn = modal.querySelector('[data-staff-filter-apply]');
+            const emptyRow = modal.querySelector('[data-staff-filter-empty]');
+            const modalId = modal.getAttribute('id');
+
+            function applyStaffFilters() {
+                const status = statusSelect?.value || 'all';
+                let visible = 0;
+
+                rows.forEach((row) => {
+                    const rowStatus = row.dataset.entryStatus || 'pending';
+                    const show = status === 'all' || rowStatus === status;
+                    row.classList.toggle('d-none', !show);
+                    if (show) visible += 1;
+                });
+
+                if (emptyRow) {
+                    emptyRow.classList.toggle('d-none', visible > 0);
+                }
+            }
+
+            statusSelect?.addEventListener('change', applyStaffFilters);
+            resetBtn?.addEventListener('click', () => {
+                if (statusSelect) statusSelect.value = 'all';
+                if (monthInput) monthInput.value = '';
+                applyStaffFilters();
+            });
+
+            applyBtn?.addEventListener('click', () => {
+                if (monthInput && monthInput.value) {
+                    const url = new URL(window.location.href);
+                    url.searchParams.set('month', monthInput.value);
+                    if (modalId) {
+                        url.searchParams.set('staff_modal', modalId);
+                    }
+                    const searchInput = document.querySelector('input[name="search"]');
+                    if (searchInput && searchInput.value) {
+                        url.searchParams.set('search', searchInput.value);
+                    }
+                    window.location.href = url.toString();
+                    return;
+                }
+                applyStaffFilters();
+            });
+
+            applyStaffFilters();
+        });
 
         // Assignment modal filters
         document.querySelectorAll('.assignment-modal').forEach((modal) => {

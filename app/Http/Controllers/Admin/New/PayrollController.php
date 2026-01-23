@@ -73,12 +73,17 @@ class PayrollController extends Controller
         ];
     }
 
-    private function calculateDeductions(float $gross, array $settings, bool $applyAppCut = true): array
+    private function calculateDeductions(float $gross, array $settings, bool $applyAppCut = true, ?User $person = null): array
     {
-        $sss = round($gross * ($settings['sss_rate'] / 100), 2);
-        $philhealth = round($gross * ($settings['philhealth_rate'] / 100), 2);
+        $hasTin = $person ? !empty($person->tin_number) : true;
+        $hasSss = $person ? !empty($person->sss_number) : true;
+        $hasPhilhealth = $person ? !empty($person->philhealth_number) : true;
+        $hasPagibig = $person ? !empty($person->pagibig_number) : true;
+
+        $sss = ($hasTin && $hasSss) ? round($gross * ($settings['sss_rate'] / 100), 2) : 0.0;
+        $philhealth = ($hasTin && $hasPhilhealth) ? round($gross * ($settings['philhealth_rate'] / 100), 2) : 0.0;
         $pagibigBase = $settings['pagibig_cap'] > 0 ? min($gross, $settings['pagibig_cap']) : $gross;
-        $pagibig = round($pagibigBase * ($settings['pagibig_rate'] / 100), 2);
+        $pagibig = ($hasTin && $hasPagibig) ? round($pagibigBase * ($settings['pagibig_rate'] / 100), 2) : 0.0;
         $appCut = $applyAppCut ? round($gross * ($settings['app_cut_rate'] / 100), 2) : 0.0;
         $total = $sss + $philhealth + $pagibig + $appCut;
 
@@ -1062,7 +1067,7 @@ class PayrollController extends Controller
             $totalHours = $entries->sum(fn ($entry) => $entry['hours'] ?? 0);
             $gross = round($totalHours * (float) ($staff->rate_per_hour ?? 0), 2);
 
-            $deductions = $this->calculateDeductions($gross, $deductionSettings, false);
+            $deductions = $this->calculateDeductions($gross, $deductionSettings, false, $staff);
             $net = max($gross - $deductions['total'], 0);
 
             $entryDateBounds = $entries->reduce(function ($carry, $entry) {
@@ -1199,7 +1204,7 @@ class PayrollController extends Controller
                     return ($detail['payroll_salary'] ?? 0) + ($detail['future_potential_salary'] ?? 0);
                 }), 2);
                 $gross = round($salaryEligibleSchedules->sum('payroll_salary'), 2);
-                $deductions = $this->calculateDeductions($gross, $deductionSettings, true);
+                $deductions = $this->calculateDeductions($gross, $deductionSettings, true, $trainer);
                 $net = max($gross - $deductions['total'], 0);
 
                 $processedRun = $trainerProcessedRuns->get($trainer->id);
@@ -1379,7 +1384,7 @@ class PayrollController extends Controller
             'items' => $membershipPayments,
         ];
 
-        $deductions = $this->calculateDeductions($gross, $deductionSettings, false);
+        $deductions = $this->calculateDeductions($gross, $deductionSettings, false, $staff);
 
         $net = max($gross - $deductions['total'], 0);
 
@@ -1569,7 +1574,7 @@ class PayrollController extends Controller
         $totalHours = $eligibleSchedules->sum(fn ($detail) => $detail['paid_occurrences']->sum('payroll_hours'));
         $gross = round($eligibleSchedules->sum(fn ($detail) => $detail['paid_occurrences']->sum('payroll_salary')), 2);
 
-        $deductions = $this->calculateDeductions($gross, $deductionSettings, true);
+        $deductions = $this->calculateDeductions($gross, $deductionSettings, true, $trainer);
 
         $net = max($gross - $deductions['total'], 0);
 
