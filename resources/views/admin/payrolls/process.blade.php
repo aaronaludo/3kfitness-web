@@ -880,18 +880,31 @@
                                 $trainerHasPagibig = $trainerHasTin && !empty($trainer->pagibig_number);
                                 $totals = $assignment['totals'];
                                 $processedRun = $assignment['processed_run'] ?? null;
-                                $isProcessed = !empty($processedRun);
-                                $trainerGross = $processedRun->gross_pay ?? ($assignment['payable_salary'] ?? 0);
+                                $processedTotals = $assignment['processed_totals'] ?? [
+                                    'count' => 0,
+                                    'hours' => 0,
+                                    'gross' => 0,
+                                    'net' => 0,
+                                    'sss' => 0,
+                                    'philhealth' => 0,
+                                    'pagibig' => 0,
+                                    'app_cut' => 0,
+                                    'last_processed_at' => null,
+                                ];
+                                $hasProcessed = (int) ($processedTotals['count'] ?? 0) > 0;
+                                $hasRemaining = (int) ($assignment['payable_assignments_count'] ?? 0) > 0;
+                                $lastProcessedAt = $processedTotals['last_processed_at'] ?? null;
+                                $trainerGross = $assignment['payable_salary'] ?? 0;
                                 $trainerProjectedGross = $assignment['total_salary'] ?? 0;
                                 $trainerUpcoming = $totals['future_total'] ?? 0;
-                                $trainerSss = $processedRun->deduction_sss ?? ($assignment['deductions']['sss'] ?? round($trainerGross * 0.045, 2));
-                                $trainerPhilhealth = $processedRun->deduction_philhealth ?? ($assignment['deductions']['philhealth'] ?? round($trainerGross * 0.025, 2));
-                                $trainerPagibig = $processedRun->deduction_pagibig ?? ($assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2));
+                                $trainerSss = $assignment['deductions']['sss'] ?? round($trainerGross * 0.045, 2);
+                                $trainerPhilhealth = $assignment['deductions']['philhealth'] ?? round($trainerGross * 0.025, 2);
+                                $trainerPagibig = $assignment['deductions']['pagibig'] ?? round(min($trainerGross, 5000) * 0.02, 2);
                                 $trainerAppCut = $assignment['deductions']['app_cut'] ?? 0;
                                 $trainerTotalDeductions = round($trainerSss + $trainerPhilhealth + $trainerPagibig + $trainerAppCut, 2);
-                                $trainerNet = $processedRun->net_pay ?? $assignment['net_pay'];
-                                $displayProjectedGross = $isProcessed ? max((float) $trainerUpcoming, 0) : (float) $trainerProjectedGross;
-                                $displayNet = $isProcessed ? max((float) $trainerUpcoming, 0) : (float) $trainerNet;
+                                $trainerNet = $assignment['net_pay'] ?? 0;
+                                $displayProjectedGross = (float) $trainerProjectedGross;
+                                $displayNet = (float) $trainerNet;
                                 $assignmentDetails = collect($assignment['details'] ?? collect())
                                     ->filter(function ($detail) {
                                         return ($detail['salary_eligible'] ?? false) && ($detail['in_month'] ?? false);
@@ -903,9 +916,9 @@
                                             : PHP_INT_MAX;
                                     })
                                     ->values();
-                                $processedSeries = collect(optional($processedRun)->processed_session_series ?? []);
-                                $processedLabel = $processedRun && $processedRun->processed_at
-                                    ? 'Processed ' . $processedRun->processed_at->format('M d, Y g:i A')
+                                $processedSeries = collect($assignment['processed_series'] ?? []);
+                                $processedLabel = $lastProcessedAt instanceof \Carbon\CarbonInterface
+                                    ? 'Processed ' . $lastProcessedAt->format('M d, Y g:i A')
                                     : 'Processed';
                                 $attendanceAssignments = $assignmentDetails
                                     ->filter(function ($detail) {
@@ -971,8 +984,8 @@
                                     'assignments' => $attendanceAssignments,
                                 ];
                                 $trainerPayslipJson = json_encode($trainerPayslipData);
-                                $trainerNoData = ($assignment['payable_assignments_count'] ?? 0) <= 0 && empty($processedRun);
-                                $canProcessTrainer = ($assignment['payable_assignments_count'] ?? 0) > 0 && empty($processedRun);
+                                $trainerNoData = !$hasRemaining;
+                                $canProcessTrainer = $hasRemaining;
                             @endphp
                             <div
                                 class="card border-0 shadow-sm rounded-4 mb-3"
@@ -1007,22 +1020,25 @@
                                             <div class="text-start">
                                                 <div class="text-muted small text-uppercase">Hours</div>
                                                 <div class="fw-bold fs-5">{{ number_format($assignment['total_hours'] ?? 0, 2) }}</div>
-                                                @if(!empty($processedRun))
-                                                    <div class="text-muted small">Processed: {{ number_format($processedRun->total_hours ?? 0, 2) }} hrs</div>
+                                                @if($hasProcessed)
+                                                    <div class="text-muted small">
+                                                        Processed ({{ $processedTotals['count'] ?? 0 }} run{{ ($processedTotals['count'] ?? 0) === 1 ? '' : 's' }}):
+                                                        {{ number_format((float) ($processedTotals['hours'] ?? 0), 2) }} hrs
+                                                    </div>
                                                 @endif
                                             </div>
                                             <div class="text-start">
                                                 <div class="text-muted small text-uppercase">Gross</div>
                                                 <div class="fw-bold fs-5">₱{{ number_format($trainerGross, 2) }}</div>
-                                                @if(!empty($processedRun))
-                                                    <div class="text-muted small">Processed: ₱{{ number_format($processedRun->gross_pay ?? 0, 2) }}</div>
+                                                @if($hasProcessed)
+                                                    <div class="text-muted small">Processed: ₱{{ number_format((float) ($processedTotals['gross'] ?? 0), 2) }}</div>
                                                 @endif
                                             </div>
                                             <div class="text-start">
                                                 <div class="text-muted small text-uppercase">Net</div>
                                                 <div class="fw-bold fs-5 text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
-                                                @if(!empty($processedRun))
-                                                    <div class="text-muted small">Processed: ₱{{ number_format($processedRun->net_pay ?? 0, 2) }}</div>
+                                                @if($hasProcessed)
+                                                    <div class="text-muted small">Processed: ₱{{ number_format((float) ($processedTotals['net'] ?? 0), 2) }}</div>
                                                 @endif
                                             </div>
                                             <div class="text-start">
@@ -1031,21 +1047,20 @@
                                                 <div class="text-muted small">{{ $totals['future_payroll_count'] ?? 0 }} upcoming sessions</div>
                                             </div>
                                             <div>
-                                                @if(!empty($processedRun))
+                                                @if($hasRemaining)
+                                                    <span class="badge bg-success rounded-pill px-3 py-2">Ready to finalize</span>
+                                                @elseif($hasProcessed)
                                                     <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
-                                                    <div class="text-muted small" data-cooldown-display></div>
                                                 @else
-                                                    <span class="badge {{ $trainerNoData ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
-                                                        {{ $trainerNoData ? 'No completed assignments' : 'Ready to finalize' }}
-                                                    </span>
+                                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No completed assignments</span>
                                                 @endif
                                             </div>
                                             @php
                                                 $trainerProcessDisabled = !$canProcessTrainer;
                                                 $trainerProcessTitle = $canProcessTrainer
                                                     ? 'Process and save payroll'
-                                                    : (!empty($processedRun)
-                                                        ? 'Already processed for this period'
+                                                    : ($hasProcessed
+                                                        ? 'All assignments already processed for this period'
                                                         : 'Processing disabled: no completed assignments for this period');
                                             @endphp
                                             <form action="{{ route('admin.payrolls.process-trainer') }}" method="POST" class="d-inline">
@@ -1104,7 +1119,7 @@
                                                     title="{{ $trainerProcessTitle }}"
                                                 >
                                                     <i class="fa-solid fa-circle-check"></i>
-                                                    {{ !empty($processedRun) ? 'Processed' : 'Process payroll' }}
+                                                    {{ $hasRemaining ? 'Process payroll' : ($hasProcessed ? 'Processed' : 'Process payroll') }}
                                                 </button>
                                             </form>
                                             <button
@@ -1133,8 +1148,8 @@
                                                         <div class="text-muted small">Payroll Period: {{ $monthLabel }}</div>
                                                     </div>
                                                     <div class="ms-auto text-end">
-                                                        @if($isProcessed)
-                                                            <span class="text-muted small">Payroll locked on {{ optional($processedRun->processed_at)->format('M d, Y') ?? '—' }} - edits disabled</span>
+                                                        @if(!$hasRemaining && $hasProcessed)
+                                                            <span class="text-muted small">Payroll locked on {{ $lastProcessedAt ? $lastProcessedAt->format('M d, Y') : '—' }} - edits disabled</span>
                                                         @else
                                                             <span class="text-muted small">Payroll open - edits enabled</span>
                                                         @endif
@@ -1246,7 +1261,9 @@
             </div>
             <div class="summary-item">
                 <div class="summary-label">Status</div>
-                @if($isProcessed)
+                @if($hasRemaining)
+                    <span class="badge status-pill bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i> Pending</span>
+                @elseif($hasProcessed)
                     <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Processed</span>
                 @else
                     <span class="badge status-pill bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i> Pending</span>

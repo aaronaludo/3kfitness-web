@@ -163,7 +163,13 @@ class PayrollController extends Controller
         })->values();
     }
 
-    private function buildTrainerScheduleDetails(User $trainer, Carbon $startOfMonth, Carbon $endOfMonth, array $processingRanges = [])
+    private function buildTrainerScheduleDetails(
+        User $trainer,
+        Carbon $startOfMonth,
+        Carbon $endOfMonth,
+        array $processingRanges = [],
+        array $processedSessionLookup = []
+    )
     {
         $trainer->loadMissing(['trainerSchedules.activeUserSchedules.user']);
 
@@ -212,8 +218,9 @@ class PayrollController extends Controller
         ];
 
         $applyProcessingRanges = !empty($processingRanges);
+        $applyProcessedLookup = !empty($processedSessionLookup);
 
-        return collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth, $trainerAttendances, $weekdayKeys, $weekdayLabels, $classAttendanceLookup, $processingRanges, $applyProcessingRanges) {
+        return collect($trainer->trainerSchedules ?? [])->map(function ($schedule) use ($now, $startOfMonth, $endOfMonth, $trainerAttendances, $weekdayKeys, $weekdayLabels, $classAttendanceLookup, $processingRanges, $applyProcessingRanges, $processedSessionLookup, $applyProcessedLookup) {
             $seriesStart = !empty($schedule->series_start_date)
                 ? Carbon::parse($schedule->series_start_date)->startOfDay()
                 : (!empty($schedule->class_start_date) ? Carbon::parse($schedule->class_start_date)->startOfDay() : null);
@@ -359,6 +366,26 @@ class PayrollController extends Controller
                     })
                     ->values();
             }
+            if ($applyProcessedLookup) {
+                $occurrenceDetails = $occurrenceDetails
+                    ->filter(function ($occurrence) use ($schedule, $processedSessionLookup) {
+                        $start = $occurrence['start'] ?? null;
+                        if (!($start instanceof Carbon)) {
+                            return true;
+                        }
+                        $dateKey = $start->toDateString();
+                        $scheduleId = $schedule->id ?? null;
+                        if ($scheduleId && !empty($processedSessionLookup['by_schedule_id'][$scheduleId][$dateKey])) {
+                            return false;
+                        }
+                        $classCode = $schedule->class_code ?? null;
+                        if ($classCode && !empty($processedSessionLookup['by_class_code'][$classCode][$dateKey])) {
+                            return false;
+                        }
+                        return true;
+                    })
+                    ->values();
+            }
 
             $pastOccurrences = $occurrenceDetails->where('category', 'past');
             $futureOccurrences = $occurrenceDetails->where('category', 'future');
@@ -384,7 +411,7 @@ class PayrollController extends Controller
 
             $category = ($seriesEnd && $seriesEnd->lt($now)) ? 'past' : 'future';
             $inMonth = $periodStart->lte($endOfMonth) && $periodEnd->gte($startOfMonth);
-            if ($applyProcessingRanges) {
+            if ($applyProcessingRanges || $applyProcessedLookup) {
                 $inMonth = $inMonth && $occurrenceDetails->isNotEmpty();
             }
 
@@ -526,6 +553,145 @@ class PayrollController extends Controller
             ->filter()
             ->values()
             ->toArray();
+    }
+
+    private function buildProcessedSessionLookup($runs): array
+    {
+        $byScheduleId = [];
+        $byClassCode = [];
+
+        foreach (collect($runs ?? []) as $run) {
+            $seriesItems = $run->processed_session_series ?? [];
+            foreach ($seriesItems as $series) {
+                $scheduleId = $series['schedule_id'] ?? null;
+                $classCode = $series['class_code'] ?? null;
+                $sessions = $series['sessions'] ?? [];
+                foreach ($sessions as $session) {
+                    $date = $session['date'] ?? null;
+                    if (!$date) {
+                        continue;
+                    }
+                    try {
+                        $dateKey = Carbon::parse($date)->toDateString();
+                    } catch (\Throwable $th) {
+                        $dateKey = (string) $date;
+                    }
+
+                    if ($scheduleId) {
+                        $byScheduleId[$scheduleId][$dateKey] = true;
+                    }
+                    if ($classCode) {
+                        $byClassCode[$classCode][$dateKey] = true;
+                    }
+                }
+            }
+        }
+
+        return [
+            'by_schedule_id' => $byScheduleId,
+            'by_class_code' => $byClassCode,
+        ];
+    }
+
+    private function mergeProcessedSessionSeries($runs): array
+    {
+        $merged = [];
+        $sessionIndex = [];
+
+        foreach (collect($runs ?? []) as $run) {
+            $seriesItems = $run->processed_session_series ?? [];
+            foreach ($seriesItems as $series) {
+                $scheduleId = $series['schedule_id'] ?? null;
+                $classCode = $series['class_code'] ?? null;
+                $key = $scheduleId ? ('id:' . $scheduleId) : ($classCode ? ('code:' . $classCode) : ('series:' . md5(json_encode($series))));
+
+                if (!isset($merged[$key])) {
+                    $merged[$key] = [
+                        'schedule_id' => $scheduleId,
+                        'schedule_name' => $series['schedule_name'] ?? null,
+                        'class_code' => $classCode,
+                        'time_range' => $series['time_range'] ?? null,
+                        'sessions' => [],
+                    ];
+                    $sessionIndex[$key] = [];
+                }
+
+                foreach ($series['sessions'] ?? [] as $session) {
+                    $date = $session['date'] ?? null;
+                    if (!$date) {
+                        continue;
+                    }
+                    $parsed = null;
+                    try {
+                        $parsed = Carbon::parse($date);
+                        $dateKey = $parsed->toDateString();
+                    } catch (\Throwable $th) {
+                        $dateKey = (string) $date;
+                    }
+
+                    if (!empty($sessionIndex[$key][$dateKey])) {
+                        continue;
+                    }
+
+                    $label = $session['label'] ?? ($parsed ? $parsed->format('M j, Y') : $dateKey);
+                    $merged[$key]['sessions'][] = [
+                        'date' => $dateKey,
+                        'label' => $label,
+                        'status' => $session['status'] ?? null,
+                        'day' => $parsed ? $parsed->day : null,
+                    ];
+                    $sessionIndex[$key][$dateKey] = true;
+                }
+            }
+        }
+
+        foreach ($merged as $key => $series) {
+            $merged[$key]['sessions'] = collect($series['sessions'] ?? [])
+                ->sortBy(function ($session) {
+                    $date = $session['date'] ?? null;
+                    try {
+                        return Carbon::parse($date)->getTimestamp();
+                    } catch (\Throwable $th) {
+                        return PHP_INT_MAX;
+                    }
+                })
+                ->values()
+                ->toArray();
+        }
+
+        return array_values($merged);
+    }
+
+    private function summarizeProcessedRuns($runs): array
+    {
+        $collection = collect($runs ?? []);
+        if ($collection->isEmpty()) {
+            return [
+                'count' => 0,
+                'hours' => 0,
+                'gross' => 0,
+                'net' => 0,
+                'sss' => 0,
+                'philhealth' => 0,
+                'pagibig' => 0,
+                'app_cut' => 0,
+                'last_processed_at' => null,
+            ];
+        }
+
+        $lastProcessedAt = $collection->pluck('processed_at')->filter()->sortDesc()->first();
+
+        return [
+            'count' => $collection->count(),
+            'hours' => round($collection->sum(fn ($run) => (float) ($run->total_hours ?? 0)), 2),
+            'gross' => round($collection->sum(fn ($run) => (float) ($run->gross_pay ?? 0)), 2),
+            'net' => round($collection->sum(fn ($run) => (float) ($run->net_pay ?? 0)), 2),
+            'sss' => round($collection->sum(fn ($run) => (float) ($run->deduction_sss ?? 0)), 2),
+            'philhealth' => round($collection->sum(fn ($run) => (float) ($run->deduction_philhealth ?? 0)), 2),
+            'pagibig' => round($collection->sum(fn ($run) => (float) ($run->deduction_pagibig ?? 0)), 2),
+            'app_cut' => round($collection->sum(fn ($run) => (float) ($run->deduction_app_cut ?? 0)), 2),
+            'last_processed_at' => $lastProcessedAt,
+        ];
     }
 
     private function formatProcessedSessionSeriesForPayslip($processedSeries): array
@@ -1401,12 +1567,15 @@ class PayrollController extends Controller
 
         $trainerProcessedRuns = PayrollRun::whereIn('user_id', $trainers->pluck('id'))
             ->where('period_month', $month)
+            ->orderByDesc('processed_at')
             ->get()
-            ->keyBy('user_id');
+            ->groupBy('user_id');
 
         $trainerAssignments = $trainers
             ->map(function ($trainer) use ($startOfMonth, $endOfMonth, $trainerProcessedRuns, $deductionSettings, $activeProcessingRanges) {
-                $scheduleDetails = $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth, $activeProcessingRanges);
+                $processedRuns = $trainerProcessedRuns->get($trainer->id, collect());
+                $processedLookup = $this->buildProcessedSessionLookup($processedRuns);
+                $scheduleDetails = $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth, $activeProcessingRanges, $processedLookup);
                 $salaryEligibleSchedules = $scheduleDetails->where('salary_eligible', true)->where('in_month', true);
                 $payableSchedules = $salaryEligibleSchedules->filter(fn ($detail) => ($detail['past_paid_count'] ?? 0) > 0);
 
@@ -1426,15 +1595,9 @@ class PayrollController extends Controller
                 $deductions = $this->calculateDeductions($gross, $deductionSettings, true, $trainer);
                 $net = max($gross - $deductions['total'], 0);
 
-                $processedRun = $trainerProcessedRuns->get($trainer->id);
-
-                if ($processedRun) {
-                    // Once processed, display zeroed values to mirror staff behavior and prevent reprocessing.
-                    $gross = 0;
-                    $net = 0;
-                    $deductions = ['sss' => 0, 'philhealth' => 0, 'pagibig' => 0, 'app_cut' => 0, 'total' => 0];
-                    $salaryEligibleSchedules = collect();
-                }
+                $latestProcessedRun = $processedRuns->sortByDesc('processed_at')->first();
+                $processedTotals = $this->summarizeProcessedRuns($processedRuns);
+                $processedSeries = $this->mergeProcessedSessionSeries($processedRuns);
 
                 return [
                     'trainer' => $trainer,
@@ -1455,7 +1618,10 @@ class PayrollController extends Controller
                     'totals' => $totals,
                     'deductions' => $deductions,
                     'net_pay' => $net,
-                    'processed_run' => $processedRun,
+                    'processed_run' => $latestProcessedRun,
+                    'processed_runs' => $processedRuns,
+                    'processed_totals' => $processedTotals,
+                    'processed_series' => $processedSeries,
                 ];
             })
             ->filter(fn ($assignment) => $assignment['assignments_count'] > 0)
@@ -1658,7 +1824,11 @@ class PayrollController extends Controller
         $endOfMonth = $targetMonth->copy()->endOfMonth();
 
         $activeProcessingRanges = $this->getActiveProcessingRanges($deductionSettings, Carbon::now());
-        $scheduleDetails = $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth, $activeProcessingRanges);
+        $existingRuns = PayrollRun::where('user_id', $trainer->id)
+            ->where('period_month', $request->month)
+            ->get();
+        $processedLookup = $this->buildProcessedSessionLookup($existingRuns);
+        $scheduleDetails = $this->buildTrainerScheduleDetails($trainer, $startOfMonth, $endOfMonth, $activeProcessingRanges, $processedLookup);
         $eligibleSchedules = collect($scheduleDetails)
             ->filter(function ($detail) {
                 return ($detail['salary_eligible'] ?? false)
@@ -1679,27 +1849,23 @@ class PayrollController extends Controller
 
         $processedSessionSeries = $this->formatProcessedSessionSeries($scheduleDetails);
 
-        PayrollRun::updateOrCreate(
-            [
-                'user_id' => $trainer->id,
-                'period_month' => $request->month,
-            ],
-            [
-                'total_hours' => $totalHours,
-                'gross_pay' => $gross,
-                'net_pay' => $net,
-                'deduction_sss' => $deductions['sss'],
-                'deduction_philhealth' => $deductions['philhealth'],
-                'deduction_pagibig' => $deductions['pagibig'],
-                'deduction_app_cut' => $deductions['app_cut'],
-                'processed_by' => Auth::id(),
-                'processed_at' => Carbon::now(),
-                'released_at' => null,
-                'released_by' => null,
-                'processed_session_series' => $processedSessionSeries,
-                'processed_membership_payments_approved' => null,
-            ]
-        );
+        PayrollRun::create([
+            'user_id' => $trainer->id,
+            'period_month' => $request->month,
+            'total_hours' => $totalHours,
+            'gross_pay' => $gross,
+            'net_pay' => $net,
+            'deduction_sss' => $deductions['sss'],
+            'deduction_philhealth' => $deductions['philhealth'],
+            'deduction_pagibig' => $deductions['pagibig'],
+            'deduction_app_cut' => $deductions['app_cut'],
+            'processed_by' => Auth::id(),
+            'processed_at' => Carbon::now(),
+            'released_at' => null,
+            'released_by' => null,
+            'processed_session_series' => $processedSessionSeries,
+            'processed_membership_payments_approved' => null,
+        ]);
 
         $trainerName = trim($trainer->first_name . ' ' . $trainer->last_name);
 
