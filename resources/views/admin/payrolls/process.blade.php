@@ -1309,7 +1309,7 @@
         <div id="{{ $modalId }}-deductions" class="collapse show">
             <div class="card-body">
                 <div class="row g-3">
-                    <div class="col-12 col-lg-7">
+                    <div class="col-12">
                         <div class="text-muted small text-uppercase fw-semibold mb-2">Deductions</div>
                         <ul class="list-unstyled small mb-0">
                             @if($trainerHasSss)
@@ -1335,14 +1335,6 @@
                                 <span data-appcut>₱{{ number_format($trainerAppCut, 2) }}</span>
                             </li>
                         </ul>
-                    </div>
-                    <div class="col-12 col-lg-5">
-                        <div class="deduction-total border rounded-3 p-3 h-100 bg-light">
-                            <div class="text-muted small text-uppercase fw-semibold">Total</div>
-                            <div class="fs-5 fw-semibold" data-total-deductions>₱{{ number_format((float) $trainerTotalDeductions, 2) }}</div>
-                            <div class="text-muted small mt-2">Gross: ₱{{ number_format((float) $trainerGross, 2) }}</div>
-                            <div class="text-muted small">Net: <span data-net>₱{{ number_format((float) $trainerNet, 2) }}</span></div>
-                        </div>
                     </div>
                 </div>
             </div>
