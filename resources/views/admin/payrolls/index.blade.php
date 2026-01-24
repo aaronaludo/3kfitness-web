@@ -21,6 +21,26 @@
                 $printSource = $runs;
                 $printAllSource = $printAllRuns ?? collect();
                 $currencySymbol = '₱';
+                $formatHours = function ($hours) {
+                    $value = is_numeric($hours) ? (float) $hours : 0;
+                    if ($value < 0) {
+                        $value = 0;
+                    }
+                    $wholeHours = (int) floor($value);
+                    $minutes = (int) round(($value - $wholeHours) * 60);
+                    if ($minutes === 60) {
+                        $wholeHours += 1;
+                        $minutes = 0;
+                    }
+                    $parts = [];
+                    if ($wholeHours > 0 || $minutes === 0) {
+                        $parts[] = $wholeHours . ' ' . ($wholeHours === 1 ? 'hr' : 'hrs');
+                    }
+                    if ($minutes > 0) {
+                        $parts[] = $minutes . ' ' . ($minutes === 1 ? 'min' : 'mins');
+                    }
+                    return implode(' ', $parts);
+                };
                 $calculateTotals = function ($source) {
                     $collection = $source instanceof \Illuminate\Pagination\AbstractPaginator
                         ? collect($source->items())
@@ -66,7 +86,7 @@
                         'email' => $email,
                         'user_code' => $userCode,
                         'period' => $periodLabel,
-                        'hours' => number_format((float) ($run->total_hours ?? 0), 2),
+                        'hours' => (float) ($run->total_hours ?? 0),
                         'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
                         'sss' => number_format((float) ($run->deduction_sss ?? 0), 2),
                         'philhealth' => number_format((float) ($run->deduction_philhealth ?? 0), 2),
@@ -411,7 +431,7 @@
                                             </td>
                                             <td><span class="text-muted small">{{ optional($staff)->user_code ?? '—' }}</span></td>
                                             <td>{{ $periodLabel }}</td>
-                                            <td><span class="fw-semibold">{{ number_format((float) ($run->total_hours ?? 0), 2) }}</span> hrs</td>
+                                            <td><span class="fw-semibold">{{ $formatHours($run->total_hours ?? 0) }}</span></td>
                                             <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
                                             <td>₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</td>
                                             <td>₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</td>
@@ -481,7 +501,7 @@
                         <p class="mb-0">
                             Are you sure you want to release this payslip for
                             <strong data-release-name>—</strong>
-                            (<span data-release-code>—</span>)?
+                            <span class="text-muted">(Code: <span data-release-code>—</span>)</span>?
                         </p>
                     </div>
                     <div class="modal-footer">
@@ -517,6 +537,25 @@
             const printLoader = document.getElementById('print-loader');
             const payrollFilterForm = document.getElementById('payroll-filter-form');
             const roleQuickFilters = document.querySelectorAll('input[name="role"]');
+            const formatHoursWithMinutes = function (value) {
+                const hours = Number(value);
+                if (!Number.isFinite(hours)) return '0 hrs';
+                const safeHours = Math.max(0, hours);
+                let wholeHours = Math.floor(safeHours);
+                let minutes = Math.round((safeHours - wholeHours) * 60);
+                if (minutes === 60) {
+                    wholeHours += 1;
+                    minutes = 0;
+                }
+                const parts = [];
+                if (wholeHours > 0 || minutes === 0) {
+                    parts.push(`${wholeHours} ${wholeHours === 1 ? 'hr' : 'hrs'}`);
+                }
+                if (minutes > 0) {
+                    parts.push(`${minutes} ${minutes === 1 ? 'min' : 'mins'}`);
+                }
+                return parts.join(' ');
+            };
             function buildFilters(filters) {
                 const formatDate = (value) => {
                     if (!value) return null;
@@ -545,7 +584,7 @@
             function buildTotalsRow(totals, currencySymbol) {
                 if (!totals) return null;
                 const fmtMoney = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                const fmtHours = (value) => `${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} hrs`;
+                const fmtHours = (value) => formatHoursWithMinutes(value);
                 return [
                     '',
                     '<strong>Totals</strong>',
@@ -568,7 +607,7 @@
                 if (!totals) return [];
                 const fmt = (value, suffix = '') => `${suffix}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 const fmtMoney = (value) => fmt(value, currencySymbol);
-                const fmtHours = (value) => fmt(value, '') + ' hrs';
+                const fmtHours = (value) => formatHoursWithMinutes(value);
                 return [
                     { label: 'Total hours', value: fmtHours(totals.hours) },
                     { label: 'Total gross', value: fmtMoney(totals.gross) },
@@ -586,7 +625,7 @@
                     `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
                     item.user_code || '—',
                     item.period || '—',
-                    `${item.hours || '0.00'} hrs`,
+                    formatHoursWithMinutes(item.hours),
                     `${currencySymbol}${item.gross || '0.00'}`,
                     `${currencySymbol}${item.sss || '0.00'}`,
                     `${currencySymbol}${item.philhealth || '0.00'}`,
@@ -712,7 +751,7 @@
                     const isTrainer = data.type === 'trainer';
                     const employmentType = data.employment_type ?? '';
                     const hourlyRate = `₱${Number(data.rate || 0).toFixed(2)}`;
-                    const totalHours = `${Number(data.hours || 0).toFixed(2)} hrs`;
+                    const totalHours = formatHoursWithMinutes(data.hours);
                     const generatedBy = data.generated_by || '—';
                     const style = `
                         <style>
@@ -743,7 +782,7 @@
                                 <td>#${entry.id ?? '—'}</td>
                                 <td>${entry.clockin ?? '—'}</td>
                                 <td>${entry.clockout ?? '—'}</td>
-                                <td>${Number(entry.hours || 0).toFixed(2)} hrs</td>
+                                <td>${formatHoursWithMinutes(entry.hours)}</td>
                                 <td>₱${Number(entry.amount || 0).toFixed(2)}</td>
                                 <td>${status}</td>
                             </tr>
@@ -763,7 +802,7 @@
                                         ? assignment.attendance.map((slot) => `<div>${slot}</div>`).join('')
                                         : '<span class="muted">No attendance</span>'}
                                 </td>
-                                <td>${Number(assignment.hours || 0).toFixed(2)} hrs</td>
+                                <td>${formatHoursWithMinutes(assignment.hours)}</td>
                                 <td>₱${Number(assignment.salary || 0).toFixed(2)}</td>
                             </tr>
                         `).join('');
@@ -901,8 +940,8 @@
 
             const releaseModalEl = document.getElementById('releaseCashModal');
             const releaseForm = document.getElementById('release-cash-form');
-            const releaseName = document.querySelector('[data-release-name]');
-            const releaseCode = document.querySelector('[data-release-code]');
+            const releaseName = releaseModalEl ? releaseModalEl.querySelector('[data-release-name]') : null;
+            const releaseCode = releaseModalEl ? releaseModalEl.querySelector('[data-release-code]') : null;
             const releaseSubmit = document.querySelector('[data-release-submit]');
 
             if (releaseModalEl && releaseModalEl.parentElement !== document.body) {
@@ -982,7 +1021,7 @@
                                 </div>
                                 <div class="text-end">
                                     <div class="fw-bold">₱${Number(item.payroll_salary || 0).toFixed(2)}</div>
-                                    <div class="text-muted small">${Number(item.payroll_hours || 0).toFixed(2)} hrs</div>
+                                    <div class="text-muted small">${formatHoursWithMinutes(item.payroll_hours)}</div>
                                 </div>
                             </div>
                             <div class="mt-2">

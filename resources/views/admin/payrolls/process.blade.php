@@ -22,6 +22,26 @@
                 return $deductions['app_cut'] ?? 0;
             });
         $staffProjectedNet = ($stats['projected_net'] ?? 0) + $staffAppCutTotal;
+        $formatHours = function ($hours) {
+            $value = is_numeric($hours) ? (float) $hours : 0;
+            if ($value < 0) {
+                $value = 0;
+            }
+            $wholeHours = (int) floor($value);
+            $minutes = (int) round(($value - $wholeHours) * 60);
+            if ($minutes === 60) {
+                $wholeHours += 1;
+                $minutes = 0;
+            }
+            $parts = [];
+            if ($wholeHours > 0 || $minutes === 0) {
+                $parts[] = $wholeHours . ' ' . ($wholeHours === 1 ? 'hr' : 'hrs');
+            }
+            if ($minutes > 0) {
+                $parts[] = $minutes . ' ' . ($minutes === 1 ? 'min' : 'mins');
+            }
+            return implode(' ', $parts);
+        };
     @endphp
     <div class="container-fluid">
         <div class="row">
@@ -183,7 +203,7 @@
                                 <div class="text-muted small text-uppercase fw-semibold">Total hours</div>
                                 <div class="d-flex align-items-center justify-content-between mt-2">
                                     <i class="fa-solid fa-clock-rotate-left text-primary fs-4"></i>
-                                    <span class="fs-4 fw-bold">{{ number_format($stats['total_hours'], 2) }} hrs</span>
+                                    <span class="fs-4 fw-bold">{{ $formatHours($stats['total_hours']) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -283,11 +303,11 @@
                                                 </span>
                                             </td>
                                             <td>
-                                                <div class="fw-semibold">{{ number_format($summary['total_hours'], 2) }} hrs</div>
+                                                <div class="fw-semibold">{{ $formatHours($summary['total_hours']) }}</div>
                                                 @if($hasStaffProcessed)
                                                     <div class="text-muted small">
                                                         Processed ({{ $staffProcessedTotals['count'] ?? 0 }} run{{ ($staffProcessedTotals['count'] ?? 0) === 1 ? '' : 's' }}):
-                                                        {{ number_format((float) ($staffProcessedTotals['hours'] ?? 0), 2) }} hrs
+                                                        {{ $formatHours($staffProcessedTotals['hours'] ?? 0) }}
                                                     </div>
                                                 @endif
                                             </td>
@@ -334,7 +354,7 @@
                                                             : ($staffNoData
                                                                 ? ($hasStaffProcessed ? 'All entries already processed for this period' : 'Processing disabled: no attendance data yet')
                                                                 : 'Process and save payroll');
-                                                        $rangeEntries = $summary['entries']->map(function ($entry) {
+                                                        $rangeEntries = $summary['entries']->map(function ($entry) use ($formatHours) {
                                                             $clockIn = $entry['clockin_at'] ?? null;
                                                             $clockOut = $entry['clockout_at'] ?? null;
                                                             $dateSource = $clockIn ?: $clockOut;
@@ -352,7 +372,7 @@
                                                                 $metaParts[] = $timeRange;
                                                             }
                                                             if (!is_null($hours)) {
-                                                                $metaParts[] = number_format((float) $hours, 2) . ' hrs';
+                                                                $metaParts[] = $formatHours($hours);
                                                             }
                                                             $meta = implode(' • ', $metaParts);
                                                             $isComplete = ($entry['status'] ?? '') === 'complete';
@@ -703,7 +723,7 @@
                                                             <td>
                                                                 {{ $entry['clockout_at'] ? $entry['clockout_at']->format('M d, Y g:i A') : '—' }}
                                                             </td>
-                                                            <td class="text-end">{{ $entry['hours'] ? number_format($entry['hours'], 2) . ' hrs' : 'Pending' }}</td>
+                                                            <td class="text-end">{{ !is_null($entry['hours']) ? $formatHours($entry['hours']) : 'Pending' }}</td>
                                                             <td class="text-end">
                                                                 {{ $entry['amount'] ? '₱' . number_format($entry['amount'], 2) : '—' }}
                                                             </td>
@@ -908,7 +928,7 @@
                                 <div class="text-muted small text-uppercase fw-semibold">Total hours</div>
                                 <div class="d-flex align-items-center justify-content-between mt-2">
                                     <i class="fa-solid fa-clock-rotate-left text-primary fs-4"></i>
-                                    <span class="fs-4 fw-bold">{{ number_format($trainerStats['total_hours'], 2) }} hrs</span>
+                                    <span class="fs-4 fw-bold">{{ $formatHours($trainerStats['total_hours']) }}</span>
                                 </div>
                             </div>
                         </div>
@@ -1091,11 +1111,11 @@
                                                 </div>
                                             </td>
                                             <td>
-                                                <div class="fw-semibold">{{ number_format($assignment['total_hours'] ?? 0, 2) }} hrs</div>
+                                                <div class="fw-semibold">{{ $formatHours($assignment['total_hours'] ?? 0) }}</div>
                                                 @if($hasProcessed)
                                                     <div class="text-muted small">
                                                         Processed ({{ $processedTotals['count'] ?? 0 }} run{{ ($processedTotals['count'] ?? 0) === 1 ? '' : 's' }}):
-                                                        {{ number_format((float) ($processedTotals['hours'] ?? 0), 2) }} hrs
+                                                        {{ $formatHours($processedTotals['hours'] ?? 0) }}
                                                     </div>
                                                 @endif
                                             </td>
@@ -1606,7 +1626,7 @@
                                 <div class="fw-semibold">{{ $schedule->name ?? 'Unnamed Schedule' }}</div>
                                 <div class="text-muted small">Code: {{ $schedule->class_code ?? '—' }}</div>
                             </td>
-                            <td class="text-end">{{ number_format((float) $hoursValue, 2) }}</td>
+                            <td class="text-end">{{ $formatHours($hoursValue) }}</td>
                             <td class="text-end">
                                 @if(!is_null($rateValue))
                                     ₱{{ number_format((float) $rateValue, 2) }}/hr
@@ -1948,7 +1968,7 @@
                                 <div class="text-muted small text-uppercase fw-semibold mb-2">Payout snapshot</div>
                                 <div class="d-flex justify-content-between mb-1">
                                     <span class="text-muted small">Hours</span>
-                                    <span class="fw-semibold" data-confirm-hours>0.00 hrs</span>
+                                    <span class="fw-semibold" data-confirm-hours>0 hrs</span>
                                 </div>
                                 <div class="d-flex justify-content-between mb-1">
                                     <span class="text-muted small">Gross</span>
@@ -2042,6 +2062,25 @@
         const toggleButtons = document.querySelectorAll('[data-payroll-toggle]');
         const staffSection = document.getElementById('staff-payroll-section');
         const trainerSection = document.getElementById('trainer-payroll-section');
+        const formatHoursWithMinutes = function (value) {
+            const hours = Number(value);
+            if (!Number.isFinite(hours)) return '0 hrs';
+            const safeHours = Math.max(0, hours);
+            let wholeHours = Math.floor(safeHours);
+            let minutes = Math.round((safeHours - wholeHours) * 60);
+            if (minutes === 60) {
+                wholeHours += 1;
+                minutes = 0;
+            }
+            const parts = [];
+            if (wholeHours > 0 || minutes === 0) {
+                parts.push(`${wholeHours} ${wholeHours === 1 ? 'hr' : 'hrs'}`);
+            }
+            if (minutes > 0) {
+                parts.push(`${minutes} ${minutes === 1 ? 'min' : 'mins'}`);
+            }
+            return parts.join(' ');
+        };
 
         function setSection(mode) {
             toggleButtons.forEach((btn) => {
@@ -2347,7 +2386,7 @@
                             <td>#${entry.id ?? '—'}</td>
                             <td>${entry.clockin ?? '—'}</td>
                             <td>${entry.clockout ?? '—'}</td>
-                            <td>${Number(entry.hours || 0).toFixed(2)} hrs</td>
+                            <td>${formatHoursWithMinutes(entry.hours)}</td>
                             <td>₱${Number(entry.amount || 0).toFixed(2)}</td>
                             <td>${status}</td>
                         </tr>
@@ -2367,7 +2406,7 @@
                                     ? assignment.attendance.map((slot) => `<div>${slot}</div>`).join('')
                                     : '<span class="muted">No attendance</span>'}
                             </td>
-                            <td>${Number(assignment.hours || 0).toFixed(2)} hrs</td>
+                            <td>${formatHoursWithMinutes(assignment.hours)}</td>
                             <td>₱${Number(assignment.salary || 0).toFixed(2)}</td>
                         </tr>
                     `).join('');
@@ -2621,7 +2660,7 @@
             }
             if (confirmFields.month) confirmFields.month.textContent = month;
             if (confirmFields.basis) confirmFields.basis.textContent = basis;
-            if (confirmFields.hours) confirmFields.hours.textContent = `${hours.toFixed(2)} hrs`;
+            if (confirmFields.hours) confirmFields.hours.textContent = formatHoursWithMinutes(hours);
             if (confirmFields.gross) confirmFields.gross.textContent = formatPeso(gross);
             if (confirmFields.net) confirmFields.net.textContent = formatPeso(net);
             if (confirmFields.pending) confirmFields.pending.textContent = pending;
@@ -3056,7 +3095,7 @@
                                             <div class="small mb-1">Start: ${series.start || '—'}</div>
                                             <div class="small mb-1">End: ${series.end || '—'}</div>
                                             <div class="small mb-1">Recurrence: ${series.recurrence || '—'}</div>
-                                            <div class="small mb-0">Hours per session: ${Number(series.hours_per_occurrence || 0).toFixed(2)}</div>
+                                            <div class="small mb-0">Hours per session: ${formatHoursWithMinutes(series.hours_per_occurrence)}</div>
                                         </div>
                                         <div class="row g-2 mb-2">
                                             <div class="col-6">

@@ -32,16 +32,6 @@
                     </div>
                     <div class="col-sm-6 col-lg-4">
                         <div class="tile tile-primary">
-                            <div class="tile-heading">Total Feedbacks</div>
-                            <div class="tile-body">
-                                <i class="fa-regular fa-message"></i>
-                                <h2 class="float-end">{{ $feedbacks_count }}</h2>
-                            </div>
-                            <div class="tile-footer"><a href="{{ route('admin.feedbacks.index') }}">View more...</a></div>
-                        </div>
-                    </div>
-                    <div class="col-sm-6 col-lg-4">
-                        <div class="tile tile-primary">
                             <div class="tile-heading">Memberships</div>
                             <div class="tile-body">
                                 <i class="fa-regular fa-id-card"></i>
@@ -50,7 +40,7 @@
                             <div class="tile-footer"><a href="{{ route('admin.staff-account-management.memberships') }}">View more...</a></div>
                         </div>
                     </div>
-                    <div class="col-sm-6 col-lg-4">
+                    <div class="col-sm-6">
                         <div class="tile tile-primary">
                             <div class="tile-heading">Classes</div>
                             <div class="tile-body">
@@ -60,7 +50,7 @@
                             <div class="tile-footer"><a href="{{ route('admin.gym-management.schedules') }}">View more...</a></div>
                         </div>
                     </div>
-                    <div class="col-sm-6 col-lg-4">
+                    <div class="col-sm-6">
                         <div class="tile tile-primary">
                             <div class="tile-heading">Pending Membership Payments</div>
                             <div class="tile-body">
