@@ -1974,22 +1974,40 @@
                 });
             };
 
-            var renderCalendar = function () {
-                if (!dataLoaded || !gridEl || !monthLabelEl) {
+            var renderLegend = function (legend, targetEl) {
+                if (!targetEl) {
                     return;
                 }
+                targetEl.innerHTML = '';
+                Object.keys(legend || {}).forEach(function (key) {
+                    var entry = legend[key];
+                    var item = document.createElement('div');
+                    item.className = 'calendar-legend__item';
+                    var swatch = document.createElement('span');
+                    swatch.className = 'calendar-legend__swatch';
+                    swatch.style.setProperty('--legend-bg', entry.color.bg);
+                    swatch.style.setProperty('--legend-border', entry.color.border);
+                    var label = document.createElement('span');
+                    label.textContent = entry.label;
+                    item.appendChild(swatch);
+                    item.appendChild(label);
+                    targetEl.appendChild(item);
+                });
+            };
 
-                var year = calendarCursor.getFullYear();
-                var month = calendarCursor.getMonth();
-                monthLabelEl.textContent = calendarCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-                syncMonthSelect();
+            var renderCalendarGrid = function (options) {
+                if (!options || !options.gridEl) {
+                    return 0;
+                }
 
-                var result = buildOccurrencesForMonth(schedules, year, month);
-                var occurrences = result.occurrences;
-                var legend = result.legend;
-                currentOccurrences = occurrences;
+                var grid = options.gridEl;
+                var occurrences = options.occurrences || {};
+                var year = options.year;
+                var month = options.month;
+                var maxEvents = typeof options.maxEvents === 'number' ? options.maxEvents : null;
+                var showMore = options.showMore !== false;
 
-                gridEl.innerHTML = '';
+                grid.innerHTML = '';
 
                 var firstDay = new Date(year, month, 1);
                 var startDayIndex = firstDay.getDay();
@@ -2018,8 +2036,8 @@
                         var eventsContainer = document.createElement('div');
                         eventsContainer.className = 'calendar-day__events';
 
-                        var maxEvents = 2;
-                        events.slice(0, maxEvents).forEach(function (event) {
+                        var displayEvents = maxEvents === null ? events : events.slice(0, maxEvents);
+                        displayEvents.forEach(function (event) {
                             var eventEl = document.createElement('div');
                             eventEl.className = 'calendar-event';
                             eventEl.style.setProperty('--event-bg', event.color.bg);
@@ -2050,7 +2068,7 @@
                             eventsContainer.appendChild(eventEl);
                         });
 
-                        if (events.length > maxEvents) {
+                        if (showMore && maxEvents !== null && events.length > maxEvents) {
                             var hiddenCount = events.length - maxEvents;
                             var moreEl = document.createElement('button');
                             moreEl.type = 'button';
@@ -2075,8 +2093,33 @@
                         totalEvents += events.length;
                     }
 
-                    gridEl.appendChild(dayCell);
+                    grid.appendChild(dayCell);
                 }
+
+                return totalEvents;
+            };
+
+            var renderCalendar = function () {
+                if (!dataLoaded || !gridEl || !monthLabelEl) {
+                    return;
+                }
+
+                var year = calendarCursor.getFullYear();
+                var month = calendarCursor.getMonth();
+                monthLabelEl.textContent = calendarCursor.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                syncMonthSelect();
+
+                var result = buildOccurrencesForMonth(schedules, year, month);
+                currentOccurrences = result.occurrences;
+
+                var totalEvents = renderCalendarGrid({
+                    gridEl: gridEl,
+                    occurrences: currentOccurrences,
+                    year: year,
+                    month: month,
+                    maxEvents: 2,
+                    showMore: true
+                });
 
                 if (emptyEl) {
                     if (totalEvents === 0) {
@@ -2086,23 +2129,7 @@
                     }
                 }
 
-                if (legendEl) {
-                    legendEl.innerHTML = '';
-                    Object.keys(legend).forEach(function (key) {
-                        var entry = legend[key];
-                        var item = document.createElement('div');
-                        item.className = 'calendar-legend__item';
-                        var swatch = document.createElement('span');
-                        swatch.className = 'calendar-legend__swatch';
-                        swatch.style.setProperty('--legend-bg', entry.color.bg);
-                        swatch.style.setProperty('--legend-border', entry.color.border);
-                        var label = document.createElement('span');
-                        label.textContent = entry.label;
-                        item.appendChild(swatch);
-                        item.appendChild(label);
-                        legendEl.appendChild(item);
-                    });
-                }
+                renderLegend(result.legend, legendEl);
             };
 
             var loadCalendarData = function () {
@@ -2188,6 +2215,10 @@
 
             if (printBtn) {
                 printBtn.addEventListener('click', function () {
+                    if (!dataLoaded) {
+                        loadCalendarData();
+                        return;
+                    }
                     var calendarView = modalEl.querySelector('.calendar-view');
                     if (!calendarView) {
                         return;
@@ -2198,6 +2229,39 @@
                     if (!printWindow) {
                         return;
                     }
+                    var printView = calendarView.cloneNode(true);
+                    printView.querySelectorAll('.calendar-event__more').forEach(function (node) {
+                        node.remove();
+                    });
+                    var printMonthLabel = printView.querySelector('.calendar-view__month');
+                    if (printMonthLabel && monthLabelEl) {
+                        printMonthLabel.textContent = monthLabelEl.textContent;
+                    }
+                    var printGrid = printView.querySelector('.calendar-grid--days');
+                    var printLegend = printView.querySelector('.calendar-legend');
+                    var printEmpty = printView.querySelector('.calendar-empty');
+                    var year = calendarCursor.getFullYear();
+                    var month = calendarCursor.getMonth();
+                    var result = buildOccurrencesForMonth(schedules, year, month);
+                    var totalEvents = renderCalendarGrid({
+                        gridEl: printGrid,
+                        occurrences: result.occurrences,
+                        year: year,
+                        month: month,
+                        maxEvents: Number.MAX_SAFE_INTEGER,
+                        showMore: false
+                    });
+                    printView.querySelectorAll('.calendar-event__more').forEach(function (node) {
+                        node.remove();
+                    });
+                    if (printEmpty) {
+                        if (totalEvents === 0) {
+                            printEmpty.classList.remove('d-none');
+                        } else {
+                            printEmpty.classList.add('d-none');
+                        }
+                    }
+                    renderLegend(result.legend, printLegend);
                     var printStyles = ''
                         + 'body { font-family: "PoppinsRegular", Arial, sans-serif; margin: 24px; color: #1f2937; }'
                         + '.print-title { font-size: 20px; font-weight: 800; margin-bottom: 16px; }'
@@ -2213,8 +2277,7 @@
                         + '.calendar-event__title { display: flex; align-items: baseline; justify-content: space-between; gap: 6px; font-weight: 700; }'
                         + '.calendar-event__code { font-size: 0.6rem; opacity: 0.85; }'
                         + '.calendar-event__meta { font-size: 0.6rem; opacity: 0.9; }'
-                        + '.calendar-event__more { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; width: 100%; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 4px 6px; background: #f8fafc; color: #475569; font-size: 0.62rem; font-weight: 700; letter-spacing: 0.02em; font-family: inherit; }'
-                        + '.calendar-event__more-count { font-size: 0.6rem; font-weight: 800; color: #ef4444; }'
+                        + '.calendar-event__more { display: none !important; }'
                         + '.calendar-legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; }'
                         + '.calendar-legend__item { display: inline-flex; align-items: center; gap: 6px; font-size: 0.75rem; color: #4b5563; font-weight: 600; }'
                         + '.calendar-legend__swatch { width: 12px; height: 12px; border-radius: 4px; background: var(--legend-bg); border: 1px solid var(--legend-border); }';
@@ -2222,7 +2285,7 @@
                     printWindow.document.write('<!doctype html><html><head><title>' + titleText + '</title>');
                     printWindow.document.write('<style>' + printStyles + '</style></head><body>');
                     printWindow.document.write('<div class="print-title">' + titleText + '</div>');
-                    printWindow.document.write(calendarView.outerHTML);
+                    printWindow.document.write(printView.outerHTML);
                     printWindow.document.write('</body></html>');
                     printWindow.document.close();
                     setTimeout(function () {
