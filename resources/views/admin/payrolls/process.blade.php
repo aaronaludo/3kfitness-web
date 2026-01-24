@@ -1292,35 +1292,31 @@
         </button>
         <div id="{{ $modalId }}-deductions" class="collapse show">
             <div class="card-body">
-                <div class="row g-3">
-                    <div class="col-12">
-                        <div class="text-muted small text-uppercase fw-semibold mb-2">Deductions</div>
-                        <ul class="list-unstyled small mb-0">
-                            @if($trainerHasSss)
-                                <li class="d-flex justify-content-between">
-                                    <span>SSS</span>
-                                    <span data-sss>₱{{ number_format($trainerSss, 2) }}</span>
-                                </li>
-                            @endif
-                            @if($trainerHasPhilhealth)
-                                <li class="d-flex justify-content-between">
-                                    <span>PhilHealth</span>
-                                    <span data-philhealth>₱{{ number_format($trainerPhilhealth, 2) }}</span>
-                                </li>
-                            @endif
-                            @if($trainerHasPagibig)
-                                <li class="d-flex justify-content-between">
-                                    <span>Pag-IBIG</span>
-                                    <span data-pagibig>₱{{ number_format($trainerPagibig, 2) }}</span>
-                                </li>
-                            @endif
-                            <li class="d-flex justify-content-between">
-                                <span>3kfitness app cut</span>
-                                <span data-appcut>₱{{ number_format($trainerAppCut, 2) }}</span>
-                            </li>
-                        </ul>
-                    </div>
-                </div>
+                <div class="text-muted small text-uppercase fw-semibold mb-2">Deductions</div>
+                <ul class="list-unstyled small mb-0">
+                    @if($trainerHasSss)
+                        <li class="d-flex justify-content-between">
+                            <span>SSS</span>
+                            <span data-sss>₱{{ number_format($trainerSss, 2) }}</span>
+                        </li>
+                    @endif
+                    @if($trainerHasPhilhealth)
+                        <li class="d-flex justify-content-between">
+                            <span>PhilHealth</span>
+                            <span data-philhealth>₱{{ number_format($trainerPhilhealth, 2) }}</span>
+                        </li>
+                    @endif
+                    @if($trainerHasPagibig)
+                        <li class="d-flex justify-content-between">
+                            <span>Pag-IBIG</span>
+                            <span data-pagibig>₱{{ number_format($trainerPagibig, 2) }}</span>
+                        </li>
+                    @endif
+                    <li class="d-flex justify-content-between">
+                        <span>3kfitness app cut</span>
+                        <span data-appcut>₱{{ number_format($trainerAppCut, 2) }}</span>
+                    </li>
+                </ul>
             </div>
         </div>
     </div>
