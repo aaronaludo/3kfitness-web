@@ -234,7 +234,6 @@
                                         <th>Hours</th>
                                         <th>Gross</th>
                                         <th>Net</th>
-                                        <th>Membership payments</th>
                                         <th>Status</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
@@ -321,16 +320,6 @@
                                                 <div class="fw-semibold text-success" data-net>₱{{ number_format($staffNetWithoutAppCut, 2) }}</div>
                                                 @if($hasStaffProcessed)
                                                     <div class="text-muted small">Processed: ₱{{ number_format((float) ($staffProcessedTotals['net'] ?? 0), 2) }}</div>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                @if(($staffMembershipPayments['count'] ?? 0) > 0)
-                                                    <div class="fw-semibold">
-                                                        {{ $staffMembershipPayments['currency'] ?? 'PHP' }} {{ number_format((float) ($staffMembershipPayments['total'] ?? 0), 2) }}
-                                                    </div>
-                                                    <div class="text-muted small">{{ $staffMembershipPayments['count'] ?? 0 }} approved in this period</div>
-                                                @else
-                                                    <span class="text-muted small">None</span>
                                                 @endif
                                             </td>
                                             <td>
@@ -474,7 +463,7 @@
                                             </td>
                                         </tr>
                                         <tr class="d-none">
-                                            <td colspan="8">
+                                            <td colspan="7">
 <div class="modal fade staff-payroll-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
                         <div class="modal-dialog modal-xl modal-dialog-scrollable">
                             <div class="modal-content rounded-4 border-0 shadow-sm">
@@ -752,68 +741,6 @@
                                         </div>
                                     </div>
 
-                                    <div class="card payroll-card mt-3">
-                                        <button
-                                            class="btn payroll-card-toggle w-100 text-start d-flex align-items-center justify-content-between"
-                                            type="button"
-                                            data-bs-toggle="collapse"
-                                            data-bs-target="#{{ $modalId }}-memberships"
-                                            aria-expanded="true"
-                                            aria-controls="{{ $modalId }}-memberships"
-                                        >
-                                            <div class="d-flex align-items-center gap-2">
-                                                <span class="payroll-icon"><i class="fa-solid fa-user-check"></i></span>
-                                                <span class="fw-semibold">Membership payments approved</span>
-                                            </div>
-                                            <i class="fa-solid fa-chevron-down"></i>
-                                        </button>
-                                        <div id="{{ $modalId }}-memberships" class="collapse show">
-                                            <div class="card-body">
-                                                <div class="d-flex align-items-center justify-content-between mb-2">
-                                                    <div class="text-muted small">Period: {{ $monthLabel }}</div>
-                                                    @if(($staffMembershipPayments['count'] ?? 0) > 0)
-                                                        <span class="badge bg-light text-dark">Total: {{ $staffMembershipPayments['currency'] ?? 'PHP' }} {{ number_format((float) ($staffMembershipPayments['total'] ?? 0), 2) }}</span>
-                                                    @endif
-                                                </div>
-                                                <div class="table-responsive">
-                                                    <table class="table align-middle mb-0">
-                                                        <thead class="table-light">
-                                                            <tr>
-                                                                <th>#</th>
-                                                                <th>Member</th>
-                                                                <th>Membership</th>
-                                                                <th class="text-end">Amount</th>
-                                                                <th class="text-end">Approved</th>
-                                                                <th class="text-end">Updated</th>
-                                                                <th class="text-end">Expires</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            @forelse($staffMembershipPaymentsItems as $payment)
-                                                                <tr>
-                                                                    <td class="text-muted">#{{ $payment['id'] }}</td>
-                                                                    <td>
-                                                                        <div class="fw-semibold">{{ $payment['member_name'] ?? '—' }}</div>
-                                                                        <div class="text-muted small">Code: {{ $payment['member_code'] ?? '—' }}</div>
-                                                                    </td>
-                                                                    <td>{{ $payment['membership'] ?? '—' }}</td>
-                                                                    <td class="text-end">{{ $payment['currency'] ?? 'PHP' }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
-                                                                    <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
-                                                                    <td class="text-end">{{ $payment['updated_at'] ?? '—' }}</td>
-                                                                    <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
-                                                                </tr>
-                                                            @empty
-                                                                <tr>
-                                                                    <td colspan="7" class="text-center text-muted small">No approved membership payments for this staff in {{ $monthLabel }}.</td>
-                                                                </tr>
-                                                            @endforelse
-                                                        </tbody>
-                                                    </table>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    </div>
-
                                     <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mt-3">
                                         <div class="d-flex flex-wrap align-items-center gap-2 text-muted small">
                                             <span class="text-uppercase fw-semibold">Entries per page:</span>
@@ -849,7 +776,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted py-4">
+                                            <td colspan="7" class="text-center text-muted py-4">
                                                 <div class="fw-semibold mb-2">No payroll data found</div>
                                                 <p class="text-muted mb-3">Try selecting a different month or adjusting your search filters.</p>
                                                 <a href="{{ route('admin.payrolls.index') }}" class="btn btn-danger rounded-pill px-4">Go back to payroll list</a>
