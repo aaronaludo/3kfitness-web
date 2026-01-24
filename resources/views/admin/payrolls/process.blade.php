@@ -1598,6 +1598,7 @@
         </div>
     </div>
 
+@push('modals')
     {{-- Deduction rules modal --}}
     <div class="modal fade" id="deductionModal" tabindex="-1" aria-labelledby="deductionModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-xl modal-dialog-centered">
@@ -1747,6 +1748,8 @@
                                         </div>
                                     </div>
                                 </template>
+                            </div>
+                        </div>
                         <div class="col-12 col-md-6">
                             <label class="form-label text-muted text-uppercase small mb-1">SSS (%)</label>
                             <input
@@ -1818,6 +1821,8 @@
             </div>
         </div>
     </div>
+
+@endpush
 
     {{-- Process confirmation modal --}}
     <div class="modal fade" id="processConfirmModal" tabindex="-1" aria-labelledby="processConfirmModalLabel" aria-hidden="true">
@@ -1965,6 +1970,19 @@
         const toggleButtons = document.querySelectorAll('[data-payroll-toggle]');
         const staffSection = document.getElementById('staff-payroll-section');
         const trainerSection = document.getElementById('trainer-payroll-section');
+        const deductionModalEl = document.getElementById('deductionModal');
+        if (deductionModalEl && deductionModalEl.parentElement !== document.body) {
+            document.body.appendChild(deductionModalEl);
+        }
+        const deductionTrigger = document.querySelector('[data-bs-target="#deductionModal"]');
+        if (deductionTrigger && deductionModalEl) {
+            deductionTrigger.addEventListener('click', () => {
+                if (deductionModalEl.classList.contains('show') || typeof bootstrap === 'undefined') {
+                    return;
+                }
+                bootstrap.Modal.getOrCreateInstance(deductionModalEl).show();
+            });
+        }
         const formatHoursWithMinutes = function (value) {
             const hours = Number(value);
             if (!Number.isFinite(hours)) return '0 hrs';

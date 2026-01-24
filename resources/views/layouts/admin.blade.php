@@ -1118,6 +1118,8 @@
         <footer>Copyright. &copy; 2025 All Rights Reserved.</footer>
     </div>
 
+    @stack('modals')
+
     <div class="modal fade" id="confirmationModal" tabindex="-1" aria-labelledby="confirmationModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
