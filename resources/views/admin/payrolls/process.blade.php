@@ -278,8 +278,6 @@
                                                 + ($staffDeductionsForDisplay['philhealth'] ?? 0)
                                                 + ($staffDeductionsForDisplay['pagibig'] ?? 0)
                                                 + ($staffDeductionsForDisplay['app_cut'] ?? 0);
-                                            $staffMembershipPayments = $summary['membership_payments'] ?? ['count' => 0, 'total' => 0, 'currency' => 'PHP', 'items' => collect()];
-                                            $staffMembershipPaymentsItems = collect($staffMembershipPayments['items'] ?? []);
                                         @endphp
                                         <tr
                                             data-payroll-card
@@ -436,12 +434,6 @@
                                                             'deductions' => $staffDeductionsForDisplay,
                                                             'month' => $monthLabel,
                                                             'entries' => $printEntries,
-                                                            'membership_payments' => [
-                                                                'count' => $staffMembershipPayments['count'] ?? 0,
-                                                                'total' => $staffMembershipPayments['total'] ?? 0,
-                                                                'currency' => $staffMembershipPayments['currency'] ?? 'PHP',
-                                                                'items' => $staffMembershipPaymentsItems,
-                                                            ],
                                                         ];
 
                                                         $payslipJson = json_encode($payslipData);
@@ -618,7 +610,7 @@
                                         <div id="{{ $modalId }}-deductions" class="collapse show">
                                             <div class="card-body">
                                                 <div class="row g-3">
-                                                    <div class="col-12 col-lg-7">
+                                                    <div class="col-12">
                                                         <div class="text-muted small text-uppercase fw-semibold mb-2">Deductions</div>
                                                         <ul class="list-unstyled small mb-0">
                                                             @if($staffHasSss)
@@ -640,14 +632,6 @@
                                                                 </li>
                                                             @endif
                                                         </ul>
-                                                    </div>
-                                                    <div class="col-12 col-lg-5">
-                                                        <div class="deduction-total border rounded-3 p-3 h-100 bg-light">
-                                                            <div class="text-muted small text-uppercase fw-semibold">Total</div>
-                                                            <div class="fs-5 fw-semibold" data-total-deductions>₱{{ number_format((float) $staffTotalDeductions, 2) }}</div>
-                                                            <div class="text-muted small mt-2">Gross: ₱{{ number_format((float) $summary['gross_pay'], 2) }}</div>
-                                                            <div class="text-muted small">Net: <span data-net>₱{{ number_format((float) $staffNetWithoutAppCut, 2) }}</span></div>
-                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
@@ -2273,7 +2257,6 @@
                 }
 
                 const entries = Array.isArray(data.entries) ? data.entries : [];
-                const membershipPayments = Array.isArray(data.membership_payments?.items) ? data.membership_payments.items : [];
                 const assignments = Array.isArray(data.assignments) ? data.assignments : [];
                 const isTrainer = data.type === 'trainer';
                 const style = `
@@ -2375,42 +2358,6 @@
                                 </thead>
                                 <tbody>
                                     ${rows || '<tr><td colspan="6" style="text-align:center;">No entries</td></tr>'}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="section">
-                            <strong>Membership payments approved (period)</strong>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Member</th>
-                                        <th>Membership</th>
-                                        <th>Amount</th>
-                                        <th>Created Date</th>
-                                        <th>Approved Date</th>
-                                        <th>Expires Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${
-                                        membershipPayments.length
-                                            ? membershipPayments.map((pay) => `
-                                                <tr>
-                                                    <td>#${pay.id ?? '—'}</td>
-                                                    <td>
-                                                        ${pay.member_name || '—'}
-                                                        <div class="muted">${pay.member_code ? `Code: ${pay.member_code}` : ''}</div>
-                                                    </td>
-                                                    <td>${pay.membership || '—'}</td>
-                                                    <td>${pay.currency || 'PHP'} ${Number(pay.price || 0).toFixed(2)}</td>
-                                                    <td>${pay.created_at || '—'}</td>
-                                                    <td>${pay.updated_at || '—'}</td>
-                                                    <td>${pay.expiration_at || '—'}</td>
-                                                </tr>
-                                            `).join('')
-                                            : '<tr><td colspan="7" style="text-align:center;">No approved membership payments for this period.</td></tr>'
-                                    }
                                 </tbody>
                             </table>
                         </div>
