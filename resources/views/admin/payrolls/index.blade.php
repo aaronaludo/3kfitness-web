@@ -757,7 +757,13 @@
                     const membershipPayments = Array.isArray(data.membership_payments?.items) ? data.membership_payments.items : [];
                     const isTrainer = data.type === 'trainer';
                     const employmentType = data.employment_type ?? '';
-                    const hourlyRate = `₱${Number(data.rate || 0).toFixed(2)}`;
+                    const normalizeAmount = (value) => {
+                        const num = Number(value);
+                        return Number.isFinite(num) ? num : 0;
+                    };
+                    const isZeroAmount = (value) => Math.abs(normalizeAmount(value)) < 0.005;
+                    const formatMoney = (value) => `₱${normalizeAmount(value).toFixed(2)}`;
+                    const hourlyRate = formatMoney(data.rate || 0);
                     const totalHours = formatHoursWithMinutes(data.hours);
                     const generatedBy = data.generated_by || '—';
                     const style = `
@@ -922,12 +928,28 @@
                                         <strong>Summary</strong>
                                         <table class="totals">
                                             <tbody>
-                                                <tr><td>Gross pay</td><td>₱${Number(data.gross || 0).toFixed(2)}</td></tr>
-                                                <tr><td>SSS</td><td>₱${Number(data.deductions?.sss || 0).toFixed(2)}</td></tr>
-                                                <tr><td>PhilHealth</td><td>₱${Number(data.deductions?.philhealth || 0).toFixed(2)}</td></tr>
-                                                <tr><td>Pag-IBIG</td><td>₱${Number(data.deductions?.pagibig || 0).toFixed(2)}</td></tr>
-                                                <tr><td>3kfitness app cut</td><td>₱${Number(data.deductions?.app_cut || 0).toFixed(2)}</td></tr>
-                                                <tr><th>Net pay</th><th>₱${Number(data.net || 0).toFixed(2)}</th></tr>
+                                                ${
+                                                    [
+                                                        { label: 'Gross pay', value: data.gross },
+                                                        { label: 'SSS', value: data.deductions?.sss, isDeduction: true },
+                                                        { label: 'PhilHealth', value: data.deductions?.philhealth, isDeduction: true },
+                                                        { label: 'Pag-IBIG', value: data.deductions?.pagibig, isDeduction: true },
+                                                        { label: '3kfitness app cut', value: data.deductions?.app_cut, isDeduction: true },
+                                                        { label: 'Net pay', value: data.net, isTotal: true },
+                                                    ]
+                                                        .filter((row) => {
+                                                            if (row.isTotal || row.label === 'Gross pay') return true;
+                                                            return !isZeroAmount(row.value);
+                                                        })
+                                                        .map((row) => {
+                                                            const cell = `${formatMoney(row.value)}`;
+                                                            if (row.isTotal) {
+                                                                return `<tr><th>${row.label}</th><th>${cell}</th></tr>`;
+                                                            }
+                                                            return `<tr><td>${row.label}</td><td>${cell}</td></tr>`;
+                                                        })
+                                                        .join('')
+                                                }
                                             </tbody>
                                         </table>
                                     </div>

@@ -15,6 +15,7 @@ use App\Models\MembershipPayment;
 use Carbon\Carbon;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class PayrollController extends Controller
 {
@@ -1942,7 +1943,7 @@ class PayrollController extends Controller
             ->values()
             ->toArray();
 
-        PayrollRun::create([
+        $runPayload = [
             'user_id' => $staff->id,
             'period_month' => $request->month,
             'total_hours' => $totalHours,
@@ -1958,8 +1959,13 @@ class PayrollController extends Controller
             'released_by' => null,
             'processed_session_series' => null,
             'processed_membership_payments_approved' => $processedMembershipPayments,
-            'processed_attendance_ids' => $processedAttendanceIdsForRun,
-        ]);
+        ];
+
+        if (Schema::hasColumn('payroll_runs', 'processed_attendance_ids')) {
+            $runPayload['processed_attendance_ids'] = $processedAttendanceIdsForRun;
+        }
+
+        PayrollRun::create($runPayload);
 
         return redirect()->route('admin.payrolls.index')->with('success', 'Payroll processed and saved for ' . trim($staff->first_name . ' ' . $staff->last_name));
     }
