@@ -269,30 +269,24 @@
             $printRows = collect();
             $printAllRows = collect();
         }
-        $summaryCurrency = $summary['currency'] ?? 'PHP';
-        $summaryCards = [
-            [
-                'label' => 'Total revenue',
-                'value' => $summaryCurrency . ' ' . number_format((float) ($summary['total_revenue'] ?? 0), 2),
-                'tone' => 'revenue',
-            ],
-            [
-                'label' => 'Total cost',
-                'value' => $summaryCurrency . ' ' . number_format((float) ($summary['cost'] ?? 0), 2),
-                'tone' => 'cost',
-            ],
-            [
-                'label' => 'Total profit',
-                'value' => $summaryCurrency . ' ' . number_format((float) ($summary['profit'] ?? 0), 2),
-                'tone' => 'profit',
-            ],
+        $printUser = auth()->user();
+        $printUserName = $printUser
+            ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+            : '';
+        if ($printUser && $printUserName === '') {
+            $printUserName = $printUser->name ?? $printUser->email ?? '';
+        }
+        $printUserRole = $printUser ? optional($printUser->role)->name : null;
+        $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+        if ($printUserRole) {
+            $printGeneratedBy .= " ({$printUserRole})";
+        }
+        $printMeta = [
+            'generated_by' => $printGeneratedBy,
         ];
-        $printMeta = $hasFilterPreset
-            ? []
-            : [
-                'hide_table' => true,
-                'summary_cards' => $summaryCards,
-            ];
+        if (!$hasFilterPreset) {
+            $printMeta['hide_table'] = true;
+        }
         $printPayload = [
             'title' => 'Sales detailed reports',
             'generated_at' => now()->format('M d, Y g:i A'),
@@ -956,7 +950,7 @@
             const chips = [];
             if (filters.start_date || filters.end_date) {
                 chips.push({
-                    label: 'Date range',
+                    label: 'Date',
                     value: `${filters.start_date || 'Any'} → ${filters.end_date || 'Any'}`,
                 });
             }

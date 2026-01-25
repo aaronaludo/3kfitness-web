@@ -32,9 +32,25 @@
                 $printLogs = collect($printSource->items() ?? [])->map($mapLog)->values();
                 $printAllLogs = collect($printAllSource ?? [])->map($mapLog)->values();
 
+                $printUser = auth()->user();
+                $printUserName = $printUser
+                    ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                    : '';
+                if ($printUser && $printUserName === '') {
+                    $printUserName = $printUser->name ?? $printUser->email ?? '';
+                }
+                $printUserRole = $printUser ? optional($printUser->role)->name : null;
+                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+                if ($printUserRole) {
+                    $printGeneratedBy .= " ({$printUserRole})";
+                }
+
                 $printPayload = [
                     'title' => 'Logs',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => $searchTerm,
                         'role_filter' => $roleFilter,
@@ -48,6 +64,9 @@
                 $printAllPayload = [
                     'title' => 'Logs (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => $searchTerm,
                         'role_filter' => $roleFilter,
@@ -284,6 +303,7 @@
                     generated_at: payload.generated_at || '',
                     count: payload.count ?? items.length,
                     filters,
+                    meta: payload.meta || {},
                     table: {
                         headers,
                         rows_html: rowsHtml,

@@ -47,6 +47,9 @@
             letter-spacing: 0.01em;
             text-decoration: none;
         }
+        .pill--date { font-weight: 700; }
+        .pill--date .pill-label { color: #111827; font-weight: 700; }
+        .pill--date .pill-value { font-weight: 700; }
         .pill::before {
             content: '';
             width: 8px;
@@ -220,7 +223,12 @@
 
         <div class="pill-row">
             @forelse($filters ?? [] as $filter)
-                <span class="pill">
+                @php
+                    $filterLabel = $filter['label'] ?? '';
+                    $normalizedLabel = is_string($filterLabel) ? strtolower($filterLabel) : '';
+                    $isEmphasized = in_array($normalizedLabel, ['date', 'period'], true);
+                @endphp
+                <span class="pill{{ $isEmphasized ? ' pill--date' : '' }}">
                     @if(!empty($filter['label']))
                         <span class="pill-label">{{ $filter['label'] }}:</span>
                     @endif

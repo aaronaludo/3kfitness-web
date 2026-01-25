@@ -214,9 +214,25 @@
                 $printTrainers = collect($printSource->items() ?? [])->map($mapTrainer)->values();
                 $printAllTrainers = collect($printAllSource ?? [])->map($mapTrainer)->values();
 
+                $printUser = auth()->user();
+                $printUserName = $printUser
+                    ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                    : '';
+                if ($printUser && $printUserName === '') {
+                    $printUserName = $printUser->name ?? $printUser->email ?? '';
+                }
+                $printUserRole = $printUser ? optional($printUser->role)->name : null;
+                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+                if ($printUserRole) {
+                    $printGeneratedBy .= " ({$printUserRole})";
+                }
+
                 $printPayload = [
                     'title' => $showArchived ? 'Archived trainers' : 'Trainer directory',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'status' => request('status', 'all') ?: 'all',
@@ -231,6 +247,9 @@
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived trainers (all pages)' : 'Trainer directory (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'status' => request('status', 'all') ?: 'all',
@@ -1945,7 +1964,7 @@
                         item.phone || '—',
                         item.salary ? `₱${item.salary}` : '—',
                         `<span class="badge ${getStatusBadgeClass(item.status)}">${item.status || '—'}</span>`,
-                        `<div>${item.created_at || ''}</div><div class="muted">${item.updated_at || ''}</div><div class="muted">${item.created_by || ''}</div>`,
+                        `<div>${item.created_by || '—'}</div><div class="muted">${item.created_at || ''}</div>`,
                     ]));
                 }
 
@@ -1953,7 +1972,7 @@
                     const rawItems = payload && payload.items ? payload.items : [];
                     const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                     const filters = buildPrintFilters(payload.filters || {});
-                    const headers = ['#', 'Trainer', 'Contact', 'Est. Salary', 'Status', 'Audit'];
+                    const headers = ['#', 'Trainer', 'Contact', 'Est. Salary', 'Status', 'Created By'];
                     const rows = buildPrintRows(items);
 
                     return window.PrintPreview

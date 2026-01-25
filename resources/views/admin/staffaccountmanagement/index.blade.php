@@ -74,9 +74,25 @@
                 $printStaff = collect($printSource->items())->map($mapStaff)->values();
                 $printAllStaff = collect($printAllSource ?? [])->map($mapStaff)->values();
 
+                $printUser = auth()->user();
+                $printUserName = $printUser
+                    ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                    : '';
+                if ($printUser && $printUserName === '') {
+                    $printUserName = $printUser->name ?? $printUser->email ?? '';
+                }
+                $printUserRole = $printUser ? optional($printUser->role)->name : null;
+                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+                if ($printUserRole) {
+                    $printGeneratedBy .= " ({$printUserRole})";
+                }
+
                 $printPayload = [
                     'title' => $showArchived ? 'Archived staff' : 'Staff accounts',
                     'generated_at' => $nowForPrint->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'payroll_status' => $payrollStatus,
@@ -92,6 +108,9 @@
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived staff (all pages)' : 'Staff accounts (all pages)',
                     'generated_at' => $nowForPrint->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'payroll_status' => $payrollStatus,
@@ -750,16 +769,15 @@
                     const rate = item.rate_per_hour ? `₱${item.rate_per_hour}` : '—';
                     const netPay = item.net_pay ? `<div class="muted">Net this month: ₱${item.net_pay}</div>` : '<div class="muted">Net this month: —</div>';
                     const payrolls = typeof item.payrolls === 'number' ? `${item.payrolls} payroll${item.payrolls === 1 ? '' : 's'}` : '—';
-                    const createdBy = item.created_by ? `<div class="muted">Created by ${item.created_by}</div>` : '';
-                    const updated = item.updated_at ? `<div class="muted">Updated ${item.updated_at}</div>` : '';
+                    const createdBy = item.created_by ? `${item.created_by}` : '—';
                     return [
                         item.id ?? '—',
                         item.user_code || '—',
                         `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
                         `<div>${item.role || '—'}</div><div class="muted">${item.phone || ''}</div>`,
                         `<div class="fw">${rate}</div>${netPay}`,
-                        `<div>${payrolls}</div>${createdBy}`,
-                        `<div>${item.created_at || ''}</div>${updated}`,
+                        `<div>${payrolls}</div>`,
+                        `<div>${createdBy}</div><div class="muted">${item.created_at || ''}</div>`,
                     ];
                 });
             }
@@ -768,7 +786,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'User code', 'Staff', 'Role & contact', 'Rates & pay', 'Payrolls', 'Audit'];
+                const headers = ['#', 'User code', 'Staff', 'Role & contact', 'Rates & pay', 'Payrolls', 'Created By'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

@@ -11,6 +11,19 @@
                 $printSource = $showArchived ? $archivedMemberships : $activeMemberships;
                 $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
                 $resolveApproverCode = $resolveApproverCode ?? null;
+
+                $printUser = auth()->user();
+                $printUserName = $printUser
+                    ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                    : '';
+                if ($printUser && $printUserName === '') {
+                    $printUserName = $printUser->name ?? $printUser->email ?? '';
+                }
+                $printUserRole = $printUser ? optional($printUser->role)->name : null;
+                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+                if ($printUserRole) {
+                    $printGeneratedBy .= " ({$printUserRole})";
+                }
                 $printMemberships = collect($printSource->items() ?? [])->map(function ($item) use ($resolveApproverCode) {
                     $expirationAt = $item->expiration_at ? \Carbon\Carbon::parse($item->expiration_at) : null;
                     $createdAt = $item->created_at ? \Carbon\Carbon::parse($item->created_at) : null;
@@ -62,6 +75,9 @@
                 $printPayload = [
                     'title' => $showArchived ? 'Archived membership payments' : 'Membership payments',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name', request('member_name')),
                         'status' => request('status', 'all') ?: 'all',
@@ -124,6 +140,9 @@
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived membership payments (all pages)' : 'Membership payments (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name', request('member_name')),
                         'status' => request('status', 'all') ?: 'all',

@@ -363,9 +363,25 @@
             $printRuns = collect($filteredRuns->items() ?? [])->map($mapRun)->values();
             $printAllRuns = collect($filteredCollection ?? [])->map($mapRun)->values();
 
+            $printUser = auth()->user();
+            $printUserName = $printUser
+                ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                : '';
+            if ($printUser && $printUserName === '') {
+                $printUserName = $printUser->name ?? $printUser->email ?? '';
+            }
+            $printUserRole = $printUser ? optional($printUser->role)->name : null;
+            $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+            if ($printUserRole) {
+                $printGeneratedBy .= " ({$printUserRole})";
+            }
+
             $printPayload = [
                 'title' => 'Payroll report',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $search,
                     'focus' => $focus,
@@ -384,6 +400,9 @@
             $printAllPayload = [
                 'title' => 'Payroll report (all pages)',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $search,
                     'focus' => $focus,
@@ -777,19 +796,6 @@
             ];
         }
 
-        function buildTotalsChips(totals, currencySymbol) {
-            if (!totals) return [];
-            const fmt = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            return [
-                { label: 'Gross', value: fmt(totals.gross) },
-                { label: 'Net', value: fmt(totals.net) },
-                { label: 'SSS', value: fmt(totals.sss) },
-                { label: 'PhilHealth', value: fmt(totals.philhealth) },
-                { label: 'Pag-IBIG', value: fmt(totals.pagibig) },
-                { label: '3k Fitness App Cut', value: fmt(totals.app_cut) },
-            ];
-        }
-
         function buildRows(items, totals, currencySymbol) {
             const rows = (items || []).map((item) => ([
                 item.id ?? '—',
@@ -829,8 +835,7 @@
                 'Net',
             ];
             const rows = buildRows(items, payload.totals, currencySymbol);
-            const totalsChips = buildTotalsChips(payload.totals, currencySymbol);
-            const filterChips = filters.concat(totalsChips);
+            const filterChips = filters;
 
             return window.PrintPreview
                 ? PrintPreview.tryOpen(payload, headers, rows, filterChips)

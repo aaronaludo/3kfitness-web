@@ -164,9 +164,24 @@
         };
         $printAdmins = $admins->map($mapAdminForPrint);
         $printAllAdmins = $visibleAdmins->map($mapAdminForPrint);
+        $printUser = auth()->user();
+        $printUserName = $printUser
+            ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+            : '';
+        if ($printUser && $printUserName === '') {
+            $printUserName = $printUser->name ?? $printUser->email ?? '';
+        }
+        $printUserRole = $printUser ? optional($printUser->role)->name : null;
+        $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+        if ($printUserRole) {
+            $printGeneratedBy .= " ({$printUserRole})";
+        }
         $printPayload = [
             'title' => $showArchived ? 'Archived admins' : 'Admin directory',
             'generated_at' => now()->format('M d, Y g:i A'),
+            'meta' => [
+                'generated_by' => $printGeneratedBy,
+            ],
             'filters' => [
                 'search' => $search ?: null,
                 'status' => $statusFilter ?: 'all',
@@ -180,6 +195,9 @@
         $printAllPayload = [
             'title' => $showArchived ? 'Archived admins (all)' : 'Admin directory (all)',
             'generated_at' => now()->format('M d, Y g:i A'),
+            'meta' => [
+                'generated_by' => $printGeneratedBy,
+            ],
             'filters' => [
                 'search' => $search ?: null,
                 'status' => $statusFilter ?: 'all',
@@ -696,7 +714,6 @@
                 return (items || []).map(function (item) {
                     const status = item.status || '—';
                     const statusHint = item.status_hint ? `<div class="muted">${item.status_hint}</div>` : '';
-                    const createdBy = item.created_by ? `<div class="muted">Created by ${item.created_by}</div>` : '';
                     const addressLine = item.address ? `<div class="muted">${item.address}</div>` : '';
                     return [
                         item.id ?? '—',
@@ -705,7 +722,7 @@
                         item.role || 'Admin',
                         `<div>${item.phone || '—'}</div>${addressLine}`,
                         `<div class="fw">${status}</div>${statusHint}`,
-                        `<div>${item.created_at || ''}</div>${createdBy}`,
+                        `<div>${item.created_by || '—'}</div><div class="muted">${item.created_at || ''}</div>`,
                     ];
                 });
             }
@@ -771,7 +788,7 @@
                     const items = payloadToUse && payloadToUse.items
                         ? (Array.isArray(payloadToUse.items) ? payloadToUse.items : Object.values(payloadToUse.items))
                         : [];
-                    const headers = ['#', 'User code', 'Admin', 'Role', 'Contact', 'Status', 'Created'];
+                    const headers = ['#', 'User code', 'Admin', 'Role', 'Contact', 'Status', 'Created By'];
                     const filters = buildFilters(payloadToUse?.filters || {});
                     const rows = buildRows(items);
 

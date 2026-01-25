@@ -38,6 +38,7 @@
                         'rejected' => $item->members_reject ?? 0,
                         'created' => optional($item->created_at)->format('M j, Y g:i A') ?? '',
                         'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?? '',
+                        'created_by' => $item->created_by ?? '',
                         'archived' => (int) $item->is_archive === 1 ? 'Archived' : 'Active',
                     ];
                 };
@@ -644,6 +645,7 @@
                                 rejected,
                                 created,
                                 updated,
+                                created_by: '',
                                 archived: isArchived ? 'Archived' : 'Active',
                             });
                         });
@@ -687,7 +689,7 @@
                             ? payload.items
                             : collectTableItems();
                         const filters = buildFilters(payload.filters || {});
-                        const headers = ['#', 'Membership', 'Plan', 'Members', 'Created At'];
+                        const headers = ['#', 'Membership', 'Plan', 'Members', 'Created'];
                         const rows = buildRows(items);
 
                         return window.PrintPreview

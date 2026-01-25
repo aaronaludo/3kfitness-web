@@ -484,28 +484,6 @@
                 ? round((float) ($summary['class_commission'] ?? 0), 2)
                 : null,
         ];
-        $summaryCards = [];
-        if ($summaryForPrint['membership_revenue'] !== null) {
-            $summaryCards[] = [
-                'label' => 'Membership revenue',
-                'value' => $currency . ' ' . number_format($summaryForPrint['membership_revenue'], 2),
-                'tone' => 'revenue',
-            ];
-        }
-        if ($summaryForPrint['class_commission'] !== null) {
-            $summaryCards[] = [
-                'label' => 'Class commission',
-                'value' => $currency . ' ' . number_format($summaryForPrint['class_commission'], 2),
-                'tone' => 'commission',
-            ];
-        }
-        if ($summaryForPrint['total_sales_count'] !== null) {
-            $summaryCards[] = [
-                'label' => 'Total sales count',
-                'value' => number_format((int) $summaryForPrint['total_sales_count']),
-                'tone' => 'count',
-            ];
-        }
         $filtersForPrint = $hasFilterPreset
             ? [
                 'search' => $searchTerm,
@@ -516,12 +494,24 @@
                 'range' => $rangeLabel,
             ]
             : [];
-        $printMeta = $hasFilterPreset
-            ? []
-            : [
-                'hide_table' => true,
-                'summary_cards' => $summaryCards,
-            ];
+        $printUser = auth()->user();
+        $printUserName = $printUser
+            ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+            : '';
+        if ($printUser && $printUserName === '') {
+            $printUserName = $printUser->name ?? $printUser->email ?? '';
+        }
+        $printUserRole = $printUser ? optional($printUser->role)->name : null;
+        $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+        if ($printUserRole) {
+            $printGeneratedBy .= " ({$printUserRole})";
+        }
+        $printMeta = [
+            'generated_by' => $printGeneratedBy,
+        ];
+        if (!$hasFilterPreset) {
+            $printMeta['hide_table'] = true;
+        }
 
         $printPayload = [
             'title' => 'Sales report',
@@ -1091,26 +1081,6 @@
             return chips;
         };
 
-        var buildSummaryChips = function (summary, currency, focus) {
-            var chips = [];
-            if (!summary) return chips;
-            var formatMoney = function (value) {
-                var num = Number(value) || 0;
-                return currency + ' ' + num.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-            };
-            if (summary.membership_revenue !== undefined && summary.membership_revenue !== null) {
-                chips.push({ label: 'Membership revenue', value: formatMoney(summary.membership_revenue) });
-            }
-            if (summary.class_commission !== undefined && summary.class_commission !== null) {
-                chips.push({ label: 'Class commission', value: formatMoney(summary.class_commission) });
-            }
-            if (summary.total_sales_count !== undefined && summary.total_sales_count !== null) {
-                var count = Number(summary.total_sales_count) || 0;
-                chips.push({ label: 'Total sales count', value: count.toLocaleString() });
-            }
-            return chips;
-        };
-
         var buildRows = function (payload) {
             var focus = payload.focus || 'member';
             var currency = payload.currency || '';
@@ -1215,14 +1185,6 @@
 
             if (payloadToUse && window.PrintPreview && typeof window.PrintPreview.tryOpen === 'function') {
                 var chips = buildFilterChips(payloadToUse.filters || {});
-                var hideTable = payloadToUse.meta && payloadToUse.meta.hide_table;
-                var hasSummaryCards = payloadToUse.meta
-                    && Array.isArray(payloadToUse.meta.summary_cards)
-                    && payloadToUse.meta.summary_cards.length;
-                if (!hideTable || !hasSummaryCards) {
-                    var summaryChips = buildSummaryChips(payloadToUse.summary, payloadToUse.currency, payloadToUse.focus);
-                    chips = chips.concat(summaryChips);
-                }
                 var built = buildRows(payloadToUse);
                 handled = window.PrintPreview.tryOpen(payloadToUse, built.headers, built.rows, chips);
             }

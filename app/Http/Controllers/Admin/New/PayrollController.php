@@ -1316,9 +1316,25 @@ class PayrollController extends Controller
         $printRuns = collect($runs->items() ?? [])->map($mapRun)->values();
         $printAllPayloadRuns = collect($printAllRuns ?? [])->map($mapRun)->values();
 
+        $printUser = auth()->user();
+        $printUserName = $printUser
+            ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+            : '';
+        if ($printUser && $printUserName === '') {
+            $printUserName = $printUser->name ?? $printUser->email ?? '';
+        }
+        $printUserRole = $printUser ? optional($printUser->role)->name : null;
+        $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+        if ($printUserRole) {
+            $printGeneratedBy .= " ({$printUserRole})";
+        }
+
         $printPayload = [
             'title' => 'Payroll cash release',
             'generated_at' => now()->format('M d, Y g:i A'),
+            'meta' => [
+                'generated_by' => $printGeneratedBy,
+            ],
             'filters' => [
                 'search' => $search,
                 'month' => $month,
@@ -1333,6 +1349,9 @@ class PayrollController extends Controller
         $printAllPayload = [
             'title' => 'Payroll cash release (all pages)',
             'generated_at' => now()->format('M d, Y g:i A'),
+            'meta' => [
+                'generated_by' => $printGeneratedBy,
+            ],
             'filters' => [
                 'search' => $search,
                 'month' => $month,
