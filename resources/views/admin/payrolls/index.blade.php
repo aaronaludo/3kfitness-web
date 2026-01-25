@@ -756,7 +756,9 @@
                     const assignments = Array.isArray(data.assignments) ? data.assignments : [];
                     const membershipPayments = Array.isArray(data.membership_payments?.items) ? data.membership_payments.items : [];
                     const isTrainer = data.type === 'trainer';
-                    const employmentType = data.employment_type ?? '';
+                    const employmentType = (data.employment_type && String(data.employment_type).trim() !== '')
+                        ? data.employment_type
+                        : (isTrainer ? 'Contractor / Freelancer' : '');
                     const normalizeAmount = (value) => {
                         const num = Number(value);
                         return Number.isFinite(num) ? num : 0;
@@ -811,9 +813,15 @@
                                 <td>${assignment.date || '—'}</td>
                                 <td>${assignment.time || '—'}</td>
                                 <td>
-                                    ${Array.isArray(assignment.attendance) && assignment.attendance.length
-                                        ? assignment.attendance.map((slot) => `<div>${slot}</div>`).join('')
-                                        : '<span class="muted">No attendance</span>'}
+                                    ${
+                                        (() => {
+                                            const list = Array.isArray(assignment.attendance) ? assignment.attendance : [];
+                                            const uniqueList = list.filter((item, index) => list.indexOf(item) === index);
+                                            return uniqueList.length
+                                                ? uniqueList.map((slot) => `<div>${slot}</div>`).join('')
+                                                : '<span class="muted">No attendance</span>';
+                                        })()
+                                    }
                                 </td>
                                 <td>${formatHoursWithMinutes(assignment.hours)}</td>
                                 <td>₱${Number(assignment.salary || 0).toFixed(2)}</td>
@@ -866,42 +874,6 @@
                                     </thead>
                                 <tbody>
                                     ${rows || '<tr><td colspan="6" style="text-align:center;">No entries</td></tr>'}
-                                </tbody>
-                            </table>
-                        </div>
-                        <div class="section">
-                            <strong>Membership payments approved (period)</strong>
-                            <table>
-                                <thead>
-                                    <tr>
-                                        <th>#</th>
-                                        <th>Member</th>
-                                        <th>Membership</th>
-                                        <th>Amount</th>
-                                        <th>Created Date</th>
-                                        <th>Approved Date</th>
-                                        <th>Expires Date</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${
-                                        membershipPayments.length
-                                            ? membershipPayments.map((pay) => `
-                                                <tr>
-                                                    <td>#${pay.id ?? '—'}</td>
-                                                    <td>
-                                                        ${pay.member_name || '—'}
-                                                        <div class="muted">${pay.member_code ? `Code: ${pay.member_code}` : ''}</div>
-                                                    </td>
-                                                    <td>${pay.membership || '—'}</td>
-                                                    <td>${pay.currency || 'PHP'} ${Number(pay.price || 0).toFixed(2)}</td>
-                                                    <td>${pay.created_at || '—'}</td>
-                                                    <td>${pay.updated_at || '—'}</td>
-                                                    <td>${pay.expiration_at || '—'}</td>
-                                                </tr>
-                                            `).join('')
-                                            : '<tr><td colspan="7" style="text-align:center;">No approved membership payments for this period.</td></tr>'
-                                    }
                                 </tbody>
                             </table>
                         </div>
