@@ -820,7 +820,7 @@
                 </div>
             </div>
         @if($focus === 'trainer')
-            <div class="table-responsive">
+            <div class="table-responsive mb-3">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -864,7 +864,7 @@
             </div>
         @elseif($focus === 'staff')
             @php $staffPaymentModals = []; @endphp
-            <div class="table-responsive">
+            <div class="table-responsive mb-3">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -926,11 +926,6 @@
                     </tbody>
                 </table>
             </div>
-            @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
-                <div class="mt-3">
-                    {{ $focusRows->withQueryString()->links('pagination::bootstrap-5') }}
-                </div>
-            @endif
             @foreach($staffPaymentModals as $modal)
                 @php $modalItems = collect($modal['items'] ?? []); @endphp
                 <div class="modal fade" id="{{ $modal['id'] ?? '' }}" tabindex="-1" aria-labelledby="{{ $modal['id'] ?? '' }}-label" aria-hidden="true">
@@ -992,7 +987,7 @@
                 </div>
             @endforeach
         @else
-            <div class="table-responsive">
+            <div class="table-responsive mb-3">
                 <table class="table table-hover align-middle mb-0">
                     <thead class="table-light">
                         <tr>
@@ -1028,8 +1023,13 @@
             </div>
         @endif
         @if($focusRows instanceof \Illuminate\Pagination\AbstractPaginator)
-            <div class="mt-3">
-                {{ $focusRows->withQueryString()->links('pagination::bootstrap-5') }}
+            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                <div class="text-muted small">
+                    Showing {{ $focusRows->firstItem() ?? 0 }} to {{ $focusRows->lastItem() ?? 0 }} of {{ $focusRows->total() }} results
+                </div>
+                <div class="ms-auto">
+                    {{ $focusRows->withQueryString()->links('pagination::bootstrap-5') }}
+                </div>
             </div>
         @endif
         </div>

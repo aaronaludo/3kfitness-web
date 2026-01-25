@@ -645,7 +645,7 @@
                     </div>
                 </div>
                     @if(($tableScope ?? 'payments') === 'memberships')
-                        <div class="table-responsive">
+                        <div class="table-responsive mb-3">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -672,12 +672,17 @@
                             </table>
                         </div>
                         @if($membershipPlanTable instanceof \Illuminate\Pagination\AbstractPaginator)
-                            <div class="mt-3">
-                                {{ $membershipPlanTable->links() }}
+                            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $membershipPlanTable->firstItem() ?? 0 }} to {{ $membershipPlanTable->lastItem() ?? 0 }} of {{ $membershipPlanTable->total() }} results
+                                </div>
+                                <div class="ms-auto">
+                                    {{ $membershipPlanTable->links('pagination::bootstrap-5') }}
+                                </div>
                             </div>
                         @endif
                     @elseif(($tableScope ?? 'payments') === 'members')
-                        <div class="table-responsive">
+                        <div class="table-responsive mb-3">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -709,13 +714,18 @@
                             </table>
                         </div>
                         @if($memberSalesTable instanceof \Illuminate\Pagination\AbstractPaginator)
-                            <div class="mt-3">
-                                {{ $memberSalesTable->links('pagination::bootstrap-5') }}
+                            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $memberSalesTable->firstItem() ?? 0 }} to {{ $memberSalesTable->lastItem() ?? 0 }} of {{ $memberSalesTable->total() }} results
+                                </div>
+                                <div class="ms-auto">
+                                    {{ $memberSalesTable->links('pagination::bootstrap-5') }}
+                                </div>
                             </div>
                         @endif
                     @elseif(($tableScope ?? 'payments') === 'staffs')
                         @php $staffPaymentModals = []; @endphp
-                        <div class="table-responsive">
+                        <div class="table-responsive mb-3">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -773,8 +783,13 @@
                             </table>
                         </div>
                         @if($staffSalesOrderTable instanceof \Illuminate\Pagination\AbstractPaginator)
-                            <div class="mt-3">
-                                {{ $staffSalesOrderTable->links('pagination::bootstrap-5') }}
+                            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $staffSalesOrderTable->firstItem() ?? 0 }} to {{ $staffSalesOrderTable->lastItem() ?? 0 }} of {{ $staffSalesOrderTable->total() }} results
+                                </div>
+                                <div class="ms-auto">
+                                    {{ $staffSalesOrderTable->links('pagination::bootstrap-5') }}
+                                </div>
                             </div>
                         @endif
                         @foreach($staffPaymentModals as $modal)
@@ -838,7 +853,7 @@
                             </div>
                         @endforeach
                     @elseif(($tableScope ?? 'payments') === 'trainers')
-                        <div class="table-responsive">
+                        <div class="table-responsive mb-3">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -874,12 +889,17 @@
                             </table>
                         </div>
                         @if($trainerSalesOrderTable instanceof \Illuminate\Pagination\AbstractPaginator)
-                            <div class="mt-3">
-                                {{ $trainerSalesOrderTable->links('pagination::bootstrap-5') }}
+                            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $trainerSalesOrderTable->firstItem() ?? 0 }} to {{ $trainerSalesOrderTable->lastItem() ?? 0 }} of {{ $trainerSalesOrderTable->total() }} results
+                                </div>
+                                <div class="ms-auto">
+                                    {{ $trainerSalesOrderTable->links('pagination::bootstrap-5') }}
+                                </div>
                             </div>
                         @endif
                     @else
-                        <div class="table-responsive">
+                        <div class="table-responsive mb-3">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -909,10 +929,17 @@
                                     @endforelse
                                 </tbody>
                             </table>
-                            <div class="mt-3">
-                                {{ $membershipPayments->links() }}
-                            </div>
                         </div>
+                        @if($membershipPayments instanceof \Illuminate\Pagination\AbstractPaginator)
+                            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $membershipPayments->firstItem() ?? 0 }} to {{ $membershipPayments->lastItem() ?? 0 }} of {{ $membershipPayments->total() }} results
+                                </div>
+                                <div class="ms-auto">
+                                    {{ $membershipPayments->links('pagination::bootstrap-5') }}
+                                </div>
+                            </div>
+                        @endif
                     @endif
                 </div>
             </div>

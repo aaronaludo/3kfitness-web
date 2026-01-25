@@ -62,7 +62,7 @@
             ];
         }));
         $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
-        $admins = $visibleAdmins
+        $filteredAdmins = $visibleAdmins
             ->filter(function ($admin) use ($search, $statusFilter, $startDate, $endDate) {
                 $matchesSearch = true;
                 $fullName = trim(($admin->first_name ?? '') . ' ' . ($admin->last_name ?? ''));
@@ -125,6 +125,19 @@
                 return $matchesSearch && $matchesStatus && $matchesDate;
             })
             ->values();
+        $adminsCount = $filteredAdmins->count();
+        $perPage = 10;
+        $currentPage = \Illuminate\Pagination\Paginator::resolveCurrentPage() ?: 1;
+        $admins = new \Illuminate\Pagination\LengthAwarePaginator(
+            $filteredAdmins->forPage($currentPage, $perPage)->values(),
+            $adminsCount,
+            $perPage,
+            $currentPage,
+            [
+                'path' => request()->url(),
+                'query' => request()->query(),
+            ]
+        );
 
         $statusBadge = function ($statusName) {
             $normalized = strtolower($statusName ?? '');
@@ -162,7 +175,7 @@
                 'created_by' => $admin->created_by ?? '',
             ];
         };
-        $printAdmins = $admins->map($mapAdminForPrint);
+        $printAdmins = $filteredAdmins->map($mapAdminForPrint);
         $printAllAdmins = $visibleAdmins->map($mapAdminForPrint);
         $printUser = auth()->user();
         $printUserName = $printUser
@@ -269,9 +282,9 @@
                             <div class="text-end">
                                 <span class="d-block text-muted small">
                                     @if ($showArchived)
-                                        Showing {{ $admins->count() }} archived admins
+                                        Showing {{ $admins->total() }} archived admins
                                     @else
-                                        Showing {{ $admins->count() }} results
+                                        Showing {{ $admins->total() }} results
                                     @endif
                                 </span>
                             </div>
@@ -439,7 +452,7 @@
             
             <div class="col-12">
                 <div class="box">
-                    <div class="table-responsive">
+                    <div class="table-responsive mb-3">
                         <table class="table table-hover align-middle">
                             <thead class="table-light">
                                 <tr>
@@ -631,6 +644,18 @@
                                 @endforelse
                             </tbody>
                         </table>
+                    </div>
+                    <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                        <div class="text-muted small">
+                            @if ($showArchived)
+                                Showing {{ $admins->firstItem() ?? 0 }} to {{ $admins->lastItem() ?? 0 }} of {{ $admins->total() }} archived admins
+                            @else
+                                Showing {{ $admins->firstItem() ?? 0 }} to {{ $admins->lastItem() ?? 0 }} of {{ $admins->total() }} results
+                            @endif
+                        </div>
+                        <div class="ms-auto">
+                            {{ $admins->links('pagination::bootstrap-5') }}
+                        </div>
                     </div>
                 </div>
             </div>

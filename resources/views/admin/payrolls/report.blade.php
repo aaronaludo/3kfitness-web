@@ -683,7 +683,7 @@
                                     <p class="mb-0">Adjust the search or payroll type to see results.</p>
                                 </div>
                             @else
-                                <div class="table-responsive">
+                                <div class="table-responsive mb-3">
                                     <table class="table table-hover align-middle payroll-table mb-0">
                                         <thead class="table-light">
                                             <tr>
@@ -737,7 +737,14 @@
                                             @endforeach
                                         </tbody>
                                     </table>
-                                    {{ $filteredRuns->links() }}
+                                </div>
+                                <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                    <div class="text-muted small">
+                                        Showing {{ $filteredRuns->firstItem() ?? 0 }} to {{ $filteredRuns->lastItem() ?? 0 }} of {{ $filteredRuns->total() }} results
+                                    </div>
+                                    <div class="ms-auto">
+                                        {{ $filteredRuns->links('pagination::bootstrap-5') }}
+                                    </div>
                                 </div>
                             @endif
                         </div>

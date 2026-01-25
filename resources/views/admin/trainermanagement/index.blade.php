@@ -508,7 +508,7 @@
                 <div class="box">
                     <div class="row">
                         <div class="col-lg-12">
-                            <div class="table-responsive">
+                            <div class="table-responsive mb-3">
                                 <table class="table table-hover">
                                     <thead class="table-light">
                                         <tr>
@@ -1043,7 +1043,14 @@
                                         @endforelse
                                     </tbody>
                                 </table>
-                                {{ $trainers->links() }}
+                            </div>
+                            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $trainers->firstItem() ?? 0 }} to {{ $trainers->lastItem() ?? 0 }} of {{ $trainers->total() }} results
+                                </div>
+                                <div class="ms-auto">
+                                    {{ $trainers->links('pagination::bootstrap-5') }}
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -1526,7 +1533,14 @@
                                         @endforelse
                                     </tbody>
                                 </table>
-                                {{ $archivedData->links() }}
+                            </div>
+                            <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                                <div class="text-muted small">
+                                    Showing {{ $archivedData->firstItem() ?? 0 }} to {{ $archivedData->lastItem() ?? 0 }} of {{ $archivedData->total() }} archived trainers
+                                </div>
+                                <div class="ms-auto">
+                                    {{ $archivedData->links('pagination::bootstrap-5') }}
+                                </div>
                             </div>
                         </div>
                     </div>

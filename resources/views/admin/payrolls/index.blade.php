@@ -348,7 +348,7 @@
             <div class="col-12">
                 <div class="card border-0 shadow-sm rounded-4">
                     <div class="card-body p-0">
-                        <div class="table-responsive">
+                        <div class="table-responsive mb-3">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
@@ -480,7 +480,14 @@
                                     @endforelse
                                 </tbody>
                             </table>
-                            {{ $runs->links() }}
+                        </div>
+                        <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center flex-wrap gap-2">
+                            <div class="text-muted small">
+                                Showing {{ $runs->firstItem() ?? 0 }} to {{ $runs->lastItem() ?? 0 }} of {{ $runs->total() }} results
+                            </div>
+                            <div class="ms-auto">
+                                {{ $runs->links('pagination::bootstrap-5') }}
+                            </div>
                         </div>
                     </div>
                 </div>
