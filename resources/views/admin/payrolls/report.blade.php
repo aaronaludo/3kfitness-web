@@ -688,7 +688,7 @@
                                         <thead class="table-light">
                                             <tr>
                                                 <th scope="col">#</th>
-                                                <th scope="col">Staff</th>
+                                                <th scope="col">Name</th>
                                                 <th scope="col">Role</th>
                                                 <th scope="col">Period</th>
                                                 <th scope="col">Hours</th>
@@ -830,7 +830,7 @@
             const currencySymbol = payload.currency_symbol || '₱';
             const headers = [
                 '#',
-                'Staff',
+                'Name',
                 'Role',
                 'Period',
                 'Hours',

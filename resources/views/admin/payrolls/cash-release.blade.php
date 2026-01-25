@@ -128,7 +128,7 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th scope="col">#</th>
-                                        <th scope="col">Staff</th>
+                                        <th scope="col">Name</th>
                                         <th scope="col">Period</th>
                                         <th scope="col">Net Pay</th>
                                         <th scope="col">Processed Date</th>
@@ -231,7 +231,7 @@
                 const currencySymbol = payload.currency_symbol || '{{ $currencySymbol }}';
                 const headers = [
                     '#',
-                    'Staff',
+                    'Name',
                     'Period',
                     'Net Pay',
                     'Processed Date',
