@@ -484,6 +484,37 @@
                 ? round((float) ($summary['class_commission'] ?? 0), 2)
                 : null,
         ];
+        $startDateTimeLabel = null;
+        $endDateTimeLabel = null;
+        if (!empty($datePreset) && $datePreset === 'custom') {
+            $startDateValue = $startDate ?? null;
+            $endDateValue = $endDate ?? null;
+            $startTimeValue = $startTime ?? null;
+            $endTimeValue = $endTime ?? null;
+
+            if ($startDateValue) {
+                try {
+                    $startDateTimeLabel = \Carbon\Carbon::createFromFormat(
+                        'Y-m-d H:i',
+                        $startDateValue . ' ' . ($startTimeValue ?: '00:00')
+                    )->format('M d, Y g:i A');
+                } catch (\Exception $e) {
+                    $startDateTimeLabel = trim($startDateValue . ' ' . ($startTimeValue ?? ''));
+                }
+            }
+
+            if ($endDateValue) {
+                try {
+                    $endDateTimeLabel = \Carbon\Carbon::createFromFormat(
+                        'Y-m-d H:i',
+                        $endDateValue . ' ' . ($endTimeValue ?: '23:59')
+                    )->format('M d, Y g:i A');
+                } catch (\Exception $e) {
+                    $endDateTimeLabel = trim($endDateValue . ' ' . ($endTimeValue ?? ''));
+                }
+            }
+        }
+
         $filtersForPrint = $hasFilterPreset
             ? [
                 'search' => $searchTerm,
@@ -492,6 +523,8 @@
                 'membership' => $selectedMembershipLabel ?? 'All Memberships',
                 'date' => $datePresetLabel ?? 'Custom Date Range',
                 'range' => $rangeLabel,
+                'start_date_time' => $startDateTimeLabel,
+                'end_date_time' => $endDateTimeLabel,
             ]
             : [];
         $printUser = auth()->user();
@@ -1077,6 +1110,8 @@
             }
             if (filters.membership) chips.push({ label: 'Membership', value: filters.membership });
             if (filters.date) chips.push({ label: 'Date', value: filters.date });
+            if (filters.start_date_time) chips.push({ label: 'Start date & time', value: filters.start_date_time });
+            if (filters.end_date_time) chips.push({ label: 'End date & time', value: filters.end_date_time });
             if (filters.range) chips.push({ label: 'Range', value: filters.range });
             return chips;
         };

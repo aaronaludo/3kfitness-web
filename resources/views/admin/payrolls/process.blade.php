@@ -2377,6 +2377,31 @@
                         </div>
                     `;
 
+                const formatAmount = (value) => Number(value || 0).toFixed(2);
+                const shouldShowAmount = (value) => {
+                    const formatted = formatAmount(value);
+                    return formatted !== '0.00' && formatted !== '-0.00';
+                };
+                const deductionItems = [
+                    { key: 'sss', label: 'SSS' },
+                    { key: 'philhealth', label: 'PhilHealth' },
+                    { key: 'pagibig', label: 'Pag-IBIG' },
+                    { key: 'app_cut', label: '3kfitness app cut' },
+                ];
+                const deductionRows = deductionItems
+                    .map((item) => {
+                        const value = data.deductions?.[item.key] ?? 0;
+                        if (!shouldShowAmount(value)) return '';
+                        return `<tr><td>${item.label}</td><td>₱${formatAmount(value)}</td></tr>`;
+                    })
+                    .filter(Boolean)
+                    .join('');
+                const summaryRows = `
+                    <tr><td>Gross pay</td><td>₱${formatAmount(data.gross)}</td></tr>
+                    ${deductionRows}
+                    <tr><th>Net pay</th><th>₱${formatAmount(data.net)}</th></tr>
+                `;
+
                 const html = `
                     <!doctype html>
                     <html>
@@ -2398,12 +2423,7 @@
                                     <strong>Summary</strong>
                                     <table class="totals">
                                         <tbody>
-                                            <tr><td>Gross pay</td><td>₱${Number(data.gross || 0).toFixed(2)}</td></tr>
-                                            <tr><td>SSS</td><td>₱${Number(data.deductions?.sss || 0).toFixed(2)}</td></tr>
-                                            <tr><td>PhilHealth</td><td>₱${Number(data.deductions?.philhealth || 0).toFixed(2)}</td></tr>
-                                            <tr><td>Pag-IBIG</td><td>₱${Number(data.deductions?.pagibig || 0).toFixed(2)}</td></tr>
-                                            <tr><td>3kfitness app cut</td><td>₱${Number(data.deductions?.app_cut || 0).toFixed(2)}</td></tr>
-                                            <tr><th>Net pay</th><th>₱${Number(data.net || 0).toFixed(2)}</th></tr>
+                                            ${summaryRows}
                                         </tbody>
                                     </table>
                                 </div>
