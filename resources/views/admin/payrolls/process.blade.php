@@ -42,6 +42,23 @@
             }
             return implode(' ', $parts);
         };
+        $generatedByUser = auth()->guard('admin')->user();
+        $generatedByName = $generatedByUser
+            ? trim(($generatedByUser->first_name ?? '') . ' ' . ($generatedByUser->last_name ?? ''))
+            : '';
+        if ($generatedByName === '') {
+            $generatedByName = optional($generatedByUser)->name ?? '—';
+        }
+        $employmentTypeLabel = function ($employmentTypeKey) {
+            if ($employmentTypeKey === null || $employmentTypeKey === '') {
+                return null;
+            }
+            return match ($employmentTypeKey) {
+                'salaried' => 'Salaried (Basic Pay)',
+                'contractor' => 'Contractor / Freelance',
+                default => $employmentTypeKey,
+            };
+        };
     @endphp
     <div class="container-fluid">
         <div class="row">
@@ -423,15 +440,23 @@
                                                                 'status' => $entry['status'],
                                                             ];
                                                         })->values();
+                                                        $staffEmploymentTypeLabel = $employmentTypeLabel($staff->employment_type ?? null);
+                                                        $staffHours = (float) ($summary['total_hours'] ?? 0);
+                                                        $staffRate = $staffHours > 0
+                                                            ? round((float) ($summary['gross_pay'] ?? 0) / max($staffHours, 0.01), 2)
+                                                            : null;
 
                                                         $payslipData = [
                                                             'type' => 'staff',
                                                             'name' => $staff->first_name . ' ' . $staff->last_name,
                                                             'email' => $staff->email,
-                                                            'rate' => $staff->rate_per_hour ?? 0,
+                                                            'rate' => $staffRate,
+                                                            'hours' => $staffHours,
                                                             'gross' => $summary['gross_pay'],
                                                             'net' => $staffNetWithoutAppCut,
                                                             'deductions' => $staffDeductionsForDisplay,
+                                                            'employment_type' => $staffEmploymentTypeLabel,
+                                                            'generated_by' => $generatedByName,
                                                             'month' => $monthLabel,
                                                             'entries' => $printEntries,
                                                         ];
@@ -978,6 +1003,10 @@
                                     'type' => 'trainer',
                                     'name' => $trainer->first_name . ' ' . $trainer->last_name,
                                     'email' => $trainer->email,
+                                    'rate' => ($assignment['total_hours'] ?? 0) > 0
+                                        ? round((float) $trainerGross / max((float) ($assignment['total_hours'] ?? 0), 0.01), 2)
+                                        : null,
+                                    'hours' => (float) ($assignment['total_hours'] ?? 0),
                                     'gross' => $trainerGross,
                                     'net' => $trainerNet,
                                     'deductions' => [
@@ -986,6 +1015,8 @@
                                         'pagibig' => $trainerPagibig,
                                         'app_cut' => $trainerAppCut,
                                     ],
+                                    'employment_type' => $employmentTypeLabel($trainer->employment_type ?? null),
+                                    'generated_by' => $generatedByName,
                                     'month' => $monthLabel,
                                     'assignments' => $attendanceAssignments,
                                 ];
@@ -2258,9 +2289,8 @@
         renderRangeRows();
         renderRangePreview();
 
-        const buttons = document.querySelectorAll('[data-payslip]');
-
-        buttons.forEach((btn) => {
+        const payslipButtons = document.querySelectorAll('.payslip-btn');
+        payslipButtons.forEach((btn) => {
             btn.addEventListener('click', () => {
                 let data = {};
                 try {
@@ -2272,7 +2302,20 @@
 
                 const entries = Array.isArray(data.entries) ? data.entries : [];
                 const assignments = Array.isArray(data.assignments) ? data.assignments : [];
+                const membershipPayments = Array.isArray(data.membership_payments?.items) ? data.membership_payments.items : [];
                 const isTrainer = data.type === 'trainer';
+                const employmentType = (data.employment_type && String(data.employment_type).trim() !== '')
+                    ? data.employment_type
+                    : (isTrainer ? 'Contractor / Freelancer' : '');
+                const normalizeAmount = (value) => {
+                    const num = Number(value);
+                    return Number.isFinite(num) ? num : 0;
+                };
+                const isZeroAmount = (value) => Math.abs(normalizeAmount(value)) < 0.005;
+                const formatMoney = (value) => `₱${normalizeAmount(value).toFixed(2)}`;
+                const hourlyRate = formatMoney(data.rate || 0);
+                const totalHours = formatHoursWithMinutes(data.hours);
+                const generatedBy = data.generated_by || '—';
                 const style = `
                     <style>
                         body { font-family: Arial, sans-serif; margin: 0; padding: 24px; color: #111827; }
@@ -2318,9 +2361,15 @@
                             <td>${assignment.date || '—'}</td>
                             <td>${assignment.time || '—'}</td>
                             <td>
-                                ${Array.isArray(assignment.attendance) && assignment.attendance.length
-                                    ? assignment.attendance.map((slot) => `<div>${slot}</div>`).join('')
-                                    : '<span class="muted">No attendance</span>'}
+                                ${
+                                    (() => {
+                                        const list = Array.isArray(assignment.attendance) ? assignment.attendance : [];
+                                        const uniqueList = list.filter((item, index) => list.indexOf(item) === index);
+                                        return uniqueList.length
+                                            ? uniqueList.map((slot) => `<div>${slot}</div>`).join('')
+                                            : '<span class="muted">No attendance</span>';
+                                    })()
+                                }
                             </td>
                             <td>${formatHoursWithMinutes(assignment.hours)}</td>
                             <td>₱${Number(assignment.salary || 0).toFixed(2)}</td>
@@ -2330,10 +2379,11 @@
                     `<div><strong>${isTrainer ? 'Trainer' : 'Employee'}:</strong> ${data.name || '—'}</div>`,
                     `<div><strong>Email:</strong> ${data.email || '—'}</div>`,
                     `<div><strong>Period:</strong> ${data.month || '—'}</div>`,
+                    `<div><strong>Employment Type:</strong> ${employmentType}</div>`,
+                    `<div><strong>Per hour rate:</strong> ${hourlyRate}</div>`,
+                    `<div><strong>Total hours:</strong> ${totalHours}</div>`,
+                    `<div><strong>Generated By:</strong> ${generatedBy}</div>`,
                 ];
-                if (!isTrainer) {
-                    infoFields.push(`<div><strong>Hourly rate:</strong> ₱${Number(data.rate || 0).toFixed(2)}</div>`);
-                }
 
                 const detailSection = isTrainer
                     ? `
@@ -2377,31 +2427,6 @@
                         </div>
                     `;
 
-                const formatAmount = (value) => Number(value || 0).toFixed(2);
-                const shouldShowAmount = (value) => {
-                    const formatted = formatAmount(value);
-                    return formatted !== '0.00' && formatted !== '-0.00';
-                };
-                const deductionItems = [
-                    { key: 'sss', label: 'SSS' },
-                    { key: 'philhealth', label: 'PhilHealth' },
-                    { key: 'pagibig', label: 'Pag-IBIG' },
-                    { key: 'app_cut', label: '3kfitness app cut' },
-                ];
-                const deductionRows = deductionItems
-                    .map((item) => {
-                        const value = data.deductions?.[item.key] ?? 0;
-                        if (!shouldShowAmount(value)) return '';
-                        return `<tr><td>${item.label}</td><td>₱${formatAmount(value)}</td></tr>`;
-                    })
-                    .filter(Boolean)
-                    .join('');
-                const summaryRows = `
-                    <tr><td>Gross pay</td><td>₱${formatAmount(data.gross)}</td></tr>
-                    ${deductionRows}
-                    <tr><th>Net pay</th><th>₱${formatAmount(data.net)}</th></tr>
-                `;
-
                 const html = `
                     <!doctype html>
                     <html>
@@ -2423,7 +2448,28 @@
                                     <strong>Summary</strong>
                                     <table class="totals">
                                         <tbody>
-                                            ${summaryRows}
+                                            ${
+                                                [
+                                                    { label: 'Gross pay', value: data.gross },
+                                                    { label: 'SSS', value: data.deductions?.sss, isDeduction: true },
+                                                    { label: 'PhilHealth', value: data.deductions?.philhealth, isDeduction: true },
+                                                    { label: 'Pag-IBIG', value: data.deductions?.pagibig, isDeduction: true },
+                                                    { label: '3kfitness app cut', value: data.deductions?.app_cut, isDeduction: true },
+                                                    { label: 'Net pay', value: data.net, isTotal: true },
+                                                ]
+                                                    .filter((row) => {
+                                                        if (row.isTotal || row.label === 'Gross pay') return true;
+                                                        return !isZeroAmount(row.value);
+                                                    })
+                                                    .map((row) => {
+                                                        const cell = `${formatMoney(row.value)}`;
+                                                        if (row.isTotal) {
+                                                            return `<tr><th>${row.label}</th><th>${cell}</th></tr>`;
+                                                        }
+                                                        return `<tr><td>${row.label}</td><td>${cell}</td></tr>`;
+                                                    })
+                                                    .join('')
+                                            }
                                         </tbody>
                                     </table>
                                 </div>
