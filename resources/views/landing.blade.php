@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>3K Fitness</title>
 
-  <!-- Font Awesome for icons -->
+  <!-- Font Awesome -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" />
 
   <!-- Styles -->
@@ -19,39 +19,103 @@
   <!-- ======= HEADER / NAV ======= -->
   <header>
     <nav>
+
+      <!-- LOGO -->
       <a href="#hero" class="logo">
         <img src="{{ asset('landing/images/logo.png') }}" alt="3K Fitness Logo" />
         <span>3K Fitness</span>
       </a>
 
+      <!-- HAMBURGER BUTTON (MOBILE) -->
+      <button class="hamburger" id="hamburger" aria-label="Toggle navigation">
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+
+      <!-- MAIN NAV LINKS -->
       <ul class="nav-links">
         <li><a href="#hero">Home</a></li>
         <li><a href="#gallery">Gallery</a></li>
-        <li><a href="#contact">Location</a></li>
-        <li><span class="hours-badge">MON-SUN 7AM–10PM</span></li>
+        <li><a href="#services">Services</a></li>
+        <li><a href="#membership">Memberships</a></li>
+        <li><a href="#contact">Contact Us</a></li>
+        <li><a href="#location">Location</a></li>
+        <li><a href="#reviews">Reviews</a></li>
+        <li><span class="hours-badge">MON–SUN 7AM–10PM</span></li>
       </ul>
 
+      <!-- SOCIAL / UTILITY -->
       <ul class="nav-links nav-utility">
         <li>
-          <a href="https://www.facebook.com/3ksmusclefitnesscenter" target="_blank" title="Facebook Page">
+          <a
+            href="https://www.facebook.com/3ksmusclefitnesscenter"
+            target="_blank"
+            title="Facebook Page">
             <i class="fab fa-facebook-f"></i>
           </a>
         </li>
         <li>
-          <a href="https://drive.usercontent.google.com/download?id=1fwn9uHVRmEBSnatlU0UNMGPLjeRJ6Kg6&export=download&authuser=0?usp=sharing" target="_blank" title="Download App">
+          <a
+            href="https://drive.google.com/file/d/1gv-mECmMa0FAX77WSxMWkb32zuxqrO7i/view?usp=sharing"
+            target="_blank"
+            title="Download App">
             <i class="fas fa-mobile-alt"></i>
           </a>
         </li>
       </ul>
+
     </nav>
   </header>
 
+
   <!-- ======= HERO SECTION ======= -->
-  <section id="hero" style="background-image: url('{{ asset('landing/images/cover.jpg') }}')">
+  <section id="hero">
+    <img src="{{ asset('landing/images/cover.jpg') }}" alt="3K Fitness Gym" class="hero-img">
+
     <div class="hero-content">
       <h1>Go Beyond Limits</h1>
       <p>Train like a beast, look like a beauty.</p>
-      <a href="https://drive.usercontent.google.com/download?id=1fwn9uHVRmEBSnatlU0UNMGPLjeRJ6Kg6&export=download&authuser=0?usp=sharing" target="_blank" class="btn-primary">Get the App</a>
+      <a
+        href="https://drive.google.com/file/d/1gv-mECmMa0FAX77WSxMWkb32zuxqrO7i/view?usp=sharing"
+        target="_blank"
+        class="btn-primary">
+        Get the App
+      </a>
+    </div>
+  </section>
+
+  <!-- ======= SERVICES ======= -->
+  <section id="services" class="membership-section">
+    <h2 class="section-title">💪 Our Services</h2>
+    <p class="section-subtitle">Professional training designed for results</p>
+
+    <div class="membership-cards">
+      <div class="membership-card">
+        <h3>Personal Training</h3>
+        <p>One-on-one coaching tailored to your goals.</p>
+      </div>
+
+      <div class="membership-card featured">
+        <span class="badge">Popular</span>
+        <h3>Strength &amp; Conditioning</h3>
+        <p>Build power, endurance, and athletic performance.</p>
+      </div>
+
+      <div class="membership-card">
+        <h3>Weight Loss Programs</h3>
+        <p>Structured plans to burn fat and stay motivated.</p>
+      </div>
+
+      <div class="membership-card">
+        <h3>Group Classes</h3>
+        <p>High-energy sessions with professional instructors.</p>
+      </div>
+
+      <div class="membership-card">
+        <h3>Fitness Assessment</h3>
+        <p>Body composition, strength, and progress tracking.</p>
+      </div>
     </div>
   </section>
 
@@ -79,27 +143,206 @@
     </div>
   </section>
 
-  <!-- ===== Modal Lightbox ===== -->
+  <!-- ===== MODAL ===== -->
   <div id="modal" class="modal" onclick="closeModal()">
     <img id="modal-img" />
   </div>
 
-  <!-- ======= LOCATION MAP ======= -->
-  <section id="contact">
-    <h2>📍 Visit Us</h2>
-    <p>2/F Victory Central Station Bldg, Anonas Cor. 18th Street, West Bajac-Bajac, Olongapo, Philippines</p>
+  <!-- ======= MEMBERSHIP PLANS ======= -->
+  <section id="membership" class="membership-section">
+    <h2 class="section-title">🏋️ Membership Plans</h2>
+    <p class="section-subtitle">Choose the plan that fits your fitness journey</p>
 
-    <p><strong>🕒 Operating Hours:</strong><br>
-      Monday – Sunday: 7:00 AM – 10:00 PM</p>
+    <div class="membership-cards">
+      <div class="membership-card">
+        <h3>Basic Plan</h3>
+        <p class="price">₱800 <span>/ month</span></p>
+
+        <ul class="plan-features">
+          <li>✔ Full Gym Access</li>
+          <li>✔ Free Weights &amp; Machines</li>
+          <li>✔ Locker Use</li>
+          <li>✖ Group Classes</li>
+          <li>✖ Personal Training</li>
+        </ul>
+      </div>
+
+      <div class="membership-card featured">
+        <span class="badge">Most Popular</span>
+        <h3>Standard Plan</h3>
+        <p class="price">₱1,200 <span>/ month</span></p>
+
+        <ul class="plan-features">
+          <li>✔ Full Gym Access</li>
+          <li>✔ Free Weights &amp; Machines</li>
+          <li>✔ Locker Use</li>
+          <li>✔ Group Classes</li>
+          <li>✖ Personal Training</li>
+        </ul>
+      </div>
+
+      <div class="membership-card">
+        <h3>Premium Plan</h3>
+        <p class="price">₱2,000 <span>/ month</span></p>
+
+        <ul class="plan-features">
+          <li>✔ Full Gym Access</li>
+          <li>✔ Free Weights &amp; Machines</li>
+          <li>✔ Locker Use</li>
+          <li>✔ Group Classes</li>
+          <li>✔ Personal Training</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ======= LOCATION ======= -->
+  <section id="location">
+    <h2 class="section-title">📍 Visit Us</h2>
+
+    <div class="location-details">
+      <div class="location-item">
+        <i class="fas fa-map-marker-alt"></i>
+        <p>
+          <strong>Address</strong><br>
+          2/F Victory Central Station Bldg,<br>
+          Anonas Cor. 18th Street,<br>
+          West Bajac-Bajac, Olongapo, Philippines
+        </p>
+      </div>
+
+      <div class="location-item">
+        <i class="fas fa-clock"></i>
+        <p>
+          <strong>Operating Hours</strong><br>
+          Monday – Sunday<br>
+          7:00 AM – 10:00 PM
+        </p>
+      </div>
+    </div>
 
     <div class="map-container">
       <iframe
         src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3858.7137465244917!2d120.28289311492712!3d14.838311089681472!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x339671ef28241b4d%3A0x6dc9b25b6e34a003!2sVictory%20Central%20Mall!5e0!3m2!1sen!2sph!4v1700000000000!5m2!1sen!2sph"
-        width="100%" height="350" style="border:0;" allowfullscreen=""
-        loading="lazy" referrerpolicy="no-referrer-when-downgrade">
+        width="100%"
+        height="350"
+        style="border:0;"
+        allowfullscreen
+        loading="lazy">
       </iframe>
     </div>
+
+    <a
+      href="https://maps.app.goo.gl/8T53HdvtVD8iqCcW9"
+      target="_blank"
+      class="btn-primary"
+      style="margin-top:1.5rem; display:inline-block;">
+      Get Directions
+    </a>
   </section>
+
+  <!-- ======= CONTACT US ======= -->
+  <section id="contact">
+    <h2>📧 Contact Us</h2>
+
+    <form
+      class="contact-form"
+      action="mailto:3kfitness@gmail.com"
+      method="POST"
+      enctype="text/plain">
+      <input
+        type="text"
+        name="name"
+        placeholder="Your Full Name"
+        required
+      />
+
+      <input
+        type="email"
+        name="email"
+        placeholder="Your Email Address"
+        required
+      />
+
+      <textarea
+        name="message"
+        rows="5"
+        placeholder="Your Message"
+        required
+      ></textarea>
+
+      <button type="submit" class="btn-primary">
+        Send Message
+      </button>
+    </form>
+  </section>
+
+  <!-- ======= REVIEWS / TESTIMONIALS ======= -->
+  <section id="reviews" class="reviews-section">
+    <span class="reviews-badge">TESTIMONIALS</span>
+    <h2 class="reviews-title">Our trusted members</h2>
+
+    <div class="reviews-grid">
+      <div class="review-card">
+        <div class="quote-icon">“</div>
+        <div class="stars">★★★★★</div>
+        <p class="review-text">
+          The gym environment is motivating and well-maintained.
+          Coaches are supportive and equipment is complete.
+        </p>
+        <strong class="review-author">— Mark D.</strong>
+      </div>
+
+      <div class="review-card">
+        <div class="quote-icon">“</div>
+        <div class="stars">★★★★☆</div>
+        <p class="review-text">
+          Sulit ang membership! I’ve seen real progress with my strength.
+        </p>
+        <strong class="review-author">— Janelle R.</strong>
+      </div>
+
+      <div class="review-card">
+        <div class="quote-icon">“</div>
+        <div class="stars">★★★★★</div>
+        <p class="review-text">
+          Clean facilities and friendly staff. Highly recommended!
+        </p>
+        <strong class="review-author">— Kevin S.</strong>
+      </div>
+    </div>
+
+    <button class="view-reviews-btn" onclick="openReviewsModal()">
+      View all reviews
+    </button>
+  </section>
+
+  <!-- ======= REVIEWS MODAL ======= -->
+  <div id="reviews-modal" class="modal" onclick="closeReviewsModal()">
+    <div class="reviews-modal-content" onclick="event.stopPropagation()">
+      <h3>All Member Reviews</h3>
+
+      <div class="review-filters">
+        <select id="starFilter" onchange="renderReviews()">
+          <option value="all">All Stars</option>
+          <option value="5">★★★★★ (5)</option>
+          <option value="4">★★★★☆ (4)</option>
+          <option value="3">★★★☆☆ (3)</option>
+          <option value="2">★★☆☆☆ (2)</option>
+          <option value="1">★☆☆☆☆ (1)</option>
+        </select>
+
+        <select id="dateSort" onchange="renderReviews()">
+          <option value="newest">Newest</option>
+          <option value="oldest">Oldest</option>
+        </select>
+      </div>
+
+      <div id="reviewsList" class="all-reviews"></div>
+
+      <button class="btn-primary" onclick="closeReviewsModal()">Close</button>
+    </div>
+  </div>
 
   <!-- ======= FOOTER ======= -->
   <footer>

@@ -98,59 +98,50 @@ nav {
   white-space: nowrap;
 }
 
-.hours-badge i {
-  color: #ccc;
-  font-size: 0.95rem;
-  margin-left: 2px;
+/* ========== HERO SECTION (REAL RESPONSIVE FIX) ========== */
+#hero {
+  position: relative;
+  width: 100%;
+  overflow: hidden;
 }
 
-/* ========== HERO SECTION ========== */
-#hero {
-  background-image: url('images/cover.jpg');
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
-  height: 90vh;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  text-align: center;
-  padding: 1rem;
+.hero-img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 .hero-content {
-  background: rgba(0, 0, 0, 0.65);
-  padding: 2rem 1.5rem;
-  border-radius: 12px;
-  max-width: 550px;
-  width: 90%;
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+  padding: 2rem;
 }
 
 .hero-content h1 {
-  font-size: 2.2rem;
   color: #ffcc00;
+  font-size: clamp(1.8rem, 4vw, 2.6rem);
   margin-bottom: 1rem;
 }
 
 .hero-content p {
-  font-size: 1.1rem;
   color: #ddd;
+  font-size: clamp(1rem, 2.5vw, 1.2rem);
   margin-bottom: 1.5rem;
 }
 
 .btn-primary {
   background: #ffcc00;
-  color: black;
+  color: #000;
   padding: 0.75rem 1.5rem;
-  text-decoration: none;
   border-radius: 6px;
+  text-decoration: none;
   font-weight: bold;
-  transition: background 0.3s ease;
-  display: inline-block;
-}
-
-.btn-primary:hover {
-  background: #e6b800;
 }
 
 /* ========== GALLERY / CAROUSEL ========== */
@@ -170,14 +161,15 @@ nav {
   position: relative;
   overflow: hidden;
   width: 100%;
-  margin: auto;
+  isolation: isolate;
 }
 
 .carousel-slide {
   display: flex;
-  transition: transform 0.5s ease-in-out;
   gap: 1rem;
   padding: 0 1rem;
+  transition: transform 0.5s ease-in-out;
+  z-index: 1;
 }
 
 .carousel-slide img {
@@ -187,28 +179,35 @@ nav {
   border-radius: 10px;
   flex-shrink: 0;
   cursor: pointer;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.6);
+  position: relative;
+  z-index: 1;
 }
 
-.carousel-slide img:hover {
-  transform: scale(1.05);
-  box-shadow: 0 6px 18px rgba(255, 204, 0, 0.4);
-}
-
+/* ARROWS */
 .carousel-btn {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(0, 0, 0, 0.6);
+  z-index: 50;
+  background: rgba(0,0,0,0.75);
   color: #fff;
   border: none;
   font-size: 2rem;
-  padding: 0.5rem 1rem;
+  padding: 0.6rem 1rem;
   cursor: pointer;
-  z-index: 10;
   border-radius: 50%;
-  transition: background 0.3s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.carousel-btn.prev {
+  left: 8px;
+}
+
+.carousel-btn.next {
+  right: 8px;
 }
 
 .carousel-btn:hover {
@@ -216,25 +215,14 @@ nav {
   color: #000;
 }
 
-.carousel-btn.prev {
-  left: 10px;
-}
-
-.carousel-btn.next {
-  right: 10px;
-}
-
 /* ========== MODAL / LIGHTBOX ========== */
 .modal {
   display: none;
   justify-content: center;
   align-items: center;
-  background-color: rgba(0,0,0,0.85);
+  background: rgba(0,0,0,0.85);
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   z-index: 2000;
 }
 
@@ -242,25 +230,127 @@ nav {
   max-width: 90%;
   max-height: 80%;
   border-radius: 10px;
-  box-shadow: 0 0 28px rgba(255, 204, 0, 0.4);
 }
 
-/* ========== LOCATION SECTION ========== */
-#contact {
+/* ========== SERVICES / MEMBERSHIP SHARED ========== */
+.membership-section {
   padding: 4rem 1rem;
   text-align: center;
+  background: #0f0f0f;
 }
 
-#contact h2 {
-  font-size: 2rem;
+.section-title {
+  font-size: 2.2rem;
   color: #ffcc00;
+  margin-bottom: 0.5rem;
+}
+
+.section-subtitle {
+  color: #bbb;
+  margin-bottom: 3rem;
+}
+
+.membership-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 2rem;
+  max-width: 1100px;
+  margin: auto;
+}
+
+.membership-card {
+  background: #1a1a1a;
+  padding: 2rem 1.5rem;
+  border-radius: 14px;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  position: relative;
+}
+
+.membership-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 10px 30px rgba(255,204,0,0.3);
+}
+
+.membership-card h3 {
+  color: #ffcc00;
+  font-size: 1.5rem;
   margin-bottom: 1rem;
 }
 
-#contact p {
+.price {
+  font-size: 2rem;
+  font-weight: bold;
   margin-bottom: 1.5rem;
-  color: #ccc;
+}
+
+.price span {
+  font-size: 0.9rem;
+  color: #aaa;
+}
+
+.featured {
+  border: 2px solid #ffcc00;
+  transform: scale(1.05);
+}
+
+.badge {
+  position: absolute;
+  top: -12px;
+  right: 20px;
+  background: #ffcc00;
+  color: #000;
+  padding: 0.3rem 0.8rem;
+  font-size: 0.75rem;
+  border-radius: 6px;
+}
+
+/* ========== CONTACT US SECTION ========== */
+#contact {
+  padding: 4rem 1rem;
+  text-align: center;
+  background: #111;
+}
+
+/* ========== CONTACT FORM ========== */
+.contact-form {
+  max-width: 500px;
+  margin: 2rem auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.contact-form input,
+.contact-form textarea {
+  background: #1a1a1a;
+  border: 1px solid #333;
+  color: #eee;
+  padding: 0.75rem 1rem;
+  border-radius: 6px;
   font-size: 1rem;
+  font-family: inherit;
+}
+
+.contact-form input::placeholder,
+.contact-form textarea::placeholder {
+  color: #aaa;
+}
+
+.contact-form input:focus,
+.contact-form textarea:focus {
+  outline: none;
+  border-color: #ffcc00;
+}
+
+.contact-form textarea {
+  resize: none;
+}
+
+/* ========== LOCATION SECTION ========== */
+#location {
+  padding: 4rem 1rem;
+  text-align: center;
 }
 
 .map-container {
@@ -268,7 +358,42 @@ nav {
   margin: auto;
   border-radius: 10px;
   overflow: hidden;
-  box-shadow: 0 0 12px rgba(255, 204, 0, 0.2);
+  box-shadow: 0 0 12px rgba(255,204,0,0.2);
+}
+
+/* ========== LOCATION DETAILS ENHANCEMENT ========== */
+.location-details {
+  max-width: 700px;
+  margin: 2rem auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.location-item {
+  background: #1a1a1a;
+  padding: 1.5rem;
+  border-radius: 12px;
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.6);
+}
+
+.location-item i {
+  font-size: 1.8rem;
+  color: #ffcc00;
+  margin-top: 0.3rem;
+}
+
+.location-item p {
+  color: #ddd;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.location-item strong {
+  color: #fff;
 }
 
 /* ========== FOOTER ========== */
@@ -277,10 +402,9 @@ footer {
   text-align: center;
   padding: 2rem;
   color: #aaa;
-  font-size: 0.9rem;
 }
 
-/* ========== RESPONSIVE BREAKPOINTS ========== */
+/* ========== RESPONSIVE ========== */
 @media (max-width: 1200px) {
   .carousel-slide img {
     width: calc((100% - 1rem) / 2);
@@ -294,47 +418,231 @@ footer {
     height: 280px;
   }
 
-  .carousel-btn {
-    font-size: 1.5rem;
-    padding: 0.4rem 0.8rem;
+  nav {
+    flex-direction: column;
   }
 
   .nav-links {
     flex-direction: column;
-    width: 100%;
-    margin-top: 0.5rem;
   }
+}
 
-  nav {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
+/* ========== REVIEWS (NO IMAGES) ========== */
+.reviews-section {
+  padding: 5rem 1rem;
+  background: #111;
+  text-align: center;
+}
 
-  .hero-content h1 {
-    font-size: 1.8rem;
-  }
+.reviews-badge {
+  display: inline-block;
+  background: rgba(255,204,0,0.15);
+  color: #ffcc00;
+  font-size: 0.75rem;
+  padding: 0.3rem 0.8rem;
+  border-radius: 999px;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}
 
-  .hero-content p {
-    font-size: 1rem;
+.reviews-title {
+  font-size: 2.4rem;
+  color: #fff;
+  margin-bottom: 3rem;
+}
+
+.reviews-grid {
+  max-width: 1000px;
+  margin: auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+}
+
+.review-card {
+  background: #1a1a1a;
+  padding: 2rem;
+  border-radius: 18px;
+  position: relative;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+.quote-icon {
+  font-size: 3rem;
+  color: rgba(255,204,0,0.25);
+  position: absolute;
+  top: 1.5rem;
+  left: 1.5rem;
+}
+
+.review-text {
+  color: #ddd;
+  line-height: 1.7;
+  margin: 2.5rem 0 1.5rem;
+  font-size: 0.95rem;
+}
+
+.review-author {
+  color: #ffcc00;
+  font-size: 0.9rem;
+}
+
+/* VIEW ALL BUTTON */
+.view-reviews-btn {
+  margin-top: 3rem;
+  background: transparent;
+  border: 2px solid #ffcc00;
+  color: #ffcc00;
+  padding: 0.7rem 2rem;
+  border-radius: 999px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.view-reviews-btn:hover {
+  background: #ffcc00;
+  color: #000;
+}
+
+/* ========== REVIEWS MODAL ========== */
+.reviews-modal-content {
+  background: #1a1a1a;
+  padding: 2.5rem 2rem;
+  border-radius: 14px;
+  max-width: 500px;
+  width: 90%;
+  color: #eee;
+  text-align: center;
+}
+
+.reviews-modal-content h3 {
+  color: #ffcc00;
+  margin-bottom: 1.5rem;
+}
+
+.all-reviews p {
+  margin-bottom: 1rem;
+  color: #ddd;
+  font-style: italic;
+}
+
+/* ========== STARS ========== */
+.stars {
+  color: #ffcc00;
+  font-size: 1rem;
+  margin-bottom: 0.5rem;
+}
+
+/* ========== REVIEW FILTERS ========== */
+.review-filters {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-bottom: 1.5rem;
+}
+
+.review-filters select {
+  background: #111;
+  color: #fff;
+  border: 1px solid #333;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+}
+
+/* ========== MODAL REVIEWS LIST ========== */
+.all-reviews {
+  text-align: left;
+  max-height: 300px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+}
+
+.all-reviews .review-item {
+  border-bottom: 1px solid #333;
+  padding: 0.8rem 0;
+}
+
+.all-reviews .review-item:last-child {
+  border-bottom: none;
+}
+
+.review-date {
+  font-size: 0.75rem;
+  color: #888;
+}
+
+/* ========== MEMBERSHIP FEATURES ========== */
+.plan-features {
+  list-style: none;
+  text-align: left;
+  margin: 1.5rem 0 2rem;
+  padding: 0;
+}
+
+.plan-features li {
+  margin-bottom: 0.6rem;
+  font-size: 0.95rem;
+  color: #ddd;
+}
+
+.plan-features li:has(✖) {
+  color: #777;
+}
+
+@media (max-width: 768px) {
+  #hero {
+    min-height: 70vh;
+    padding: 3rem 1rem;
   }
 }
 
 @media (max-width: 480px) {
-  .carousel-slide img {
-    height: 220px;
+  #hero {
+    min-height: 60vh;
+    padding: 2.5rem 1rem;
+  }
+}
+
+/* ========== HAMBURGER MENU ========== */
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.hamburger span {
+  width: 26px;
+  height: 3px;
+  background: #ffcc00;
+  border-radius: 3px;
+}
+
+/* MOBILE NAV */
+@media (max-width: 768px) {
+  .hamburger {
+    display: flex;
   }
 
-  .carousel-btn {
-    font-size: 1.2rem;
-    padding: 0.3rem 0.6rem;
+  .nav-links {
+    display: none;
+    width: 100%;
+    flex-direction: column;
+    background: #5c0a0a;
+    padding: 1rem 0;
+    margin-top: 1rem;
+    border-radius: 10px;
   }
 
-  .hours-badge {
-    font-size: 0.75rem;
-    padding: 0.25rem 0.5rem;
+  nav.active .nav-links {
+    display: flex;
   }
 
-  .hero-content {
-    padding: 1.5rem 1rem;
+  .nav-links li {
+    padding: 0.5rem 0;
+    text-align: center;
   }
 }
