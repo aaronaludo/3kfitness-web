@@ -84,6 +84,10 @@ class RescheduleRequestHistoryController extends Controller
             ->paginate(10)
             ->appends($request->query());
 
+        $printAllRequests = (clone $historyQuery)
+            ->orderByDesc('created_at')
+            ->get();
+
         $statsBase = clone $historyQuery;
         $stats = [
             'total' => (clone $statsBase)->count(),
@@ -102,6 +106,7 @@ class RescheduleRequestHistoryController extends Controller
 
         return view('admin.history.reschedule-requests', [
             'rescheduleRequests' => $rescheduleRequests,
+            'printAllRequests' => $printAllRequests,
             'filters' => $filters,
             'statusTallies' => $statusTallies,
             'classOptions' => $classOptions,

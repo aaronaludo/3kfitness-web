@@ -14,6 +14,19 @@
             $activeStatus = $filters['status'] ?? 'all';
             $advancedFiltersOpen = ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
 
+            $printUser = auth()->user();
+            $printUserName = $printUser
+                ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                : '';
+            if ($printUser && $printUserName === '') {
+                $printUserName = $printUser->name ?? $printUser->email ?? '';
+            }
+            $printUserRole = $printUser ? optional($printUser->role)->name : null;
+            $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+            if ($printUserRole) {
+                $printGeneratedBy .= " ({$printUserRole})";
+            }
+
             $printSource = $payments;
             $printAllSource = $printAllPayments ?? collect();
 
@@ -57,6 +70,9 @@
             $printPayload = [
                 'title' => 'Membership history',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => $printFilters,
                 'count' => $printItems->count(),
                 'items' => $printItems,
@@ -65,6 +81,9 @@
             $printAllPayload = [
                 'title' => 'Membership history (all pages)',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => array_merge($printFilters, ['scope' => 'all']),
                 'count' => $printAllItems->count(),
                 'items' => $printAllItems,

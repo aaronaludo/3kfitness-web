@@ -15,6 +15,19 @@
             $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all' || $showArchived;
             $advancedFiltersOpen = ($filters['membership_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
 
+            $printUser = auth()->user();
+            $printUserName = $printUser
+                ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                : '';
+            if ($printUser && $printUserName === '') {
+                $printUserName = $printUser->name ?? $printUser->email ?? '';
+            }
+            $printUserRole = $printUser ? optional($printUser->role)->name : null;
+            $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+            if ($printUserRole) {
+                $printGeneratedBy .= " ({$printUserRole})";
+            }
+
             $printItems = collect($payments->items())->map(function ($payment) {
                 $member = $payment->user;
                 $membership = $payment->membership;
@@ -72,6 +85,9 @@
             $printPayload = [
                 'title' => $showArchived ? 'Archived payments history' : 'Payments history',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'membership_id' => $filters['membership_id'] ?? null,
@@ -87,6 +103,9 @@
             $printAllPayload = [
                 'title' => $showArchived ? 'Archived payments history (all pages)' : 'Payments history (all pages)',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'membership_id' => $filters['membership_id'] ?? null,

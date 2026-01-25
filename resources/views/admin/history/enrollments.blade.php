@@ -7,6 +7,19 @@
             $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['class_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null);
             $advancedFiltersOpen = ($filters['class_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null);
 
+            $printUser = auth()->user();
+            $printUserName = $printUser
+                ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                : '';
+            if ($printUser && $printUserName === '') {
+                $printUserName = $printUser->name ?? $printUser->email ?? '';
+            }
+            $printUserRole = $printUser ? optional($printUser->role)->name : null;
+            $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+            if ($printUserRole) {
+                $printGeneratedBy .= " ({$printUserRole})";
+            }
+
             $printItems = collect($enrollments->items())->map(function ($enrollment) {
                 $member = $enrollment->user;
                 $class = $enrollment->schedule;
@@ -61,6 +74,9 @@
             $printPayload = [
                 'title' => 'Enrollment history',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'class_id' => $filters['class_id'] ?? null,
@@ -74,6 +90,9 @@
             $printAllPayload = [
                 'title' => 'Enrollment history (all pages)',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'class_id' => $filters['class_id'] ?? null,

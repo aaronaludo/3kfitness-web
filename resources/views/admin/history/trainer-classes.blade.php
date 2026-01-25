@@ -14,6 +14,19 @@
             $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['trainer_id'] ?? null) || ($activeStatus !== 'all') || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null);
             $advancedFiltersOpen = ($filters['trainer_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'all';
 
+            $printUser = auth()->user();
+            $printUserName = $printUser
+                ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                : '';
+            if ($printUser && $printUserName === '') {
+                $printUserName = $printUser->name ?? $printUser->email ?? '';
+            }
+            $printUserRole = $printUser ? optional($printUser->role)->name : null;
+            $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+            if ($printUserRole) {
+                $printGeneratedBy .= " ({$printUserRole})";
+            }
+
             $printItems = collect($classes->items())->map(function ($class) {
                 $trainer = $class->user;
                 $start = $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
@@ -67,6 +80,9 @@
             $printPayload = [
                 'title' => 'Trainer class history',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'trainer_id' => $filters['trainer_id'] ?? null,
@@ -81,6 +97,9 @@
             $printAllPayload = [
                 'title' => 'Trainer class history (all pages)',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'trainer_id' => $filters['trainer_id'] ?? null,
@@ -466,6 +485,7 @@
                     generated_at: payload.generated_at || '',
                     count: payload.count ?? items.length,
                     filters,
+                    meta: payload.meta || {},
                     table: {
                         headers,
                         rows_html: rowsHtml,

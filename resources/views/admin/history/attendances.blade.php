@@ -14,6 +14,19 @@
             $hasFilters = ($filters['search'] ?? '') !== '' || ($filters['role_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'completed' || $showArchived;
             $advancedFiltersOpen = ($filters['role_id'] ?? null) || ($filters['start_date'] ?? null) || ($filters['end_date'] ?? null) || $activeStatus !== 'completed';
 
+            $printUser = auth()->user();
+            $printUserName = $printUser
+                ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                : '';
+            if ($printUser && $printUserName === '') {
+                $printUserName = $printUser->name ?? $printUser->email ?? '';
+            }
+            $printUserRole = $printUser ? optional($printUser->role)->name : null;
+            $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+            if ($printUserRole) {
+                $printGeneratedBy .= " ({$printUserRole})";
+            }
+
             $printItems = collect($attendances->items())->map(function ($attendance) {
                 $person = $attendance->user;
                 $clockIn = $attendance->clockin_at ? \Carbon\Carbon::parse($attendance->clockin_at) : null;
@@ -65,6 +78,9 @@
             $printPayload = [
                 'title' => 'Attendance history',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'role_id' => $filters['role_id'] ?? null,
@@ -80,6 +96,9 @@
             $printAllPayload = [
                 'title' => 'Attendance history (all pages)',
                 'generated_at' => now()->format('M d, Y g:i A'),
+                'meta' => [
+                    'generated_by' => $printGeneratedBy,
+                ],
                 'filters' => [
                     'search' => $filters['search'] ?? '',
                     'role_id' => $filters['role_id'] ?? null,

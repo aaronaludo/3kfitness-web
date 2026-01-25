@@ -226,7 +226,11 @@
                 @php
                     $filterLabel = $filter['label'] ?? '';
                     $normalizedLabel = is_string($filterLabel) ? strtolower($filterLabel) : '';
-                    $isEmphasized = in_array($normalizedLabel, ['date', 'period'], true);
+                    $isEmphasized = in_array(
+                        $normalizedLabel,
+                        ['date', 'period', 'joined', 'clock-in', 'clock in', 'ended', 'purchased', 'requested'],
+                        true
+                    );
                 @endphp
                 <span class="pill{{ $isEmphasized ? ' pill--date' : '' }}">
                     @if(!empty($filter['label']))
