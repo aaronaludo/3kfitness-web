@@ -228,7 +228,7 @@
                     $normalizedLabel = is_string($filterLabel) ? strtolower($filterLabel) : '';
                     $isEmphasized = in_array(
                         $normalizedLabel,
-                        ['date', 'period', 'joined', 'clock-in', 'clock in', 'ended', 'purchased', 'requested'],
+                        ['date', 'period', 'processed', 'processed date', 'joined', 'clock-in', 'clock in', 'ended', 'purchased', 'requested'],
                         true
                     );
                 @endphp

@@ -106,6 +106,9 @@
                 $printPayload = [
                     'title' => 'Payroll history',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $generatedByName,
+                    ],
                     'filters' => [
                         'member_name' => $searchTerm,
                         'period_month' => $periodMonth,
@@ -122,6 +125,9 @@
                 $printAllPayload = [
                     'title' => 'Payroll history (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $generatedByName,
+                    ],
                     'filters' => [
                         'member_name' => $searchTerm,
                         'period_month' => $periodMonth,
@@ -618,11 +624,6 @@
                 return [
                     { label: 'Total hours', value: fmtHours(totals.hours) },
                     { label: 'Total gross', value: fmtMoney(totals.gross) },
-                    { label: 'Total SSS', value: fmtMoney(totals.sss) },
-                    { label: 'Total PhilHealth', value: fmtMoney(totals.philhealth) },
-                    { label: 'Total Pag-IBIG', value: fmtMoney(totals.pagibig) },
-                    { label: 'Total app cut', value: fmtMoney(totals.app_cut) },
-                    { label: 'Total net', value: fmtMoney(totals.net) },
                 ];
             }
 
