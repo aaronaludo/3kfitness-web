@@ -616,16 +616,6 @@
                 ];
             }
 
-            function buildTotalsChips(totals, currencySymbol) {
-                if (!totals) return [];
-                const fmt = (value, suffix = '') => `${suffix}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-                const fmtMoney = (value) => fmt(value, currencySymbol);
-                const fmtHours = (value) => formatHoursWithMinutes(value);
-                return [
-                    { label: 'Total hours', value: fmtHours(totals.hours) },
-                    { label: 'Total gross', value: fmtMoney(totals.gross) },
-                ];
-            }
 
             function buildRows(items, totals, currencySymbol) {
                 const rows = (items || []).map((item) => ([
@@ -674,8 +664,7 @@
                     'Release Date'
                 ];
                 const rows = buildRows(items, payload.totals, currencySymbol);
-                const totalsChips = buildTotalsChips(payload.totals, currencySymbol);
-                const filterChips = filters.concat(totalsChips);
+                const filterChips = filters;
 
                 return window.PrintPreview
                     ? PrintPreview.tryOpen(payload, headers, rows, filterChips)

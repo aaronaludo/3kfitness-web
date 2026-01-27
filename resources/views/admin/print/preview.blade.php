@@ -169,7 +169,7 @@
             --pill-text: #7b1c1c;
         }
         table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 13px; }
-        th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; }
+        th, td { border: 1px solid #e5e7eb; padding: 10px; vertical-align: top; line-height: 1.35; overflow-wrap: anywhere; word-break: break-word; }
         th { background: #f9fafb; text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: 0.03em; }
         .fw { font-weight: 700; }
         .muted { color: #6b7280; font-size: 12px; }
