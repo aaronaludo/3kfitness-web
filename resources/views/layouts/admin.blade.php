@@ -818,7 +818,7 @@
                 ];
                 $adminManagementRoutes = ['admin.admins.*'];
                 $trainerRoutes = ['admin.trainer-management.*'];
-                $operationsRoutes = ['admin.banners.*', 'admin.trainer-banners.*', 'admin.logs.*'];
+                $operationsRoutes = ['admin.banners.*', 'admin.trainer-banners.*', 'admin.logs.*', 'admin.feedbacks.*'];
                 $salesRoutes = ['admin.sales.index', 'admin.sales.report', 'admin.sales.reports'];
                 $payrollRoutes = ['admin.payrolls.*'];
             @endphp
@@ -1001,6 +1001,7 @@
                             <li><a href="{{ route('admin.banners.index') }}" class="{{ request()->routeIs('admin.banners.*') ? 'active' : '' }}">Member Banner</a></li>
                             <li><a href="{{ route('admin.trainer-banners.index') }}" class="{{ request()->routeIs('admin.trainer-banners.*') ? 'active' : '' }}">Trainers Banner</a></li>
                             <li><a href="{{ route('admin.logs.index') }}" class="{{ request()->routeIs('admin.logs.*') ? 'active' : '' }}">Logs</a></li>
+                            <li><a href="{{ route('admin.feedbacks.index') }}" class="{{ request()->routeIs('admin.feedbacks.*') ? 'active' : '' }}">Feedbacks</a></li>
                         </ul>
                     </li>
                 @endif

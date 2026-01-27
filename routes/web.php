@@ -43,8 +43,39 @@ use App\Http\Controllers\Admin\New\RescheduleRequestHistoryController as Resched
 use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagement;
 // use App\Http\Controllers\Admin\New\WalkInPaymentController as WalkInPayments;
 
+use App\Models\Feedback as FeedbackModel;
+
 Route::get('/', function () {
-    return view('landing');
+    $feedbacks = FeedbackModel::with('user')
+        ->latest()
+        ->take(12)
+        ->get();
+
+    $reviews = $feedbacks->map(function ($feedback) {
+        $user = $feedback->user;
+        $firstName = $user->first_name ?? '';
+        $lastName = $user->last_name ?? '';
+        $fullName = trim($firstName . ' ' . $lastName);
+        $fallbackName = $user->name ?? '';
+
+        $author = $fullName ?: trim($fallbackName);
+        if (!$author) {
+            $author = 'Member';
+        }
+
+        return [
+            'name' => $author,
+            'stars' => 5,
+            'text' => $feedback->description,
+            'date' => optional($feedback->created_at)->toDateString(),
+            'title' => $feedback->title,
+        ];
+    });
+
+    return view('landing', [
+        'featuredReviews' => $reviews->take(3),
+        'allReviews' => $reviews->values(),
+    ]);
 });
 
 Route::get('/login', [AdminAuthController::class, 'index'])->name('login');
@@ -88,6 +119,12 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::get('/admin/dashboard', [Dashboard::class, 'index'])->name('admin.dashboard.index');
     
     Route::get('/admin/feedbacks', [Feedback::class, 'index'])->name('admin.feedbacks.index');
+    Route::get('/admin/feedbacks/create', [Feedback::class, 'create'])->name('admin.feedbacks.create');
+    Route::post('/admin/feedbacks', [Feedback::class, 'store'])->name('admin.feedbacks.store');
+    Route::get('/admin/feedbacks/{feedback}', [Feedback::class, 'show'])->name('admin.feedbacks.show');
+    Route::get('/admin/feedbacks/{feedback}/edit', [Feedback::class, 'edit'])->name('admin.feedbacks.edit');
+    Route::put('/admin/feedbacks/{feedback}', [Feedback::class, 'update'])->name('admin.feedbacks.update');
+    Route::delete('/admin/feedbacks/{feedback}', [Feedback::class, 'destroy'])->name('admin.feedbacks.destroy');
 
     Route::get('/admin/gym-management', [GymManagement::class, 'index'])->name('admin.gym-management.index');
 

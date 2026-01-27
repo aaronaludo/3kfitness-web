@@ -69,6 +69,7 @@ use App\Http\Controllers\Member\MemberAuthController;
 use App\Http\Controllers\Member\MemberAccountController;
 use App\Http\Controllers\Member\MemberMembershipController;
 use App\Http\Controllers\Member\MemberClassController;
+use App\Http\Controllers\Member\MemberFeedbackController;
 
 use App\Http\Controllers\Trainer\TrainerAuthController;
 use App\Http\Controllers\Trainer\TrainerAccountController;
@@ -122,6 +123,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
 
         Route::post('/edit-profile', [MemberAccountController::class, 'editProfile'])->name('members.edit-profile');
         Route::post('/change-password', [MemberAccountController::class, 'changePassword'])->name('members.change-password');
+        Route::post('/feedback', [MemberFeedbackController::class, 'store'])->name('members.feedback.store');
         Route::post('/send-email-verification-code', [MemberAuthController::class, 'sendEmailVerificationCode'])->name('members.send-email-verification-code');
         Route::post('/verify-email', [MemberAuthController::class, 'verifyEmail'])->name('members.verify-email');
     });

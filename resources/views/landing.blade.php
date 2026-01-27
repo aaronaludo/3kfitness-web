@@ -283,33 +283,48 @@
     <h2 class="reviews-title">Our trusted members</h2>
 
     <div class="reviews-grid">
-      <div class="review-card">
-        <div class="quote-icon">“</div>
-        <div class="stars">★★★★★</div>
-        <p class="review-text">
-          The gym environment is motivating and well-maintained.
-          Coaches are supportive and equipment is complete.
-        </p>
-        <strong class="review-author">— Mark D.</strong>
-      </div>
+      @forelse(($featuredReviews ?? collect()) as $review)
+        @php
+          $stars = (int) ($review['stars'] ?? 5);
+          $stars = max(1, min(5, $stars));
+        @endphp
+        <div class="review-card">
+          <div class="quote-icon">“</div>
+          <div class="stars">{{ str_repeat('★', $stars) }}{{ str_repeat('☆', 5 - $stars) }}</div>
+          <p class="review-text">
+            {{ \Illuminate\Support\Str::limit($review['text'] ?? '', 160) }}
+          </p>
+          <strong class="review-author">— {{ $review['name'] ?? 'Member' }}</strong>
+        </div>
+      @empty
+        <div class="review-card">
+          <div class="quote-icon">“</div>
+          <div class="stars">★★★★★</div>
+          <p class="review-text">
+            The gym environment is motivating and well-maintained.
+            Coaches are supportive and equipment is complete.
+          </p>
+          <strong class="review-author">— Mark D.</strong>
+        </div>
 
-      <div class="review-card">
-        <div class="quote-icon">“</div>
-        <div class="stars">★★★★☆</div>
-        <p class="review-text">
-          Sulit ang membership! I’ve seen real progress with my strength.
-        </p>
-        <strong class="review-author">— Janelle R.</strong>
-      </div>
+        <div class="review-card">
+          <div class="quote-icon">“</div>
+          <div class="stars">★★★★☆</div>
+          <p class="review-text">
+            Sulit ang membership! I’ve seen real progress with my strength.
+          </p>
+          <strong class="review-author">— Janelle R.</strong>
+        </div>
 
-      <div class="review-card">
-        <div class="quote-icon">“</div>
-        <div class="stars">★★★★★</div>
-        <p class="review-text">
-          Clean facilities and friendly staff. Highly recommended!
-        </p>
-        <strong class="review-author">— Kevin S.</strong>
-      </div>
+        <div class="review-card">
+          <div class="quote-icon">“</div>
+          <div class="stars">★★★★★</div>
+          <p class="review-text">
+            Clean facilities and friendly staff. Highly recommended!
+          </p>
+          <strong class="review-author">— Kevin S.</strong>
+        </div>
+      @endforelse
     </div>
 
     <button class="view-reviews-btn" onclick="openReviewsModal()">
@@ -349,6 +364,10 @@
     <p>&copy; 2026 3K Fitness. All Rights Reserved.</p>
     <p><strong>Hours:</strong> Mon–Sun: 7AM – 10PM</p>
   </footer>
+
+  <script>
+    window.reviewsData = @json($allReviews ?? []);
+  </script>
 
 </body>
 </html>

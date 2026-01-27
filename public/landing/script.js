@@ -121,13 +121,20 @@ if (hamburger && nav) {
 }
 
 // ================== REVIEWS DATA ==================
-const allReviewsData = [
+const fallbackReviewsData = [
   { name: 'Mark D.', stars: 5, text: 'The gym environment is motivating and well-maintained.', date: '2024-12-01' },
   { name: 'Janelle R.', stars: 4, text: 'Sulit ang membership! I’ve seen real progress.', date: '2024-11-20' },
   { name: 'Kevin S.', stars: 5, text: 'Clean facilities and friendly staff.', date: '2024-11-10' },
   { name: 'Brian L.', stars: 3, text: 'Good gym but can get crowded at peak hours.', date: '2024-10-15' },
   { name: 'Angela M.', stars: 5, text: 'Trainers are approachable and motivating.', date: '2024-10-05' }
 ];
+
+const injectedReviews =
+  typeof window !== 'undefined' && Array.isArray(window.reviewsData) && window.reviewsData.length
+    ? window.reviewsData
+    : null;
+
+const allReviewsData = injectedReviews || fallbackReviewsData;
 
 // ================== REVIEWS MODAL ==================
 function openReviewsModal() {
@@ -147,21 +154,33 @@ function renderReviews() {
   let filtered = [...allReviewsData];
 
   if (starFilter !== 'all') {
-    filtered = filtered.filter(r => r.stars === parseInt(starFilter));
+    filtered = filtered.filter(r => Number(r.stars) === parseInt(starFilter));
   }
 
-  filtered.sort((a, b) =>
-    dateSort === 'newest'
-      ? new Date(b.date) - new Date(a.date)
-      : new Date(a.date) - new Date(b.date)
-  );
+  const parseDateValue = value => {
+    const parsed = Date.parse(value || '');
+    return Number.isNaN(parsed) ? 0 : parsed;
+  };
 
-  list.innerHTML = filtered.map(r => `
-    <div class="review-item">
-      <div class="stars">${'★'.repeat(r.stars)}${'☆'.repeat(5 - r.stars)}</div>
-      <p>“${r.text}”</p>
-      <strong>— ${r.name}</strong><br>
-      <span class="review-date">${r.date}</span>
-    </div>
-  `).join('');
+  filtered.sort((a, b) => {
+    const aDate = parseDateValue(a.date);
+    const bDate = parseDateValue(b.date);
+    return dateSort === 'newest' ? bDate - aDate : aDate - bDate;
+  });
+
+  list.innerHTML = filtered.map(r => {
+    const stars = Math.min(5, Math.max(1, Number(r.stars) || 5));
+    const dateLabel = r.date ? r.date : '';
+    const name = r.name || 'Member';
+    const text = r.text || '';
+
+    return `
+      <div class="review-item">
+        <div class="stars">${'★'.repeat(stars)}${'☆'.repeat(5 - stars)}</div>
+        <p>“${text}”</p>
+        <strong>— ${name}</strong><br>
+        <span class="review-date">${dateLabel}</span>
+      </div>
+    `;
+  }).join('');
 }
