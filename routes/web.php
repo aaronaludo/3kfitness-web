@@ -44,6 +44,7 @@ use App\Http\Controllers\Admin\New\TrainerManagementController as TrainerManagem
 // use App\Http\Controllers\Admin\New\WalkInPaymentController as WalkInPayments;
 
 use App\Models\Feedback as FeedbackModel;
+use App\Http\Controllers\ContactController;
 
 Route::get('/', function () {
     $feedbacks = FeedbackModel::with('user')
@@ -85,6 +86,8 @@ Route::get('/', function () {
         'allReviews' => $reviews->values(),
     ]);
 });
+
+Route::post('/contact', [ContactController::class, 'send'])->name('contact.send');
 
 Route::get('/login', [AdminAuthController::class, 'index'])->name('login');
 Route::post('/login', [AdminAuthController::class, 'login'])->name('admin.process.login');

@@ -245,15 +245,32 @@
   <section id="contact">
     <h2>📧 Contact Us</h2>
 
+    @if (session('contact_success'))
+      <div class="alert alert-success" style="margin-bottom: 1.5rem;">
+        {{ session('contact_success') }}
+      </div>
+    @endif
+
+    @if ($errors->has('contact') || $errors->has('name') || $errors->has('email') || $errors->has('message'))
+      <div class="alert alert-danger" style="margin-bottom: 1.5rem;">
+        @if ($errors->has('contact'))
+          {{ $errors->first('contact') }}
+        @else
+          Please complete the form fields correctly and try again.
+        @endif
+      </div>
+    @endif
+
     <form
       class="contact-form"
-      action="mailto:3kfitness@gmail.com"
-      method="POST"
-      enctype="text/plain">
+      action="{{ route('contact.send') }}"
+      method="POST">
+      @csrf
       <input
         type="text"
         name="name"
         placeholder="Your Full Name"
+        value="{{ old('name') }}"
         required
       />
 
@@ -261,6 +278,7 @@
         type="email"
         name="email"
         placeholder="Your Email Address"
+        value="{{ old('email') }}"
         required
       />
 
@@ -269,7 +287,7 @@
         rows="5"
         placeholder="Your Message"
         required
-      ></textarea>
+      >{{ old('message') }}</textarea>
 
       <button type="submit" class="btn-primary">
         Send Message
