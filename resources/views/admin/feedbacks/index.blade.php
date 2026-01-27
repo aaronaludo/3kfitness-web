@@ -212,23 +212,82 @@
                                         </td>
                                         <td>{{ optional($item->created_at)->format('M d, Y g:i A') }}</td>
                                         <td>
-                                            <div class="d-flex gap-2 action-button">
-                                                <a href="{{ route('admin.feedbacks.show', $item) }}" title="View" class="text-dark">
-                                                    <i class="fa-solid fa-eye"></i>
-                                                </a>
-                                                <a href="{{ route('admin.feedbacks.edit', $item) }}" title="Edit" class="text-primary">
-                                                    <i class="fa-solid fa-pen"></i>
-                                                </a>
-                                                <form method="POST" action="{{ route('admin.feedbacks.destroy', $item) }}" onsubmit="return confirm('Delete this feedback?');">
-                                                    @csrf
-                                                    @method('DELETE')
-                                                    <button type="submit" class="btn btn-link p-0 text-danger" title="Delete">
-                                                        <i class="fa-solid fa-trash"></i>
+                                            <div class="d-flex flex-wrap align-items-center gap-2">
+                                                <div class="action-button">
+                                                    <a href="{{ route('admin.feedbacks.show', $item) }}" title="View">
+                                                        <i class="fa-solid fa-eye"></i>
+                                                    </a>
+                                                </div>
+                                                <div class="action-button">
+                                                    <a href="{{ route('admin.feedbacks.edit', $item) }}" title="Edit">
+                                                        <i class="fa-solid fa-pen text-primary"></i>
+                                                    </a>
+                                                </div>
+                                                <div class="action-button">
+                                                    <button
+                                                        type="button"
+                                                        data-bs-toggle="modal"
+                                                        data-bs-target="#feedbackDeleteModal-{{ $item->id }}"
+                                                        data-id="{{ $item->id }}"
+                                                        title="Delete"
+                                                        style="background: none; border: none; padding: 0; cursor: pointer;"
+                                                    >
+                                                        <i class="fa-solid fa-trash text-danger"></i>
                                                     </button>
-                                                </form>
+                                                </div>
                                             </div>
                                         </td>
                                     </tr>
+                                    <div class="modal fade" id="feedbackDeleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="feedbackDeleteModalLabel-{{ $item->id }}" aria-hidden="true">
+                                        <div class="modal-dialog modal-dialog-centered">
+                                            <div class="modal-content border-0 shadow rounded-4">
+                                                <div class="modal-header border-0 pb-0">
+                                                    <div class="d-flex align-items-center gap-3">
+                                                        <div class="badge bg-danger bg-opacity-10 text-danger rounded-circle p-3">
+                                                            <i class="fa-solid fa-triangle-exclamation"></i>
+                                                        </div>
+                                                        <div>
+                                                            <p class="text-uppercase text-muted small mb-1">Delete feedback</p>
+                                                            <h5 class="fw-semibold mb-0" id="feedbackDeleteModalLabel-{{ $item->id }}">
+                                                                {{ $item->title ?? 'Feedback' }}
+                                                            </h5>
+                                                        </div>
+                                                    </div>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                </div>
+                                                <form action="{{ route('admin.feedbacks.destroy', $item) }}" method="POST" id="feedback-delete-form-{{ $item->id }}">
+                                                    @csrf
+                                                    @method('DELETE')
+                                                    <div class="modal-body pt-3">
+                                                        <div class="alert alert-danger bg-opacity-10 text-danger border-0 rounded-3">
+                                                            Deleting will permanently remove this feedback. This action cannot be undone.
+                                                        </div>
+                                                        <label class="form-label fw-semibold mt-2">Confirm with your password</label>
+                                                        <div class="input-group">
+                                                            <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                            <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                        </div>
+                                                    </div>
+                                                    <div class="modal-footer border-0 pt-0">
+                                                        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                                                        <button class="btn btn-danger" type="submit" id="feedback-delete-submit-{{ $item->id }}">
+                                                            <span id="feedback-delete-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                            Delete feedback
+                                                        </button>
+                                                    </div>
+                                                </form>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <script>
+                                        document.getElementById('feedback-delete-form-{{ $item->id }}')?.addEventListener('submit', function () {
+                                            const submitButton = document.getElementById('feedback-delete-submit-{{ $item->id }}');
+                                            const loader = document.getElementById('feedback-delete-loader-{{ $item->id }}');
+
+                                            if (submitButton) submitButton.disabled = true;
+                                            if (loader) loader.classList.remove('d-none');
+                                        });
+                                    </script>
                                 @empty
                                     <tr>
                                         <td colspan="7" class="text-center text-muted">No feedback found.</td>
