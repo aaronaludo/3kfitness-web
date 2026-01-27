@@ -33,8 +33,8 @@
                                 <p class="text-muted mb-0">Submitted on {{ optional($feedback->created_at)->format('M d, Y g:i A') }}</p>
                             </div>
                             <div class="text-end">
-                                <span class="badge {{ $feedback->isadminread ? 'bg-success' : 'bg-warning text-dark' }}">
-                                    {{ $feedback->isadminread ? 'Read' : 'Unread' }}
+                                <span class="badge {{ $feedback->admin_confirmation_status ? 'bg-success' : 'bg-warning text-dark' }}">
+                                    {{ $feedback->admin_confirmation_status ? 'Confirmed' : 'Pending' }}
                                 </span>
                             </div>
                         </div>
@@ -48,8 +48,8 @@
                                 @endif
                             </div>
                             <div class="col-lg-4 mb-3">
-                                <div class="text-muted">Status</div>
-                                <div class="fw-semibold">{{ $feedback->isadminread ? 'Read' : 'Unread' }}</div>
+                                <div class="text-muted">Confirmation</div>
+                                <div class="fw-semibold">{{ $feedback->admin_confirmation_status ? 'Confirmed' : 'Pending' }}</div>
                             </div>
                             <div class="col-lg-4 mb-3">
                                 <div class="text-muted">Last updated</div>

@@ -25,7 +25,7 @@ class MemberFeedbackController extends Controller
             'user_id' => $user->id,
             'title' => $validated['title'],
             'description' => $validated['description'],
-            'isadminread' => 0,
+            'admin_confirmation_status' => 0,
         ]);
 
         return response()->json([

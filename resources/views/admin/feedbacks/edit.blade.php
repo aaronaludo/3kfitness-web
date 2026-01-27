@@ -53,17 +53,17 @@
                                     <small class="text-muted">Leave blank to save as guest feedback.</small>
                                 </div>
                                 <div class="col-lg-6 mb-3">
-                                    <label class="form-label">Status</label>
+                                    <label class="form-label">Confirmation</label>
                                     <div class="form-check mt-2">
                                         <input
                                             class="form-check-input"
                                             type="checkbox"
-                                            name="isadminread"
-                                            id="isadminread"
+                                            name="admin_confirmation_status"
+                                            id="admin_confirmation_status"
                                             value="1"
-                                            {{ old('isadminread', $feedback->isadminread) ? 'checked' : '' }}
+                                            {{ old('admin_confirmation_status', $feedback->admin_confirmation_status) ? 'checked' : '' }}
                                         />
-                                        <label class="form-check-label" for="isadminread">Mark as read</label>
+                                        <label class="form-check-label" for="admin_confirmation_status">Mark as confirmed</label>
                                     </div>
                                 </div>
                                 <div class="col-12 mb-3">

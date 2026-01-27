@@ -38,16 +38,16 @@ class FeedbackController extends Controller
 
         $statusTallies = [
             'all' => (clone $baseQuery)->count(),
-            'unread' => (clone $baseQuery)->where('isadminread', 0)->count(),
-            'read' => (clone $baseQuery)->where('isadminread', 1)->count(),
+            'pending' => (clone $baseQuery)->where('admin_confirmation_status', 0)->count(),
+            'confirmed' => (clone $baseQuery)->where('admin_confirmation_status', 1)->count(),
         ];
 
         $feedbacks = (clone $baseQuery)
-            ->when($status === 'read', function ($query) {
-                $query->where('isadminread', 1);
+            ->when($status === 'confirmed', function ($query) {
+                $query->where('admin_confirmation_status', 1);
             })
-            ->when($status === 'unread', function ($query) {
-                $query->where('isadminread', 0);
+            ->when($status === 'pending', function ($query) {
+                $query->where('admin_confirmation_status', 0);
             })
             ->orderByDesc('created_at')
             ->paginate(10)
@@ -74,14 +74,14 @@ class FeedbackController extends Controller
             'title' => 'required|string|max:120',
             'description' => 'required|string|max:1000',
             'user_id' => 'nullable|exists:users,id',
-            'isadminread' => 'nullable|boolean',
+            'admin_confirmation_status' => 'nullable|boolean',
         ]);
 
         $feedback = Feedback::create([
             'user_id' => $validated['user_id'] ?? null,
             'title' => $validated['title'],
             'description' => $validated['description'],
-            'isadminread' => $request->boolean('isadminread'),
+            'admin_confirmation_status' => $request->boolean('admin_confirmation_status'),
         ]);
 
         return redirect()
@@ -92,11 +92,6 @@ class FeedbackController extends Controller
     public function show(Feedback $feedback)
     {
         $feedback->load('user');
-
-        if (!$feedback->isadminread) {
-            $feedback->isadminread = 1;
-            $feedback->save();
-        }
 
         return view('admin.feedbacks.show', compact('feedback'));
     }
@@ -113,14 +108,14 @@ class FeedbackController extends Controller
             'title' => 'required|string|max:120',
             'description' => 'required|string|max:1000',
             'user_id' => 'nullable|exists:users,id',
-            'isadminread' => 'nullable|boolean',
+            'admin_confirmation_status' => 'nullable|boolean',
         ]);
 
         $feedback->update([
             'user_id' => $validated['user_id'] ?? null,
             'title' => $validated['title'],
             'description' => $validated['description'],
-            'isadminread' => $request->boolean('isadminread'),
+            'admin_confirmation_status' => $request->boolean('admin_confirmation_status'),
         ]);
 
         return redirect()
@@ -135,5 +130,31 @@ class FeedbackController extends Controller
         return redirect()
             ->route('admin.feedbacks.index')
             ->with('success', 'Feedback deleted successfully.');
+    }
+
+    public function confirm(Request $request, Feedback $feedback)
+    {
+        try {
+            $request->validate([
+                'password' => 'required',
+            ]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            return redirect()->back()->withErrors($e->errors())->withInput();
+        }
+
+        $user = $request->user();
+
+        if (!\Hash::check($request->password, $user->password)) {
+            return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
+        }
+
+        if (!$feedback->admin_confirmation_status) {
+            $feedback->admin_confirmation_status = 1;
+            $feedback->save();
+        }
+
+        return redirect()
+            ->route('admin.feedbacks.index')
+            ->with('success', 'Feedback confirmed successfully.');
     }
 }

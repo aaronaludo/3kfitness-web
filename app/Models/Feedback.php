@@ -15,11 +15,11 @@ class Feedback extends Model
         'user_id',
         'title',
         'description',
-        'isadminread',
+        'admin_confirmation_status',
     ];
 
     protected $casts = [
-        'isadminread' => 'boolean',
+        'admin_confirmation_status' => 'boolean',
     ];
 
     public function user()

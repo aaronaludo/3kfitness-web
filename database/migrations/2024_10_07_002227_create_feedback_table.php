@@ -16,7 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('title');
             $table->text('description');
-            $table->integer('isadminread');
+            $table->boolean('admin_confirmation_status')->default(0);
             $table->timestamps();
         
             $table->foreign('user_id')->references('id')->on('users')->onDelete('set null');

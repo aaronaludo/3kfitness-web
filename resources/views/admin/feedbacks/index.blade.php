@@ -36,13 +36,13 @@
                         'label' => 'All',
                         'count' => $statusTallies['all'] ?? null,
                     ],
-                    'unread' => [
-                        'label' => 'Unread',
-                        'count' => $statusTallies['unread'] ?? null,
+                    'pending' => [
+                        'label' => 'Pending',
+                        'count' => $statusTallies['pending'] ?? null,
                     ],
-                    'read' => [
-                        'label' => 'Read',
-                        'count' => $statusTallies['read'] ?? null,
+                    'confirmed' => [
+                        'label' => 'Confirmed',
+                        'count' => $statusTallies['confirmed'] ?? null,
                     ],
                 ];
                 $advancedFiltersOpen = request()->filled('start_date') || request()->filled('end_date');
@@ -206,8 +206,8 @@
                                         <td>{{ $item->title }}</td>
                                         <td>{{ \Illuminate\Support\Str::limit($item->description, 80) }}</td>
                                         <td>
-                                            <span class="badge {{ $item->isadminread ? 'bg-success' : 'bg-warning text-dark' }}">
-                                                {{ $item->isadminread ? 'Read' : 'Unread' }}
+                                            <span class="badge {{ $item->admin_confirmation_status ? 'bg-success' : 'bg-warning text-dark' }}">
+                                                {{ $item->admin_confirmation_status ? 'Confirmed' : 'Pending' }}
                                             </span>
                                         </td>
                                         <td>{{ optional($item->created_at)->format('M d, Y g:i A') }}</td>
@@ -223,6 +223,20 @@
                                                         <i class="fa-solid fa-pen text-primary"></i>
                                                     </a>
                                                 </div>
+                                                @if(!$item->admin_confirmation_status)
+                                                    <div class="action-button">
+                                                        <button
+                                                            type="button"
+                                                            data-bs-toggle="modal"
+                                                            data-bs-target="#feedbackConfirmModal-{{ $item->id }}"
+                                                            data-id="{{ $item->id }}"
+                                                            title="Confirm"
+                                                            style="background: none; border: none; padding: 0; cursor: pointer;"
+                                                        >
+                                                            <i class="fa-solid fa-circle-check text-success"></i>
+                                                        </button>
+                                                    </div>
+                                                @endif
                                                 <div class="action-button">
                                                     <button
                                                         type="button"
@@ -238,6 +252,57 @@
                                             </div>
                                         </td>
                                     </tr>
+                                    @if(!$item->admin_confirmation_status)
+                                        <div class="modal fade" id="feedbackConfirmModal-{{ $item->id }}" tabindex="-1" aria-labelledby="feedbackConfirmModalLabel-{{ $item->id }}" aria-hidden="true">
+                                            <div class="modal-dialog modal-dialog-centered">
+                                                <div class="modal-content border-0 shadow rounded-4">
+                                                    <div class="modal-header border-0 pb-0">
+                                                        <div class="d-flex align-items-center gap-3">
+                                                            <div class="badge bg-success bg-opacity-10 text-success rounded-circle p-3">
+                                                                <i class="fa-solid fa-circle-check"></i>
+                                                            </div>
+                                                            <div>
+                                                                <p class="text-uppercase text-muted small mb-1">Confirm feedback</p>
+                                                                <h5 class="fw-semibold mb-0" id="feedbackConfirmModalLabel-{{ $item->id }}">
+                                                                    {{ $item->title ?? 'Feedback' }}
+                                                                </h5>
+                                                            </div>
+                                                        </div>
+                                                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                    </div>
+                                                    <form action="{{ route('admin.feedbacks.confirm', $item) }}" method="POST" id="feedback-confirm-form-{{ $item->id }}">
+                                                        @csrf
+                                                        <div class="modal-body pt-3">
+                                                            <div class="alert alert-success bg-opacity-10 text-success border-0 rounded-3">
+                                                                Confirming will publish this feedback on the landing testimonials.
+                                                            </div>
+                                                            <label class="form-label fw-semibold mt-2">Confirm with your password</label>
+                                                            <div class="input-group">
+                                                                <input class="form-control password-input" type="password" name="password" placeholder="Enter your password">
+                                                                <button class="btn btn-outline-secondary reveal-button" type="button">Show</button>
+                                                            </div>
+                                                        </div>
+                                                        <div class="modal-footer border-0 pt-0">
+                                                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
+                                                            <button class="btn btn-success" type="submit" id="feedback-confirm-submit-{{ $item->id }}">
+                                                                <span id="feedback-confirm-loader-{{ $item->id }}" class="spinner-border spinner-border-sm me-2 d-none" role="status" aria-hidden="true"></span>
+                                                                Confirm feedback
+                                                            </button>
+                                                        </div>
+                                                    </form>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <script>
+                                            document.getElementById('feedback-confirm-form-{{ $item->id }}')?.addEventListener('submit', function () {
+                                                const submitButton = document.getElementById('feedback-confirm-submit-{{ $item->id }}');
+                                                const loader = document.getElementById('feedback-confirm-loader-{{ $item->id }}');
+
+                                                if (submitButton) submitButton.disabled = true;
+                                                if (loader) loader.classList.remove('d-none');
+                                            });
+                                        </script>
+                                    @endif
                                     <div class="modal fade" id="feedbackDeleteModal-{{ $item->id }}" tabindex="-1" aria-labelledby="feedbackDeleteModalLabel-{{ $item->id }}" aria-hidden="true">
                                         <div class="modal-dialog modal-dialog-centered">
                                             <div class="modal-content border-0 shadow rounded-4">

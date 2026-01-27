@@ -47,6 +47,7 @@ use App\Models\Feedback as FeedbackModel;
 
 Route::get('/', function () {
     $feedbacks = FeedbackModel::with('user')
+        ->where('admin_confirmation_status', 1)
         ->latest()
         ->take(12)
         ->get();
@@ -123,6 +124,7 @@ Route::middleware(['auth:admin'])->group(function () {
     Route::post('/admin/feedbacks', [Feedback::class, 'store'])->name('admin.feedbacks.store');
     Route::get('/admin/feedbacks/{feedback}', [Feedback::class, 'show'])->name('admin.feedbacks.show');
     Route::get('/admin/feedbacks/{feedback}/edit', [Feedback::class, 'edit'])->name('admin.feedbacks.edit');
+    Route::post('/admin/feedbacks/{feedback}/confirm', [Feedback::class, 'confirm'])->name('admin.feedbacks.confirm');
     Route::put('/admin/feedbacks/{feedback}', [Feedback::class, 'update'])->name('admin.feedbacks.update');
     Route::delete('/admin/feedbacks/{feedback}', [Feedback::class, 'destroy'])->name('admin.feedbacks.destroy');
 
