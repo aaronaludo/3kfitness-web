@@ -16,6 +16,7 @@ return new class extends Migration
             $table->unsignedBigInteger('user_id')->nullable();
             $table->string('title');
             $table->text('description');
+            $table->unsignedTinyInteger('stars')->default(5);
             $table->boolean('admin_confirmation_status')->default(0);
             $table->timestamps();
         

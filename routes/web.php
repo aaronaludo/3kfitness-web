@@ -64,9 +64,16 @@ Route::get('/', function () {
             $author = 'Member';
         }
 
+        $stars = (int) ($feedback->stars ?? 5);
+        if ($stars < 1) {
+            $stars = 1;
+        } elseif ($stars > 5) {
+            $stars = 5;
+        }
+
         return [
             'name' => $author,
-            'stars' => 5,
+            'stars' => $stars,
             'text' => $feedback->description,
             'date' => optional($feedback->created_at)->toDateString(),
             'title' => $feedback->title,

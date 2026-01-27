@@ -188,6 +188,7 @@
                                     <th>Member</th>
                                     <th>Title</th>
                                     <th>Message</th>
+                                    <th>Stars</th>
                                     <th>Status</th>
                                     <th>Created</th>
                                     <th>Actions</th>
@@ -199,12 +200,18 @@
                                         $user = $item->user;
                                         $fullName = $user ? trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? '')) : '';
                                         $memberName = $fullName !== '' ? $fullName : ($user->name ?? $user->email ?? 'Guest');
+                                        $stars = (int) ($item->stars ?? 5);
+                                        $stars = max(1, min(5, $stars));
                                     @endphp
                                     <tr>
                                         <td>{{ $item->id }}</td>
                                         <td>{{ $memberName }}</td>
                                         <td>{{ $item->title }}</td>
                                         <td>{{ \Illuminate\Support\Str::limit($item->description, 80) }}</td>
+                                        <td>
+                                            <span class="text-warning">{{ str_repeat('★', $stars) }}</span>
+                                            <span class="text-muted">{{ str_repeat('☆', 5 - $stars) }}</span>
+                                        </td>
                                         <td>
                                             <span class="badge {{ $item->admin_confirmation_status ? 'bg-success' : 'bg-warning text-dark' }}">
                                                 {{ $item->admin_confirmation_status ? 'Confirmed' : 'Pending' }}
@@ -355,7 +362,7 @@
                                     </script>
                                 @empty
                                     <tr>
-                                        <td colspan="7" class="text-center text-muted">No feedback found.</td>
+                                        <td colspan="8" class="text-center text-muted">No feedback found.</td>
                                     </tr>
                                 @endforelse
                             </tbody>

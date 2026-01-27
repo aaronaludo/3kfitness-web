@@ -74,6 +74,7 @@ class FeedbackController extends Controller
             'title' => 'required|string|max:120',
             'description' => 'required|string|max:1000',
             'user_id' => 'nullable|exists:users,id',
+            'stars' => 'nullable|integer|min:1|max:5',
             'admin_confirmation_status' => 'nullable|boolean',
         ]);
 
@@ -81,6 +82,7 @@ class FeedbackController extends Controller
             'user_id' => $validated['user_id'] ?? null,
             'title' => $validated['title'],
             'description' => $validated['description'],
+            'stars' => $validated['stars'] ?? 5,
             'admin_confirmation_status' => $request->boolean('admin_confirmation_status'),
         ]);
 
@@ -108,6 +110,7 @@ class FeedbackController extends Controller
             'title' => 'required|string|max:120',
             'description' => 'required|string|max:1000',
             'user_id' => 'nullable|exists:users,id',
+            'stars' => 'nullable|integer|min:1|max:5',
             'admin_confirmation_status' => 'nullable|boolean',
         ]);
 
@@ -115,6 +118,7 @@ class FeedbackController extends Controller
             'user_id' => $validated['user_id'] ?? null,
             'title' => $validated['title'],
             'description' => $validated['description'],
+            'stars' => $validated['stars'] ?? 5,
             'admin_confirmation_status' => $request->boolean('admin_confirmation_status'),
         ]);
 

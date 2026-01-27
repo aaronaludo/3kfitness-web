@@ -19,12 +19,14 @@ class MemberFeedbackController extends Controller
         $validated = $request->validate([
             'title' => 'required|string|max:120',
             'description' => 'required|string|max:1000',
+            'stars' => 'nullable|integer|min:1|max:5',
         ]);
 
         $feedback = Feedback::create([
             'user_id' => $user->id,
             'title' => $validated['title'],
             'description' => $validated['description'],
+            'stars' => $validated['stars'] ?? 5,
             'admin_confirmation_status' => 0,
         ]);
 

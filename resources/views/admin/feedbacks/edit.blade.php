@@ -87,6 +87,16 @@
                                         required
                                     >{{ old('description', $feedback->description) }}</textarea>
                                 </div>
+                                <div class="col-lg-4 mb-3">
+                                    <label class="form-label">Stars</label>
+                                    <select name="stars" class="form-select rounded-3">
+                                        @for ($i = 5; $i >= 1; $i--)
+                                            <option value="{{ $i }}" {{ (int) old('stars', $feedback->stars ?? 5) === $i ? 'selected' : '' }}>
+                                                {{ $i }} {{ $i === 1 ? 'Star' : 'Stars' }}
+                                            </option>
+                                        @endfor
+                                    </select>
+                                </div>
                                 <div class="col-12 d-flex justify-content-end gap-2">
                                     <a href="{{ route('admin.feedbacks.show', $feedback) }}" class="btn btn-light">Cancel</a>
                                     <button type="submit" class="btn btn-danger">Update Feedback</button>

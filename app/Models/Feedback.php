@@ -15,10 +15,12 @@ class Feedback extends Model
         'user_id',
         'title',
         'description',
+        'stars',
         'admin_confirmation_status',
     ];
 
     protected $casts = [
+        'stars' => 'integer',
         'admin_confirmation_status' => 'boolean',
     ];
 
