@@ -239,6 +239,7 @@
                 </div>
             </div>
 
+            @if($staffSummariesWithHours->isNotEmpty())
             <div class="col-12">
                 <div class="card border-0 shadow-sm rounded-4">
                     <div class="card-body p-0">
@@ -256,7 +257,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse ($staffSummariesWithHours as $summary)
+                                    @foreach ($staffSummariesWithHours as $summary)
                                         @php
                                             $staff = $summary['staff'];
                                             $modalId = 'staff-payroll-modal-' . $staff->id;
@@ -783,15 +784,7 @@
                     </div>
                                             </td>
                                         </tr>
-                                    @empty
-                                        <tr>
-                                            <td colspan="7" class="text-center text-muted py-4">
-                                                <div class="fw-semibold mb-2">No payroll data found</div>
-                                                <p class="text-muted mb-3">Try selecting a different month or adjusting your search filters.</p>
-                                                <a href="{{ route('admin.payrolls.index') }}" class="btn btn-danger rounded-pill px-4">Go back to payroll list</a>
-                                            </td>
-                                        </tr>
-                                    @endforelse
+                                    @endforeach
                                 </tbody>
                             </table>
                             @if($summaries instanceof \Illuminate\Pagination\AbstractPaginator)
@@ -801,6 +794,17 @@
                     </div>
                 </div>
             </div>
+            @else
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card-body text-center py-5">
+                            <h5 class="fw-semibold mb-2">No staff payroll data found</h5>
+                            <p class="text-muted mb-3">Try selecting a different month or adjusting your search filters.</p>
+                            <a href="{{ route('admin.payrolls.index') }}" class="btn btn-danger rounded-pill px-4">Go back to payroll list</a>
+                        </div>
+                    </div>
+                </div>
+            @endif
             </section>
 
             <section id="trainer-payroll-section" class="payroll-section">
@@ -883,6 +887,7 @@
                 </div>
             </div>
 
+            @if($trainerAssignmentsWithHours->isNotEmpty())
             <div class="col-12">
                 <div class="card border-0 shadow-sm rounded-4">
                     <div class="card-body p-0">
@@ -901,7 +906,7 @@
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    @forelse($trainerAssignmentsWithHours as $assignment)
+                                    @foreach($trainerAssignmentsWithHours as $assignment)
                                         @php
                                 $trainer = $assignment['trainer'];
                                 $modalId = 'trainer-assignments-' . $trainer->id;
@@ -967,6 +972,9 @@
                                                 return $date;
                                             }
                                         })->filter()->values();
+                                        $dateList = $paidDates->isNotEmpty()
+                                            ? $paidDates
+                                            : collect([$start ? $start->format('M d, Y') : '—']);
                                         $attendance = collect($detail['attendances'] ?? collect())->map(function ($record) {
                                             $clockIn = $record['clockin_at'] ?? null;
                                             $clockOut = $record['clockout_at'] ?? null;
@@ -985,9 +993,9 @@
                                         return [
                                             'title' => $schedule->name ?? 'Class schedule',
                                             'code' => $schedule->class_code ?? ($schedule->id ?? 'N/A'),
-                                            'date' => $paidDates->isNotEmpty()
-                                                ? $paidDates->implode(', ')
-                                                : ($start ? $start->format('M d, Y') : '—'),
+                                            'rate' => $schedule->trainer_rate_per_hour ?? null,
+                                            'dates' => $dateList->values(),
+                                            'date' => $dateList->implode(', '),
                                             'time' => $detail['time_range'] ?? ($start || $end
                                                 ? trim(($start ? $start->format('g:i A') : '') . ($end ? ' - ' . $end->format('g:i A') : ''))
                                                 : '—'),
@@ -1449,6 +1457,9 @@
                                     return $date;
                                 }
                             })->values();
+                            $displayDateItems = $displayDates->isNotEmpty()
+                                ? $displayDates
+                                : collect([$start ? $start->format('M d') : '—']);
                             $startFilterDate = $displayDatesRaw->first() ?? ($detail['start_date'] ?? '');
                             $endFilterDate = $displayDatesRaw->last() ?? ($detail['end_date'] ?? '');
                             $occurrenceDaysSource = $displayDatesRaw->isNotEmpty() ? $displayDatesRaw : $occurrenceDatesRaw;
@@ -1518,9 +1529,6 @@
                                 'timeline' => $occurrenceTimeline->values(),
                             ];
                             $detailJson = json_encode($detailPayload, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
-                            $rowDateLabel = $displayDates->isNotEmpty()
-                                ? $displayDates->take(1)->implode(', ') . ($displayDates->count() > 1 ? ' +' . ($displayDates->count() - 1) . ' more' : '')
-                                : ($start ? $start->format('M d') : '—');
                             $rateValue = $schedule->trainer_rate_per_hour ?? null;
                             $hoursValue = $hasPaid ? ($detail['payroll_hours'] ?? 0) : ($detail['hours'] ?? 0);
                             $attendanceLabel = ($hasPaid || $hasAttendance)
@@ -1551,7 +1559,11 @@
                             data-occurrence-days="{{ $occurrenceDays->implode(',') }}"
                             data-detail='{{ $detailJson }}'
                         >
-                            <td class="text-muted small">{{ $rowDateLabel }}</td>
+                            <td class="text-muted small">
+                                @foreach($displayDateItems as $dateItem)
+                                    <div>• {{ $dateItem }}</div>
+                                @endforeach
+                            </td>
                             <td>
                                 <div class="fw-semibold">{{ $schedule->name ?? 'Unnamed Schedule' }}</div>
                                 <div class="text-muted small">Code: {{ $schedule->class_code ?? '—' }}</div>
@@ -1611,16 +1623,19 @@
                                     </div>
                                 </div>
                             </div>
-                        @empty
-                            <div class="card border-0 shadow-sm rounded-4">
-                                <div class="card-body text-center py-5">
-                                    <h5 class="fw-semibold mb-2">No trainer payroll data found</h5>
-                                    <p class="text-muted mb-3">Try selecting a different month or adjusting your search filters.</p>
-                                    <a href="{{ route('admin.payrolls.index') }}" class="btn btn-danger rounded-pill px-4">Go back to payroll list</a>
-                                </div>
-                            </div>
-                        @endforelse
+                        @endforeach
                     </div>
+            @else
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm rounded-4">
+                        <div class="card-body text-center py-5">
+                            <h5 class="fw-semibold mb-2">No trainer payroll data found</h5>
+                            <p class="text-muted mb-3">Try selecting a different month or adjusting your search filters.</p>
+                            <a href="{{ route('admin.payrolls.index') }}" class="btn btn-danger rounded-pill px-4">Go back to payroll list</a>
+                        </div>
+                    </div>
+                </div>
+            @endif
             </section>
         </div>
     </div>
@@ -2313,7 +2328,11 @@
                 };
                 const isZeroAmount = (value) => Math.abs(normalizeAmount(value)) < 0.005;
                 const formatMoney = (value) => `₱${normalizeAmount(value).toFixed(2)}`;
-                const hourlyRate = formatMoney(data.rate || 0);
+                const renderDateList = (value) => {
+                    const dates = Array.isArray(value) ? value : (value ? [value] : []);
+                    if (!dates.length) return '—';
+                    return `<div class="date-bullets">${dates.map((date) => `<div>• ${date}</div>`).join('')}</div>`;
+                };
                 const totalHours = formatHoursWithMinutes(data.hours);
                 const generatedBy = data.generated_by || '—';
                 const style = `
@@ -2332,6 +2351,8 @@
                         .badge { display: inline-block; padding: 6px 10px; border-radius: 999px; font-size: 12px; }
                         .badge-success { background: #dcfce7; color: #166534; }
                         .badge-warning { background: #fef9c3; color: #854d0e; }
+                        .date-bullets { display: grid; gap: 2px; }
+                        .date-bullets div { line-height: 1.2; }
                     </style>
                 `;
 
@@ -2356,9 +2377,17 @@
                             <td>
                                 ${assignment.title || '—'}
                                 ${assignment.code ? `<div class="muted">${assignment.code}</div>` : ''}
+                                ${
+                                    (() => {
+                                        const rateValue = Number(assignment.rate);
+                                        return Number.isFinite(rateValue) && rateValue > 0
+                                            ? `<div class="muted">Rate: ${formatMoney(rateValue)}/hr</div>`
+                                            : '';
+                                    })()
+                                }
                                 ${assignment.recurrence ? `<div class="muted">Recurring: ${assignment.recurrence}</div>` : ''}
                             </td>
-                            <td>${assignment.date || '—'}</td>
+                            <td>${renderDateList(assignment.dates ?? assignment.date)}</td>
                             <td>${assignment.time || '—'}</td>
                             <td>
                                 ${
@@ -2380,7 +2409,6 @@
                     `<div><strong>Email:</strong> ${data.email || '—'}</div>`,
                     `<div><strong>Period:</strong> ${data.month || '—'}</div>`,
                     `<div><strong>Employment Type:</strong> ${employmentType}</div>`,
-                    `<div><strong>Per hour rate:</strong> ${hourlyRate}</div>`,
                     `<div><strong>Total hours:</strong> ${totalHours}</div>`,
                     `<div><strong>Generated By:</strong> ${generatedBy}</div>`,
                 ];
@@ -2397,7 +2425,7 @@
                                         <th>Time</th>
                                         <th>Attendance</th>
                                         <th>Hours</th>
-                                        <th>Pay</th>
+                                        <th>Gross pay</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -2445,7 +2473,7 @@
                                 </div>
                                 ${detailSection}
                                 <div class="section">
-                                    <strong>Summary</strong>
+                                    <strong>Total Summary</strong>
                                     <table class="totals">
                                         <tbody>
                                             ${

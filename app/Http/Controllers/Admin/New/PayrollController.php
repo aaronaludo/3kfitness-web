@@ -473,6 +473,9 @@ class PayrollController extends Controller
                         return $date;
                     }
                 })->filter()->values();
+                $dateList = $paidDates->isNotEmpty()
+                    ? $paidDates
+                    : collect([$start ? $start->format('M d, Y') : '—']);
                 $attendance = collect($detail['attendances'] ?? collect())->map(function ($record) {
                     $clockIn = $record['clockin_at'] ?? null;
                     $clockOut = $record['clockout_at'] ?? null;
@@ -492,15 +495,15 @@ class PayrollController extends Controller
                 return [
                     'title' => $schedule->name ?? 'Class schedule',
                     'code' => $schedule->class_code ?? ($schedule->id ?? 'N/A'),
-                    'date' => $paidDates->isNotEmpty()
-                        ? $paidDates->implode(', ')
-                        : ($start ? $start->format('M d, Y') : '—'),
+                    'date' => $dateList->implode(', '),
+                    'dates' => $dateList->values()->toArray(),
                     'time' => $detail['time_range'] ?? ($start || $end
                         ? trim(($start ? $start->format('g:i A') : '') . ($end ? ' - ' . $end->format('g:i A') : ''))
                         : '—'),
                     'hours' => $detail['payroll_hours'] ?? $detail['hours'] ?? 0,
                     'scheduled_hours' => $detail['hours'] ?? 0,
                     'salary' => $detail['payroll_salary'] ?? $detail['summary_salary'] ?? $detail['display_salary'] ?? 0,
+                    'rate' => $schedule->trainer_rate_per_hour ?? null,
                     'attendance' => $attendance->toArray(),
                     'recurrence' => $detail['recurring_label'] ?? '',
                     'status' => ($detail['has_attendance'] ?? false) ? 'Present' : 'Absent',
@@ -799,6 +802,7 @@ class PayrollController extends Controller
                     ->values();
 
                 $dateLabels = $sessions->pluck('label')->filter()->values();
+                $dateList = $dateLabels->isNotEmpty() ? $dateLabels : collect(['—']);
                 $timeRange = $series['time_range'] ?? null;
                 $attendance = $sessions->map(function ($session) use ($timeRange) {
                     $status = trim((string) ($session['status'] ?? ''));
@@ -822,6 +826,16 @@ class PayrollController extends Controller
                     }
                 }
 
+                $salaryValue = (float) ($series['payroll_salary'] ?? 0);
+                $rate = null;
+                $seriesRate = $series['rate'] ?? ($series['trainer_rate_per_hour'] ?? null);
+                if (is_numeric($seriesRate)) {
+                    $rate = (float) $seriesRate;
+                }
+                if (is_null($rate) && $hours > 0 && $salaryValue > 0) {
+                    $rate = round($salaryValue / $hours, 2);
+                }
+
                 $attendancePayload = $attendance->isNotEmpty()
                     ? $attendance->toArray()
                     : ($timeRange ? [$timeRange] : ['Attendance recorded']);
@@ -829,10 +843,12 @@ class PayrollController extends Controller
                 return [
                     'title' => $series['schedule_name'] ?? 'Class schedule',
                     'code' => $series['class_code'] ?? null,
-                    'date' => $dateLabels->isNotEmpty() ? $dateLabels->implode(', ') : '—',
+                    'date' => $dateList->implode(', '),
+                    'dates' => $dateList->values()->toArray(),
                     'time' => $timeRange ?? '—',
                     'hours' => $hours,
-                    'salary' => (float) ($series['payroll_salary'] ?? 0),
+                    'salary' => $salaryValue,
+                    'rate' => $rate,
                     'attendance' => $attendancePayload,
                     'recurrence' => '',
                     'status' => 'Present',
