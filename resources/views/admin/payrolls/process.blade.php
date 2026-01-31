@@ -1298,7 +1298,7 @@
             <div class="summary-item">
                 <div class="summary-label">Status</div>
                 @if($hasRemaining)
-                    <span class="badge status-pill bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i> Pending</span>
+                    <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Ready</span>
                 @elseif($hasProcessed)
                     <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Processed</span>
                 @else
@@ -1361,11 +1361,11 @@
                 <input type="month" class="form-control form-control-sm" data-filter-month>
             </div>
             <div class="col-12 col-md-4">
-                <label class="form-label text-muted text-uppercase small mb-1">Status</label>
+                <label class="form-label text-muted text-uppercase small mb-1">Attendance</label>
                 <select class="form-select form-select-sm" data-filter-select>
                     <option value="all">All</option>
-                    <option value="future">Upcoming</option>
-                    <option value="past">Completed</option>
+                    <option value="present">Present</option>
+                    <option value="absent">Absent</option>
                 </select>
             </div>
             <div class="col-12 col-md-4 d-flex align-items-end gap-2"></div>
@@ -1389,7 +1389,9 @@
                 <tbody>
                     @php
                         $assignmentDetailsForDisplay = $assignmentDetails->filter(function ($detail) {
-                            return (float) ($detail['payroll_hours'] ?? $detail['hours'] ?? 0) > 0;
+                            $payrollHours = (float) ($detail['payroll_hours'] ?? 0);
+                            $scheduledHours = (float) ($detail['hours'] ?? 0);
+                            return $payrollHours > 0 || $scheduledHours > 0;
                         })->values();
                     @endphp
                     @forelse($assignmentDetailsForDisplay as $detail)
@@ -1419,6 +1421,13 @@
                             $end = $detail['end'];
                             $category = $detail['category'];
                             $paidDatesRaw = collect($detail['paid_dates'] ?? [])->filter();
+                            $paidDateKeys = $paidDatesRaw->map(function ($date) {
+                                try {
+                                    return \Carbon\Carbon::parse($date)->toDateString();
+                                } catch (\Throwable $th) {
+                                    return $date;
+                                }
+                            })->filter()->values();
                             $hasPaid = $paidDatesRaw->isNotEmpty() || (int) ($detail['past_paid_count'] ?? 0) > 0;
                             $categoryLabel = $hasPaid ? 'Completed' : ($category === 'future' ? 'Upcoming' : 'Completed');
                             $badgeClass = $categoryLabel === 'Upcoming' ? 'bg-success text-white' : 'bg-secondary';
@@ -1437,7 +1446,35 @@
                             $payableSalary = $detail['payroll_salary'] ?? 0;
                             $recurringLabel = $detail['recurring_label'] ?? '';
                             $occurrenceDatesRaw = collect($detail['occurrence_dates'] ?? collect())->filter();
-                            $displayDatesRaw = $hasPaid ? $paidDatesRaw : $occurrenceDatesRaw;
+                            $displayDatesRaw = $occurrenceDatesRaw->isNotEmpty() ? $occurrenceDatesRaw : $paidDatesRaw;
+                            $attendanceItems = $displayDatesRaw->map(function ($date) use ($detail, $paidDateKeys) {
+                                try {
+                                    $dateKey = \Carbon\Carbon::parse($date)->toDateString();
+                                } catch (\Throwable $th) {
+                                    $dateKey = $date;
+                                }
+
+                                $isPaid = $paidDateKeys->contains($dateKey);
+                                $isPast = collect($detail['past_dates'] ?? [])->contains($dateKey);
+                                $isFuture = collect($detail['future_dates'] ?? [])->contains($dateKey);
+
+                                if ($isPaid) {
+                                    return ['label' => 'Present', 'class' => 'bg-success-subtle text-success', 'filter' => 'present'];
+                                }
+                                if ($isPast) {
+                                    return ['label' => 'Absent', 'class' => 'bg-danger-subtle text-danger', 'filter' => 'absent'];
+                                }
+                                if ($isFuture) {
+                                    return ['label' => 'Upcoming', 'class' => 'bg-warning-subtle text-warning', 'filter' => null];
+                                }
+
+                                return ['label' => 'Absent', 'class' => 'bg-danger-subtle text-danger', 'filter' => 'absent'];
+                            })->values();
+                            $attendanceFilters = $attendanceItems
+                                ->pluck('filter')
+                                ->filter()
+                                ->unique()
+                                ->values();
                             $displayDates = $displayDatesRaw->map(function ($date) {
                                 try {
                                     return \Carbon\Carbon::parse($date)->format('M d');
@@ -1459,7 +1496,7 @@
                                 }
                             })->filter()->values();
                             $occurrenceTimeline = collect($detail['occurrence_dates'] ?? [])
-                                ->map(function ($date) use ($detail, $processedDates, $processedLabel) {
+                                ->map(function ($date) use ($detail, $processedDates, $processedLabel, $paidDateKeys) {
                                     try {
                                         $parsed = \Carbon\Carbon::parse($date);
                                     } catch (\Throwable $th) {
@@ -1467,10 +1504,10 @@
                                     }
                                     $dateKey = $parsed->toDateString();
                                     $isProcessed = $processedDates->contains($dateKey);
-                                    $isPaid = collect($detail['paid_dates'] ?? [])->contains($dateKey);
+                                    $isPaid = $paidDateKeys->contains($dateKey);
                                     $isPast = collect($detail['past_dates'] ?? [])->contains($dateKey);
                                     $isFuture = collect($detail['future_dates'] ?? [])->contains($dateKey);
-                                    $status = $isFuture ? 'Upcoming' : ($isPaid ? 'Completed (paid)' : ($isPast ? 'Completed' : '—'));
+                                    $status = $isFuture ? 'Upcoming' : ($isPaid ? 'Present' : ($isPast ? 'Absent' : '—'));
                                     $statusClass = 'bg-secondary';
                                     if ($isFuture) {
                                         $statusClass = 'bg-warning text-dark';
@@ -1519,12 +1556,6 @@
                             $detailJson = json_encode($detailPayload, JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_TAG | JSON_HEX_QUOT);
                             $rateValue = $schedule->trainer_rate_per_hour ?? null;
                             $hoursValue = $hasPaid ? ($detail['payroll_hours'] ?? 0) : ($detail['hours'] ?? 0);
-                            $attendanceLabel = ($hasPaid || $hasAttendance)
-                                ? 'Present'
-                                : ((int) ($detail['past_occurrence_count'] ?? 0) > 0 ? 'Absent' : 'Upcoming');
-                            $attendanceClass = ($hasPaid || $hasAttendance)
-                                ? 'bg-success-subtle text-success'
-                                : ((int) ($detail['past_occurrence_count'] ?? 0) > 0 ? 'bg-danger-subtle text-danger' : 'bg-warning-subtle text-warning');
                             $grossAmount = $hasPaid
                                 ? (float) $payableSalary
                                 : (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0);
@@ -1535,6 +1566,7 @@
                             class="assignment-row"
                             data-assignment-card
                             data-category="{{ $rowCategory }}"
+                            data-attendance="{{ $attendanceFilters->implode(',') }}"
                             data-start-date="{{ $startFilterDate }}"
                             data-end-date="{{ $endFilterDate }}"
                             data-future-salary="{{ (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0) }}"
@@ -1565,7 +1597,11 @@
                                 @endif
                             </td>
                             <td class="text-center">
-                                <span class="badge status-pill {{ $attendanceClass }}">{{ $attendanceLabel }}</span>
+                                <div class="d-flex flex-column align-items-center gap-1">
+                                    @foreach($attendanceItems as $attendanceItem)
+                                        <span class="badge status-pill {{ $attendanceItem['class'] }}">{{ $attendanceItem['label'] }}</span>
+                                    @endforeach
+                                </div>
                             </td>
                             <td class="text-end">₱{{ number_format((float) $grossAmount, 2) }}</td>
                             <td class="text-end fw-semibold">₱{{ number_format((float) $payableAmount, 2) }}</td>
@@ -3084,9 +3120,20 @@
                     </div>
                     <div class="mb-2">
                         <div class="text-muted small text-uppercase fw-semibold">Attendance</div>
-                        ${attendance.length
-                            ? `<ul class="list-unstyled small mb-0 mt-1">${attendance.map((a) => `<li>${a}</li>`).join('')}</ul>`
-                            : '<p class="text-muted small mb-0">No attendance recorded.</p>'
+                        ${
+                            timeline.length
+                                ? `<ul class="list-unstyled small mb-0 mt-1">
+                                    ${timeline.map((session) => `
+                                        <li class="d-flex align-items-center gap-2">
+                                            <span>${session.label || '—'}</span>
+                                            <span class="badge ${session.status_class || 'bg-secondary'} px-2 py-1">${session.status || ''}</span>
+                                        </li>
+                                    `).join('')}
+                                </ul>`
+                                : (attendance.length
+                                    ? `<ul class="list-unstyled small mb-0 mt-1">${attendance.map((a) => `<li>${a}</li>`).join('')}</ul>`
+                                    : '<p class="text-muted small mb-0">No attendance recorded.</p>'
+                                )
                         }
                     </div>
                     ${timeline.length ? `
@@ -3197,11 +3244,13 @@
                     const hasFuture = futureCount > 0;
                     const hasPast = pastCount > 0 || paidCount > 0;
 
-                    let categoryMatch = true;
-                    if (activeFilter === 'future') {
-                        categoryMatch = hasFuture;
-                    } else if (activeFilter === 'past') {
-                        categoryMatch = hasPast;
+                    let attendanceMatch = true;
+                    if (activeFilter === 'present' || activeFilter === 'absent') {
+                        const attendanceValues = (card.dataset.attendance || '')
+                            .split(',')
+                            .map((value) => value.trim())
+                            .filter(Boolean);
+                        attendanceMatch = attendanceValues.includes(activeFilter);
                     }
 
                     const dateMatch = matchesDate(card, filterStart, filterEnd);
@@ -3217,7 +3266,7 @@
                         rangeMatch = daysToCheck.some((day) => day >= (selectedRange.from || 0) && day <= (selectedRange.to || 31));
                     }
 
-                    const show = categoryMatch && dateMatch && rangeMatch;
+                    const show = attendanceMatch && dateMatch && rangeMatch;
                     card.classList.toggle('d-none', !show);
                     if (show) {
                         visible += 1;
