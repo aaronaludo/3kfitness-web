@@ -16,6 +16,13 @@
                 }
                 $sortProcessed = request('sort_processed');
                 $sortReleased = request('sort_released');
+                $showEmploymentColumn = $roleFilter === 'staff';
+                $showDeductionColumns = $roleFilter !== 'trainer';
+                $showAppCutColumn = $roleFilter !== 'staff';
+                $tableColumnCount = 12
+                    + ($showEmploymentColumn ? 1 : 0)
+                    + ($showDeductionColumns ? 3 : 0)
+                    + ($showAppCutColumn ? 1 : 0);
                 $generatedByUser = auth()->guard('admin')->user();
                 $generatedByName = $generatedByUser
                     ? trim(($generatedByUser->first_name ?? '') . ' ' . ($generatedByUser->last_name ?? ''))
@@ -73,6 +80,15 @@
                     $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
                     $email = optional($staff)->email ?? '—';
                     $userCode = optional($staff)->user_code;
+                    $employmentTypeKey = optional($staff)->employment_type;
+                    $employmentTypeLabel = null;
+                    if ($employmentTypeKey !== null && $employmentTypeKey !== '') {
+                        $employmentTypeLabel = match ($employmentTypeKey) {
+                            'salaried' => 'Salaried (Basic Pay)',
+                            'contractor' => 'Contractor / Freelance',
+                            default => $employmentTypeKey,
+                        };
+                    }
                     $processedByCode = optional($run->processedByUser)->user_code ?? '—';
                     $periodLabel = $run->period_month ?? '—';
                     $processedAt = $run->processed_at
@@ -105,6 +121,7 @@
                         'released_at' => $releasedAt,
                         'processed_sessions' => $processedSessionCount,
                         'processed_by' => $processedByCode,
+                        'employment_type' => $employmentTypeLabel ?? '—',
                     ];
                 };
 
@@ -441,12 +458,19 @@
                                         <th scope="col">Name</th>
                                         <th scope="col">User Code</th>
                                         <th scope="col">Period</th>
+                                        @if($showEmploymentColumn)
+                                            <th scope="col">Employment</th>
+                                        @endif
                                         <th scope="col">Hours</th>
                                         <th scope="col">Gross</th>
-                                        <th scope="col">SSS</th>
-                                        <th scope="col">PhilHealth</th>
-                                        <th scope="col">Pag-IBIG</th>
-                                        <th scope="col">App cut</th>
+                                        @if($showDeductionColumns)
+                                            <th scope="col">SSS</th>
+                                            <th scope="col">PhilHealth</th>
+                                            <th scope="col">Pag-IBIG</th>
+                                        @endif
+                                        @if($showAppCutColumn)
+                                            <th scope="col">App cut</th>
+                                        @endif
                                         <th scope="col">Net</th>
                                         <th scope="col">
                                             <div class="d-flex align-items-center gap-2">
@@ -542,12 +566,19 @@
                                             </td>
                                             <td><span class="text-muted small">{{ optional($staff)->user_code ?? '—' }}</span></td>
                                             <td>{{ $periodLabel }}</td>
+                                            @if($showEmploymentColumn)
+                                                <td>{{ $employmentTypeLabel ?? '—' }}</td>
+                                            @endif
                                             <td><span class="fw-semibold">{{ $formatHours($run->total_hours ?? 0) }}</span></td>
                                             <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
-                                            <td>₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</td>
-                                            <td>₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</td>
-                                            <td>₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</td>
-                                            <td>₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</td>
+                                            @if($showDeductionColumns)
+                                                <td>₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</td>
+                                                <td>₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</td>
+                                                <td>₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</td>
+                                            @endif
+                                            @if($showAppCutColumn)
+                                                <td>₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</td>
+                                            @endif
                                             <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
                                             <td>{{ $processedAt }}</td>
                                             <td>
@@ -585,7 +616,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="16" class="text-center text-muted py-4">
+                                            <td colspan="{{ $tableColumnCount }}" class="text-center text-muted py-4">
                                                 No payroll runs found. Adjust your filters or check back later.
                                             </td>
                                         </tr>
@@ -708,48 +739,60 @@
                 if (!totals) return null;
                 const fmtMoney = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                 const fmtHours = (value) => formatHoursWithMinutes(value);
-                return [
-                    '',
-                    '<strong>Totals</strong>',
-                    '',
-                    '',
-                    fmtHours(totals.hours),
-                    fmtMoney(totals.gross),
-                    fmtMoney(totals.sss),
-                    fmtMoney(totals.philhealth),
-                    fmtMoney(totals.pagibig),
-                    fmtMoney(totals.app_cut),
-                    `<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`,
-                    '',
-                    '',
-                    '',
-                    '',
-                ];
+                return (role) => {
+                    const row = ['', '<strong>Totals</strong>', '', ''];
+                    if (role === 'staff') {
+                        row.push('');
+                    }
+                    row.push(fmtHours(totals.hours));
+                    row.push(fmtMoney(totals.gross));
+                    if (role !== 'trainer') {
+                        row.push(fmtMoney(totals.sss));
+                        row.push(fmtMoney(totals.philhealth));
+                        row.push(fmtMoney(totals.pagibig));
+                    }
+                    if (role !== 'staff') {
+                        row.push(fmtMoney(totals.app_cut));
+                    }
+                    row.push(`<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`);
+                    row.push('', '', '', '');
+                    return row;
+                };
             }
 
 
-            function buildRows(items, totals, currencySymbol) {
-                const rows = (items || []).map((item) => ([
-                    item.id ?? '—',
-                    `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
-                    item.user_code || '—',
-                    item.period || '—',
-                    formatHoursWithMinutes(item.hours),
-                    `${currencySymbol}${item.gross || '0.00'}`,
-                    `${currencySymbol}${item.sss || '0.00'}`,
-                    `${currencySymbol}${item.philhealth || '0.00'}`,
-                    `${currencySymbol}${item.pagibig || '0.00'}`,
-                    `${currencySymbol}${item.app_cut || '0.00'}`,
-                    `<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`,
-                    item.processed_at || '—',
-                    item.status || 'Pending',
-                    item.released_at || '—',
-                    item.processed_by || '—',
-                ]));
+            function buildRows(items, totals, currencySymbol, role = 'all') {
+                const rows = (items || []).map((item) => {
+                    const row = [
+                        item.id ?? '—',
+                        `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
+                        item.user_code || '—',
+                        item.period || '—',
+                    ];
+                    if (role === 'staff') {
+                        row.push(item.employment_type || '—');
+                    }
+                    row.push(formatHoursWithMinutes(item.hours));
+                    row.push(`${currencySymbol}${item.gross || '0.00'}`);
+                    if (role !== 'trainer') {
+                        row.push(`${currencySymbol}${item.sss || '0.00'}`);
+                        row.push(`${currencySymbol}${item.philhealth || '0.00'}`);
+                        row.push(`${currencySymbol}${item.pagibig || '0.00'}`);
+                    }
+                    if (role !== 'staff') {
+                        row.push(`${currencySymbol}${item.app_cut || '0.00'}`);
+                    }
+                    row.push(`<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`);
+                    row.push(item.processed_at || '—');
+                    row.push(item.status || 'Pending');
+                    row.push(item.released_at || '—');
+                    row.push(item.processed_by || '—');
+                    return row;
+                });
 
-                const totalsRow = buildTotalsRow(totals, currencySymbol);
-                if (totalsRow) {
-                    rows.push(totalsRow);
+                const totalsRowBuilder = buildTotalsRow(totals, currencySymbol);
+                if (totalsRowBuilder) {
+                    rows.push(totalsRowBuilder(role));
                 }
                 return rows;
             }
@@ -759,24 +802,20 @@
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
                 const currencySymbol = payload.currency_symbol || '₱';
-                const headers = [
-                    '#',
-                    'Name',
-                    'User Code',
-                    'Period',
-                    'Hours',
-                    'Gross',
-                    'SSS',
-                    'PhilHealth',
-                    'Pag-IBIG',
-                    'App cut',
-                    'Net',
-                    'Processed',
-                    'Release status',
-                    'Release Date',
-                    'Processed By'
-                ];
-                const rows = buildRows(items, payload.totals, currencySymbol);
+                const role = payload.filters?.role || 'all';
+                const headers = ['#', 'Name', 'User Code', 'Period'];
+                if (role === 'staff') {
+                    headers.push('Employment');
+                }
+                headers.push('Hours', 'Gross');
+                if (role !== 'trainer') {
+                    headers.push('SSS', 'PhilHealth', 'Pag-IBIG');
+                }
+                if (role !== 'staff') {
+                    headers.push('App cut');
+                }
+                headers.push('Net', 'Processed', 'Release status', 'Release Date', 'Processed By');
+                const rows = buildRows(items, payload.totals, currencySymbol, role);
                 const filterChips = filters;
 
                 return window.PrintPreview
