@@ -1284,7 +1284,7 @@
     <div class="payroll-summary-card mb-3">
         <div class="summary-grid">
             <div class="summary-item">
-                <div class="summary-label">Gross Pay</div>
+                <div class="summary-label">Total Gross Pay</div>
                 <div class="summary-value">₱{{ number_format((float) $trainerGross, 2) }}</div>
             </div>
             <div class="summary-item">
@@ -1292,18 +1292,12 @@
                 <div class="summary-value" data-total-deductions>₱{{ number_format((float) $trainerTotalDeductions, 2) }}</div>
             </div>
             <div class="summary-item">
-                <div class="summary-label">Net Pay</div>
-                <div class="summary-value text-success" data-net>₱{{ number_format((float) $trainerNet, 2) }}</div>
+                <div class="summary-label">Total Hours</div>
+                <div class="summary-value">{{ $formatHours($assignment['total_hours'] ?? 0) }}</div>
             </div>
             <div class="summary-item">
-                <div class="summary-label">Status</div>
-                @if($hasRemaining)
-                    <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Ready</span>
-                @elseif($hasProcessed)
-                    <span class="badge status-pill bg-success-subtle text-success"><i class="fa-solid fa-circle-check"></i> Processed</span>
-                @else
-                    <span class="badge status-pill bg-warning-subtle text-warning"><i class="fa-solid fa-clock"></i> Pending</span>
-                @endif
+                <div class="summary-label">Total Net Pay</div>
+                <div class="summary-value text-success" data-net>₱{{ number_format((float) $trainerNet, 2) }}</div>
             </div>
         </div>
     </div>
@@ -1382,8 +1376,8 @@
                         <th class="text-end">Hours</th>
                         <th class="text-end">Rate</th>
                         <th class="text-center">Attendance</th>
-                        <th class="text-end">Gross</th>
-                        <th class="text-end">Payable</th>
+                        <th class="text-end">Gross Pay</th>
+                        <th class="text-end">Net Pay</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1560,6 +1554,8 @@
                                 ? (float) $payableSalary
                                 : (float) ($detail['future_potential_salary'] ?? $detail['display_salary'] ?? 0);
                             $payableAmount = $hasPaid ? (float) $payableSalary : 0;
+                            $netRatio = $trainerGross > 0 ? ($trainerNet / $trainerGross) : 0;
+                            $rowNetPay = $grossAmount * $netRatio;
                             $rowCategory = $hasPaid ? 'past' : $category;
                         @endphp
                         <tr
@@ -1604,7 +1600,13 @@
                                 </div>
                             </td>
                             <td class="text-end">₱{{ number_format((float) $grossAmount, 2) }}</td>
-                            <td class="text-end fw-semibold">₱{{ number_format((float) $payableAmount, 2) }}</td>
+                            <td
+                                class="text-end fw-semibold"
+                                data-row-net
+                                data-row-gross="{{ number_format((float) $grossAmount, 2, '.', '') }}"
+                            >
+                                ₱{{ number_format((float) $rowNetPay, 2) }}
+                            </td>
                         </tr>
                     @empty
                         <tr>
@@ -2582,6 +2584,11 @@
                     container.querySelectorAll('[data-appcut]').forEach((el) => el.textContent = formatPeso(appCut));
                     container.querySelectorAll('[data-total-deductions]').forEach((el) => el.textContent = formatPeso(totalDeductions));
                     container.querySelectorAll('[data-net]').forEach((el) => el.textContent = formatPeso(net));
+                    container.querySelectorAll('[data-row-net]').forEach((el) => {
+                        const rowGross = Number(el.dataset.rowGross || 0);
+                        const rowNet = gross > 0 ? rowGross * (net / gross) : 0;
+                        el.textContent = formatPeso(rowNet);
+                    });
 
                     const payslipBtn = container.querySelector('.payslip-btn');
                     if (payslipBtn) {
