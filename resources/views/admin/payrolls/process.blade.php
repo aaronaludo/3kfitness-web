@@ -1389,9 +1389,9 @@
                 <tbody>
                     @php
                         $assignmentDetailsForDisplay = $assignmentDetails->filter(function ($detail) {
-                            $payrollHours = (float) ($detail['payroll_hours'] ?? 0);
-                            $scheduledHours = (float) ($detail['hours'] ?? 0);
-                            return $payrollHours > 0 || $scheduledHours > 0;
+                            $paidDates = collect($detail['paid_dates'] ?? [])->filter();
+                            $paidCount = (int) ($detail['past_paid_count'] ?? 0);
+                            return $paidDates->isNotEmpty() || $paidCount > 0;
                         })->values();
                     @endphp
                     @forelse($assignmentDetailsForDisplay as $detail)
@@ -1446,7 +1446,7 @@
                             $payableSalary = $detail['payroll_salary'] ?? 0;
                             $recurringLabel = $detail['recurring_label'] ?? '';
                             $occurrenceDatesRaw = collect($detail['occurrence_dates'] ?? collect())->filter();
-                            $displayDatesRaw = $occurrenceDatesRaw->isNotEmpty() ? $occurrenceDatesRaw : $paidDatesRaw;
+                            $displayDatesRaw = $paidDatesRaw;
                             $attendanceItems = $displayDatesRaw->map(function ($date) use ($detail, $paidDateKeys) {
                                 try {
                                     $dateKey = \Carbon\Carbon::parse($date)->toDateString();
@@ -1495,7 +1495,7 @@
                                     return null;
                                 }
                             })->filter()->values();
-                            $occurrenceTimeline = collect($detail['occurrence_dates'] ?? [])
+                            $occurrenceTimeline = collect($detail['paid_dates'] ?? [])
                                 ->map(function ($date) use ($detail, $processedDates, $processedLabel, $paidDateKeys) {
                                     try {
                                         $parsed = \Carbon\Carbon::parse($date);
