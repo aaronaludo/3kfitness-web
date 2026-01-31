@@ -678,13 +678,7 @@
                                                     <option value="pending">Pending</option>
                                                 </select>
                                             </div>
-                                            <div class="col-12 col-md-4 d-flex align-items-end gap-2">
-                                                <button class="btn btn-primary btn-sm" type="button" data-staff-filter-apply>
-                                                    <i class="fa-solid fa-filter"></i>
-                                                    Filter
-                                                </button>
-                                                <button type="button" class="btn btn-link btn-sm text-decoration-none" data-staff-filter-reset>Reset</button>
-                                            </div>
+                                            <div class="col-12 col-md-4 d-flex align-items-end gap-2"></div>
                                         </div>
                                     </div>
 
@@ -1374,13 +1368,7 @@
                     <option value="past">Completed</option>
                 </select>
             </div>
-            <div class="col-12 col-md-4 d-flex align-items-end gap-2">
-                <button class="btn btn-primary btn-sm" type="button" data-filter-month-apply>
-                    <i class="fa-solid fa-filter"></i>
-                    Filter
-                </button>
-                <button type="button" class="btn btn-link btn-sm text-decoration-none" data-filter-reset>Reset</button>
-            </div>
+            <div class="col-12 col-md-4 d-flex align-items-end gap-2"></div>
         </div>
     </div>
 
