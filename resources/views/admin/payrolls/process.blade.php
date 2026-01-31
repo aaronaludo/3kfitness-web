@@ -192,7 +192,7 @@
                     </div>
                 @endif
                 <div class="row g-3">
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-md-4">
                         <div class="card border-0 shadow-sm rounded-4 h-100">
                             <div class="card-body">
                                 <div class="text-muted small text-uppercase fw-semibold">Staff in this run</div>
@@ -203,18 +203,7 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-12 col-md-3">
-                        <div class="card border-0 shadow-sm rounded-4 h-100">
-                            <div class="card-body">
-                                <div class="text-muted small text-uppercase fw-semibold">Pending clock-outs</div>
-                                <div class="d-flex align-items-center justify-content-between mt-2">
-                                    <i class="fa-solid fa-hourglass-half text-warning fs-4"></i>
-                                    <span class="fs-4 fw-bold">{{ $stats['pending_entries'] }}</span>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-md-4">
                         <div class="card border-0 shadow-sm rounded-4 h-100">
                             <div class="card-body">
                                 <div class="text-muted small text-uppercase fw-semibold">Total hours</div>
@@ -225,10 +214,10 @@
                             </div>
                         </div>
                     </div>
-                    <div class="col-12 col-md-3">
+                    <div class="col-12 col-md-4">
                         <div class="card border-0 shadow-sm rounded-4 h-100">
                             <div class="card-body">
-                                <div class="text-muted small text-uppercase fw-semibold">Net payout</div>
+                                <div class="text-muted small text-uppercase fw-semibold">Total net payout</div>
                                 <div class="d-flex align-items-center justify-content-between mt-2">
                                     <i class="fa-solid fa-peso-sign text-success fs-4"></i>
                                     <span class="fs-4 fw-bold">₱{{ number_format($staffProjectedNet, 2) }}</span>
@@ -250,9 +239,8 @@
                                         <th>Staff</th>
                                         <th>Rate</th>
                                         <th>Hours</th>
-                                        <th>Gross</th>
-                                        <th>Net</th>
-                                        <th>Status</th>
+                                        <th>Gross Pay</th>
+                                        <th>Net Pay</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
                                 </thead>
@@ -336,18 +324,6 @@
                                                 <div class="fw-semibold text-success" data-net>₱{{ number_format($staffNetWithoutAppCut, 2) }}</div>
                                                 @if($hasStaffProcessed)
                                                     <div class="text-muted small">Processed: ₱{{ number_format((float) ($staffProcessedTotals['net'] ?? 0), 2) }}</div>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                @if($hasStaffRemaining)
-                                                    <span class="badge {{ $summary['pending_entries'] ? 'bg-warning text-dark' : 'bg-success' }} rounded-pill px-3 py-2">
-                                                        {{ $summary['pending_entries'] ? $summary['pending_entries'] . ' pending entries' : 'Ready to finalize' }}
-                                                    </span>
-                                                @elseif($hasStaffProcessed)
-                                                    <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
-                                                    <div class="text-muted small" data-cooldown-display></div>
-                                                @else
-                                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No attendance data</span>
                                                 @endif
                                             </td>
                                             <td class="text-end">
@@ -481,7 +457,7 @@
                                             </td>
                                         </tr>
                                         <tr class="d-none">
-                                            <td colspan="7">
+                                            <td colspan="6">
 <div class="modal fade staff-payroll-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
                         <div class="modal-dialog modal-xl modal-dialog-scrollable">
                             <div class="modal-content rounded-4 border-0 shadow-sm">
@@ -870,7 +846,7 @@
                     <div class="col-12 col-md-3">
                         <div class="card border-0 shadow-sm rounded-4 h-100">
                             <div class="card-body">
-                                <div class="text-muted small text-uppercase fw-semibold">Net payout</div>
+                                <div class="text-muted small text-uppercase fw-semibold">Total net payout</div>
                                 <div class="d-flex align-items-center justify-content-between mt-2">
                                     <i class="fa-solid fa-peso-sign text-success fs-4"></i>
                                     <span class="fs-4 fw-bold">₱{{ number_format($trainerStats['projected_net'], 2) }}</span>
@@ -890,12 +866,10 @@
                                 <thead class="table-light">
                                     <tr>
                                         <th>Trainer</th>
-                                        <th>Assignments</th>
+                                        <th>Payable classes</th>
                                         <th>Hours</th>
-                                        <th>Gross</th>
-                                        <th>Net</th>
-                                        <th>Upcoming</th>
-                                        <th>Status</th>
+                                        <th>Gross Pay</th>
+                                        <th>Net Pay</th>
                                         <th class="text-end">Actions</th>
                                     </tr>
                                 </thead>
@@ -1045,14 +1019,9 @@
                                                 <div class="text-muted small">{{ $trainer->email }}</div>
                                             </td>
                                             <td>
-                                                <div class="d-flex flex-wrap align-items-center gap-2">
-                                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
-                                                        Assignments: {{ $assignment['assignments_count'] }}
-                                                    </span>
-                                                    <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
-                                                        Payable classes: {{ $assignment['payable_assignments_count'] }}
-                                                    </span>
-                                                </div>
+                                                <span class="badge bg-light text-dark fw-semibold rounded-pill px-3 py-2">
+                                                    {{ $assignment['payable_assignments_count'] }}
+                                                </span>
                                             </td>
                                             <td>
                                                 <div class="fw-semibold">{{ $formatHours($assignment['total_hours'] ?? 0) }}</div>
@@ -1073,19 +1042,6 @@
                                                 <div class="fw-semibold text-success" data-net>₱{{ number_format($displayNet, 2) }}</div>
                                                 @if($hasProcessed)
                                                     <div class="text-muted small">Processed: ₱{{ number_format((float) ($processedTotals['net'] ?? 0), 2) }}</div>
-                                                @endif
-                                            </td>
-                                            <td>
-                                                <div class="fw-semibold">₱{{ number_format($trainerUpcoming, 2) }}</div>
-                                                <div class="text-muted small">{{ $totals['future_payroll_count'] ?? 0 }} upcoming sessions</div>
-                                            </td>
-                                            <td>
-                                                @if($hasRemaining)
-                                                    <span class="badge bg-success rounded-pill px-3 py-2">Ready to finalize</span>
-                                                @elseif($hasProcessed)
-                                                    <span class="badge bg-secondary rounded-pill px-3 py-2">Processed</span>
-                                                @else
-                                                    <span class="badge bg-warning text-dark rounded-pill px-3 py-2">No completed assignments</span>
                                                 @endif
                                             </td>
                                             <td class="text-end">
@@ -1172,7 +1128,7 @@
                                             </td>
                                         </tr>
                                         <tr class="d-none">
-                                            <td colspan="8">
+                                            <td colspan="6">
 <div class="modal fade assignment-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
                                 <div class="modal-dialog modal-xl modal-dialog-scrollable">
                                     <div class="modal-content rounded-4 border-0 shadow-sm">
@@ -1354,15 +1310,7 @@
                 <label class="form-label text-muted text-uppercase small mb-1">Month</label>
                 <input type="month" class="form-control form-control-sm" data-filter-month>
             </div>
-            <div class="col-12 col-md-4">
-                <label class="form-label text-muted text-uppercase small mb-1">Attendance</label>
-                <select class="form-select form-select-sm" data-filter-select>
-                    <option value="all">All</option>
-                    <option value="present">Present</option>
-                    <option value="absent">Absent</option>
-                </select>
-            </div>
-            <div class="col-12 col-md-4 d-flex align-items-end gap-2"></div>
+            <div class="col-12 col-md-8 d-flex align-items-end gap-2"></div>
         </div>
     </div>
 
