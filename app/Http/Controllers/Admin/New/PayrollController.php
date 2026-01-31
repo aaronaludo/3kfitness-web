@@ -883,6 +883,14 @@ class PayrollController extends Controller
         if (!in_array($roleFilter, ['all', 'staff', 'trainer'], true)) {
             $roleFilter = 'all';
         }
+        $releaseStatus = $request->input('release_status', 'all');
+        if (!in_array($releaseStatus, ['all', 'released', 'pending'], true)) {
+            $releaseStatus = 'all';
+        }
+        $sortProcessed = strtolower((string) $request->input('sort_processed', ''));
+        $sortReleased = strtolower((string) $request->input('sort_released', ''));
+        $sortProcessed = in_array($sortProcessed, ['asc', 'desc'], true) ? $sortProcessed : null;
+        $sortReleased = in_array($sortReleased, ['asc', 'desc'], true) ? $sortReleased : null;
         $deductionSettings = $this->currentDeductionSettings();
         $appCutRate = max((float) $request->input('app_cut_rate', $deductionSettings['app_cut_rate']), 0);
 
@@ -905,7 +913,7 @@ class PayrollController extends Controller
             $processedTo = null;
         }
 
-        $baseQuery = PayrollRun::with('user')
+        $baseQuery = PayrollRun::with(['user', 'processedByUser'])
             ->when($search, function ($query) use ($search) {
                 $like = '%' . $search . '%';
                 $integerSearch = ctype_digit($search) ? (int) $search : null;
@@ -949,6 +957,13 @@ class PayrollController extends Controller
                     $userQuery->where('role_id', $roleId);
                 });
             })
+            ->when($releaseStatus !== 'all', function ($query) use ($releaseStatus) {
+                if ($releaseStatus === 'released') {
+                    $query->whereNotNull('released_at');
+                } elseif ($releaseStatus === 'pending') {
+                    $query->whereNull('released_at');
+                }
+            })
             ->when($processedFrom || $processedTo, function ($query) use ($processedFrom, $processedTo) {
                 $query->where(function ($dateQuery) use ($processedFrom, $processedTo) {
                     if ($processedFrom) {
@@ -971,16 +986,26 @@ class PayrollController extends Controller
                 });
             });
 
-        $printAllRuns = (clone $baseQuery)
-            ->orderByDesc('processed_at')
-            ->orderByDesc('id')
-            ->get();
+        $applyOrdering = function ($query) use ($sortProcessed, $sortReleased) {
+            if ($sortProcessed) {
+                $query->orderByRaw("COALESCE(processed_at, created_at) {$sortProcessed}");
+            }
+            if ($sortReleased) {
+                $query->orderBy('released_at', $sortReleased);
+            }
+            if (!$sortProcessed && !$sortReleased) {
+                $query->orderByDesc('processed_at');
+            }
+            $query->orderByDesc('id');
+        };
 
-        $runs = (clone $baseQuery)
-            ->orderByDesc('processed_at')
-            ->orderByDesc('id')
-            ->paginate(10)
-            ->withQueryString();
+        $printAllRuns = (clone $baseQuery);
+        $applyOrdering($printAllRuns);
+        $printAllRuns = $printAllRuns->get();
+
+        $runs = (clone $baseQuery);
+        $applyOrdering($runs);
+        $runs = $runs->paginate(10)->withQueryString();
 
         $payslipDetails = [];
         foreach ($runs as $run) {

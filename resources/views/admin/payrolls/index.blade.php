@@ -10,6 +10,12 @@
                 $processedFrom = request('processed_from');
                 $processedTo = request('processed_to');
                 $roleFilter = $roleFilter ?? request('role', 'all');
+                $releaseStatusFilter = $releaseStatusFilter ?? request('release_status', 'all');
+                if (!in_array($releaseStatusFilter, ['all', 'released', 'pending'], true)) {
+                    $releaseStatusFilter = 'all';
+                }
+                $sortProcessed = request('sort_processed');
+                $sortReleased = request('sort_released');
                 $generatedByUser = auth()->guard('admin')->user();
                 $generatedByName = $generatedByUser
                     ? trim(($generatedByUser->first_name ?? '') . ' ' . ($generatedByUser->last_name ?? ''))
@@ -67,6 +73,7 @@
                     $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
                     $email = optional($staff)->email ?? '—';
                     $userCode = optional($staff)->user_code;
+                    $processedByCode = optional($run->processedByUser)->user_code ?? '—';
                     $periodLabel = $run->period_month ?? '—';
                     $processedAt = $run->processed_at
                         ? $run->processed_at->format('M d, Y g:i A')
@@ -97,6 +104,7 @@
                         'processed_at' => $processedAt,
                         'released_at' => $releasedAt,
                         'processed_sessions' => $processedSessionCount,
+                        'processed_by' => $processedByCode,
                     ];
                 };
 
@@ -115,6 +123,7 @@
                         'processed_from' => $processedFrom,
                         'processed_to' => $processedTo,
                         'role' => $roleFilter,
+                        'release_status' => $releaseStatusFilter,
                     ],
                     'currency_symbol' => $currencySymbol,
                     'totals' => $pageTotals,
@@ -134,6 +143,7 @@
                         'processed_from' => $processedFrom,
                         'processed_to' => $processedTo,
                         'role' => $roleFilter,
+                        'release_status' => $releaseStatusFilter,
                         'scope' => 'all',
                     ],
                     'currency_symbol' => $currencySymbol,
@@ -141,6 +151,41 @@
                     'count' => $printAllRuns->count(),
                     'items' => $printAllRuns,
                 ];
+
+                $sortProcessed = in_array($sortProcessed, ['asc', 'desc'], true) ? $sortProcessed : null;
+                $sortReleased = in_array($sortReleased, ['asc', 'desc'], true) ? $sortReleased : null;
+                $processedSortBase = request()->except(['page', 'sort_processed']);
+                $releasedSortBase = request()->except(['page', 'sort_released']);
+                $processedSortAscUrl = request()->fullUrlWithQuery(array_merge($processedSortBase, ['sort_processed' => 'asc']));
+                $processedSortDescUrl = request()->fullUrlWithQuery(array_merge($processedSortBase, ['sort_processed' => 'desc']));
+                $processedSortNoneUrl = request()->url() . (count($processedSortBase) ? '?' . http_build_query($processedSortBase) : '');
+                $releasedSortAscUrl = request()->fullUrlWithQuery(array_merge($releasedSortBase, ['sort_released' => 'asc']));
+                $releasedSortDescUrl = request()->fullUrlWithQuery(array_merge($releasedSortBase, ['sort_released' => 'desc']));
+                $releasedSortNoneUrl = request()->url() . (count($releasedSortBase) ? '?' . http_build_query($releasedSortBase) : '');
+                $processedSortNext = $sortProcessed === 'asc'
+                    ? 'desc'
+                    : ($sortProcessed === 'desc' ? null : 'asc');
+                $releasedSortNext = $sortReleased === 'asc'
+                    ? 'desc'
+                    : ($sortReleased === 'desc' ? null : 'asc');
+                $processedSortToggleUrl = $processedSortNext === 'asc'
+                    ? $processedSortAscUrl
+                    : ($processedSortNext === 'desc' ? $processedSortDescUrl : $processedSortNoneUrl);
+                $releasedSortToggleUrl = $releasedSortNext === 'asc'
+                    ? $releasedSortAscUrl
+                    : ($releasedSortNext === 'desc' ? $releasedSortDescUrl : $releasedSortNoneUrl);
+                $processedSortIcon = $sortProcessed === 'asc'
+                    ? 'fa-arrow-up-wide-short'
+                    : ($sortProcessed === 'desc' ? 'fa-arrow-down-wide-short' : 'fa-sort');
+                $releasedSortIcon = $sortReleased === 'asc'
+                    ? 'fa-arrow-up-wide-short'
+                    : ($sortReleased === 'desc' ? 'fa-arrow-down-wide-short' : 'fa-sort');
+                $processedSortTitle = $processedSortNext === 'asc'
+                    ? 'Oldest to latest'
+                    : ($processedSortNext === 'desc' ? 'Latest to oldest' : 'Clear sort');
+                $releasedSortTitle = $releasedSortNext === 'asc'
+                    ? 'Oldest to latest'
+                    : ($releasedSortNext === 'desc' ? 'Latest to oldest' : 'Clear sort');
             @endphp
 
             <div class="col-12 d-flex justify-content-between align-items-center flex-wrap gap-3 mb-3 mt-2">
@@ -163,6 +208,7 @@
                         <input type="hidden" name="processed_from" value="{{ $processedFrom }}">
                         <input type="hidden" name="processed_to" value="{{ $processedTo }}">
                         <input type="hidden" name="role" value="{{ $roleFilter }}">
+                        <input type="hidden" name="release_status" value="{{ $releaseStatusFilter }}">
                         <button
                             type="submit"
                             class="btn btn-danger d-flex align-items-center gap-2"
@@ -229,7 +275,18 @@
 
                                     <div class="flex-grow-1 flex-lg-grow-0">
                                         <label class="form-label text-muted small mb-1 d-block">Quick filter</label>
-                                        <div class="btn-group" role="group" aria-label="Quick filter trainer and staff">
+                                        <span class="text-muted small text-uppercase fw-semibold d-block mb-1">Payroll type</span>
+                                        <div class="d-flex flex-wrap gap-2" role="group" aria-label="Quick filter trainer and staff">
+                                            <input
+                                                type="radio"
+                                                class="btn-check"
+                                                name="role"
+                                                id="payroll_role_all"
+                                                value="all"
+                                                {{ $roleFilter === 'all' ? 'checked' : '' }}
+                                            >
+                                            <label class="btn btn-outline-secondary rounded-pill px-3" for="payroll_role_all">Show both</label>
+
                                             <input
                                                 type="radio"
                                                 class="btn-check"
@@ -238,7 +295,7 @@
                                                 value="staff"
                                                 {{ $roleFilter === 'staff' ? 'checked' : '' }}
                                             >
-                                            <label class="btn btn-outline-dark" for="payroll_role_staff">Staff payroll</label>
+                                            <label class="btn btn-outline-secondary rounded-pill px-3" for="payroll_role_staff">Staff payroll</label>
 
                                             <input
                                                 type="radio"
@@ -248,17 +305,39 @@
                                                 value="trainer"
                                                 {{ $roleFilter === 'trainer' ? 'checked' : '' }}
                                             >
-                                            <label class="btn btn-outline-dark" for="payroll_role_trainer">Trainer payroll</label>
+                                            <label class="btn btn-outline-secondary rounded-pill px-3" for="payroll_role_trainer">Trainer payroll</label>
+                                        </div>
+                                        <span class="text-muted small text-uppercase fw-semibold d-block mt-3 mb-1">Release status</span>
+                                        <div class="d-flex flex-wrap gap-2" role="group" aria-label="Quick filter release status">
+                                            <input
+                                                type="radio"
+                                                class="btn-check"
+                                                name="release_status"
+                                                id="payroll_release_all"
+                                                value="all"
+                                                {{ $releaseStatusFilter === 'all' ? 'checked' : '' }}
+                                            >
+                                            <label class="btn btn-outline-secondary rounded-pill px-3" for="payroll_release_all">All status</label>
 
                                             <input
                                                 type="radio"
                                                 class="btn-check"
-                                                name="role"
-                                                id="payroll_role_all"
-                                                value="all"
-                                                {{ $roleFilter === 'all' ? 'checked' : '' }}
+                                                name="release_status"
+                                                id="payroll_release_released"
+                                                value="released"
+                                                {{ $releaseStatusFilter === 'released' ? 'checked' : '' }}
                                             >
-                                            <label class="btn btn-outline-dark" for="payroll_role_all">Show both</label>
+                                            <label class="btn btn-outline-success rounded-pill px-3" for="payroll_release_released">Released</label>
+
+                                            <input
+                                                type="radio"
+                                                class="btn-check"
+                                                name="release_status"
+                                                id="payroll_release_pending"
+                                                value="pending"
+                                                {{ $releaseStatusFilter === 'pending' ? 'checked' : '' }}
+                                            >
+                                            <label class="btn btn-outline-warning rounded-pill px-3" for="payroll_release_pending">Pending</label>
                                         </div>
                                     </div>
                                 </div>
@@ -369,9 +448,34 @@
                                         <th scope="col">Pag-IBIG</th>
                                         <th scope="col">App cut</th>
                                         <th scope="col">Net</th>
-                                        <th scope="col">Processed</th>
+                                        <th scope="col">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span>Processed</span>
+                                                <a
+                                                    href="{{ $processedSortToggleUrl }}"
+                                                    class="btn btn-link px-1 {{ $sortProcessed ? 'text-danger' : 'text-muted' }}"
+                                                    title="{{ $processedSortTitle }}"
+                                                    aria-label="Toggle processed date sort"
+                                                >
+                                                    <i class="fa-solid {{ $processedSortIcon }}"></i>
+                                                </a>
+                                            </div>
+                                        </th>
                                         <th scope="col">Release status</th>
-                                        <th scope="col">Release Date</th>
+                                        <th scope="col">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span>Release Date</span>
+                                                <a
+                                                    href="{{ $releasedSortToggleUrl }}"
+                                                    class="btn btn-link px-1 {{ $sortReleased ? 'text-danger' : 'text-muted' }}"
+                                                    title="{{ $releasedSortTitle }}"
+                                                    aria-label="Toggle release date sort"
+                                                >
+                                                    <i class="fa-solid {{ $releasedSortIcon }}"></i>
+                                                </a>
+                                            </div>
+                                        </th>
+                                        <th scope="col">Processed By</th>
                                         <th scope="col" class="text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -407,6 +511,7 @@
                                             $processedSessionCount = $processedSeries->sum(function ($item) {
                                                 return collect($item['sessions'] ?? [])->count();
                                             });
+                                            $processedByCode = optional($run->processedByUser)->user_code ?? '—';
                                             $payslipData = [
                                                 'type' => $isTrainer ? 'trainer' : 'staff',
                                                 'name' => $name,
@@ -449,6 +554,7 @@
                                                 <span class="badge {{ $releaseBadge }} rounded-pill px-3 py-2">{{ $releaseStatus }}</span>
                                             </td>
                                             <td>{{ $releasedAt ? $releasedAt : '—' }}</td>
+                                            <td>{{ $processedByCode }}</td>
                                             <td class="text-center">
                                                 @if($staff)
                                                     @if($releasedAt)
@@ -479,7 +585,7 @@
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="15" class="text-center text-muted py-4">
+                                            <td colspan="16" class="text-center text-muted py-4">
                                                 No payroll runs found. Adjust your filters or check back later.
                                             </td>
                                         </tr>
@@ -550,6 +656,7 @@
             const printLoader = document.getElementById('print-loader');
             const payrollFilterForm = document.getElementById('payroll-filter-form');
             const roleQuickFilters = document.querySelectorAll('input[name="role"]');
+            const releaseQuickFilters = document.querySelectorAll('input[name="release_status"]');
             const formatHoursWithMinutes = function (value) {
                 const hours = Number(value);
                 if (!Number.isFinite(hours)) return '0 hrs';
@@ -591,6 +698,9 @@
                 if (filters.role && filters.role !== 'all') {
                     chips.push({ label: 'Role', value: filters.role === 'trainer' ? 'Trainer only' : 'Staff only' });
                 }
+                if (filters.release_status && filters.release_status !== 'all') {
+                    chips.push({ label: 'Release status', value: filters.release_status === 'released' ? 'Released' : 'Pending' });
+                }
                 return chips;
             }
 
@@ -610,6 +720,7 @@
                     fmtMoney(totals.pagibig),
                     fmtMoney(totals.app_cut),
                     `<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`,
+                    '',
                     '',
                     '',
                     '',
@@ -633,6 +744,7 @@
                     item.processed_at || '—',
                     item.status || 'Pending',
                     item.released_at || '—',
+                    item.processed_by || '—',
                 ]));
 
                 const totalsRow = buildTotalsRow(totals, currencySymbol);
@@ -661,7 +773,8 @@
                     'Net',
                     'Processed',
                     'Release status',
-                    'Release Date'
+                    'Release Date',
+                    'Processed By'
                 ];
                 const rows = buildRows(items, payload.totals, currencySymbol);
                 const filterChips = filters;
@@ -718,8 +831,9 @@
                 });
             }
 
-            if (payrollFilterForm && roleQuickFilters.length) {
-                roleQuickFilters.forEach((input) => {
+            if (payrollFilterForm) {
+                const quickFilters = [...roleQuickFilters, ...releaseQuickFilters];
+                quickFilters.forEach((input) => {
                     input.addEventListener('change', () => {
                         if (typeof payrollFilterForm.requestSubmit === 'function') {
                             payrollFilterForm.requestSubmit();

@@ -45,4 +45,9 @@ class PayrollRun extends Model
     {
         return $this->belongsTo(User::class, 'released_by');
     }
+
+    public function processedByUser()
+    {
+        return $this->belongsTo(User::class, 'processed_by');
+    }
 }
