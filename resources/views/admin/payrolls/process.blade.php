@@ -1219,6 +1219,18 @@
         }
         .assignment-modal .assignment-row { cursor: pointer; }
         .assignment-modal .assignment-row.is-selected { background: #eef2ff; }
+        .assignment-modal .assignment-date-range { display: none; }
+        .assignment-modal [data-date-display="range"] .assignment-date-list { display: none; }
+        .assignment-modal [data-date-display="range"] .assignment-date-range { display: block; }
+        .assignment-modal .assignment-date-toggle {
+            font-size: 12px;
+            color: #2563eb;
+            text-decoration: underline;
+            background: none;
+            border: 0;
+            padding: 0;
+        }
+        .assignment-modal .assignment-date-toggle:hover { color: #1d4ed8; }
         .assignment-modal .entries-select {
             min-width: 64px;
             padding-right: 28px;
@@ -1319,13 +1331,13 @@
             <table class="table table-hover align-middle mb-0">
                 <thead>
                     <tr>
-                        <th>Date</th>
                         <th>Class</th>
+                        <th>Date</th>
                         <th class="text-end">Hours</th>
                         <th class="text-end">Rate</th>
-                        <th class="text-center">Attendance</th>
                         <th class="text-end">Gross Pay</th>
                         <th class="text-end">Net Pay</th>
+                        <th class="text-center">Status</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1401,7 +1413,7 @@
                                 $isFuture = collect($detail['future_dates'] ?? [])->contains($dateKey);
 
                                 if ($isPaid) {
-                                    return ['label' => 'Present', 'class' => 'bg-success-subtle text-success', 'filter' => 'present'];
+                                    return ['label' => 'Completed', 'class' => 'bg-success-subtle text-success', 'filter' => 'present'];
                                 }
                                 if ($isPast) {
                                     return ['label' => 'Absent', 'class' => 'bg-danger-subtle text-danger', 'filter' => 'absent'];
@@ -1427,6 +1439,26 @@
                             $displayDateItems = $displayDates->isNotEmpty()
                                 ? $displayDates
                                 : collect([$start ? $start->format('M d') : '—']);
+                            $rangeStartLabel = $displayDateItems->first();
+                            $rangeEndLabel = $displayDateItems->last();
+                            $dateRangeLabel = $rangeStartLabel ?? '—';
+                            if ($rangeEndLabel && $rangeEndLabel !== $rangeStartLabel) {
+                                $dateRangeLabel .= ' - ' . $rangeEndLabel;
+                            }
+                            $statusItems = $attendanceItems;
+                            if ($statusItems->where('label', 'Completed')->count() > 1) {
+                                $completedSeen = false;
+                                $statusItems = $statusItems->filter(function ($item) use (&$completedSeen) {
+                                    if (($item['label'] ?? '') !== 'Completed') {
+                                        return true;
+                                    }
+                                    if ($completedSeen) {
+                                        return false;
+                                    }
+                                    $completedSeen = true;
+                                    return true;
+                                })->values();
+                            }
                             $startFilterDate = $displayDatesRaw->first() ?? ($detail['start_date'] ?? '');
                             $endFilterDate = $displayDatesRaw->last() ?? ($detail['end_date'] ?? '');
                             $occurrenceDaysSource = $displayDatesRaw->isNotEmpty() ? $displayDatesRaw : $occurrenceDatesRaw;
@@ -1509,6 +1541,7 @@
                         <tr
                             class="assignment-row"
                             data-assignment-card
+                            data-date-display="list"
                             data-category="{{ $rowCategory }}"
                             data-attendance="{{ $attendanceFilters->implode(',') }}"
                             data-start-date="{{ $startFilterDate }}"
@@ -1523,14 +1556,18 @@
                             data-occurrence-days="{{ $occurrenceDays->implode(',') }}"
                             data-detail='{{ $detailJson }}'
                         >
-                            <td class="text-muted small">
-                                @foreach($displayDateItems as $dateItem)
-                                    <div>• {{ $dateItem }}</div>
-                                @endforeach
-                            </td>
                             <td>
                                 <div class="fw-semibold">{{ $schedule->name ?? 'Unnamed Schedule' }}</div>
                                 <div class="text-muted small">Code: {{ $schedule->class_code ?? '—' }}</div>
+                                <button type="button" class="assignment-date-toggle mt-1" data-date-toggle aria-expanded="true">hide</button>
+                            </td>
+                            <td class="text-muted small">
+                                <div class="assignment-date-list">
+                                    @foreach($displayDateItems as $dateItem)
+                                        <div>• {{ $dateItem }}</div>
+                                    @endforeach
+                                </div>
+                                <div class="assignment-date-range">{{ $dateRangeLabel }}</div>
                             </td>
                             <td class="text-end">{{ $formatHours($hoursValue) }}</td>
                             <td class="text-end">
@@ -1540,13 +1577,6 @@
                                     —
                                 @endif
                             </td>
-                            <td class="text-center">
-                                <div class="d-flex flex-column align-items-center gap-1">
-                                    @foreach($attendanceItems as $attendanceItem)
-                                        <span class="badge status-pill {{ $attendanceItem['class'] }}">{{ $attendanceItem['label'] }}</span>
-                                    @endforeach
-                                </div>
-                            </td>
                             <td class="text-end">₱{{ number_format((float) $grossAmount, 2) }}</td>
                             <td
                                 class="text-end fw-semibold"
@@ -1554,6 +1584,13 @@
                                 data-row-gross="{{ number_format((float) $grossAmount, 2, '.', '') }}"
                             >
                                 ₱{{ number_format((float) $rowNetPay, 2) }}
+                            </td>
+                            <td class="text-center">
+                                <div class="d-flex flex-column align-items-center gap-1">
+                                    @foreach($statusItems as $statusItem)
+                                        <span class="badge status-pill {{ $statusItem['class'] }}">{{ $statusItem['label'] }}</span>
+                                    @endforeach
+                                </div>
                             </td>
                         </tr>
                     @empty
@@ -3002,6 +3039,20 @@
             const detailPanel = modal.querySelector('[data-assignment-detail]');
             let selectedCard = null;
             let selectedRange = null;
+            const dateToggles = modal.querySelectorAll('[data-date-toggle]');
+
+            dateToggles.forEach((toggle) => {
+                toggle.addEventListener('click', (event) => {
+                    event.preventDefault();
+                    event.stopPropagation();
+                    const row = toggle.closest('[data-assignment-card]');
+                    if (!row) return;
+                    const isRange = row.dataset.dateDisplay === 'range';
+                    row.dataset.dateDisplay = isRange ? 'list' : 'range';
+                    toggle.textContent = isRange ? 'hide' : 'see more';
+                    toggle.setAttribute('aria-expanded', isRange ? 'true' : 'false');
+                });
+            });
 
             function setActive(targetFilter) {
                 activeFilter = targetFilter;
