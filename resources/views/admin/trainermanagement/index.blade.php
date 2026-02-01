@@ -211,7 +211,7 @@
         .assignment-modal .payroll-table {
             border: 1px solid #e5e7eb;
             border-radius: 16px;
-            overflow: visible;
+            overflow-x: hidden;
             background: #fff;
         }
         .assignment-modal .payroll-table thead th {
@@ -230,6 +230,35 @@
         }
         .assignment-modal .modal-content { font-size: 0.94rem; }
         .assignment-modal .modal-title { font-size: 1.1rem; }
+        .assignment-modal .modal-body { overflow-x: hidden; }
+        .assignment-modal .assignment-list,
+        .assignment-modal .payroll-table,
+        .assignment-modal .assignment-row,
+        .assignment-modal .series-sessions,
+        .assignment-modal .series-panel {
+            max-width: 100%;
+        }
+        .assignment-modal .series-panel {
+            width: 100%;
+            overflow-x: hidden;
+            box-sizing: border-box;
+        }
+        .assignment-modal .series-item { max-width: 100%; }
+        .assignment-modal .series-item div { overflow-wrap: anywhere; }
+        .students-modal {
+            z-index: 1085;
+        }
+        .assignment-modal .col-students { text-align: left; }
+        .students-modal-backdrop {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 1080;
+            display: none;
+        }
+        .students-modal-backdrop.is-visible {
+            display: block;
+        }
         .assignment-modal .assignment-hours-badge {
             font-size: 0.7rem;
             padding: 2px 8px;
@@ -385,7 +414,7 @@
             .assignment-modal .assignment-table-head,
             .assignment-modal .assignment-row {
                 display: grid !important;
-                grid-template-columns: 90px minmax(220px, 1fr) 120px 220px 170px minmax(260px, 1.1fr);
+                grid-template-columns: 90px minmax(220px, 1fr) 120px 220px minmax(260px, 1.1fr) 170px;
                 column-gap: 16px;
                 align-items: start;
             }
@@ -1534,8 +1563,8 @@
                                                                             <div class="assignment-col flex-grow-1">Type</div>
                                                                             <div class="assignment-col col-rate">Rate/hr</div>
                                                                             <div class="assignment-col col-date">Date</div>
-                                                                            <div class="assignment-col col-students">Students</div>
                                                                             <div class="assignment-col col-series">Series of sessions</div>
+                                                                            <div class="assignment-col col-students">Students</div>
                                                                         </div>
                                                                         @foreach($scheduleDetails as $detailIndex => $detail)
                                                                             @php
@@ -1594,22 +1623,6 @@
                                                                                         @endforeach
                                                                                     </div>
                                                                                     <div class="assignment-date-range">{{ $dateRangeLabel }}</div>
-                                                                                </div>
-                                                                                <div class="assignment-col col-students">
-                                                                                    @if($students->isNotEmpty())
-                                                                                        <button
-                                                                                            class="btn btn-light btn-sm students-toggle"
-                                                                                            type="button"
-                                                                                            data-bs-toggle="modal"
-                                                                                            data-bs-target="#assignmentStudentsModal"
-                                                                                            data-students='@json($studentsPayload)'
-                                                                                            data-students-title="{{ $schedule->name ?? 'Students' }}"
-                                                                                        >
-                                                                                            See more ({{ $students->count() }})
-                                                                                        </button>
-                                                                                    @else
-                                                                                        <span class="text-muted small">No students</span>
-                                                                                    @endif
                                                                                 </div>
                                                                                 <div class="assignment-col col-series">
                                                                                     @if($seriesSessions->isNotEmpty())
@@ -1673,6 +1686,20 @@
                                                                                         </div>
                                                                                     @else
                                                                                         <span class="text-muted small">Series not set</span>
+                                                                                    @endif
+                                                                                </div>
+                                                                                <div class="assignment-col col-students">
+                                                                                    @if($students->isNotEmpty())
+                                                                                        <button
+                                                                                            class="btn btn-light btn-sm students-toggle"
+                                                                                            type="button"
+                                                                                            data-students='@json($studentsPayload)'
+                                                                                            data-students-title="{{ $schedule->name ?? 'Students' }}"
+                                                                                        >
+                                                                                            See more ({{ $students->count() }})
+                                                                                        </button>
+                                                                                    @else
+                                                                                        <span class="text-muted small">No students</span>
                                                                                     @endif
                                                                                 </div>
                                                                             </div>
@@ -2160,8 +2187,8 @@
                                                                             <div class="assignment-col flex-grow-1">Type</div>
                                                                             <div class="assignment-col col-rate">Rate/hr</div>
                                                                             <div class="assignment-col col-date">Date</div>
-                                                                            <div class="assignment-col col-students">Students</div>
                                                                             <div class="assignment-col col-series">Series of sessions</div>
+                                                                            <div class="assignment-col col-students">Students</div>
                                                                         </div>
                                                                         @foreach($archivedScheduleDetails as $detailIndex => $detail)
                                                                             @php
@@ -2220,22 +2247,6 @@
                                                                                         @endforeach
                                                                                     </div>
                                                                                     <div class="assignment-date-range">{{ $dateRangeLabel }}</div>
-                                                                                </div>
-                                                                                <div class="assignment-col col-students">
-                                                                                    @if($students->isNotEmpty())
-                                                                                        <button
-                                                                                            class="btn btn-light btn-sm students-toggle"
-                                                                                            type="button"
-                                                                                            data-bs-toggle="modal"
-                                                                                            data-bs-target="#assignmentStudentsModal"
-                                                                                            data-students='@json($studentsPayload)'
-                                                                                            data-students-title="{{ $schedule->name ?? 'Students' }}"
-                                                                                        >
-                                                                                            See more ({{ $students->count() }})
-                                                                                        </button>
-                                                                                    @else
-                                                                                        <span class="text-muted small">No students</span>
-                                                                                    @endif
                                                                                 </div>
                                                                                 <div class="assignment-col col-series">
                                                                                     @if($seriesSessions->isNotEmpty())
@@ -2299,6 +2310,20 @@
                                                                                         </div>
                                                                                     @else
                                                                                         <span class="text-muted small">Series not set</span>
+                                                                                    @endif
+                                                                                </div>
+                                                                                <div class="assignment-col col-students">
+                                                                                    @if($students->isNotEmpty())
+                                                                                        <button
+                                                                                            class="btn btn-light btn-sm students-toggle"
+                                                                                            type="button"
+                                                                                            data-students='@json($studentsPayload)'
+                                                                                            data-students-title="{{ $schedule->name ?? 'Students' }}"
+                                                                                        >
+                                                                                            See more ({{ $students->count() }})
+                                                                                        </button>
+                                                                                    @else
+                                                                                        <span class="text-muted small">No students</span>
                                                                                     @endif
                                                                                 </div>
                                                                             </div>
@@ -2511,6 +2536,7 @@
             </div>
         </div>
     </div>
+    <div class="students-modal-backdrop" data-students-backdrop></div>
 
     <script>
         document.addEventListener('DOMContentLoaded', function () {
@@ -2949,6 +2975,7 @@
 
             const assignmentModals = document.querySelectorAll('[data-assignment-modal]');
             const globalStudentsModal = document.getElementById('assignmentStudentsModal');
+            const globalStudentsBackdrop = document.querySelector('[data-students-backdrop]');
             const globalStudentsModalTitle = globalStudentsModal ? globalStudentsModal.querySelector('[data-students-modal-title]') : null;
             const globalStudentsModalList = globalStudentsModal ? globalStudentsModal.querySelector('[data-students-list]') : null;
             const globalStudentsModalEmpty = globalStudentsModal ? globalStudentsModal.querySelector('[data-students-empty]') : null;
@@ -3322,6 +3349,9 @@
                 const studentsModalList = globalStudentsModalList;
                 const studentsModalEmpty = globalStudentsModalEmpty;
                 const studentsModalCount = globalStudentsModalCount;
+                const studentsBackdrop = globalStudentsBackdrop;
+                let parentModalEl = modalEl;
+                let studentsModalInstance = null;
 
                 if (!cards.length) {
                     return;
@@ -3586,10 +3616,12 @@
 
                 const studentButtons = modalEl.querySelectorAll('[data-students-title][data-students]');
                 studentButtons.forEach(function (button) {
-                    button.addEventListener('click', function () {
+                    button.addEventListener('click', function (event) {
                         if (!studentsModal || !studentsModalList || !studentsModalEmpty) {
                             return;
                         }
+                        event.preventDefault();
+                        event.stopPropagation();
                         const title = button.getAttribute('data-students-title') || 'Students';
                         if (studentsModalTitle) {
                             studentsModalTitle.textContent = title;
@@ -3633,8 +3665,31 @@
                             const label = students.length === 1 ? 'student' : 'students';
                             studentsModalCount.textContent = `${students.length} ${label}`;
                         }
+
+                        if (studentsBackdrop) {
+                            studentsBackdrop.classList.add('is-visible');
+                        }
+                        if (typeof bootstrap !== 'undefined') {
+                            studentsModalInstance = bootstrap.Modal.getOrCreateInstance(studentsModal, {
+                                backdrop: false,
+                                keyboard: true,
+                                focus: false,
+                            });
+                            studentsModalInstance.show();
+                        }
                     });
                 });
+
+                if (studentsModal) {
+                    studentsModal.addEventListener('hidden.bs.modal', function () {
+                        if (studentsBackdrop) {
+                            studentsBackdrop.classList.remove('is-visible');
+                        }
+                        if (parentModalEl && parentModalEl.classList.contains('show')) {
+                            document.body.classList.add('modal-open');
+                        }
+                    });
+                }
 
                 modalEl.addEventListener('shown.bs.modal', function () {
                     applyFilters(true);
