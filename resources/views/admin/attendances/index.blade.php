@@ -1382,7 +1382,7 @@
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildPrintFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'User Code', 'Clock-in', 'Clock-out', 'Status', 'Created By'];
+                const headers = ['#', 'Member', 'User Code', 'Clock-in', 'Clock-out', 'Status', 'Date Created'];
                 const rows = buildPrintRows(items);
 
                 return window.PrintPreview

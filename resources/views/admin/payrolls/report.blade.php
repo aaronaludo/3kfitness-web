@@ -347,6 +347,12 @@
                     }
                     : '—';
                 $hoursValue = (float) ($run->total_hours ?? 0);
+                $totalMinutes = (int) round($hoursValue * 60);
+                $displayHours = intdiv($totalMinutes, 60);
+                $displayMinutes = $totalMinutes % 60;
+                $hoursLabel = $displayHours . ' hr' . ($displayHours === 1 ? '' : 's');
+                $minutesLabel = $displayMinutes . ' min' . ($displayMinutes === 1 ? '' : 's');
+                $formattedHours = $displayMinutes === 0 ? $hoursLabel : ($hoursLabel . ' ' . $minutesLabel);
                 $grossValue = (float) ($run->gross_pay ?? 0);
                 $rateValue = $hoursValue > 0 ? round($grossValue / $hoursValue, 2) : 0;
 
@@ -359,7 +365,7 @@
                     'period' => $periodLabel,
                     'employment_type' => $employmentTypeLabel,
                     'rate' => number_format($rateValue, 2),
-                    'hours' => number_format($hoursValue, 2),
+                    'hours' => $formattedHours,
                     'gross' => number_format($grossValue, 2),
                     'sss' => number_format((float) ($run->deduction_sss ?? 0), 2),
                     'philhealth' => number_format((float) ($run->deduction_philhealth ?? 0), 2),
@@ -731,6 +737,12 @@
                                                         }
                                                         : '—';
                                                     $hoursValue = (float) ($run->total_hours ?? 0);
+                                                    $totalMinutes = (int) round($hoursValue * 60);
+                                                    $displayHours = intdiv($totalMinutes, 60);
+                                                    $displayMinutes = $totalMinutes % 60;
+                                                    $hoursLabel = $displayHours . ' hr' . ($displayHours === 1 ? '' : 's');
+                                                    $minutesLabel = $displayMinutes . ' min' . ($displayMinutes === 1 ? '' : 's');
+                                                    $formattedHours = $displayMinutes === 0 ? $hoursLabel : ($hoursLabel . ' ' . $minutesLabel);
                                                     $grossValue = (float) ($run->gross_pay ?? 0);
                                                     $rateValue = $hoursValue > 0 ? round($grossValue / $hoursValue, 2) : 0;
                                                     $deductionTotal = $focus === 'staff'
@@ -749,7 +761,7 @@
                                                         <td>₱{{ number_format($rateValue, 2) }}/hr</td>
                                                     @endif
                                                     <td>{{ $periodLabel }}</td>
-                                                    <td>{{ number_format($hoursValue, 2) }}</td>
+                                                    <td>{{ $formattedHours }}</td>
                                                     <td>₱{{ number_format($grossValue, 2) }}</td>
                                                     <td>
                                                         <div class="fw-semibold">₱{{ number_format((float) $deductionTotal, 2) }}</div>
@@ -850,7 +862,7 @@
                 `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div><div class="muted">Code: ${item.user_code || '—'}</div>`,
                 ...(focus === 'staff' ? [item.employment_type || '—', `${currencySymbol}${item.rate || '0.00'}/hr`] : []),
                 item.period || '—',
-                `${item.hours || '0.00'} hrs`,
+                `${item.hours || '0 hr 0 mins'}`,
                 `${currencySymbol}${item.gross || '0.00'}`,
                 ...(focus === 'staff'
                     ? [

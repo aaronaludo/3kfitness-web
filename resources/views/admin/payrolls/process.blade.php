@@ -459,7 +459,7 @@
                                         <tr class="d-none">
                                             <td colspan="6">
 <div class="modal fade staff-payroll-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
-                        <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                        <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                             <div class="modal-content rounded-4 border-0 shadow-sm">
                                 <div class="modal-header border-0 pb-0">
                                     <div class="flex-grow-1">
@@ -1130,7 +1130,7 @@
                                         <tr class="d-none">
                                             <td colspan="6">
 <div class="modal fade assignment-modal" id="{{ $modalId }}" tabindex="-1" aria-labelledby="{{ $modalId }}Label" aria-hidden="true">
-                                <div class="modal-dialog modal-xl modal-dialog-scrollable">
+                                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
                                     <div class="modal-content rounded-4 border-0 shadow-sm">
                                         <div class="modal-header border-0 pb-0">
                                             <div class="flex-grow-1">
