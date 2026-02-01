@@ -378,22 +378,19 @@ class ScheduleController extends Controller
                 ->withInput();
         }
         
-        $startRange = Carbon::parse($request->class_start_date)->subHour();
-        $endRange = Carbon::parse($request->class_end_date)->addHour();
-        
-        $existingSchedule = Schedule::where('trainer_id', $request->trainer_id)
-            ->where(function ($query) use ($startRange, $endRange) {
-                $query->whereBetween('class_start_date', [$startRange, $endRange])
-                      ->orWhereBetween('class_end_date', [$startRange, $endRange])
-                      ->orWhere(function ($q) use ($startRange, $endRange) {
-                          $q->where('class_start_date', '<=', $startRange)
-                            ->where('class_end_date', '>=', $endRange);
-                      });
-            })
-            ->first();
-        
-        if ($existingSchedule) {
-            return back()->withErrors(['schedule' => 'The trainer is already booked within this time range.']);
+        $conflictingSchedule = $this->findTrainerScheduleConflict(
+            (int) $request->trainer_id,
+            $recurringDays,
+            $request->series_start_date,
+            $request->series_end_date,
+            $request->class_start_time,
+            $request->class_end_time
+        );
+
+        if ($conflictingSchedule) {
+            return back()
+                ->withErrors(['schedule' => 'The trainer already has a class scheduled during the selected day(s) and time range.'])
+                ->withInput();
         }
 
         if ((int) $request->trainer_id !== 0 && !$request->filled('trainer_rate_per_hour')) {
@@ -483,23 +480,20 @@ class ScheduleController extends Controller
                 ->withInput();
         }
 
-        $startRange = Carbon::parse($request->class_start_date)->subHour();
-        $endRange = Carbon::parse($request->class_end_date)->addHour();
-        
-        $existingSchedule = Schedule::where('trainer_id', $request->trainer_id)
-            ->where('id', '!=', $data->id)
-            ->where(function ($query) use ($startRange, $endRange) {
-                $query->whereBetween('class_start_date', [$startRange, $endRange])
-                      ->orWhereBetween('class_end_date', [$startRange, $endRange])
-                      ->orWhere(function ($q) use ($startRange, $endRange) {
-                          $q->where('class_start_date', '<=', $startRange)
-                            ->where('class_end_date', '>=', $endRange);
-                      });
-            })
-            ->first();
-        
-        if ($existingSchedule) {
-            return back()->withErrors(['schedule' => 'The trainer is already booked within this time range.']);
+        $conflictingSchedule = $this->findTrainerScheduleConflict(
+            (int) $request->trainer_id,
+            $recurringDays,
+            $request->series_start_date,
+            $request->series_end_date,
+            $request->class_start_time,
+            $request->class_end_time,
+            (int) $data->id
+        );
+
+        if ($conflictingSchedule) {
+            return back()
+                ->withErrors(['schedule' => 'The trainer already has a class scheduled during the selected day(s) and time range.'])
+                ->withInput();
         }
 
         if ((int) $request->trainer_id !== 0 && !$request->filled('trainer_rate_per_hour')) {
@@ -588,6 +582,14 @@ class ScheduleController extends Controller
 
         if ((int) $reschedule->status !== 0) {
             return redirect($redirectUrl)->with('error', 'This request has already been processed.');
+        }
+
+        if ((int) $validated['status'] === 1 && $reschedule->schedule) {
+            $conflict = $this->findTrainerRescheduleConflict($reschedule, $reschedule->schedule);
+            if ($conflict) {
+                return redirect($redirectUrl)
+                    ->with('error', 'Cannot approve this request because the trainer already has another class scheduled at the proposed time.');
+            }
         }
 
         $reschedule->status = (int) $validated['status'];
@@ -778,6 +780,370 @@ class ScheduleController extends Controller
         $filtered = array_values(array_intersect($daysMeta, $raw));
 
         return array_values(array_unique($filtered));
+    }
+
+    /**
+     * Check if a trainer already has a schedule that overlaps the given recurrence.
+     */
+    private function findTrainerScheduleConflict(
+        int $trainerId,
+        array $newDays,
+        ?string $seriesStart,
+        ?string $seriesEnd,
+        ?string $startTime,
+        ?string $endTime,
+        ?int $ignoreScheduleId = null
+    ): ?Schedule
+    {
+        if ($trainerId === 0) {
+            return null;
+        }
+
+        $seriesStart = $this->safeParseDate($seriesStart, true);
+        $seriesEnd = $this->safeParseDate($seriesEnd, false);
+        $newDays = $this->sanitizeRecurringDays($newDays);
+
+        if (!$seriesStart || !$seriesEnd || empty($newDays)) {
+            return null;
+        }
+
+        $newStartMinutes = $this->timeStringToMinutes($startTime);
+        $newEndMinutes = $this->timeStringToMinutes($endTime);
+        if ($newStartMinutes === null || $newEndMinutes === null || $newEndMinutes <= $newStartMinutes) {
+            return null;
+        }
+
+        $query = Schedule::where('trainer_id', $trainerId)
+            ->when($ignoreScheduleId, function ($query) use ($ignoreScheduleId) {
+                $query->where('id', '!=', $ignoreScheduleId);
+            })
+            ->where(function ($query) {
+                $query->whereNull('is_archieve')
+                    ->orWhere('is_archieve', 0);
+            });
+
+        $candidates = $query->get();
+
+        foreach ($candidates as $schedule) {
+            [$existingStart, $existingEnd] = $this->resolveScheduleSeriesRange($schedule);
+            if (!$existingStart || !$existingEnd) {
+                continue;
+            }
+
+            if ($existingEnd->lt($seriesStart) || $existingStart->gt($seriesEnd)) {
+                continue;
+            }
+
+            $existingDays = $this->resolveScheduleDayKeys($schedule);
+            $dayOverlap = array_values(array_intersect($newDays, $existingDays));
+            if (empty($dayOverlap)) {
+                continue;
+            }
+
+            $overlapStart = $existingStart->gt($seriesStart) ? $existingStart->copy() : $seriesStart->copy();
+            $overlapEnd = $existingEnd->lt($seriesEnd) ? $existingEnd->copy() : $seriesEnd->copy();
+            if ($overlapStart->gt($overlapEnd)) {
+                continue;
+            }
+
+            if (!$this->hasDayOverlap($overlapStart, $overlapEnd, $dayOverlap)) {
+                continue;
+            }
+
+            [$existingStartMinutes, $existingEndMinutes] = $this->resolveScheduleTimeMinutes($schedule);
+            if ($existingStartMinutes === null || $existingEndMinutes === null) {
+                continue;
+            }
+
+            if ($this->timesOverlap($newStartMinutes, $newEndMinutes, $existingStartMinutes, $existingEndMinutes)) {
+                return $schedule;
+            }
+        }
+
+        return null;
+    }
+
+    private function findTrainerRescheduleConflict(ScheduleRescheduleRequest $reschedule, Schedule $schedule): ?Schedule
+    {
+        $trainerId = (int) ($reschedule->trainer_id ?? $schedule->trainer_id ?? 0);
+        if ($trainerId === 0) {
+            return null;
+        }
+
+        $targets = (array) ($reschedule->target_session_dates ?? []);
+        $proposed = (array) ($reschedule->proposed_session_dates ?? []);
+        $resolvedDates = [];
+
+        foreach ($targets as $idx => $targetDate) {
+            $original = $this->normalizeDateValue($targetDate);
+            if (!$original) {
+                continue;
+            }
+            $replacement = $this->normalizeDateValue($proposed[$idx] ?? $targetDate) ?? $original;
+            $resolvedDates[] = $replacement;
+        }
+
+        $resolvedDates = array_values(array_unique(array_filter($resolvedDates)));
+
+        if (!empty($resolvedDates)) {
+            $proposedStart = $this->timeStringToMinutes($reschedule->proposed_start_time);
+            $proposedEnd = $this->timeStringToMinutes($reschedule->proposed_end_time);
+
+            if ($proposedStart === null || $proposedEnd === null || $proposedEnd <= $proposedStart) {
+                return null;
+            }
+
+            $candidates = Schedule::where('trainer_id', $trainerId)
+                ->where('id', '!=', $schedule->id)
+                ->where(function ($query) {
+                    $query->whereNull('is_archieve')
+                        ->orWhere('is_archieve', 0);
+                })
+                ->get();
+
+            foreach ($resolvedDates as $dateString) {
+                try {
+                    $date = Carbon::parse($dateString)->startOfDay();
+                } catch (\Throwable $th) {
+                    continue;
+                }
+
+                foreach ($candidates as $candidate) {
+                    $window = $this->getScheduleSessionWindowForDate($candidate, $date);
+                    if (!$window) {
+                        continue;
+                    }
+
+                    [$startMinutes, $endMinutes] = $window;
+                    if ($startMinutes === null || $endMinutes === null) {
+                        continue;
+                    }
+
+                    if ($this->timesOverlap($proposedStart, $proposedEnd, $startMinutes, $endMinutes)) {
+                        return $candidate;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        $seriesStart = $reschedule->proposed_series_start_date
+            ? $reschedule->proposed_series_start_date->toDateString()
+            : ($schedule->series_start_date ?? $schedule->class_start_date);
+        $seriesEnd = $reschedule->proposed_series_end_date
+            ? $reschedule->proposed_series_end_date->toDateString()
+            : ($schedule->series_end_date ?? $schedule->class_end_date ?? $schedule->class_start_date);
+        $newDays = $this->sanitizeRecurringDays($reschedule->recurring_days ?? $schedule->recurring_days ?? []);
+
+        return $this->findTrainerScheduleConflict(
+            $trainerId,
+            $newDays,
+            $seriesStart,
+            $seriesEnd,
+            $reschedule->proposed_start_time,
+            $reschedule->proposed_end_time,
+            (int) $schedule->id
+        );
+    }
+
+    private function getScheduleSessionWindowForDate(Schedule $schedule, Carbon $date): ?array
+    {
+        $dateKey = $date->toDateString();
+        $overridesRaw = is_array($schedule->session_overrides)
+            ? $schedule->session_overrides
+            : json_decode($schedule->session_overrides ?? '[]', true);
+
+        $movedAway = false;
+
+        foreach ((array) $overridesRaw as $override) {
+            if (is_object($override)) {
+                $override = (array) $override;
+            }
+            if (!is_array($override)) {
+                continue;
+            }
+
+            $originalDate = $this->normalizeDateValue($override['original_date'] ?? null);
+            if (!$originalDate) {
+                continue;
+            }
+
+            $newDate = $this->normalizeDateValue($override['new_date'] ?? $originalDate) ?? $originalDate;
+
+            if ($newDate === $dateKey) {
+                $startMinutes = $this->timeStringToMinutes($override['start_time'] ?? $schedule->class_start_time);
+                $endMinutes = $this->timeStringToMinutes($override['end_time'] ?? $schedule->class_end_time);
+                if ($startMinutes === null || $endMinutes === null) {
+                    [$startMinutes, $endMinutes] = $this->resolveScheduleTimeMinutes($schedule);
+                }
+
+                return [$startMinutes, $endMinutes];
+            }
+
+            if ($originalDate === $dateKey && $newDate !== $originalDate) {
+                $movedAway = true;
+            }
+        }
+
+        if ($movedAway) {
+            return null;
+        }
+
+        [$seriesStart, $seriesEnd] = $this->resolveScheduleSeriesRange($schedule);
+        if (!$seriesStart || !$seriesEnd) {
+            return null;
+        }
+
+        $cursor = $date->copy()->startOfDay();
+        if ($cursor->lt($seriesStart) || $cursor->gt($seriesEnd)) {
+            return null;
+        }
+
+        $dayKey = strtolower($cursor->format('D'));
+        $days = $this->resolveScheduleDayKeys($schedule);
+        if (!in_array($dayKey, $days, true)) {
+            return null;
+        }
+
+        return $this->resolveScheduleTimeMinutes($schedule);
+    }
+
+    private function resolveScheduleSeriesRange(Schedule $schedule): array
+    {
+        $seriesStart = $schedule->series_start_date ?? $schedule->class_start_date;
+        $seriesEnd = $schedule->series_end_date ?? ($schedule->class_end_date ?? $schedule->class_start_date);
+
+        $start = $this->safeParseDate($seriesStart, true);
+        $end = $this->safeParseDate($seriesEnd, false);
+
+        return [$start, $end];
+    }
+
+    private function resolveScheduleDayKeys(Schedule $schedule): array
+    {
+        $days = $this->sanitizeRecurringDays($schedule->recurring_days ?? []);
+        if (!empty($days)) {
+            return $days;
+        }
+
+        $fallbackDate = $schedule->class_start_date ?? $schedule->series_start_date;
+        if (!$fallbackDate) {
+            return [];
+        }
+
+        try {
+            return [strtolower(Carbon::parse($fallbackDate)->format('D'))];
+        } catch (\Throwable $th) {
+            return [];
+        }
+    }
+
+    private function resolveScheduleTimeMinutes(Schedule $schedule): array
+    {
+        $start = $this->timeStringToMinutes($schedule->class_start_time);
+        if ($start === null) {
+            $start = $this->dateTimeToMinutes($schedule->class_start_date);
+        }
+
+        $end = $this->timeStringToMinutes($schedule->class_end_time);
+        if ($end === null) {
+            $end = $this->dateTimeToMinutes($schedule->class_end_date);
+        }
+
+        if ($start === null && $end === null) {
+            return [null, null];
+        }
+
+        if ($start === null) {
+            $start = 0;
+        }
+        if ($end === null) {
+            $end = 24 * 60;
+        }
+        if ($end <= $start) {
+            $start = 0;
+            $end = 24 * 60;
+        }
+
+        return [$start, $end];
+    }
+
+    private function timeStringToMinutes(?string $time): ?int
+    {
+        if (empty($time)) {
+            return null;
+        }
+
+        try {
+            $parsed = Carbon::createFromFormat('H:i', $time);
+        } catch (\Throwable $th) {
+            try {
+                $parsed = Carbon::parse($time);
+            } catch (\Throwable $th) {
+                return null;
+            }
+        }
+
+        return ((int) $parsed->format('H')) * 60 + (int) $parsed->format('i');
+    }
+
+    private function dateTimeToMinutes(?string $value): ?int
+    {
+        if (empty($value)) {
+            return null;
+        }
+
+        try {
+            $parsed = Carbon::parse($value);
+            return ((int) $parsed->format('H')) * 60 + (int) $parsed->format('i');
+        } catch (\Throwable $th) {
+            return null;
+        }
+    }
+
+    private function hasDayOverlap(Carbon $start, Carbon $end, array $dayKeys): bool
+    {
+        $map = [
+            'sun' => 0,
+            'mon' => 1,
+            'tue' => 2,
+            'wed' => 3,
+            'thu' => 4,
+            'fri' => 5,
+            'sat' => 6,
+        ];
+
+        $indices = [];
+        foreach ($dayKeys as $key) {
+            if (isset($map[$key])) {
+                $indices[] = $map[$key];
+            }
+        }
+
+        if (empty($indices)) {
+            return false;
+        }
+
+        $start = $start->copy()->startOfDay();
+        $end = $end->copy()->startOfDay();
+
+        foreach ($indices as $targetDay) {
+            $candidate = $start->copy();
+            $delta = ($targetDay - $candidate->dayOfWeek + 7) % 7;
+            $candidate->addDays($delta);
+
+            if ($candidate->lte($end)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function timesOverlap(int $startA, int $endA, int $startB, int $endB): bool
+    {
+        return $startA < $endB && $endA > $startB;
     }
 
     /**
