@@ -108,6 +108,8 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
     Route::get('/attendance-histories', [AttendanceController::class, 'index'])->name('attendance-histories.index');
     Route::get('/memberships/status', [MembershipController::class, 'status'])->name('memberships.status');
     Route::post('/qr-codes/issue', [QrCodeController::class, 'issue'])->name('qr-codes.issue');
+    Route::get('/classes/{classId}/participants', [\App\Http\Controllers\ClassParticipantsController::class, 'show'])
+        ->name('classes.participants');
     
     Route::prefix('members')->group(function () {
         Route::get('/memberships', [MemberMembershipController::class, 'index'])->name('members.membership.index');
@@ -120,6 +122,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::post('/leave-class', [MemberClassController::class, 'leaveclass'])->name('members.leave-class');
         Route::get('/enrollments/history', [MemberClassController::class, 'enrollmentHistory'])->name('members.enrollments.history');
         Route::get('/classes/{classId}/participants', [MemberClassController::class, 'participants'])->name('members.classes.participants');
+        Route::post('/classes/participants-meta', [MemberClassController::class, 'participantsMeta'])->name('members.classes.participants-meta');
 
         Route::post('/edit-profile', [MemberAccountController::class, 'editProfile'])->name('members.edit-profile');
         Route::post('/change-password', [MemberAccountController::class, 'changePassword'])->name('members.change-password');
@@ -135,6 +138,7 @@ Route::group(['middleware' => ['auth:sanctum']], function () {
         Route::get('/my-classes', [TrainerClassController::class, 'myclasses'])->name('trainers.my-classes');
         Route::get('/my-classes-by-admin', [TrainerClassController::class, 'myclassesbyadmin'])->name('trainers.my-classes-by-admin');
         Route::get('/classes/{classId}/participants', [TrainerClassController::class, 'participants'])->name('trainers.classes.participants');
+        Route::post('/classes/participants-meta', [TrainerClassController::class, 'participantsMeta'])->name('trainers.classes.participants-meta');
         Route::get('/classes/{classId}/attendance', [TrainerClassAttendanceController::class, 'index'])->name('trainers.classes.attendance.index');
         Route::post('/classes/{classId}/attendance', [TrainerClassAttendanceController::class, 'store'])->name('trainers.classes.attendance.store');
         Route::delete('/classes/{classId}/attendance', [TrainerClassAttendanceController::class, 'destroy'])->name('trainers.classes.attendance.destroy');

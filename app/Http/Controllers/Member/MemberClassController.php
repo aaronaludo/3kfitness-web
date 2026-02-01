@@ -275,6 +275,50 @@ class MemberClassController extends Controller
         ]);
     }
 
+    public function participantsMeta(Request $request)
+    {
+        $request->validate([
+            'class_ids' => 'required|array|min:1|max:50',
+            'class_ids.*' => 'integer',
+        ]);
+
+        $ids = collect($request->input('class_ids'))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($ids->isEmpty()) {
+            return response()->json(['data' => []]);
+        }
+
+        $schedules = Schedule::query()
+            ->whereIn('id', $ids)
+            ->where(function ($query) {
+                $query->whereNull('is_archieve')
+                    ->orWhere('is_archieve', 0);
+            })
+            ->where('isadminapproved', 1)
+            ->withCount(['activeUserSchedules as enrolled_count'])
+            ->get(['id', 'slots']);
+
+        $payload = $schedules->map(function ($schedule) {
+            $slots = $schedule->slots;
+            $enrolled = (int) ($schedule->enrolled_count ?? 0);
+            $available = is_null($slots) ? null : max(((int) $slots) - $enrolled, 0);
+
+            return [
+                'class_id' => $schedule->id,
+                'slots' => is_null($slots) ? null : (int) $slots,
+                'enrolled_count' => $enrolled,
+                'available_slots' => $available,
+            ];
+        })->values();
+
+        return response()->json([
+            'data' => $payload,
+        ]);
+    }
+
     public function enrollmentHistory(Request $request)
     {
         $user = $request->user();
