@@ -65,10 +65,6 @@
                             <td>{{ $data->name }}</td>
                         </tr>
                         <tr>
-                            <th scope="row">Currency</th>
-                            <td>{{ $data->currency }}</td>
-                        </tr>
-                        <tr>
                             <th scope="row">Price</th>
                             <td>{{ $data->currency }} {{ $priceText }}</td>
                         </tr>

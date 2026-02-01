@@ -22,7 +22,7 @@
             border-bottom: none;
             position: sticky !important;
             top: 0;
-            z-index: 1030;
+            z-index: 2000;
         }
 
         #wrapper {
@@ -1202,6 +1202,15 @@
         </div>
     </div>
 </div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const calendarModal = document.getElementById('classesCalendarModal');
+        if (calendarModal && calendarModal.parentElement !== document.body) {
+            document.body.appendChild(calendarModal);
+        }
+    });
+</script>
 
 <div class="modal fade classes-calendar-day-modal" id="classesCalendarDayModal" tabindex="-1" aria-labelledby="classesCalendarDayModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered modal-lg modal-dialog-scrollable">
