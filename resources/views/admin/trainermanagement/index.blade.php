@@ -156,6 +156,186 @@
                 align-items: flex-start;
             }
         }
+        .assignment-modal .modal-body { background: #f8fafc; }
+        .assignment-modal .payroll-summary-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+        }
+        .assignment-modal .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+        }
+        .assignment-modal .summary-item { padding: 14px 18px; }
+        .assignment-modal .summary-item + .summary-item { border-left: 1px solid #e5e7eb; }
+        .assignment-modal .summary-label {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+        .assignment-modal .summary-value { font-size: 20px; font-weight: 700; color: #111827; }
+        .assignment-modal .status-pill {
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .assignment-modal .payroll-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            overflow: hidden;
+            background: #fff;
+        }
+        .assignment-modal .payroll-card-toggle { background: #f8fafc; border: 0; }
+        .assignment-modal .payroll-card-toggle:focus { box-shadow: none; }
+        .assignment-modal .payroll-icon {
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: #eef2ff;
+            color: #4338ca;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .assignment-modal .filter-card {
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            background: #fff;
+        }
+        .assignment-modal .payroll-table {
+            border: 1px solid #e5e7eb;
+            border-radius: 16px;
+            overflow: visible;
+            background: #fff;
+        }
+        .assignment-modal .payroll-table thead th {
+            background: #f8fafc;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #6b7280;
+        }
+        .assignment-modal .assignment-row { cursor: default; font-size: 0.9rem; }
+        .assignment-modal .assignment-col { min-width: 0; }
+        .assignment-modal .assignment-hours-badge {
+            font-size: 0.7rem;
+            padding: 2px 8px;
+            border-radius: 999px;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .assignment-modal .students-toggle {
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            color: #6b7280;
+        }
+        .assignment-modal .students-modal-list {
+            max-height: 240px;
+            overflow-y: auto;
+        }
+        .students-modal .modal-content {
+            border-radius: 18px;
+            background: #fff;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+        }
+        .students-modal .modal-header {
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .students-modal .students-modal-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: #eef2ff;
+            color: #4338ca;
+            font-size: 18px;
+        }
+        .students-modal .students-modal-count {
+            border-radius: 999px;
+            background: #f1f5f9;
+            border: 1px solid #e2e8f0;
+            color: #334155;
+            font-weight: 600;
+        }
+        .students-modal .students-modal-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .students-modal .student-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 10px 12px;
+            border-radius: 12px;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+        }
+        .students-modal .student-item:hover {
+            background: #eef2ff;
+            border-color: #c7d2fe;
+        }
+        .students-modal .student-name {
+            font-weight: 600;
+            color: #0f172a;
+        }
+        .students-modal .student-code {
+            font-size: 12px;
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #475569;
+        }
+        .assignment-modal .assignment-pagination .page-link {
+            border-radius: 10px;
+            border: 1px solid #e5e7eb;
+            color: #6b7280;
+            min-width: 34px;
+            text-align: center;
+            padding: 4px 10px;
+        }
+        .assignment-modal .assignment-pagination .pagination {
+            gap: 6px;
+        }
+        .assignment-modal .assignment-pagination .page-item {
+            margin: 0;
+        }
+        .assignment-modal .assignment-pagination .page-item.active .page-link {
+            background: #e5e7eb;
+            border-color: #e5e7eb;
+            color: #111827;
+        }
+        .assignment-modal .assignment-pagination .page-item.disabled .page-link {
+            color: #cbd5e1;
+        }
+        @media (min-width: 992px) {
+            .assignment-modal .col-code { width: 80px; }
+            .assignment-modal .col-rate { width: 120px; text-align: right; }
+            .assignment-modal .col-start { width: 170px; }
+            .assignment-modal .col-end { width: 170px; }
+            .assignment-modal .col-students { width: 180px; }
+            .assignment-modal .col-attendance { width: 120px; text-align: center; }
+        }
+        @media (max-width: 991.98px) {
+            .assignment-modal .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+            .assignment-modal .summary-item { border-left: 0; border-top: 1px solid #e5e7eb; }
+            .assignment-modal .summary-item:nth-child(1),
+            .assignment-modal .summary-item:nth-child(2) { border-top: 0; }
+            .assignment-modal .summary-item:nth-child(odd) { border-right: 1px solid #e5e7eb; }
+        }
+        @media (max-width: 575.98px) {
+            .assignment-modal .summary-grid { grid-template-columns: minmax(0, 1fr); }
+            .assignment-modal .summary-item { border-right: 0; }
+        }
     </style>
     <div class="container-fluid">
         <div class="row">
@@ -163,6 +343,25 @@
                 $showArchived = request()->boolean('show_archived');
                 $printSource = $showArchived ? $archivedData : $trainers;
                 $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
+                $formatAssignmentDuration = function ($hours) {
+                    if ($hours === null) {
+                        return '—';
+                    }
+                    $totalMinutes = (int) round($hours * 60);
+                    if ($totalMinutes < 1) {
+                        return '0 min';
+                    }
+                    $hrs = intdiv($totalMinutes, 60);
+                    $mins = $totalMinutes % 60;
+                    $parts = [];
+                    if ($hrs > 0) {
+                        $parts[] = $hrs . ' ' . ($hrs === 1 ? 'hr' : 'hrs');
+                    }
+                    if ($mins > 0) {
+                        $parts[] = $mins . ' ' . ($mins === 1 ? 'min' : 'mins');
+                    }
+                    return implode(' ', $parts);
+                };
                 $mapTrainer = function ($item) {
                     $name = trim(($item->first_name ?? '') . ' ' . ($item->last_name ?? ''));
                     $trainerSchedules = collect($item->trainerSchedules ?? []);
@@ -815,171 +1014,197 @@
                                                 ];
                                             @endphp
                                             <div class="modal fade assignment-modal" data-assignment-modal id="assignmentsModal-{{ $item->id }}" tabindex="-1" aria-labelledby="assignmentsModalLabel-{{ $item->id }}" aria-hidden="true">
-                                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header align-items-center">
-                                                            <h5 class="modal-title mb-0" id="assignmentsModalLabel-{{ $item->id }}">Assignments for {{ $item->first_name }} {{ $item->last_name }}</h5>
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <button
-                                                                    type="button"
-                                                                    class="btn btn-outline-secondary btn-sm"
-                                                                    data-print-modal="assignmentsModal-{{ $item->id }}"
-                                                                    data-print='@json($assignmentPrintPayload)'
-                                                                >
-                                                                    <i class="fa-solid fa-print me-1"></i>Print
-                                                                    <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true" data-print-loader></span>
-                                                                </button>
-                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                            </div>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            @if($scheduleDetails->isNotEmpty())
-                                                                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                                                                    <span class="badge bg-dark text-white rounded-pill px-3 py-2" data-role="total-count">
-                                                                        {{ $totalAssignments }} {{ $totalAssignments === 1 ? 'assignment' : 'assignments' }}
-                                                                    </span>
-                                                                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">
-                                                                        Upcoming: <span data-role="future-count">{{ $futureScheduleCount }} {{ $futureScheduleCount === 1 ? 'assignment' : 'assignments' }}</span>
-                                                                    </span>
-                                                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">
-                                                                        Past: <span data-role="past-count">{{ $pastScheduleCount }} {{ $pastScheduleCount === 1 ? 'assignment' : 'assignments' }}</span>
-                                                                    </span>
-                                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">
-                                                                        Hours (upcoming): <span data-role="future-hours">{{ number_format($futureHours, 2) }} hrs</span>
-                                                                    </span>
-                                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">
-                                                                        Hours (past): <span data-role="past-hours">{{ number_format($pastHours, 2) }} hrs</span>
-                                                                    </span>
+                                                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                                        <div class="modal-header border-0 pb-0">
+                                                            <div class="flex-grow-1">
+                                                                <div class="d-flex flex-wrap align-items-start gap-2">
+                                                                    <div>
+                                                                        <h5 class="modal-title fw-semibold mb-1" id="assignmentsModalLabel-{{ $item->id }}">Assignments Summary - {{ $item->first_name }} {{ $item->last_name }}</h5>
+                                                                        <div class="text-muted small">Updated: {{ $assignmentPrintPayload['generated_at'] }}</div>
+                                                                    </div>
+                                                                    <div class="ms-auto text-end">
+                                                                        <span class="text-muted small">Assignments list - filters enabled</span>
+                                                                    </div>
                                                                 </div>
-                                                                <div class="row g-3 mb-4">
-                                                                    <div class="col-sm-6">
-                                                                        <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
-                                                                            <div class="d-flex align-items-center justify-content-between">
-                                                                                <div class="d-flex align-items-center gap-2">
-                                                                                    <span class="badge bg-success text-white rounded-circle p-2"><i class="fa-solid fa-calendar-check"></i></span>
-                                                                                    <span class="text-muted small text-uppercase fw-semibold">Upcoming</span>
-                                                                                </div>
-                                                                                <span class="text-muted small" data-role="future-count">
-                                                                                    {{ $futureScheduleCount }} {{ $futureScheduleCount === 1 ? 'assignment' : 'assignments' }}
-                                                                                </span>
-                                                                            </div>
-                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                                                <span class="fw-semibold">Hours</span>
-                                                                                <span class="badge bg-success-subtle text-success rounded-pill px-3" data-role="future-hours">{{ number_format($futureHours, 2) }} hrs</span>
+                                                            </div>
+                                                            <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body pt-2">
+                                                            @if($scheduleDetails->isNotEmpty())
+                                                                @php
+                                                                    $totalAssignmentHours = $futureHours + $pastHours;
+                                                                @endphp
+                                                                <div class="payroll-summary-card mb-3">
+                                                                    <div class="summary-grid">
+                                                                        <div class="summary-item">
+                                                                            <div class="summary-label">Total</div>
+                                                                            <div class="summary-value" data-role="total-count">
+                                                                                {{ $totalAssignments }}
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                    <div class="col-sm-6">
-                                                                        <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
-                                                                            <div class="d-flex align-items-center justify-content-between">
-                                                                                <div class="d-flex align-items-center gap-2">
-                                                                                    <span class="badge bg-secondary text-white rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
-                                                                                    <span class="text-muted small text-uppercase fw-semibold">Past</span>
-                                                                                </div>
-                                                                                <span class="text-muted small" data-role="past-count">
-                                                                                    {{ $pastScheduleCount }} {{ $pastScheduleCount === 1 ? 'assignment' : 'assignments' }}
-                                                                                </span>
+                                                                        <div class="summary-item">
+                                                                            <div class="summary-label">Upcoming</div>
+                                                                            <div class="summary-value" data-role="future-count">
+                                                                                {{ $futureScheduleCount }}
                                                                             </div>
-                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                                                <span class="fw-semibold">Hours</span>
-                                                                                <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3" data-role="past-hours">{{ number_format($pastHours, 2) }} hrs</span>
+                                                                        </div>
+                                                                        <div class="summary-item">
+                                                                        <div class="summary-label">Completed</div>
+                                                                            <div class="summary-value" data-role="past-count">
+                                                                                {{ $pastScheduleCount }}
                                                                             </div>
+                                                                        </div>
+                                                                        <div class="summary-item">
+                                                                            <div class="summary-label">Total hours</div>
+                                                                            <div class="summary-value" data-role="total-hours">{{ $formatAssignmentDuration($totalAssignmentHours) }}</div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
 
-                                                                <div class="assignment-filters border rounded-3 p-3 mb-4 bg-light">
+                                                                <div class="filter-card p-3 mb-3">
                                                                     <div class="d-flex flex-wrap align-items-center gap-2">
                                                                         <div class="btn-group btn-group-sm" role="group" aria-label="Assignment category filter">
-                                                                            <button type="button" class="btn btn-outline-secondary active" data-category-filter="all">All</button>
+                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="all">All</button>
                                                                             <button type="button" class="btn btn-outline-secondary" data-category-filter="future">Upcoming</button>
-                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="past">Past</button>
+                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="past">Complete</button>
                                                                         </div>
                                                                         <button type="button" class="btn btn-link btn-sm ms-auto text-decoration-none px-0" data-filter-reset>Reset filters</button>
                                                                     </div>
                                                                     <div class="row g-2 mt-3">
                                                                         <div class="col-sm-6">
-                                                                            <label class="form-label small text-muted mb-1">Start date from</label>
+                                                                            <label class="form-label text-muted text-uppercase small mb-1">Start date from</label>
                                                                             <input type="date" class="form-control form-control-sm" data-filter-start>
                                                                         </div>
                                                                         <div class="col-sm-6">
-                                                                            <label class="form-label small text-muted mb-1">End date until</label>
+                                                                            <label class="form-label text-muted text-uppercase small mb-1">End date until</label>
                                                                             <input type="date" class="form-control form-control-sm" data-filter-end>
                                                                         </div>
                                                                     </div>
                                                                 </div>
 
                                                                 <div class="assignment-list">
-                                                                    @foreach($scheduleDetails as $detail)
-                                                                        @php
-                                                                            $schedule = $detail['schedule'];
-                                                                            $start = $detail['start'];
-                                                                            $end = $detail['end'];
-                                                                            $students = $detail['students'];
-                                                                            $category = $detail['category'];
-                                                                            $categoryLabel = $category === 'future' ? 'Upcoming' : 'Past';
-                                                                            $badgeClass = $category === 'future' ? 'bg-success text-white' : 'bg-secondary';
-                                                                            $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
-                                                                            $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
-                                                                            $hours = $detail['hours'];
-                                                                            $displaySalary = $detail['display_salary'];
-                                                                            $summarySalary = $detail['summary_salary'];
-                                                                            $isSalaryEligible = $detail['salary_eligible'];
-                                                                        @endphp
+                                                                    <div class="payroll-table p-3">
+                                                                        <div class="d-none d-lg-flex fw-semibold text-muted text-uppercase small pb-2 border-bottom assignment-table-head">
+                                                                            <div class="assignment-col col-code">Code</div>
+                                                                            <div class="assignment-col flex-grow-1">Type</div>
+                                                                            <div class="assignment-col col-rate">Rate/hr</div>
+                                                                            <div class="assignment-col col-start">Start Date</div>
+                                                                            <div class="assignment-col col-end">End Date</div>
+                                                                            <div class="assignment-col col-students">Students</div>
+                                                                            <div class="assignment-col col-attendance">Attendance</div>
+                                                                        </div>
+                                                                        @foreach($scheduleDetails as $detailIndex => $detail)
+                                                                            @php
+                                                                                $schedule = $detail['schedule'];
+                                                                                $start = $detail['start'];
+                                                                                $end = $detail['end'];
+                                                                                $students = $detail['students'];
+                                                                                $category = $detail['category'];
+                                                                                $hoursBadgeClass = $category === 'future' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
+                                                                                $hours = $detail['hours'];
+                                                                                $hoursLabel = $formatAssignmentDuration($hours);
+                                                                                $codeLabel = $schedule->class_code ?? '—';
+                                                                                $rateValue = $schedule->trainer_rate_per_hour ?? null;
+                                                                                $rateLabel = $rateValue !== null ? '₱' . number_format((float) $rateValue, 2) : '—';
+                                                                                $startDateLabel = $start ? $start->format('M j, Y') : '—';
+                                                                                $startTimeLabel = $start ? $start->format('g:i A') : '—';
+                                                                                $endDateLabel = $end ? $end->format('M j, Y') : '—';
+                                                                                $endTimeLabel = $end ? $end->format('g:i A') : '—';
+                                                                                $studentsPayload = $students->values()->all();
+                                                                                $attendanceLabel = $category === 'future'
+                                                                                    ? 'Upcoming'
+                                                                                    : ($students->isNotEmpty() ? 'Present' : 'Absent');
+                                                                                $attendanceClass = $category === 'future'
+                                                                                    ? 'bg-warning-subtle text-warning'
+                                                                                    : ($students->isNotEmpty() ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger');
+                                                                            @endphp
                                                                             <div
-                                                                                class="border rounded-3 p-3 mb-3 assignment-card"
+                                                                                class="assignment-row d-flex flex-column flex-lg-row gap-3 py-3 border-bottom align-items-lg-center"
                                                                                 data-assignment-card
                                                                                 data-category="{{ $category }}"
                                                                                 data-start="{{ $detail['start_date'] ?? '' }}"
                                                                                 data-end="{{ $detail['end_date'] ?? '' }}"
                                                                                 data-hours="{{ $hours }}"
                                                                             >
-                                                                            <div class="d-flex justify-content-between align-items-start gap-3">
-                                                                                <div class="d-flex align-items-start gap-3">
-                                                                                    <span class="badge bg-dark-subtle text-dark rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
-                                                                                    <div>
-                                                                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                                                                        <div class="d-flex flex-wrap gap-2 mt-1">
-                                                                                            @if(!empty($schedule->class_code))
-                                                                                                <span class="badge bg-light text-muted border">Code: {{ $schedule->class_code }}</span>
-                                                                                            @endif
-                                                                                            @if($hours > 0)
-                                                                                                <span class="badge bg-primary-subtle text-primary">{{ number_format($hours, 2) }} hrs</span>
-                                                                                            @endif
-                                                                                        </div>
-                                                                                        @if($start || $end)
-                                                                                            <span class="text-muted small d-block mt-1">
-                                                                                                {{ $rangeStart }}
-                                                                                                @if($rangeEnd)
-                                                                                                    &ndash; {{ $rangeEnd }}
-                                                                                                @endif
-                                                                                            </span>
-                                                                                        @endif
+                                                                                <div class="assignment-col col-code">
+                                                                                    <span class="badge bg-light text-muted border">{{ $codeLabel }}</span>
+                                                                                </div>
+                                                                                <div class="assignment-col flex-grow-1">
+                                                                                    <div class="fw-semibold">{{ $schedule->name ?? 'Unnamed Schedule' }}</div>
+                                                                                    <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                                                                                        <span class="assignment-hours-badge {{ $hoursBadgeClass }}">{{ $hoursLabel }}</span>
                                                                                     </div>
                                                                                 </div>
-                                                                                <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
+                                                                                <div class="assignment-col col-rate">
+                                                                                    @if($rateValue !== null)
+                                                                                        <div class="fw-semibold">{{ $rateLabel }}</div>
+                                                                                        <div class="text-muted small">per hr</div>
+                                                                                    @else
+                                                                                        <div class="text-muted small">—</div>
+                                                                                    @endif
+                                                                                </div>
+                                                                                <div class="assignment-col col-start">
+                                                                                    <div class="text-muted small">{{ $startDateLabel }}</div>
+                                                                                    <div class="text-muted small">{{ $startTimeLabel }}</div>
+                                                                                </div>
+                                                                                <div class="assignment-col col-end">
+                                                                                    <div class="text-muted small">{{ $endDateLabel }}</div>
+                                                                                    <div class="text-muted small">{{ $endTimeLabel }}</div>
+                                                                                </div>
+                                                                                <div class="assignment-col col-students">
+                                                                                    @if($students->isNotEmpty())
+                                                                                        <button
+                                                                                            class="btn btn-light btn-sm students-toggle"
+                                                                                            type="button"
+                                                                                            data-bs-toggle="modal"
+                                                                                            data-bs-target="#assignmentStudentsModal"
+                                                                                            data-students='@json($studentsPayload)'
+                                                                                            data-students-title="{{ $schedule->name ?? 'Students' }}"
+                                                                                        >
+                                                                                            See more ({{ $students->count() }})
+                                                                                        </button>
+                                                                                    @else
+                                                                                        <span class="text-muted small">No students</span>
+                                                                                    @endif
+                                                                                </div>
+                                                                                <div class="assignment-col col-attendance text-lg-center">
+                                                                                    <span class="status-pill {{ $attendanceClass }}">{{ $attendanceLabel }}</span>
+                                                                                </div>
                                                                             </div>
-                                                                            <div class="mt-3">
-                                                                                <span class="text-muted small text-uppercase fw-semibold">Students</span>
-                                                                                @if($students->isNotEmpty())
-                                                                                    <ul class="list-unstyled mb-0 small mt-1">
-                                                                                        @foreach($students as $student)
-                                                                                            <li>{{ $student }}</li>
-                                                                                        @endforeach
-                                                                                    </ul>
-                                                                                @else
-                                                                                    <p class="text-muted small mb-0">No students assigned.</p>
-                                                                                @endif
-                                                                            </div>
-                                                                        </div>
-                                                                    @endforeach
+                                                                        @endforeach
+                                                                    </div>
+                                                                </div>
+                                                                <div class="assignment-pagination d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3" data-pagination>
+                                                                    <div class="text-muted small" data-page-status>Showing 0 to 0 of 0 assignments</div>
+                                                                    <nav aria-label="Assignment pagination">
+                                                                        <ul class="pagination pagination-sm mb-0" data-page-list>
+                                                                            <li class="page-item" data-page-prev-item>
+                                                                                <button type="button" class="page-link" data-page-prev aria-label="Previous">‹</button>
+                                                                            </li>
+                                                                            <li class="page-item" data-page-next-item>
+                                                                                <button type="button" class="page-link" data-page-next aria-label="Next">›</button>
+                                                                            </li>
+                                                                        </ul>
+                                                                    </nav>
                                                                 </div>
                                                             @else
-                                                                <p class="text-muted mb-0">No schedules assigned.</p>
+                                                                <div class="filter-card p-4 text-center text-muted">
+                                                                    No schedules assigned.
+                                                                </div>
                                                             @endif
                                                         </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        <div class="modal-footer border-0 pt-0">
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-danger"
+                                                                data-print-modal="assignmentsModal-{{ $item->id }}"
+                                                                data-print='@json($assignmentPrintPayload)'
+                                                            >
+                                                                <i class="fa-solid fa-print me-1"></i>Print
+                                                                <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true" data-print-loader></span>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success" data-bs-dismiss="modal">Close</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1288,171 +1513,197 @@
                                                 ];
                                             @endphp
                                             <div class="modal fade assignment-modal" data-assignment-modal id="archiveAssignmentsModal-{{ $archive->id }}" tabindex="-1" aria-labelledby="archiveAssignmentsModalLabel-{{ $archive->id }}" aria-hidden="true">
-                                                <div class="modal-dialog modal-lg modal-dialog-scrollable">
-                                                    <div class="modal-content">
-                                                        <div class="modal-header align-items-center">
-                                                            <h5 class="modal-title mb-0" id="archiveAssignmentsModalLabel-{{ $archive->id }}">Assignments for {{ $archive->first_name }} {{ $archive->last_name }}</h5>
-                                                            <div class="d-flex align-items-center gap-2">
-                                                                <button
-                                                                    type="button"
-                                                                    class="btn btn-outline-secondary btn-sm"
-                                                                    data-print-modal="archiveAssignmentsModal-{{ $archive->id }}"
-                                                                    data-print='@json($archivedAssignmentPrintPayload)'
-                                                                >
-                                                                    <i class="fa-solid fa-print me-1"></i>Print
-                                                                    <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true" data-print-loader></span>
-                                                                </button>
-                                                                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                                            </div>
-                                                        </div>
-                                                        <div class="modal-body">
-                                                            @if($archivedScheduleDetails->isNotEmpty())
-                                                                <div class="d-flex flex-wrap align-items-center gap-2 mb-3">
-                                                                    <span class="badge bg-dark text-white rounded-pill px-3 py-2" data-role="total-count">
-                                                                        {{ $archivedTotalAssignments }} {{ $archivedTotalAssignments === 1 ? 'assignment' : 'assignments' }}
-                                                                    </span>
-                                                                    <span class="badge bg-success-subtle text-success rounded-pill px-3 py-2">
-                                                                        Upcoming: <span data-role="future-count">{{ $archivedFutureCount }} {{ $archivedFutureCount === 1 ? 'assignment' : 'assignments' }}</span>
-                                                                    </span>
-                                                                    <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3 py-2">
-                                                                        Past: <span data-role="past-count">{{ $archivedPastCount }} {{ $archivedPastCount === 1 ? 'assignment' : 'assignments' }}</span>
-                                                                    </span>
-                                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">
-                                                                        Hours (upcoming): <span data-role="future-hours">{{ number_format($archivedFutureHours, 2) }} hrs</span>
-                                                                    </span>
-                                                                    <span class="badge bg-light text-muted rounded-pill px-3 py-2">
-                                                                        Hours (past): <span data-role="past-hours">{{ number_format($archivedPastHours, 2) }} hrs</span>
-                                                                    </span>
+                                                <div class="modal-dialog modal-xl modal-dialog-centered modal-dialog-scrollable">
+                                                    <div class="modal-content rounded-4 border-0 shadow-sm">
+                                                        <div class="modal-header border-0 pb-0">
+                                                            <div class="flex-grow-1">
+                                                                <div class="d-flex flex-wrap align-items-start gap-2">
+                                                                    <div>
+                                                                        <h5 class="modal-title fw-semibold mb-1" id="archiveAssignmentsModalLabel-{{ $archive->id }}">Assignments Summary - {{ $archive->first_name }} {{ $archive->last_name }}</h5>
+                                                                        <div class="text-muted small">Updated: {{ $archivedAssignmentPrintPayload['generated_at'] }}</div>
+                                                                    </div>
+                                                                    <div class="ms-auto text-end">
+                                                                        <span class="text-muted small">Assignments list - filters enabled</span>
+                                                                    </div>
                                                                 </div>
-                                                                <div class="row g-3 mb-4">
-                                                                    <div class="col-sm-6">
-                                                                        <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
-                                                                            <div class="d-flex align-items-center justify-content-between">
-                                                                                <div class="d-flex align-items-center gap-2">
-                                                                                    <span class="badge bg-success text-white rounded-circle p-2"><i class="fa-solid fa-calendar-check"></i></span>
-                                                                                    <span class="text-muted small text-uppercase fw-semibold">Upcoming</span>
-                                                                                </div>
-                                                                                <span class="text-muted small" data-role="future-count">
-                                                                                    {{ $archivedFutureCount }} {{ $archivedFutureCount === 1 ? 'assignment' : 'assignments' }}
-                                                                                </span>
-                                                                            </div>
-                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                                                <span class="fw-semibold">Hours</span>
-                                                                                <span class="badge bg-success-subtle text-success rounded-pill px-3" data-role="future-hours">{{ number_format($archivedFutureHours, 2) }} hrs</span>
+                                                            </div>
+                                                            <button type="button" class="btn-close ms-2" data-bs-dismiss="modal" aria-label="Close"></button>
+                                                        </div>
+                                                        <div class="modal-body pt-2">
+                                                            @if($archivedScheduleDetails->isNotEmpty())
+                                                                @php
+                                                                    $archivedTotalAssignmentHours = $archivedFutureHours + $archivedPastHours;
+                                                                @endphp
+                                                                <div class="payroll-summary-card mb-3">
+                                                                    <div class="summary-grid">
+                                                                        <div class="summary-item">
+                                                                            <div class="summary-label">Total</div>
+                                                                            <div class="summary-value" data-role="total-count">
+                                                                                {{ $archivedTotalAssignments }}
                                                                             </div>
                                                                         </div>
-                                                                    </div>
-                                                                    <div class="col-sm-6">
-                                                                        <div class="border rounded-3 p-3 h-100 bg-light assignment-summary-card">
-                                                                            <div class="d-flex align-items-center justify-content-between">
-                                                                                <div class="d-flex align-items-center gap-2">
-                                                                                    <span class="badge bg-secondary text-white rounded-circle p-2"><i class="fa-solid fa-clipboard-check"></i></span>
-                                                                                    <span class="text-muted small text-uppercase fw-semibold">Past</span>
-                                                                                </div>
-                                                                                <span class="text-muted small" data-role="past-count">
-                                                                                    {{ $archivedPastCount }} {{ $archivedPastCount === 1 ? 'assignment' : 'assignments' }}
-                                                                                </span>
+                                                                        <div class="summary-item">
+                                                                            <div class="summary-label">Upcoming</div>
+                                                                            <div class="summary-value" data-role="future-count">
+                                                                                {{ $archivedFutureCount }}
                                                                             </div>
-                                                                            <div class="d-flex align-items-baseline justify-content-between mt-2">
-                                                                                <span class="fw-semibold">Hours</span>
-                                                                                <span class="badge bg-secondary-subtle text-secondary rounded-pill px-3" data-role="past-hours">{{ number_format($archivedPastHours, 2) }} hrs</span>
+                                                                        </div>
+                                                                        <div class="summary-item">
+                                                                        <div class="summary-label">Completed</div>
+                                                                            <div class="summary-value" data-role="past-count">
+                                                                                {{ $archivedPastCount }}
                                                                             </div>
+                                                                        </div>
+                                                                        <div class="summary-item">
+                                                                            <div class="summary-label">Total hours</div>
+                                                                            <div class="summary-value" data-role="total-hours">{{ $formatAssignmentDuration($archivedTotalAssignmentHours) }}</div>
                                                                         </div>
                                                                     </div>
                                                                 </div>
 
-                                                                <div class="assignment-filters border rounded-3 p-3 mb-4 bg-light">
+                                                                <div class="filter-card p-3 mb-3">
                                                                     <div class="d-flex flex-wrap align-items-center gap-2">
                                                                         <div class="btn-group btn-group-sm" role="group" aria-label="Assignment category filter">
-                                                                            <button type="button" class="btn btn-outline-secondary active" data-category-filter="all">All</button>
+                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="all">All</button>
                                                                             <button type="button" class="btn btn-outline-secondary" data-category-filter="future">Upcoming</button>
-                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="past">Past</button>
+                                                                            <button type="button" class="btn btn-outline-secondary" data-category-filter="past">Complete</button>
                                                                         </div>
                                                                         <button type="button" class="btn btn-link btn-sm ms-auto text-decoration-none px-0" data-filter-reset>Reset filters</button>
                                                                     </div>
                                                                     <div class="row g-2 mt-3">
                                                                         <div class="col-sm-6">
-                                                                            <label class="form-label small text-muted mb-1">Start date from</label>
+                                                                            <label class="form-label text-muted text-uppercase small mb-1">Start date from</label>
                                                                             <input type="date" class="form-control form-control-sm" data-filter-start>
                                                                         </div>
                                                                         <div class="col-sm-6">
-                                                                            <label class="form-label small text-muted mb-1">End date until</label>
+                                                                            <label class="form-label text-muted text-uppercase small mb-1">End date until</label>
                                                                             <input type="date" class="form-control form-control-sm" data-filter-end>
                                                                         </div>
                                                                     </div>
                                                                 </div>
 
                                                                 <div class="assignment-list">
-                                                                    @foreach($archivedScheduleDetails as $detail)
-                                                                        @php
-                                                                            $schedule = $detail['schedule'];
-                                                                            $start = $detail['start'];
-                                                                            $end = $detail['end'];
-                                                                            $students = $detail['students'];
-                                                                            $category = $detail['category'];
-                                                                            $categoryLabel = $category === 'future' ? 'Upcoming' : 'Past';
-                                                                            $badgeClass = $category === 'future' ? 'bg-success text-white' : 'bg-secondary';
-                                                                            $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
-                                                                            $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
-                                                                            $hours = $detail['hours'];
-                                                                            $displaySalary = $detail['display_salary'];
-                                                                            $summarySalary = $detail['summary_salary'];
-                                                                            $isSalaryEligible = $detail['salary_eligible'];
-                                                                        @endphp
-                                                                        <div
-                                                                            class="border rounded-3 p-3 mb-3 assignment-card"
-                                                                            data-assignment-card
-                                                                            data-category="{{ $category }}"
-                                                                            data-start="{{ $detail['start_date'] ?? '' }}"
-                                                                            data-end="{{ $detail['end_date'] ?? '' }}"
-                                                                            data-hours="{{ $hours }}"
-                                                                        >
-                                                                            <div class="d-flex justify-content-between align-items-start gap-3">
-                                                                                <div class="d-flex align-items-start gap-3">
-                                                                                    <span class="badge bg-dark-subtle text-dark rounded-circle p-2"><i class="fa-solid fa-dumbbell"></i></span>
-                                                                                    <div>
-                                                                                        <h6 class="mb-1">{{ $schedule->name ?? 'Unnamed Schedule' }}</h6>
-                                                                                        <div class="d-flex flex-wrap gap-2 mt-1">
-                                                                                            @if(!empty($schedule->class_code))
-                                                                                                <span class="badge bg-light text-muted border">Code: {{ $schedule->class_code }}</span>
-                                                                                            @endif
-                                                                                            @if($hours > 0)
-                                                                                                <span class="badge bg-primary-subtle text-primary">{{ number_format($hours, 2) }} hrs</span>
-                                                                                            @endif
-                                                                                        </div>
-                                                                                        @if($start || $end)
-                                                                                            <span class="text-muted small d-block mt-1">
-                                                                                                {{ $rangeStart }}
-                                                                                                @if($rangeEnd)
-                                                                                                    &ndash; {{ $rangeEnd }}
-                                                                                                @endif
-                                                                                            </span>
-                                                                                        @endif
+                                                                    <div class="payroll-table p-3">
+                                                                        <div class="d-none d-lg-flex fw-semibold text-muted text-uppercase small pb-2 border-bottom assignment-table-head">
+                                                                            <div class="assignment-col col-code">Code</div>
+                                                                            <div class="assignment-col flex-grow-1">Type</div>
+                                                                            <div class="assignment-col col-rate">Rate/hr</div>
+                                                                            <div class="assignment-col col-start">Start Date</div>
+                                                                            <div class="assignment-col col-end">End Date</div>
+                                                                            <div class="assignment-col col-students">Students</div>
+                                                                            <div class="assignment-col col-attendance">Attendance</div>
+                                                                        </div>
+                                                                        @foreach($archivedScheduleDetails as $detailIndex => $detail)
+                                                                            @php
+                                                                                $schedule = $detail['schedule'];
+                                                                                $start = $detail['start'];
+                                                                                $end = $detail['end'];
+                                                                                $students = $detail['students'];
+                                                                                $category = $detail['category'];
+                                                                                $hoursBadgeClass = $category === 'future' ? 'bg-success-subtle text-success' : 'bg-secondary-subtle text-secondary';
+                                                                                $hours = $detail['hours'];
+                                                                                $hoursLabel = $formatAssignmentDuration($hours);
+                                                                                $codeLabel = $schedule->class_code ?? '—';
+                                                                                $rateValue = $schedule->trainer_rate_per_hour ?? null;
+                                                                                $rateLabel = $rateValue !== null ? '₱' . number_format((float) $rateValue, 2) : '—';
+                                                                                $startDateLabel = $start ? $start->format('M j, Y') : '—';
+                                                                                $startTimeLabel = $start ? $start->format('g:i A') : '—';
+                                                                                $endDateLabel = $end ? $end->format('M j, Y') : '—';
+                                                                                $endTimeLabel = $end ? $end->format('g:i A') : '—';
+                                                                                $studentsPayload = $students->values()->all();
+                                                                                $attendanceLabel = $category === 'future'
+                                                                                    ? 'Upcoming'
+                                                                                    : ($students->isNotEmpty() ? 'Present' : 'Absent');
+                                                                                $attendanceClass = $category === 'future'
+                                                                                    ? 'bg-warning-subtle text-warning'
+                                                                                    : ($students->isNotEmpty() ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger');
+                                                                            @endphp
+                                                                            <div
+                                                                                class="assignment-row d-flex flex-column flex-lg-row gap-3 py-3 border-bottom align-items-lg-center"
+                                                                                data-assignment-card
+                                                                                data-category="{{ $category }}"
+                                                                                data-start="{{ $detail['start_date'] ?? '' }}"
+                                                                                data-end="{{ $detail['end_date'] ?? '' }}"
+                                                                                data-hours="{{ $hours }}"
+                                                                            >
+                                                                                <div class="assignment-col col-code">
+                                                                                    <span class="badge bg-light text-muted border">{{ $codeLabel }}</span>
+                                                                                </div>
+                                                                                <div class="assignment-col flex-grow-1">
+                                                                                    <div class="fw-semibold">{{ $schedule->name ?? 'Unnamed Schedule' }}</div>
+                                                                                    <div class="d-flex flex-wrap align-items-center gap-2 mt-1">
+                                                                                        <span class="assignment-hours-badge {{ $hoursBadgeClass }}">{{ $hoursLabel }}</span>
                                                                                     </div>
                                                                                 </div>
-                                                                                <span class="badge {{ $badgeClass }}">{{ $categoryLabel }}</span>
+                                                                                <div class="assignment-col col-rate">
+                                                                                    @if($rateValue !== null)
+                                                                                        <div class="fw-semibold">{{ $rateLabel }}</div>
+                                                                                        <div class="text-muted small">per hr</div>
+                                                                                    @else
+                                                                                        <div class="text-muted small">—</div>
+                                                                                    @endif
+                                                                                </div>
+                                                                                <div class="assignment-col col-start">
+                                                                                    <div class="text-muted small">{{ $startDateLabel }}</div>
+                                                                                    <div class="text-muted small">{{ $startTimeLabel }}</div>
+                                                                                </div>
+                                                                                <div class="assignment-col col-end">
+                                                                                    <div class="text-muted small">{{ $endDateLabel }}</div>
+                                                                                    <div class="text-muted small">{{ $endTimeLabel }}</div>
+                                                                                </div>
+                                                                                <div class="assignment-col col-students">
+                                                                                    @if($students->isNotEmpty())
+                                                                                        <button
+                                                                                            class="btn btn-light btn-sm students-toggle"
+                                                                                            type="button"
+                                                                                            data-bs-toggle="modal"
+                                                                                            data-bs-target="#assignmentStudentsModal"
+                                                                                            data-students='@json($studentsPayload)'
+                                                                                            data-students-title="{{ $schedule->name ?? 'Students' }}"
+                                                                                        >
+                                                                                            See more ({{ $students->count() }})
+                                                                                        </button>
+                                                                                    @else
+                                                                                        <span class="text-muted small">No students</span>
+                                                                                    @endif
+                                                                                </div>
+                                                                                <div class="assignment-col col-attendance text-lg-center">
+                                                                                    <span class="status-pill {{ $attendanceClass }}">{{ $attendanceLabel }}</span>
+                                                                                </div>
                                                                             </div>
-                                                                            <div class="mt-3">
-                                                                                <span class="text-muted small text-uppercase fw-semibold">Students</span>
-                                                                                @if($students->isNotEmpty())
-                                                                                    <ul class="list-unstyled mb-0 small mt-1">
-                                                                                        @foreach($students as $student)
-                                                                                            <li>{{ $student }}</li>
-                                                                                        @endforeach
-                                                                                    </ul>
-                                                                                @else
-                                                                                    <p class="text-muted small mb-0">No students assigned.</p>
-                                                                                @endif
-                                                                            </div>
-                                                                        </div>
-                                                                    @endforeach
+                                                                        @endforeach
+                                                                    </div>
+                                                                </div>
+                                                                <div class="assignment-pagination d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3" data-pagination>
+                                                                    <div class="text-muted small" data-page-status>Showing 0 to 0 of 0 assignments</div>
+                                                                    <nav aria-label="Assignment pagination">
+                                                                        <ul class="pagination pagination-sm mb-0" data-page-list>
+                                                                            <li class="page-item" data-page-prev-item>
+                                                                                <button type="button" class="page-link" data-page-prev aria-label="Previous">‹</button>
+                                                                            </li>
+                                                                            <li class="page-item" data-page-next-item>
+                                                                                <button type="button" class="page-link" data-page-next aria-label="Next">›</button>
+                                                                            </li>
+                                                                        </ul>
+                                                                    </nav>
                                                                 </div>
                                                             @else
-                                                                <p class="text-muted mb-0">No schedules assigned.</p>
+                                                                <div class="filter-card p-4 text-center text-muted">
+                                                                    No schedules assigned.
+                                                                </div>
                                                             @endif
                                                         </div>
-                                                        <div class="modal-footer">
-                                                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                        <div class="modal-footer border-0 pt-0">
+                                                            <button
+                                                                type="button"
+                                                                class="btn btn-danger"
+                                                                data-print-modal="archiveAssignmentsModal-{{ $archive->id }}"
+                                                                data-print='@json($archivedAssignmentPrintPayload)'
+                                                            >
+                                                                <i class="fa-solid fa-print me-1"></i>Print
+                                                                <span class="spinner-border spinner-border-sm ms-2 d-none" role="status" aria-hidden="true" data-print-loader></span>
+                                                            </button>
+                                                            <button type="button" class="btn btn-success" data-bs-dismiss="modal">Close</button>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -1601,6 +1852,30 @@
                 <div class="modal-footer border-0 pt-0">
                     <button type="button" class="btn btn-light px-4" data-bs-dismiss="modal" id="manualClockCloseBtn">Close</button>
                     <button type="button" class="btn btn-danger px-4 d-none" id="manualClockConfirmBtn">Confirm Clock Out</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade students-modal" data-students-modal id="assignmentStudentsModal" tabindex="-1" aria-labelledby="assignmentStudentsModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content rounded-4 border-0 shadow-sm">
+                <div class="modal-header">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="students-modal-icon"><i class="fa-solid fa-users"></i></div>
+                        <div>
+                            <h5 class="modal-title fw-semibold mb-0" id="assignmentStudentsModalLabel" data-students-modal-title>Students</h5>
+                            <div class="text-muted small">Class participants</div>
+                        </div>
+                    </div>
+                    <div class="d-flex align-items-center gap-2">
+                        <span class="badge students-modal-count" data-students-count>0 students</span>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                    </div>
+                </div>
+                <div class="modal-body">
+                    <ul class="list-unstyled mb-0 students-modal-list" data-students-list></ul>
+                    <div class="text-muted small d-none" data-students-empty>No students assigned.</div>
                 </div>
             </div>
         </div>
@@ -2042,6 +2317,11 @@
             }
 
             const assignmentModals = document.querySelectorAll('[data-assignment-modal]');
+            const globalStudentsModal = document.getElementById('assignmentStudentsModal');
+            const globalStudentsModalTitle = globalStudentsModal ? globalStudentsModal.querySelector('[data-students-modal-title]') : null;
+            const globalStudentsModalList = globalStudentsModal ? globalStudentsModal.querySelector('[data-students-list]') : null;
+            const globalStudentsModalEmpty = globalStudentsModal ? globalStudentsModal.querySelector('[data-students-empty]') : null;
+            const globalStudentsModalCount = globalStudentsModal ? globalStudentsModal.querySelector('[data-students-count]') : null;
 
             const pluralize = function (count, singular, plural) {
                 return `${count} ${count === 1 ? singular : plural}`;
@@ -2070,14 +2350,27 @@
                     .replace(/'/g, '&#039;');
             };
 
-            const formatHours = function (value) {
-                return Number(value || 0).toFixed(2);
+            const formatDuration = function (value) {
+                const totalMinutes = Math.round(Number(value || 0) * 60);
+                if (totalMinutes < 1) {
+                    return '0 min';
+                }
+                const hrs = Math.floor(totalMinutes / 60);
+                const mins = totalMinutes % 60;
+                const parts = [];
+                if (hrs > 0) {
+                    parts.push(`${hrs} ${hrs === 1 ? 'hr' : 'hrs'}`);
+                }
+                if (mins > 0) {
+                    parts.push(`${mins} ${mins === 1 ? 'min' : 'mins'}`);
+                }
+                return parts.join(' ');
             };
 
             const buildAssignmentFilterChips = function (filters) {
                 const chips = [];
                 if (filters.category && filters.category !== 'all') {
-                    chips.push(filters.category === 'future' ? 'Upcoming only' : 'Past only');
+                    chips.push(filters.category === 'future' ? 'Upcoming only' : 'Complete only');
                 }
                 if (filters.start || filters.end) {
                     chips.push(`Date: ${filters.start || '—'} → ${filters.end || '—'}`);
@@ -2111,7 +2404,7 @@
                                     <div>${escapeHtml(item.start_label || 'Not set')}</div>
                                     <div class="muted">${escapeHtml(endLabel ? `Ends ${endLabel}` : '')}</div>
                                 </td>
-                                <td>${item.hours !== null && item.hours !== undefined ? formatHours(item.hours) + ' hrs' : '—'}</td>
+                        <td>${item.hours !== null && item.hours !== undefined ? formatDuration(item.hours) : '—'}</td>
                                 <td><span class="badge ${badgeClass}">${escapeHtml(categoryLabel)}</span></td>
                                 <td>${studentsMarkup}</td>
                             </tr>
@@ -2212,12 +2505,12 @@
                                         <div class="stat-card">
                                             <div class="stat-value">${summary.future}</div>
                                             <div class="stat-label">Upcoming</div>
-                                            <div class="muted">Hours: ${formatHours(summary.future_hours)}</div>
+                                            <div class="muted">Hours: ${formatDuration(summary.future_hours)}</div>
                                         </div>
                                         <div class="stat-card">
                                             <div class="stat-value">${summary.past}</div>
                                             <div class="stat-label">Past</div>
-                                            <div class="muted">Hours: ${formatHours(summary.past_hours)}</div>
+                                            <div class="muted">Hours: ${formatDuration(summary.past_hours)}</div>
                                         </div>
                                     </div>
                                 </div>
@@ -2342,19 +2635,36 @@
                 const endInput = modalEl.querySelector('[data-filter-end]');
                 const resetButton = modalEl.querySelector('[data-filter-reset]');
                 const cards = Array.from(modalEl.querySelectorAll('[data-assignment-card]'));
+                const pagination = {
+                    container: modalEl.querySelector('[data-pagination]'),
+                    status: modalEl.querySelector('[data-page-status]'),
+                    list: modalEl.querySelector('[data-page-list]'),
+                    prev: modalEl.querySelector('[data-page-prev]'),
+                    next: modalEl.querySelector('[data-page-next]'),
+                    prevItem: modalEl.querySelector('[data-page-prev-item]'),
+                    nextItem: modalEl.querySelector('[data-page-next-item]'),
+                };
                 const summaryEls = {
                     totalCount: modalEl.querySelectorAll('[data-role="total-count"]'),
                     futureCount: modalEl.querySelectorAll('[data-role="future-count"]'),
                     pastCount: modalEl.querySelectorAll('[data-role="past-count"]'),
+                    totalHours: modalEl.querySelectorAll('[data-role="total-hours"]'),
                     futureHours: modalEl.querySelectorAll('[data-role="future-hours"]'),
                     pastHours: modalEl.querySelectorAll('[data-role="past-hours"]'),
                 };
+                const studentsModal = globalStudentsModal;
+                const studentsModalTitle = globalStudentsModalTitle;
+                const studentsModalList = globalStudentsModalList;
+                const studentsModalEmpty = globalStudentsModalEmpty;
+                const studentsModalCount = globalStudentsModalCount;
 
                 if (!cards.length) {
                     return;
                 }
 
                 let activeCategory = 'all';
+                let currentPage = 1;
+                const pageSize = 3;
 
                 function setActiveCategoryButton(targetCategory) {
                     categoryButtons.forEach(function (btn) {
@@ -2390,20 +2700,24 @@
                     });
 
                     const totalCount = futureCount + pastCount;
+                    const totalHours = futureHours + pastHours;
                     summaryEls.totalCount.forEach(function (el) {
-                        el.textContent = pluralize(totalCount, 'assignment', 'assignments');
+                        el.textContent = String(totalCount);
                     });
                     summaryEls.futureCount.forEach(function (el) {
-                        el.textContent = pluralize(futureCount, 'assignment', 'assignments');
+                        el.textContent = String(futureCount);
                     });
                     summaryEls.pastCount.forEach(function (el) {
-                        el.textContent = pluralize(pastCount, 'assignment', 'assignments');
+                        el.textContent = String(pastCount);
+                    });
+                    summaryEls.totalHours.forEach(function (el) {
+                        el.textContent = formatDuration(totalHours);
                     });
                     summaryEls.futureHours.forEach(function (el) {
-                        el.textContent = `${futureHours.toFixed(2)} hrs`;
+                        el.textContent = formatDuration(futureHours);
                     });
                     summaryEls.pastHours.forEach(function (el) {
-                        el.textContent = `${pastHours.toFixed(2)} hrs`;
+                        el.textContent = formatDuration(pastHours);
                     });
                 }
 
@@ -2436,8 +2750,78 @@
                     return true;
                 }
 
-                function applyFilters() {
-                    const visibleCards = [];
+                function renderPageNumbers(totalPages) {
+                    if (!pagination.list || !pagination.nextItem) {
+                        return;
+                    }
+
+                    pagination.list.querySelectorAll('[data-page-number]').forEach(function (el) {
+                        el.remove();
+                    });
+
+                    for (let page = 1; page <= totalPages; page += 1) {
+                        const li = document.createElement('li');
+                        li.className = `page-item${page === currentPage ? ' active' : ''}`;
+                        li.setAttribute('data-page-number', String(page));
+
+                        const button = document.createElement('button');
+                        button.type = 'button';
+                        button.className = 'page-link';
+                        button.textContent = String(page);
+                        button.addEventListener('click', function () {
+                            if (page === currentPage) {
+                                return;
+                            }
+                            currentPage = page;
+                            applyFilters(false);
+                        });
+
+                        li.appendChild(button);
+                        pagination.list.insertBefore(li, pagination.nextItem);
+                    }
+                }
+
+                function updatePagination(totalItems, totalPages, startIndex, endIndex) {
+                    if (!pagination.container) {
+                        return;
+                    }
+
+                    if (totalItems <= pageSize) {
+                        pagination.container.classList.add('d-none');
+                    } else {
+                        pagination.container.classList.remove('d-none');
+                    }
+
+                    const safeStart = totalItems === 0 ? 0 : startIndex + 1;
+                    const safeEnd = totalItems === 0 ? 0 : Math.min(endIndex, totalItems);
+                    const assignmentWord = totalItems === 1 ? 'assignment' : 'assignments';
+                    const statusText = `Showing ${safeStart} to ${safeEnd} of ${totalItems} ${assignmentWord}`;
+                    if (pagination.status) {
+                        pagination.status.textContent = statusText;
+                    }
+
+                    if (pagination.prevItem) {
+                        pagination.prevItem.classList.toggle('disabled', currentPage <= 1);
+                    }
+                    if (pagination.nextItem) {
+                        pagination.nextItem.classList.toggle('disabled', currentPage >= totalPages);
+                    }
+                    if (pagination.prev) {
+                        pagination.prev.disabled = currentPage <= 1;
+                    }
+                    if (pagination.next) {
+                        pagination.next.disabled = currentPage >= totalPages;
+                    }
+
+                    renderPageNumbers(totalPages);
+                }
+
+                function applyFilters(resetPage) {
+                    if (resetPage) {
+                        currentPage = 1;
+                    }
+
+                    const filteredCards = [];
 
                     cards.forEach(function (card) {
                         const category = card.dataset.category || 'future';
@@ -2452,14 +2836,30 @@
                         }
 
                         if (isVisible) {
-                            card.classList.remove('d-none');
-                            visibleCards.push(card);
-                        } else {
-                            card.classList.add('d-none');
+                            filteredCards.push(card);
                         }
                     });
 
-                    updateSummary(visibleCards);
+                    updateSummary(filteredCards);
+
+                    const totalItems = filteredCards.length;
+                    const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
+                    if (currentPage > totalPages) {
+                        currentPage = totalPages;
+                    }
+
+                    const startIndex = (currentPage - 1) * pageSize;
+                    const endIndex = startIndex + pageSize;
+
+                    cards.forEach(function (card) {
+                        card.classList.add('d-none');
+                    });
+
+                    filteredCards.slice(startIndex, endIndex).forEach(function (card) {
+                        card.classList.remove('d-none');
+                    });
+
+                    updatePagination(totalItems, totalPages, startIndex, endIndex);
                 }
 
                 categoryButtons.forEach(function (button) {
@@ -2471,16 +2871,20 @@
                         activeCategory = selected;
 
                         setActiveCategoryButton(activeCategory);
-                        applyFilters();
+                        applyFilters(true);
                     });
                 });
 
                 if (startInput) {
-                    startInput.addEventListener('change', applyFilters);
+                    startInput.addEventListener('change', function () {
+                        applyFilters(true);
+                    });
                 }
 
                 if (endInput) {
-                    endInput.addEventListener('change', applyFilters);
+                    endInput.addEventListener('change', function () {
+                        applyFilters(true);
+                    });
                 }
 
                 if (resetButton) {
@@ -2494,13 +2898,84 @@
                         }
 
                         setActiveCategoryButton(activeCategory);
-                        applyFilters();
+                        applyFilters(true);
                     });
                 }
 
-                modalEl.addEventListener('shown.bs.modal', applyFilters);
+                if (pagination.prev) {
+                    pagination.prev.addEventListener('click', function () {
+                        if (currentPage <= 1) {
+                            return;
+                        }
+                        currentPage -= 1;
+                        applyFilters(false);
+                    });
+                }
+
+                if (pagination.next) {
+                    pagination.next.addEventListener('click', function () {
+                        currentPage += 1;
+                        applyFilters(false);
+                    });
+                }
+
+                const studentButtons = modalEl.querySelectorAll('[data-students-title][data-students]');
+                studentButtons.forEach(function (button) {
+                    button.addEventListener('click', function () {
+                        if (!studentsModal || !studentsModalList || !studentsModalEmpty) {
+                            return;
+                        }
+                        const title = button.getAttribute('data-students-title') || 'Students';
+                        if (studentsModalTitle) {
+                            studentsModalTitle.textContent = title;
+                        }
+                        let students = [];
+                        const raw = button.getAttribute('data-students') || '[]';
+                        try {
+                            students = JSON.parse(raw);
+                        } catch (error) {
+                            students = [];
+                        }
+                        if (!Array.isArray(students)) {
+                            students = [];
+                        }
+                        studentsModalList.innerHTML = '';
+                        if (students.length) {
+                            students.forEach(function (student) {
+                                const li = document.createElement('li');
+                                li.className = 'student-item';
+                                const text = String(student);
+                                const match = text.match(/^(.*)\s\(([^)]+)\)\s*$/);
+                                const name = match ? match[1].trim() : text;
+                                const code = match ? match[2].trim() : '';
+                                const nameEl = document.createElement('span');
+                                nameEl.className = 'student-name';
+                                nameEl.textContent = name;
+                                li.appendChild(nameEl);
+                                if (code) {
+                                    const codeEl = document.createElement('span');
+                                    codeEl.className = 'student-code';
+                                    codeEl.textContent = code;
+                                    li.appendChild(codeEl);
+                                }
+                                studentsModalList.appendChild(li);
+                            });
+                            studentsModalEmpty.classList.add('d-none');
+                        } else {
+                            studentsModalEmpty.classList.remove('d-none');
+                        }
+                        if (studentsModalCount) {
+                            const label = students.length === 1 ? 'student' : 'students';
+                            studentsModalCount.textContent = `${students.length} ${label}`;
+                        }
+                    });
+                });
+
+                modalEl.addEventListener('shown.bs.modal', function () {
+                    applyFilters(true);
+                });
                 setActiveCategoryButton(activeCategory);
-                applyFilters();
+                applyFilters(true);
             });
         });
     </script>
