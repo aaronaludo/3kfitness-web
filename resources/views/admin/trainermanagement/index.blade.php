@@ -223,6 +223,13 @@
         }
         .assignment-modal .assignment-row { cursor: default; font-size: 0.9rem; }
         .assignment-modal .assignment-col { min-width: 0; }
+        .assignment-modal .assignment-row.d-none { display: none !important; }
+        .assignment-modal .modal-dialog {
+            margin-top: 4.5rem;
+            margin-bottom: 2rem;
+        }
+        .assignment-modal .modal-content { font-size: 0.94rem; }
+        .assignment-modal .modal-title { font-size: 1.1rem; }
         .assignment-modal .assignment-hours-badge {
             font-size: 0.7rem;
             padding: 2px 8px;
@@ -317,13 +324,80 @@
         .assignment-modal .assignment-pagination .page-item.disabled .page-link {
             color: #cbd5e1;
         }
+        .assignment-modal .assignment-date-list { display: none; }
+        .assignment-modal .assignment-date-range { display: block; }
+        .assignment-modal .series-sessions {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .assignment-modal .series-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .assignment-modal .series-panel {
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            background: #ffffff;
+            padding: 10px 12px;
+            max-height: 240px;
+            overflow: auto;
+            box-shadow: inset 0 0 0 1px rgba(226, 232, 240, 0.4);
+        }
+        .assignment-modal .series-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 6px 0;
+        }
+        .assignment-modal .series-item + .series-item {
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 10px;
+            margin-top: 4px;
+        }
+        .assignment-modal .series-dot {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 14px;
+            margin-top: 4px;
+        }
+        .assignment-modal .series-dot .dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #2563eb;
+            box-shadow: 0 0 0 4px #eff6ff;
+        }
+        .assignment-modal .series-dot .line {
+            width: 2px;
+            height: 20px;
+            background: #e2e8f0;
+            margin-top: 4px;
+        }
+        .assignment-modal .session-toggle {
+            color: #2563eb;
+            text-decoration: underline;
+        }
         @media (min-width: 992px) {
-            .assignment-modal .col-code { width: 80px; }
-            .assignment-modal .col-rate { width: 120px; text-align: right; }
-            .assignment-modal .col-start { width: 170px; }
-            .assignment-modal .col-end { width: 170px; }
-            .assignment-modal .col-students { width: 180px; }
-            .assignment-modal .col-attendance { width: 120px; text-align: center; }
+            .assignment-modal .assignment-table-head,
+            .assignment-modal .assignment-row {
+                display: grid !important;
+                grid-template-columns: 90px minmax(220px, 1fr) 120px 220px 170px minmax(260px, 1.1fr);
+                column-gap: 16px;
+                align-items: start;
+            }
+            .assignment-modal .assignment-row {
+                display: grid !important;
+                row-gap: 8px;
+            }
+            .assignment-modal .assignment-col {
+                width: auto;
+            }
+            .assignment-modal .col-rate { text-align: right; }
+            .assignment-modal .col-series { text-align: left; }
         }
         @media (max-width: 991.98px) {
             .assignment-modal .summary-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -333,6 +407,7 @@
             .assignment-modal .summary-item:nth-child(odd) { border-right: 1px solid #e5e7eb; }
         }
         @media (max-width: 575.98px) {
+            .assignment-modal .modal-dialog { margin-top: 3.5rem; }
             .assignment-modal .summary-grid { grid-template-columns: minmax(0, 1fr); }
             .assignment-modal .summary-item { border-right: 0; }
         }
@@ -343,6 +418,15 @@
                 $showArchived = request()->boolean('show_archived');
                 $printSource = $showArchived ? $archivedData : $trainers;
                 $printAllSource = $showArchived ? ($printAllArchived ?? collect()) : ($printAllActive ?? collect());
+                $weekdayLookup = [
+                    'sun' => 'Sunday',
+                    'mon' => 'Monday',
+                    'tue' => 'Tuesday',
+                    'wed' => 'Wednesday',
+                    'thu' => 'Thursday',
+                    'fri' => 'Friday',
+                    'sat' => 'Saturday',
+                ];
                 $formatAssignmentDuration = function ($hours) {
                     if ($hours === null) {
                         return '—';
@@ -361,6 +445,299 @@
                         $parts[] = $mins . ' ' . ($mins === 1 ? 'min' : 'mins');
                     }
                     return implode(' ', $parts);
+                };
+                $buildScheduleSeries = function ($schedule, $start, $end, $now, $trainerAttendances = null) use ($weekdayLookup) {
+                    $seriesStart = null;
+                    if (!empty($schedule->series_start_date)) {
+                        $seriesStart = \Carbon\Carbon::parse($schedule->series_start_date)->startOfDay();
+                    } elseif ($start instanceof \Carbon\Carbon) {
+                        $seriesStart = $start->copy()->startOfDay();
+                    } elseif (!empty($schedule->class_start_date)) {
+                        $seriesStart = \Carbon\Carbon::parse($schedule->class_start_date)->startOfDay();
+                    }
+
+                    $seriesEnd = null;
+                    if (!empty($schedule->series_end_date)) {
+                        $seriesEnd = \Carbon\Carbon::parse($schedule->series_end_date)->endOfDay();
+                    } elseif ($end instanceof \Carbon\Carbon) {
+                        $seriesEnd = $end->copy()->endOfDay();
+                    } elseif (!empty($schedule->class_end_date)) {
+                        $seriesEnd = \Carbon\Carbon::parse($schedule->class_end_date)->endOfDay();
+                    }
+
+                    if (!$seriesStart) {
+                        return [
+                            'sessions' => collect(),
+                            'actual_sessions' => collect(),
+                            'labels' => collect(),
+                            'range' => '—',
+                        ];
+                    }
+
+                    if (!$seriesEnd) {
+                        $seriesEnd = $seriesStart->copy()->endOfDay();
+                    }
+
+                    if ($seriesEnd->lt($seriesStart)) {
+                        $seriesEnd = $seriesStart->copy()->endOfDay();
+                    }
+
+                    $startTimeString = $schedule->class_start_time ?? ($start instanceof \Carbon\Carbon ? $start->format('H:i:s') : null);
+                    $endTimeString = $schedule->class_end_time ?? ($end instanceof \Carbon\Carbon ? $end->format('H:i:s') : null);
+
+                    $formatTimeLabel = function ($startTime, $endTime) {
+                        try {
+                            if ($startTime && $endTime) {
+                                return \Carbon\Carbon::parse($startTime)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($endTime)->format('g:i A');
+                            }
+                            if ($startTime) {
+                                return \Carbon\Carbon::parse($startTime)->format('g:i A');
+                            }
+                            if ($endTime) {
+                                return \Carbon\Carbon::parse($endTime)->format('g:i A');
+                            }
+                        } catch (\Throwable $th) {
+                            return null;
+                        }
+
+                        return null;
+                    };
+
+                    $defaultTimeLabel = $formatTimeLabel($startTimeString, $endTimeString);
+
+                    $dayKeys = is_array($schedule->recurring_days)
+                        ? $schedule->recurring_days
+                        : json_decode($schedule->recurring_days ?? '[]', true);
+                    $recurringDays = collect($dayKeys ?? [])
+                        ->map(function ($day) {
+                            return strtolower($day);
+                        })
+                        ->filter(function ($day) use ($weekdayLookup) {
+                            return array_key_exists($day, $weekdayLookup);
+                        })
+                        ->values();
+                    $weekdayKeys = [0 => 'sun', 1 => 'mon', 2 => 'tue', 3 => 'wed', 4 => 'thu', 5 => 'fri', 6 => 'sat'];
+
+                    $sessionOverridesRaw = is_array($schedule->session_overrides)
+                        ? $schedule->session_overrides
+                        : json_decode($schedule->session_overrides ?? '[]', true);
+                    $sessionOverrides = collect($sessionOverridesRaw ?? [])
+                        ->map(function ($override) {
+                            try {
+                                $originalCarbon = isset($override['original_date'])
+                                    ? \Carbon\Carbon::parse($override['original_date'])->startOfDay()
+                                    : null;
+                            } catch (\Throwable $th) {
+                                $originalCarbon = null;
+                            }
+
+                            if (!$originalCarbon) {
+                                return null;
+                            }
+
+                            try {
+                                $newCarbon = isset($override['new_date'])
+                                    ? \Carbon\Carbon::parse($override['new_date'])->startOfDay()
+                                    : null;
+                            } catch (\Throwable $th) {
+                                $newCarbon = null;
+                            }
+
+                            return [
+                                'original_date' => $originalCarbon->toDateString(),
+                                'original_carbon' => $originalCarbon,
+                                'new_date' => $newCarbon ? $newCarbon->toDateString() : null,
+                                'new_carbon' => $newCarbon,
+                                'start_time' => $override['start_time'] ?? null,
+                                'end_time' => $override['end_time'] ?? null,
+                            ];
+                        })
+                        ->filter()
+                        ->keyBy('original_date');
+
+                    $trainerAttendances = $trainerAttendances instanceof \Illuminate\Support\Collection
+                        ? $trainerAttendances
+                        : collect($trainerAttendances ?? []);
+
+                    $hasAttendance = function ($sessionStart, $sessionEnd) use ($trainerAttendances) {
+                        return $trainerAttendances->contains(function ($attendance) use ($sessionStart, $sessionEnd) {
+                            $clockIn = $attendance['clockin'] ?? null;
+                            $clockOut = $attendance['clockout'] ?? null;
+
+                            $overlapsStart = $clockIn && $clockIn->between($sessionStart, $sessionEnd, true);
+                            $overlapsEnd = $clockOut && $clockOut->between($sessionStart, $sessionEnd, true);
+                            $spansRange = $clockIn && $clockOut && $clockIn->lte($sessionStart) && $clockOut->gte($sessionEnd);
+                            $clockInOnly = $clockIn && !$clockOut && $clockIn->between($sessionStart, $sessionEnd, true);
+
+                            return $overlapsStart || $overlapsEnd || $spansRange || $clockInOnly;
+                        });
+                    };
+
+                    $resolveAttendanceStatus = function ($sessionStart, $sessionEnd) use ($now, $hasAttendance) {
+                        $isPast = $sessionEnd->lt($now);
+                        if (!$isPast) {
+                            return ['Upcoming', 'bg-warning-subtle text-warning', false];
+                        }
+
+                        $hasMatch = $hasAttendance($sessionStart, $sessionEnd);
+                        if ($hasMatch) {
+                            return ['Present', 'bg-success-subtle text-success', true];
+                        }
+
+                        return ['Absent', 'bg-danger-subtle text-danger', true];
+                    };
+
+                    $occurrences = collect();
+                    if ($recurringDays->isEmpty()) {
+                        $occurrences->push($seriesStart->copy());
+                    } else {
+                        $cursor = $seriesStart->copy();
+                        $guard = 0;
+                        $limit = max(1, $seriesStart->diffInDays($seriesEnd) + 2);
+                        while ($cursor->lte($seriesEnd) && $guard < $limit) {
+                            $dayKey = $weekdayKeys[$cursor->dayOfWeek] ?? null;
+                            if ($dayKey && $recurringDays->contains($dayKey)) {
+                                $occurrences->push($cursor->copy());
+                            }
+                            $cursor->addDay();
+                            $guard += 1;
+                        }
+                    }
+                    if ($occurrences->isEmpty() && $start instanceof \Carbon\Carbon) {
+                        $occurrences->push($start->copy()->startOfDay());
+                    }
+
+                    $sessions = collect();
+
+                    foreach ($occurrences as $occurrenceDate) {
+                        $sessionStart = $occurrenceDate->copy();
+                        if ($startTimeString) {
+                            $sessionStart->setTimeFromTimeString($startTimeString);
+                        } else {
+                            $sessionStart->startOfDay();
+                        }
+
+                        $sessionEnd = $occurrenceDate->copy();
+                        if ($endTimeString) {
+                            $sessionEnd->setTimeFromTimeString($endTimeString);
+                            if ($startTimeString && $sessionEnd->lt($sessionStart)) {
+                                $sessionEnd->addDay();
+                            }
+                        } elseif ($startTimeString) {
+                            $sessionEnd = $sessionStart->copy();
+                        } else {
+                            $sessionEnd->endOfDay();
+                        }
+
+                        $sessionDateKey = $occurrenceDate->toDateString();
+                        $weekdayLabel = $occurrenceDate->format('l');
+                        $override = $sessionOverrides[$sessionDateKey] ?? null;
+
+                        if ($override) {
+                            $rescheduleTargetLabel = null;
+                            if ($override['new_carbon']) {
+                                $targetTimeLabel = $formatTimeLabel($override['start_time'] ?? $startTimeString, $override['end_time'] ?? $endTimeString);
+                                $rescheduleTargetLabel = $override['new_carbon']->format('M j, Y');
+                                if ($targetTimeLabel) {
+                                    $rescheduleTargetLabel .= ' • ' . $targetTimeLabel;
+                                }
+                            }
+
+                            $sessions->push([
+                                'label' => $occurrenceDate->format('M j, Y'),
+                                'short' => $occurrenceDate->format('M d'),
+                                'weekday' => $weekdayLabel,
+                                'time' => $defaultTimeLabel,
+                                'status' => 'Rescheduled',
+                                'status_class' => 'bg-secondary-subtle text-secondary',
+                                'sort_key' => $sessionStart->timestamp,
+                                'is_rescheduled' => true,
+                                'is_override' => false,
+                                'reschedule_target_label' => $rescheduleTargetLabel,
+                                'date' => $sessionDateKey,
+                            ]);
+
+                            $overrideDate = $override['new_carbon'] ?: $occurrenceDate->copy();
+                            $overrideStart = $overrideDate->copy();
+                            $overrideEnd = $overrideDate->copy();
+                            $overrideStartTime = $override['start_time'] ?? $startTimeString;
+                            $overrideEndTime = $override['end_time'] ?? $endTimeString;
+
+                            if ($overrideStartTime) {
+                                $overrideStart->setTimeFromTimeString($overrideStartTime);
+                            } else {
+                                $overrideStart->startOfDay();
+                            }
+
+                            if ($overrideEndTime) {
+                                $overrideEnd->setTimeFromTimeString($overrideEndTime);
+                                if ($overrideStartTime && $overrideEnd->lt($overrideStart)) {
+                                    $overrideEnd->addDay();
+                                }
+                            } elseif ($overrideStartTime) {
+                                $overrideEnd = $overrideStart->copy();
+                            } else {
+                                $overrideEnd->endOfDay();
+                            }
+
+                            [$overrideStatus, $overrideStatusClass, $overrideIsPast] = $resolveAttendanceStatus($overrideStart, $overrideEnd);
+                            $overrideTimeLabel = $formatTimeLabel($overrideStartTime, $overrideEndTime) ?? $defaultTimeLabel;
+
+                            $sessions->push([
+                                'label' => $overrideDate->format('M j, Y'),
+                                'short' => $overrideDate->format('M d'),
+                                'weekday' => $overrideDate->format('l'),
+                                'time' => $overrideTimeLabel,
+                                'status' => $overrideStatus,
+                                'status_class' => $overrideStatusClass,
+                                'sort_key' => $overrideStart->timestamp,
+                                'is_rescheduled' => false,
+                                'is_override' => true,
+                                'rescheduled_from' => $occurrenceDate->format('M j, Y'),
+                                'date' => $overrideDate->toDateString(),
+                                'is_past' => $overrideIsPast,
+                            ]);
+                        } else {
+                            [$sessionStatus, $statusClass, $sessionIsPast] = $resolveAttendanceStatus($sessionStart, $sessionEnd);
+
+                            $sessions->push([
+                                'label' => $occurrenceDate->format('M j, Y'),
+                                'short' => $occurrenceDate->format('M d'),
+                                'weekday' => $weekdayLabel,
+                                'time' => $defaultTimeLabel,
+                                'status' => $sessionStatus,
+                                'status_class' => $statusClass,
+                                'sort_key' => $sessionStart->timestamp,
+                                'is_rescheduled' => false,
+                                'is_override' => false,
+                                'date' => $sessionDateKey,
+                                'is_past' => $sessionIsPast,
+                            ]);
+                        }
+                    }
+
+                    if ($sessions->isNotEmpty()) {
+                        $sessions = $sessions->sortBy('sort_key')->values();
+                    }
+
+                    $actualSessions = $sessions->filter(function ($session) {
+                        return empty($session['is_rescheduled']);
+                    })->values();
+
+                    $dateLabels = $actualSessions->pluck('short')->unique()->values();
+                    $rangeLabel = '—';
+                    if ($actualSessions->isNotEmpty()) {
+                        $firstDate = \Carbon\Carbon::parse($actualSessions->first()['date'])->format('M j, Y');
+                        $lastDate = \Carbon\Carbon::parse($actualSessions->last()['date'])->format('M j, Y');
+                        $rangeLabel = $firstDate === $lastDate ? $firstDate : $firstDate . ' → ' . $lastDate;
+                    }
+
+                    return [
+                        'sessions' => $sessions,
+                        'actual_sessions' => $actualSessions,
+                        'labels' => $dateLabels,
+                        'range' => $rangeLabel,
+                    ];
                 };
                 $mapTrainer = function ($item) {
                     $name = trim(($item->first_name ?? '') . ' ' . ($item->last_name ?? ''));
@@ -806,9 +1183,15 @@
                                                     $now = \Carbon\Carbon::now();
 
                                                     $scheduleDetails = $trainerSchedules
-                                                        ->map(function ($schedule) use ($now) {
+                                                        ->map(function ($schedule) use ($now, $buildScheduleSeries) {
                                                             $start = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
                                                             $end = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+                                                            $seriesStart = !empty($schedule->series_start_date)
+                                                                ? \Carbon\Carbon::parse($schedule->series_start_date)->startOfDay()
+                                                                : ($start ? $start->copy()->startOfDay() : null);
+                                                            $seriesEnd = !empty($schedule->series_end_date)
+                                                                ? \Carbon\Carbon::parse($schedule->series_end_date)->endOfDay()
+                                                                : ($end ? $end->copy()->endOfDay() : null);
 
                                                             $hasValidWindow = $start && $end && $end->greaterThan($start);
                                                             $hasRate = !is_null($schedule->trainer_rate_per_hour);
@@ -852,21 +1235,35 @@
                                                                 return null;
                                                             })->filter()->unique()->values();
 
-                                                            $isPast = false;
-                                                            if ($end) {
-                                                                $isPast = $end->lt($now);
-                                                            } elseif ($start) {
-                                                                $isPast = $start->lt($now);
-                                                            }
+                                                            $seriesPreview = $buildScheduleSeries($schedule, $start, $end, $now, collect());
+                                                            $previewSessions = $seriesPreview['actual_sessions'] ?? collect();
+                                                            $hasUpcomingSession = $previewSessions->contains(function ($session) {
+                                                                return empty($session['is_past']);
+                                                            });
+                                                            $hasSessionHistory = $previewSessions->isNotEmpty();
 
-                                                            $category = $isPast ? 'past' : 'future';
+                                                            if ($hasSessionHistory) {
+                                                                $category = $hasUpcomingSession ? 'future' : 'past';
+                                                            } else {
+                                                                $isPast = false;
+                                                                if ($seriesEnd) {
+                                                                    $isPast = $seriesEnd->lt($now);
+                                                                } elseif ($end) {
+                                                                    $isPast = $end->lt($now);
+                                                                } elseif ($start) {
+                                                                    $isPast = $start->lt($now);
+                                                                }
+                                                                $category = $isPast ? 'past' : 'future';
+                                                            }
 
                                                             return [
                                                                 'schedule' => $schedule,
                                                                 'start' => $start,
                                                                 'end' => $end,
-                                                                'start_date' => $start ? $start->toDateString() : null,
-                                                                'end_date' => $end ? $end->toDateString() : null,
+                                                                'series_start' => $seriesStart,
+                                                                'series_end' => $seriesEnd,
+                                                                'start_date' => $seriesStart ? $seriesStart->toDateString() : ($start ? $start->toDateString() : null),
+                                                                'end_date' => $seriesEnd ? $seriesEnd->toDateString() : ($end ? $end->toDateString() : null),
                                                                 'hours' => $hours,
                                                                 'display_salary' => $displaySalary,
                                                                 'summary_salary' => $summarySalary,
@@ -879,6 +1276,42 @@
                                                             return $detail['start'] ? $detail['start']->getTimestamp() : PHP_INT_MAX;
                                                         })
                                                         ->values();
+
+                                                    $attendanceStartCandidates = $scheduleDetails
+                                                        ->pluck('series_start')
+                                                        ->filter()
+                                                        ->sortBy(function ($date) {
+                                                            return $date instanceof \Carbon\Carbon ? $date->timestamp : PHP_INT_MAX;
+                                                        })
+                                                        ->values();
+                                                    $attendanceEndCandidates = $scheduleDetails
+                                                        ->pluck('series_end')
+                                                        ->filter()
+                                                        ->sortByDesc(function ($date) {
+                                                            return $date instanceof \Carbon\Carbon ? $date->timestamp : 0;
+                                                        })
+                                                        ->values();
+                                                    $attendanceWindowStart = $attendanceStartCandidates->first();
+                                                    $attendanceWindowEnd = $attendanceEndCandidates->first();
+                                                    $trainerAttendances = collect();
+                                                    if ($attendanceWindowStart && $attendanceWindowEnd) {
+                                                        $windowStart = $attendanceWindowStart->copy()->startOfDay();
+                                                        $windowEnd = $attendanceWindowEnd->copy()->endOfDay();
+                                                        $trainerAttendances = \App\Models\Attendance2::where('user_id', $item->id)
+                                                            ->where('is_archive', 0)
+                                                            ->where(function ($query) use ($windowStart, $windowEnd) {
+                                                                $query->whereBetween('clockin_at', [$windowStart, $windowEnd])
+                                                                    ->orWhereBetween('clockout_at', [$windowStart, $windowEnd])
+                                                                    ->orWhereBetween('created_at', [$windowStart, $windowEnd]);
+                                                            })
+                                                            ->get()
+                                                            ->map(function ($attendance) {
+                                                                return [
+                                                                    'clockin' => $attendance->clockin_at ? \Carbon\Carbon::parse($attendance->clockin_at) : null,
+                                                                    'clockout' => $attendance->clockout_at ? \Carbon\Carbon::parse($attendance->clockout_at) : null,
+                                                                ];
+                                                            });
+                                                    }
 
                                                     $futureScheduleDetails = $scheduleDetails->filter(function ($detail) {
                                                         return $detail['category'] === 'future';
@@ -986,12 +1419,14 @@
                                                         'future_hours' => (float) $futureHours,
                                                         'past_hours' => (float) $pastHours,
                                                     ],
-                                                    'items' => $scheduleDetails->map(function ($detail) {
+                                                    'items' => $scheduleDetails->map(function ($detail) use ($buildScheduleSeries, $trainerAttendances, $now) {
                                                         $schedule = $detail['schedule'];
                                                         $start = $detail['start'];
                                                         $end = $detail['end'];
                                                         $students = $detail['students'] ?? collect();
                                                         $categoryLabel = $detail['category'] === 'past' ? 'Past' : 'Upcoming';
+                                                        $seriesData = $buildScheduleSeries($schedule, $start, $end, $now, $trainerAttendances);
+                                                        $seriesSessions = $seriesData['sessions'] ?? collect();
 
                                                         return [
                                                             'name' => $schedule->name ?? 'Unnamed Schedule',
@@ -1004,6 +1439,15 @@
                                                             'end_date' => $detail['end_date'] ?? null,
                                                             'hours' => isset($detail['hours']) ? (float) $detail['hours'] : null,
                                                             'students' => collect($students)->values()->all(),
+                                                            'series_range' => $seriesData['range'] ?? null,
+                                                            'series_sessions' => $seriesSessions->map(function ($session) {
+                                                                return [
+                                                                    'label' => $session['label'] ?? '',
+                                                                    'weekday' => $session['weekday'] ?? '',
+                                                                    'time' => $session['time'] ?? '',
+                                                                    'status' => $session['status'] ?? '',
+                                                                ];
+                                                            })->values()->all(),
                                                         ];
                                                     })->values(),
                                                     'filters' => [
@@ -1089,10 +1533,9 @@
                                                                             <div class="assignment-col col-code">Code</div>
                                                                             <div class="assignment-col flex-grow-1">Type</div>
                                                                             <div class="assignment-col col-rate">Rate/hr</div>
-                                                                            <div class="assignment-col col-start">Start Date</div>
-                                                                            <div class="assignment-col col-end">End Date</div>
+                                                                            <div class="assignment-col col-date">Date</div>
                                                                             <div class="assignment-col col-students">Students</div>
-                                                                            <div class="assignment-col col-attendance">Attendance</div>
+                                                                            <div class="assignment-col col-series">Series of sessions</div>
                                                                         </div>
                                                                         @foreach($scheduleDetails as $detailIndex => $detail)
                                                                             @php
@@ -1107,21 +1550,21 @@
                                                                                 $codeLabel = $schedule->class_code ?? '—';
                                                                                 $rateValue = $schedule->trainer_rate_per_hour ?? null;
                                                                                 $rateLabel = $rateValue !== null ? '₱' . number_format((float) $rateValue, 2) : '—';
-                                                                                $startDateLabel = $start ? $start->format('M j, Y') : '—';
-                                                                                $startTimeLabel = $start ? $start->format('g:i A') : '—';
-                                                                                $endDateLabel = $end ? $end->format('M j, Y') : '—';
-                                                                                $endTimeLabel = $end ? $end->format('g:i A') : '—';
+                                                                                $seriesData = $buildScheduleSeries($schedule, $start, $end, $now, $trainerAttendances);
+                                                                                $seriesSessions = $seriesData['sessions'] ?? collect();
+                                                                                $actualSeriesSessions = $seriesData['actual_sessions'] ?? collect();
+                                                                                $dateLabels = $seriesData['labels'] ?? collect();
+                                                                                $dateRangeLabel = $seriesData['range'] ?? '—';
+                                                                                $dateList = $dateLabels->isNotEmpty()
+                                                                                    ? $dateLabels
+                                                                                    : collect([$start ? $start->format('M d') : '—']);
+                                                                                $dateDisplay = 'range';
                                                                                 $studentsPayload = $students->values()->all();
-                                                                                $attendanceLabel = $category === 'future'
-                                                                                    ? 'Upcoming'
-                                                                                    : ($students->isNotEmpty() ? 'Present' : 'Absent');
-                                                                                $attendanceClass = $category === 'future'
-                                                                                    ? 'bg-warning-subtle text-warning'
-                                                                                    : ($students->isNotEmpty() ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger');
                                                                             @endphp
                                                                             <div
-                                                                                class="assignment-row d-flex flex-column flex-lg-row gap-3 py-3 border-bottom align-items-lg-center"
+                                                                                class="assignment-row d-flex flex-column flex-lg-row gap-3 py-3 border-bottom"
                                                                                 data-assignment-card
+                                                                                data-date-display="{{ $dateDisplay }}"
                                                                                 data-category="{{ $category }}"
                                                                                 data-start="{{ $detail['start_date'] ?? '' }}"
                                                                                 data-end="{{ $detail['end_date'] ?? '' }}"
@@ -1144,13 +1587,13 @@
                                                                                         <div class="text-muted small">—</div>
                                                                                     @endif
                                                                                 </div>
-                                                                                <div class="assignment-col col-start">
-                                                                                    <div class="text-muted small">{{ $startDateLabel }}</div>
-                                                                                    <div class="text-muted small">{{ $startTimeLabel }}</div>
-                                                                                </div>
-                                                                                <div class="assignment-col col-end">
-                                                                                    <div class="text-muted small">{{ $endDateLabel }}</div>
-                                                                                    <div class="text-muted small">{{ $endTimeLabel }}</div>
+                                                                                <div class="assignment-col col-date text-muted small">
+                                                                                    <div class="assignment-date-list">
+                                                                                        @foreach($dateList as $dateItem)
+                                                                                            <div>• {{ $dateItem }}</div>
+                                                                                        @endforeach
+                                                                                    </div>
+                                                                                    <div class="assignment-date-range">{{ $dateRangeLabel }}</div>
                                                                                 </div>
                                                                                 <div class="assignment-col col-students">
                                                                                     @if($students->isNotEmpty())
@@ -1168,8 +1611,69 @@
                                                                                         <span class="text-muted small">No students</span>
                                                                                     @endif
                                                                                 </div>
-                                                                                <div class="assignment-col col-attendance text-lg-center">
-                                                                                    <span class="status-pill {{ $attendanceClass }}">{{ $attendanceLabel }}</span>
+                                                                                <div class="assignment-col col-series">
+                                                                                    @if($seriesSessions->isNotEmpty())
+                                                                                        @php
+                                                                                            $seriesCollapseId = 'assignment-series-' . $item->id . '-' . $detailIndex;
+                                                                                        @endphp
+                                                                                        <div class="series-sessions">
+                                                                                            <div class="series-header">
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    class="btn btn-link btn-sm px-0 session-toggle"
+                                                                                                    data-bs-toggle="collapse"
+                                                                                                    data-bs-target="#{{ $seriesCollapseId }}"
+                                                                                                    aria-expanded="false"
+                                                                                                    aria-controls="{{ $seriesCollapseId }}"
+                                                                                                    data-session-toggle
+                                                                                                    data-collapsed-text="Show all sessions"
+                                                                                                    data-expanded-text="Hide sessions"
+                                                                                                >
+                                                                                                    Show all sessions
+                                                                                                </button>
+                                                                                            </div>
+                                                                                            <div class="collapse" id="{{ $seriesCollapseId }}">
+                                                                                                <div class="series-panel">
+                                                                                                    <div class="d-flex flex-column">
+                                                                                                        @foreach($seriesSessions as $sessionIndex => $session)
+                                                                                                            @php
+                                                                                                                $isRescheduled = !empty($session['is_rescheduled']);
+                                                                                                                $rescheduleTarget = $session['reschedule_target_label'] ?? null;
+                                                                                                                $rescheduledFrom = $session['rescheduled_from'] ?? null;
+                                                                                                            @endphp
+                                                                                                            <div class="series-item">
+                                                                                                                <div class="series-dot">
+                                                                                                                    <span class="dot"></span>
+                                                                                                                    @if($sessionIndex < $seriesSessions->count() - 1)
+                                                                                                                        <span class="line"></span>
+                                                                                                                    @endif
+                                                                                                                </div>
+                                                                                                                <div>
+                                                                                                                    <div class="fw-semibold {{ $isRescheduled ? 'text-decoration-line-through text-muted' : '' }}">
+                                                                                                                        {{ $session['label'] ?? '—' }}
+                                                                                                                    </div>
+                                                                                                                    <div class="text-muted small">
+                                                                                                                        {{ $session['weekday'] ?? '' }}
+                                                                                                                        @if(!empty($session['time']))
+                                                                                                                            • {{ $session['time'] }}
+                                                                                                                        @endif
+                                                                                                                    </div>
+                                                                                                                    @if($isRescheduled && $rescheduleTarget)
+                                                                                                                        <div class="text-muted small fst-italic">→ {{ $rescheduleTarget }}</div>
+                                                                                                                    @elseif(!$isRescheduled && $rescheduledFrom)
+                                                                                                                        <div class="text-muted small fst-italic">From {{ $rescheduledFrom }}</div>
+                                                                                                                    @endif
+                                                                                                                    <span class="badge {{ $session['status_class'] ?? 'bg-secondary' }} px-2 py-1">{{ $session['status'] ?? '' }}</span>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        @endforeach
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    @else
+                                                                                        <span class="text-muted small">Series not set</span>
+                                                                                    @endif
                                                                                 </div>
                                                                             </div>
                                                                         @endforeach
@@ -1177,7 +1681,7 @@
                                                                 </div>
                                                                 <div class="assignment-pagination d-flex align-items-center justify-content-between flex-wrap gap-2 mt-3" data-pagination>
                                                                     <div class="text-muted small" data-page-status>Showing 0 to 0 of 0 assignments</div>
-                                                                    <nav aria-label="Assignment pagination">
+                                                                    <nav aria-label="Assignment pagination" style="height: auto !important;margin: 0px !important">
                                                                         <ul class="pagination pagination-sm mb-0" data-page-list>
                                                                             <li class="page-item" data-page-prev-item>
                                                                                 <button type="button" class="page-link" data-page-prev aria-label="Previous">‹</button>
@@ -1349,9 +1853,15 @@
                                                     $archivedNow = \Carbon\Carbon::now();
 
                                                     $archivedScheduleDetails = $archivedSchedules
-                                                        ->map(function ($schedule) use ($archivedNow) {
+                                                        ->map(function ($schedule) use ($archivedNow, $buildScheduleSeries) {
                                                             $start = !empty($schedule->class_start_date) ? \Carbon\Carbon::parse($schedule->class_start_date) : null;
                                                             $end = !empty($schedule->class_end_date) ? \Carbon\Carbon::parse($schedule->class_end_date) : null;
+                                                            $seriesStart = !empty($schedule->series_start_date)
+                                                                ? \Carbon\Carbon::parse($schedule->series_start_date)->startOfDay()
+                                                                : ($start ? $start->copy()->startOfDay() : null);
+                                                            $seriesEnd = !empty($schedule->series_end_date)
+                                                                ? \Carbon\Carbon::parse($schedule->series_end_date)->endOfDay()
+                                                                : ($end ? $end->copy()->endOfDay() : null);
 
                                                             $hasValidWindow = $start && $end && $end->greaterThan($start);
                                                             $hasRate = !is_null($schedule->trainer_rate_per_hour);
@@ -1395,21 +1905,35 @@
                                                                 return null;
                                                             })->filter()->unique()->values();
 
-                                                            $isPast = false;
-                                                            if ($end) {
-                                                                $isPast = $end->lt($archivedNow);
-                                                            } elseif ($start) {
-                                                                $isPast = $start->lt($archivedNow);
-                                                            }
+                                                            $seriesPreview = $buildScheduleSeries($schedule, $start, $end, $archivedNow, collect());
+                                                            $previewSessions = $seriesPreview['actual_sessions'] ?? collect();
+                                                            $hasUpcomingSession = $previewSessions->contains(function ($session) {
+                                                                return empty($session['is_past']);
+                                                            });
+                                                            $hasSessionHistory = $previewSessions->isNotEmpty();
 
-                                                            $category = $isPast ? 'past' : 'future';
+                                                            if ($hasSessionHistory) {
+                                                                $category = $hasUpcomingSession ? 'future' : 'past';
+                                                            } else {
+                                                                $isPast = false;
+                                                                if ($seriesEnd) {
+                                                                    $isPast = $seriesEnd->lt($archivedNow);
+                                                                } elseif ($end) {
+                                                                    $isPast = $end->lt($archivedNow);
+                                                                } elseif ($start) {
+                                                                    $isPast = $start->lt($archivedNow);
+                                                                }
+                                                                $category = $isPast ? 'past' : 'future';
+                                                            }
 
                                                             return [
                                                                 'schedule' => $schedule,
                                                                 'start' => $start,
                                                                 'end' => $end,
-                                                                'start_date' => $start ? $start->toDateString() : null,
-                                                                'end_date' => $end ? $end->toDateString() : null,
+                                                                'series_start' => $seriesStart,
+                                                                'series_end' => $seriesEnd,
+                                                                'start_date' => $seriesStart ? $seriesStart->toDateString() : ($start ? $start->toDateString() : null),
+                                                                'end_date' => $seriesEnd ? $seriesEnd->toDateString() : ($end ? $end->toDateString() : null),
                                                                 'hours' => $hours,
                                                                 'display_salary' => $displaySalary,
                                                                 'summary_salary' => $summarySalary,
@@ -1422,6 +1946,42 @@
                                                             return $detail['start'] ? $detail['start']->getTimestamp() : PHP_INT_MAX;
                                                         })
                                                         ->values();
+
+                                                    $archivedAttendanceStartCandidates = $archivedScheduleDetails
+                                                        ->pluck('series_start')
+                                                        ->filter()
+                                                        ->sortBy(function ($date) {
+                                                            return $date instanceof \Carbon\Carbon ? $date->timestamp : PHP_INT_MAX;
+                                                        })
+                                                        ->values();
+                                                    $archivedAttendanceEndCandidates = $archivedScheduleDetails
+                                                        ->pluck('series_end')
+                                                        ->filter()
+                                                        ->sortByDesc(function ($date) {
+                                                            return $date instanceof \Carbon\Carbon ? $date->timestamp : 0;
+                                                        })
+                                                        ->values();
+                                                    $archivedAttendanceWindowStart = $archivedAttendanceStartCandidates->first();
+                                                    $archivedAttendanceWindowEnd = $archivedAttendanceEndCandidates->first();
+                                                    $archivedTrainerAttendances = collect();
+                                                    if ($archivedAttendanceWindowStart && $archivedAttendanceWindowEnd) {
+                                                        $windowStart = $archivedAttendanceWindowStart->copy()->startOfDay();
+                                                        $windowEnd = $archivedAttendanceWindowEnd->copy()->endOfDay();
+                                                        $archivedTrainerAttendances = \App\Models\Attendance2::where('user_id', $archive->id)
+                                                            ->where('is_archive', 0)
+                                                            ->where(function ($query) use ($windowStart, $windowEnd) {
+                                                                $query->whereBetween('clockin_at', [$windowStart, $windowEnd])
+                                                                    ->orWhereBetween('clockout_at', [$windowStart, $windowEnd])
+                                                                    ->orWhereBetween('created_at', [$windowStart, $windowEnd]);
+                                                            })
+                                                            ->get()
+                                                            ->map(function ($attendance) {
+                                                                return [
+                                                                    'clockin' => $attendance->clockin_at ? \Carbon\Carbon::parse($attendance->clockin_at) : null,
+                                                                    'clockout' => $attendance->clockout_at ? \Carbon\Carbon::parse($attendance->clockout_at) : null,
+                                                                ];
+                                                            });
+                                                    }
 
                                                     $archivedFutureDetails = $archivedScheduleDetails->filter(function ($detail) {
                                                         return $detail['category'] === 'future';
@@ -1485,12 +2045,14 @@
                                                         'future_hours' => (float) $archivedFutureHours,
                                                         'past_hours' => (float) $archivedPastHours,
                                                     ],
-                                                    'items' => $archivedScheduleDetails->map(function ($detail) {
+                                                    'items' => $archivedScheduleDetails->map(function ($detail) use ($buildScheduleSeries, $archivedTrainerAttendances, $archivedNow) {
                                                         $schedule = $detail['schedule'];
                                                         $start = $detail['start'];
                                                         $end = $detail['end'];
                                                         $students = $detail['students'] ?? collect();
                                                         $categoryLabel = $detail['category'] === 'past' ? 'Past' : 'Upcoming';
+                                                        $seriesData = $buildScheduleSeries($schedule, $start, $end, $archivedNow, $archivedTrainerAttendances);
+                                                        $seriesSessions = $seriesData['sessions'] ?? collect();
 
                                                         return [
                                                             'name' => $schedule->name ?? 'Unnamed Schedule',
@@ -1503,6 +2065,15 @@
                                                             'end_date' => $detail['end_date'] ?? null,
                                                             'hours' => isset($detail['hours']) ? (float) $detail['hours'] : null,
                                                             'students' => collect($students)->values()->all(),
+                                                            'series_range' => $seriesData['range'] ?? null,
+                                                            'series_sessions' => $seriesSessions->map(function ($session) {
+                                                                return [
+                                                                    'label' => $session['label'] ?? '',
+                                                                    'weekday' => $session['weekday'] ?? '',
+                                                                    'time' => $session['time'] ?? '',
+                                                                    'status' => $session['status'] ?? '',
+                                                                ];
+                                                            })->values()->all(),
                                                         ];
                                                     })->values(),
                                                     'filters' => [
@@ -1588,10 +2159,9 @@
                                                                             <div class="assignment-col col-code">Code</div>
                                                                             <div class="assignment-col flex-grow-1">Type</div>
                                                                             <div class="assignment-col col-rate">Rate/hr</div>
-                                                                            <div class="assignment-col col-start">Start Date</div>
-                                                                            <div class="assignment-col col-end">End Date</div>
+                                                                            <div class="assignment-col col-date">Date</div>
                                                                             <div class="assignment-col col-students">Students</div>
-                                                                            <div class="assignment-col col-attendance">Attendance</div>
+                                                                            <div class="assignment-col col-series">Series of sessions</div>
                                                                         </div>
                                                                         @foreach($archivedScheduleDetails as $detailIndex => $detail)
                                                                             @php
@@ -1606,21 +2176,21 @@
                                                                                 $codeLabel = $schedule->class_code ?? '—';
                                                                                 $rateValue = $schedule->trainer_rate_per_hour ?? null;
                                                                                 $rateLabel = $rateValue !== null ? '₱' . number_format((float) $rateValue, 2) : '—';
-                                                                                $startDateLabel = $start ? $start->format('M j, Y') : '—';
-                                                                                $startTimeLabel = $start ? $start->format('g:i A') : '—';
-                                                                                $endDateLabel = $end ? $end->format('M j, Y') : '—';
-                                                                                $endTimeLabel = $end ? $end->format('g:i A') : '—';
+                                                                                $seriesData = $buildScheduleSeries($schedule, $start, $end, $archivedNow, $archivedTrainerAttendances);
+                                                                                $seriesSessions = $seriesData['sessions'] ?? collect();
+                                                                                $actualSeriesSessions = $seriesData['actual_sessions'] ?? collect();
+                                                                                $dateLabels = $seriesData['labels'] ?? collect();
+                                                                                $dateRangeLabel = $seriesData['range'] ?? '—';
+                                                                                $dateList = $dateLabels->isNotEmpty()
+                                                                                    ? $dateLabels
+                                                                                    : collect([$start ? $start->format('M d') : '—']);
+                                                                                $dateDisplay = 'range';
                                                                                 $studentsPayload = $students->values()->all();
-                                                                                $attendanceLabel = $category === 'future'
-                                                                                    ? 'Upcoming'
-                                                                                    : ($students->isNotEmpty() ? 'Present' : 'Absent');
-                                                                                $attendanceClass = $category === 'future'
-                                                                                    ? 'bg-warning-subtle text-warning'
-                                                                                    : ($students->isNotEmpty() ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger');
                                                                             @endphp
                                                                             <div
-                                                                                class="assignment-row d-flex flex-column flex-lg-row gap-3 py-3 border-bottom align-items-lg-center"
+                                                                                class="assignment-row d-flex flex-column flex-lg-row gap-3 py-3 border-bottom"
                                                                                 data-assignment-card
+                                                                                data-date-display="{{ $dateDisplay }}"
                                                                                 data-category="{{ $category }}"
                                                                                 data-start="{{ $detail['start_date'] ?? '' }}"
                                                                                 data-end="{{ $detail['end_date'] ?? '' }}"
@@ -1643,13 +2213,13 @@
                                                                                         <div class="text-muted small">—</div>
                                                                                     @endif
                                                                                 </div>
-                                                                                <div class="assignment-col col-start">
-                                                                                    <div class="text-muted small">{{ $startDateLabel }}</div>
-                                                                                    <div class="text-muted small">{{ $startTimeLabel }}</div>
-                                                                                </div>
-                                                                                <div class="assignment-col col-end">
-                                                                                    <div class="text-muted small">{{ $endDateLabel }}</div>
-                                                                                    <div class="text-muted small">{{ $endTimeLabel }}</div>
+                                                                                <div class="assignment-col col-date text-muted small">
+                                                                                    <div class="assignment-date-list">
+                                                                                        @foreach($dateList as $dateItem)
+                                                                                            <div>• {{ $dateItem }}</div>
+                                                                                        @endforeach
+                                                                                    </div>
+                                                                                    <div class="assignment-date-range">{{ $dateRangeLabel }}</div>
                                                                                 </div>
                                                                                 <div class="assignment-col col-students">
                                                                                     @if($students->isNotEmpty())
@@ -1667,8 +2237,69 @@
                                                                                         <span class="text-muted small">No students</span>
                                                                                     @endif
                                                                                 </div>
-                                                                                <div class="assignment-col col-attendance text-lg-center">
-                                                                                    <span class="status-pill {{ $attendanceClass }}">{{ $attendanceLabel }}</span>
+                                                                                <div class="assignment-col col-series">
+                                                                                    @if($seriesSessions->isNotEmpty())
+                                                                                        @php
+                                                                                            $seriesCollapseId = 'assignment-series-archive-' . $archive->id . '-' . $detailIndex;
+                                                                                        @endphp
+                                                                                        <div class="series-sessions">
+                                                                                            <div class="series-header">
+                                                                                                <button
+                                                                                                    type="button"
+                                                                                                    class="btn btn-link btn-sm px-0 session-toggle"
+                                                                                                    data-bs-toggle="collapse"
+                                                                                                    data-bs-target="#{{ $seriesCollapseId }}"
+                                                                                                    aria-expanded="false"
+                                                                                                    aria-controls="{{ $seriesCollapseId }}"
+                                                                                                    data-session-toggle
+                                                                                                    data-collapsed-text="Show all sessions"
+                                                                                                    data-expanded-text="Hide sessions"
+                                                                                                >
+                                                                                                    Show all sessions
+                                                                                                </button>
+                                                                                            </div>
+                                                                                            <div class="collapse" id="{{ $seriesCollapseId }}">
+                                                                                                <div class="series-panel">
+                                                                                                    <div class="d-flex flex-column">
+                                                                                                        @foreach($seriesSessions as $sessionIndex => $session)
+                                                                                                            @php
+                                                                                                                $isRescheduled = !empty($session['is_rescheduled']);
+                                                                                                                $rescheduleTarget = $session['reschedule_target_label'] ?? null;
+                                                                                                                $rescheduledFrom = $session['rescheduled_from'] ?? null;
+                                                                                                            @endphp
+                                                                                                            <div class="series-item">
+                                                                                                                <div class="series-dot">
+                                                                                                                    <span class="dot"></span>
+                                                                                                                    @if($sessionIndex < $seriesSessions->count() - 1)
+                                                                                                                        <span class="line"></span>
+                                                                                                                    @endif
+                                                                                                                </div>
+                                                                                                                <div>
+                                                                                                                    <div class="fw-semibold {{ $isRescheduled ? 'text-decoration-line-through text-muted' : '' }}">
+                                                                                                                        {{ $session['label'] ?? '—' }}
+                                                                                                                    </div>
+                                                                                                                    <div class="text-muted small">
+                                                                                                                        {{ $session['weekday'] ?? '' }}
+                                                                                                                        @if(!empty($session['time']))
+                                                                                                                            • {{ $session['time'] }}
+                                                                                                                        @endif
+                                                                                                                    </div>
+                                                                                                                    @if($isRescheduled && $rescheduleTarget)
+                                                                                                                        <div class="text-muted small fst-italic">→ {{ $rescheduleTarget }}</div>
+                                                                                                                    @elseif(!$isRescheduled && $rescheduledFrom)
+                                                                                                                        <div class="text-muted small fst-italic">From {{ $rescheduledFrom }}</div>
+                                                                                                                    @endif
+                                                                                                                    <span class="badge {{ $session['status_class'] ?? 'bg-secondary' }} px-2 py-1">{{ $session['status'] ?? '' }}</span>
+                                                                                                                </div>
+                                                                                                            </div>
+                                                                                                        @endforeach
+                                                                                                    </div>
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    @else
+                                                                                        <span class="text-muted small">Series not set</span>
+                                                                                    @endif
                                                                                 </div>
                                                                             </div>
                                                                         @endforeach
@@ -2388,10 +3019,38 @@
                         const studentsMarkup = students.length
                             ? `<ul>${students.map((student) => `<li>${escapeHtml(student)}</li>`).join('')}</ul>`
                             : '<div class="muted">No students</div>';
+                        const sessions = Array.isArray(item.series_sessions) ? item.series_sessions : [];
+                        const sessionBadgeClass = function (status) {
+                            const normalized = String(status || '').toLowerCase();
+                            if (normalized.includes('present') || normalized.includes('completed')) {
+                                return 'badge-soft-success';
+                            }
+                            if (normalized.includes('absent')) {
+                                return 'badge-soft-danger';
+                            }
+                            if (normalized.includes('upcoming')) {
+                                return 'badge-soft-warning';
+                            }
+                            if (normalized.includes('resched')) {
+                                return 'badge-soft-secondary';
+                            }
+                            return 'badge-soft-secondary';
+                        };
+                        const sessionsMarkup = sessions.length
+                            ? `<ul class="series-list">
+                                ${sessions.map((session) => `
+                                    <li class="series-item">
+                                        <div class="fw">${escapeHtml(session.label || '—')}</div>
+                                        <div class="series-meta">${escapeHtml(session.weekday || '')}${session.time ? ' • ' + escapeHtml(session.time) : ''}</div>
+                                        <span class="badge ${sessionBadgeClass(session.status)}">${escapeHtml(session.status || '')}</span>
+                                    </li>
+                                `).join('')}
+                               </ul>`
+                            : '<div class="muted">No sessions</div>';
                         const category = (item.category || '').toLowerCase() === 'past' ? 'past' : 'future';
                         const badgeClass = category === 'past' ? 'badge-soft-secondary' : 'badge-soft-success';
                         const categoryLabel = item.category_label || (category === 'past' ? 'Past' : 'Upcoming');
-                        const endLabel = item.end_label && item.end_label !== '—' ? item.end_label : '';
+                        const rangeLabel = item.series_range || item.start_label || '—';
 
                         return `
                             <tr>
@@ -2401,12 +3060,12 @@
                                     <div class="muted">${escapeHtml(item.class_code || '')}</div>
                                 </td>
                                 <td>
-                                    <div>${escapeHtml(item.start_label || 'Not set')}</div>
-                                    <div class="muted">${escapeHtml(endLabel ? `Ends ${endLabel}` : '')}</div>
+                                    <div>${escapeHtml(rangeLabel)}</div>
                                 </td>
                         <td>${item.hours !== null && item.hours !== undefined ? formatDuration(item.hours) : '—'}</td>
                                 <td><span class="badge ${badgeClass}">${escapeHtml(categoryLabel)}</span></td>
                                 <td>${studentsMarkup}</td>
+                                <td>${sessionsMarkup}</td>
                             </tr>
                         `;
                     })
@@ -2484,7 +3143,12 @@
                                 .badge { display: inline-block; padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600; }
                                 .badge-soft-success { background: #dcfce7; color: #166534; }
                                 .badge-soft-secondary { background: #e5e7eb; color: #374151; }
+                                .badge-soft-warning { background: #fef9c3; color: #854d0e; }
+                                .badge-soft-danger { background: #fee2e2; color: #b91c1c; }
                                 .fw { font-weight: 700; }
+                                .series-list { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; }
+                                .series-item { padding: 6px 8px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb; }
+                                .series-meta { font-size: 11px; color: #6b7280; margin-bottom: 4px; }
                             </style>
                         </head>
                         <body>
@@ -2520,14 +3184,15 @@
                                         <tr>
                                             <th>#</th>
                                             <th>Class</th>
-                                            <th>Schedule</th>
+                                            <th>Date range</th>
                                             <th>Hours</th>
                                             <th>Status</th>
                                             <th>Students</th>
+                                            <th>Series sessions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        ${rows || '<tr><td colspan="6" style="text-align:center; padding:16px;">No assignments for this view.</td></tr>'}
+                                        ${rows || '<tr><td colspan="7" style="text-align:center; padding:16px;">No assignments for this view.</td></tr>'}
                                     </tbody>
                                 </table>
                             </div>
@@ -2976,6 +3641,26 @@
                 });
                 setActiveCategoryButton(activeCategory);
                 applyFilters(true);
+            });
+
+            const sessionToggles = document.querySelectorAll('[data-session-toggle]');
+            sessionToggles.forEach(function (btn) {
+                const collapsedLabel = btn.dataset.collapsedText || 'Show all sessions';
+                const expandedLabel = btn.dataset.expandedText || 'Hide sessions';
+                const targetSelector = btn.getAttribute('data-bs-target');
+                const targetEl = targetSelector ? document.querySelector(targetSelector) : null;
+
+                btn.textContent = collapsedLabel;
+                if (!targetEl) {
+                    return;
+                }
+
+                targetEl.addEventListener('shown.bs.collapse', function () {
+                    btn.textContent = expandedLabel;
+                });
+                targetEl.addEventListener('hidden.bs.collapse', function () {
+                    btn.textContent = collapsedLabel;
+                });
             });
         });
     </script>
