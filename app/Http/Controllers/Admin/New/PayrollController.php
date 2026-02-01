@@ -1237,6 +1237,11 @@ class PayrollController extends Controller
         $year = $request->input('year');
         $period = $request->input('period_month');
         $role = $request->input('role', 'all');
+        $employmentType = strtolower((string) $request->input('employment_type', 'all'));
+        $sortProcessed = strtolower((string) $request->input('sort_processed', ''));
+        $sortReleased = strtolower((string) $request->input('sort_released', ''));
+        $sortProcessed = in_array($sortProcessed, ['asc', 'desc'], true) ? $sortProcessed : null;
+        $sortReleased = in_array($sortReleased, ['asc', 'desc'], true) ? $sortReleased : null;
 
         if (!$period && $year && $month) {
             $period = sprintf('%04d-%02d', (int) $year, (int) $month);
@@ -1248,6 +1253,15 @@ class PayrollController extends Controller
         }
 
         $periodYear = (!$period && $year) ? (string) $year : null;
+        if (!in_array($role, ['all', 'staff', 'trainer'], true)) {
+            $role = 'all';
+        }
+        if (!in_array($employmentType, ['all', 'salaried', 'contractor'], true)) {
+            $employmentType = 'all';
+        }
+        if ($role !== 'staff') {
+            $employmentType = 'all';
+        }
 
         $baseQuery = PayrollRun::with(['user', 'releasedByUser'])
             ->whereNotNull('released_at')
@@ -1298,6 +1312,11 @@ class PayrollController extends Controller
                 $query->whereHas('user', function ($userQuery) {
                     $userQuery->where('role_id', 2);
                 });
+            })
+            ->when($role === 'staff' && $employmentType !== 'all', function ($query) use ($employmentType) {
+                $query->whereHas('user', function ($userQuery) use ($employmentType) {
+                    $userQuery->where('employment_type', $employmentType);
+                });
             });
 
         $yearOptions = (clone $baseQuery)
@@ -1318,40 +1337,58 @@ class PayrollController extends Controller
             ];
         })->values();
 
-        $runs = (clone $baseQuery)
-            ->orderByDesc('released_at')
-            ->orderByDesc('id')
-            ->paginate(10)
-            ->withQueryString();
+        $applyOrdering = function ($query) use ($sortProcessed, $sortReleased) {
+            if ($sortProcessed) {
+                $query->orderByRaw("COALESCE(processed_at, created_at) {$sortProcessed}");
+            }
+            if ($sortReleased) {
+                $query->orderBy('released_at', $sortReleased);
+            }
+            if (!$sortProcessed && !$sortReleased) {
+                $query->orderByDesc('released_at');
+            }
+            $query->orderByDesc('id');
+        };
 
-        $printAllRuns = (clone $baseQuery)
-            ->orderByDesc('released_at')
-            ->orderByDesc('id')
-            ->get();
+        $runs = (clone $baseQuery);
+        $applyOrdering($runs);
+        $runs = $runs->paginate(10)->withQueryString();
+
+        $printAllRuns = (clone $baseQuery);
+        $applyOrdering($printAllRuns);
+        $printAllRuns = $printAllRuns->get();
 
         $currencySymbol = '₱';
         $mapRun = function ($run) {
             $staff = $run->user;
             $releasedBy = $run->releasedByUser;
+            $employmentTypeLabel = '—';
+            if ($staff) {
+                $employmentTypeLabel = match ($staff->employment_type) {
+                    'salaried' => 'Basic Pay',
+                    'contractor' => 'Contractor / Freelance',
+                    default => '—',
+                };
+            }
             $processedAt = $run->processed_at
                 ? $run->processed_at->format('M d, Y g:i A')
                 : ($run->created_at?->format('M d, Y g:i A') ?? '—');
             $releasedAt = $run->released_at
                 ? $run->released_at->format('M d, Y g:i A')
                 : '—';
-            $releasedByName = $releasedBy
-                ? trim(($releasedBy->first_name ?? '') . ' ' . ($releasedBy->last_name ?? ''))
-                : '—';
+            $releasedByCode = $releasedBy->user_code ?? '—';
 
             return [
                 'id' => $run->id,
                 'name' => $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : '—',
                 'email' => optional($staff)->email ?? '—',
+                'user_code' => $staff->user_code ?? '—',
+                'employment_type' => $employmentTypeLabel,
                 'period' => $run->period_month ?? '—',
                 'net' => number_format((float) ($run->net_pay ?? 0), 2),
                 'processed_at' => $processedAt,
                 'released_at' => $releasedAt,
-                'released_by' => $releasedByName !== '' ? $releasedByName : '—',
+                'released_by' => $releasedByCode ?: '—',
             ];
         };
 
@@ -1382,6 +1419,7 @@ class PayrollController extends Controller
                 'month' => $month,
                 'year' => $year,
                 'role' => $role,
+                'employment_type' => $employmentType,
             ],
             'currency_symbol' => $currencySymbol,
             'count' => $printRuns->count(),
@@ -1399,6 +1437,7 @@ class PayrollController extends Controller
                 'month' => $month,
                 'year' => $year,
                 'role' => $role,
+                'employment_type' => $employmentType,
                 'scope' => 'all',
             ],
             'currency_symbol' => $currencySymbol,
@@ -1414,6 +1453,9 @@ class PayrollController extends Controller
             'selectedYear' => $year ?? '',
             'searchTerm' => $search,
             'roleFilter' => $role,
+            'employmentTypeFilter' => $employmentType,
+            'sortProcessed' => $sortProcessed,
+            'sortReleased' => $sortReleased,
             'printPayload' => $printPayload,
             'printAllPayload' => $printAllPayload,
             'currencySymbol' => $currencySymbol,

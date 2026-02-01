@@ -16,6 +16,7 @@
                         <input type="hidden" name="month" value="{{ $selectedMonth }}">
                         <input type="hidden" name="year" value="{{ $selectedYear }}">
                         <input type="hidden" name="role" value="{{ $roleFilter }}">
+                        <input type="hidden" name="employment_type" value="{{ $employmentTypeFilter }}">
                         <button
                             type="submit"
                             class="btn btn-danger d-flex align-items-center gap-2"
@@ -105,6 +106,20 @@
                                     </div>
                                 </div>
 
+                                <div class="flex-grow-1 flex-lg-grow-0" style="min-width: 220px;" id="employment-type-filter">
+                                    <label class="form-label text-muted small mb-1" for="cash_release_employment">Employment type</label>
+                                    <select
+                                        class="form-select rounded-pill"
+                                        name="employment_type"
+                                        id="cash_release_employment"
+                                        {{ $roleFilter === 'staff' ? '' : 'disabled' }}
+                                    >
+                                        <option value="all" {{ $employmentTypeFilter === 'all' ? 'selected' : '' }}>All</option>
+                                        <option value="salaried" {{ $employmentTypeFilter === 'salaried' ? 'selected' : '' }}>Basic Pay</option>
+                                        <option value="contractor" {{ $employmentTypeFilter === 'contractor' ? 'selected' : '' }}>Contractor / Freelance</option>
+                                    </select>
+                                </div>
+
                                 <div class="d-flex align-items-center gap-2 ms-auto">
                                     <a href="{{ route('admin.payrolls.cash-release') }}" class="btn btn-link text-decoration-none text-muted px-0">
                                         Reset
@@ -123,16 +138,82 @@
             <div class="col-12">
                 <div class="card border-0 shadow-sm rounded-4">
                     <div class="card-body p-0">
+                        @php
+                            $showEmploymentColumn = $roleFilter === 'staff';
+                            $sortProcessed = in_array($sortProcessed, ['asc', 'desc'], true) ? $sortProcessed : null;
+                            $sortReleased = in_array($sortReleased, ['asc', 'desc'], true) ? $sortReleased : null;
+                            $processedSortBase = request()->except(['page', 'sort_processed']);
+                            $releasedSortBase = request()->except(['page', 'sort_released']);
+                            $processedSortAscUrl = request()->fullUrlWithQuery(array_merge($processedSortBase, ['sort_processed' => 'asc']));
+                            $processedSortDescUrl = request()->fullUrlWithQuery(array_merge($processedSortBase, ['sort_processed' => 'desc']));
+                            $processedSortNoneUrl = request()->url() . (count($processedSortBase) ? '?' . http_build_query($processedSortBase) : '');
+                            $releasedSortAscUrl = request()->fullUrlWithQuery(array_merge($releasedSortBase, ['sort_released' => 'asc']));
+                            $releasedSortDescUrl = request()->fullUrlWithQuery(array_merge($releasedSortBase, ['sort_released' => 'desc']));
+                            $releasedSortNoneUrl = request()->url() . (count($releasedSortBase) ? '?' . http_build_query($releasedSortBase) : '');
+                            $processedSortNext = $sortProcessed === 'asc'
+                                ? 'desc'
+                                : ($sortProcessed === 'desc' ? null : 'asc');
+                            $releasedSortNext = $sortReleased === 'asc'
+                                ? 'desc'
+                                : ($sortReleased === 'desc' ? null : 'asc');
+                            $processedSortToggleUrl = $processedSortNext === 'asc'
+                                ? $processedSortAscUrl
+                                : ($processedSortNext === 'desc' ? $processedSortDescUrl : $processedSortNoneUrl);
+                            $releasedSortToggleUrl = $releasedSortNext === 'asc'
+                                ? $releasedSortAscUrl
+                                : ($releasedSortNext === 'desc' ? $releasedSortDescUrl : $releasedSortNoneUrl);
+                            $processedSortIcon = $sortProcessed === 'asc'
+                                ? 'fa-arrow-up-wide-short'
+                                : ($sortProcessed === 'desc' ? 'fa-arrow-down-wide-short' : 'fa-sort');
+                            $releasedSortIcon = $sortReleased === 'asc'
+                                ? 'fa-arrow-up-wide-short'
+                                : ($sortReleased === 'desc' ? 'fa-arrow-down-wide-short' : 'fa-sort');
+                            $processedSortTitle = $processedSortNext === 'asc'
+                                ? 'Oldest to latest'
+                                : ($processedSortNext === 'desc' ? 'Latest to oldest' : 'Clear sort');
+                            $releasedSortTitle = $releasedSortNext === 'asc'
+                                ? 'Oldest to latest'
+                                : ($releasedSortNext === 'desc' ? 'Latest to oldest' : 'Clear sort');
+                            $emptyColspan = $showEmploymentColumn ? 9 : 8;
+                        @endphp
                         <div class="table-responsive mb-3">
                             <table class="table table-hover align-middle mb-0">
                                 <thead class="table-light">
                                     <tr>
                                         <th scope="col">#</th>
                                         <th scope="col">Name</th>
+                                        <th scope="col">User Code</th>
+                                        @if($showEmploymentColumn)
+                                            <th scope="col">Employment Type</th>
+                                        @endif
                                         <th scope="col">Period</th>
                                         <th scope="col">Net Pay</th>
-                                        <th scope="col">Processed Date</th>
-                                        <th scope="col">Released Date</th>
+                                        <th scope="col">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span>Processed Date</span>
+                                                <a
+                                                    href="{{ $processedSortToggleUrl }}"
+                                                    class="btn btn-link px-1 {{ $sortProcessed ? 'text-danger' : 'text-muted' }}"
+                                                    title="{{ $processedSortTitle }}"
+                                                    aria-label="Toggle processed date sort"
+                                                >
+                                                    <i class="fa-solid {{ $processedSortIcon }}"></i>
+                                                </a>
+                                            </div>
+                                        </th>
+                                        <th scope="col">
+                                            <div class="d-flex align-items-center gap-2">
+                                                <span>Release Date</span>
+                                                <a
+                                                    href="{{ $releasedSortToggleUrl }}"
+                                                    class="btn btn-link px-1 {{ $sortReleased ? 'text-danger' : 'text-muted' }}"
+                                                    title="{{ $releasedSortTitle }}"
+                                                    aria-label="Toggle release date sort"
+                                                >
+                                                    <i class="fa-solid {{ $releasedSortIcon }}"></i>
+                                                </a>
+                                            </div>
+                                        </th>
                                         <th scope="col">Released By</th>
                                     </tr>
                                 </thead>
@@ -143,15 +224,21 @@
                                             $releasedBy = $run->releasedByUser;
                                             $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'N/A';
                                             $email = optional($staff)->email ?? 'N/A';
+                                            $userCode = $staff->user_code ?? 'N/A';
+                                            $employmentTypeLabel = $staff
+                                                ? match ($staff->employment_type ?? null) {
+                                                    'salaried' => 'Basic Pay',
+                                                    'contractor' => 'Contractor / Freelance',
+                                                    default => 'N/A',
+                                                }
+                                                : 'N/A';
                                             $processedAt = $run->processed_at
                                                 ? $run->processed_at->format('M d, Y g:i A')
                                                 : ($run->created_at?->format('M d, Y g:i A') ?? 'N/A');
                                             $releasedAt = $run->released_at
                                                 ? $run->released_at->format('M d, Y g:i A')
                                                 : 'N/A';
-                                            $releasedByName = $releasedBy
-                                                ? trim(($releasedBy->first_name ?? '') . ' ' . ($releasedBy->last_name ?? ''))
-                                                : 'N/A';
+                                            $releasedByCode = $releasedBy->user_code ?? 'N/A';
                                             $rowNumber = ($runs->firstItem() ?? 1) + $loop->index;
                                         @endphp
                                         <tr>
@@ -160,15 +247,19 @@
                                                 <div class="fw-semibold">{{ $name !== '' ? $name : 'N/A' }}</div>
                                                 <span class="text-muted small">{{ $email }}</span>
                                             </td>
+                                            <td>{{ $userCode }}</td>
+                                            @if($showEmploymentColumn)
+                                                <td>{{ $employmentTypeLabel }}</td>
+                                            @endif
                                             <td>{{ $run->period_month ?? 'N/A' }}</td>
                                             <td class="text-success fw-semibold">{{ $currencySymbol }}{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
                                             <td>{{ $processedAt }}</td>
                                             <td>{{ $releasedAt }}</td>
-                                            <td>{{ $releasedByName !== '' ? $releasedByName : 'N/A' }}</td>
+                                            <td>{{ $releasedByCode !== '' ? $releasedByCode : 'N/A' }}</td>
                                         </tr>
                                     @empty
                                         <tr>
-                                            <td colspan="7" class="text-center text-muted py-4">
+                                            <td colspan="{{ $emptyColspan }}" class="text-center text-muted py-4">
                                                 No released payrolls found. Adjust your filters or check back later.
                                             </td>
                                         </tr>
@@ -194,6 +285,31 @@
         document.addEventListener('DOMContentLoaded', function () {
             const printButton = document.getElementById('print-submit-button');
             const printLoader = document.getElementById('print-loader');
+            const filterForm = document.querySelector('form[action="{{ route('admin.payrolls.cash-release') }}"]');
+            const roleInputs = document.querySelectorAll('input[name="role"]');
+            const employmentSelect = document.getElementById('cash_release_employment');
+            const employmentFilter = document.getElementById('employment-type-filter');
+
+            function syncEmploymentFilter() {
+                if (!employmentSelect) return;
+                const selectedRole = document.querySelector('input[name="role"]:checked')?.value || 'all';
+                const isStaff = selectedRole === 'staff';
+                employmentSelect.disabled = !isStaff;
+                if (employmentFilter) {
+                    employmentFilter.classList.toggle('d-none', !isStaff);
+                }
+                if (!isStaff) {
+                    employmentSelect.value = 'all';
+                }
+            }
+
+            roleInputs.forEach((input) => {
+                input.addEventListener('change', () => {
+                    syncEmploymentFilter();
+                    filterForm?.submit();
+                });
+            });
+            syncEmploymentFilter();
 
             function buildFilters(filters) {
                 const chips = [];
@@ -210,35 +326,54 @@
                 if (filters.role && filters.role !== 'all') {
                     chips.push({ label: 'Role', value: filters.role === 'trainer' ? 'Trainer only' : 'Staff only' });
                 }
+                if (filters.role === 'staff' && filters.employment_type && filters.employment_type !== 'all') {
+                    const employmentLabel = filters.employment_type === 'salaried'
+                        ? 'Basic Pay'
+                        : (filters.employment_type === 'contractor' ? 'Contractor / Freelance' : filters.employment_type);
+                    chips.push({ label: 'Employment Type', value: employmentLabel });
+                }
                 return chips;
             }
 
-            function buildRows(items, currencySymbol) {
-                return (items || []).map((item, index) => ([
-                    index + 1,
-                    `<div class="fw">${item.name || 'N/A'}</div><div class="muted">${item.email || ''}</div>`,
-                    item.period || 'N/A',
-                    `${currencySymbol}${item.net || '0.00'}`,
-                    item.processed_at || 'N/A',
-                    item.released_at || 'N/A',
-                    item.released_by || 'N/A',
-                ]));
+            function buildRows(items, currencySymbol, role) {
+                const showEmployment = role === 'staff';
+                return (items || []).map((item, index) => {
+                    const row = [
+                        index + 1,
+                        `<div class="fw">${item.name || 'N/A'}</div><div class="muted">${item.email || ''}</div>`,
+                        item.user_code || 'N/A',
+                    ];
+                    if (showEmployment) {
+                        row.push(item.employment_type || 'N/A');
+                    }
+                    row.push(
+                        item.period || 'N/A',
+                        `${currencySymbol}${item.net || '0.00'}`,
+                        item.processed_at || 'N/A',
+                        item.released_at || 'N/A',
+                        item.released_by || 'N/A',
+                    );
+                    return row;
+                });
             }
 
             function renderPrintWindow(payload) {
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const currencySymbol = payload.currency_symbol || '{{ $currencySymbol }}';
+                const role = payload.filters?.role || 'all';
                 const headers = [
                     '#',
                     'Name',
+                    'User Code',
+                    ...(role === 'staff' ? ['Employment Type'] : []),
                     'Period',
                     'Net Pay',
                     'Processed Date',
-                    'Released Date',
+                    'Release Date',
                     'Released By',
                 ];
-                const rows = buildRows(items, currencySymbol);
+                const rows = buildRows(items, currencySymbol, role);
                 const filterChips = buildFilters(payload.filters || {});
 
                 return window.PrintPreview

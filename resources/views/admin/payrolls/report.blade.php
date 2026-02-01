@@ -339,6 +339,16 @@
                 $periodLabel = $run->period_month
                     ? \Carbon\Carbon::parse($run->period_month . '-01')->format('M Y')
                     : '—';
+                $employmentTypeLabel = $staff
+                    ? match ($staff->employment_type ?? null) {
+                        'salaried' => 'Basic Pay',
+                        'contractor' => 'Contractor / Freelance',
+                        default => '—',
+                    }
+                    : '—';
+                $hoursValue = (float) ($run->total_hours ?? 0);
+                $grossValue = (float) ($run->gross_pay ?? 0);
+                $rateValue = $hoursValue > 0 ? round($grossValue / $hoursValue, 2) : 0;
 
                 return [
                     'id' => $run->id,
@@ -347,8 +357,10 @@
                     'user_code' => $staff->user_code ?? '—',
                     'role' => optional($staff->role)->name ?? '—',
                     'period' => $periodLabel,
-                    'hours' => number_format((float) ($run->total_hours ?? 0), 2),
-                    'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
+                    'employment_type' => $employmentTypeLabel,
+                    'rate' => number_format($rateValue, 2),
+                    'hours' => number_format($hoursValue, 2),
+                    'gross' => number_format($grossValue, 2),
                     'sss' => number_format((float) ($run->deduction_sss ?? 0), 2),
                     'philhealth' => number_format((float) ($run->deduction_philhealth ?? 0), 2),
                     'pagibig' => number_format((float) ($run->deduction_pagibig ?? 0), 2),
@@ -689,7 +701,10 @@
                                             <tr>
                                                 <th scope="col">#</th>
                                                 <th scope="col">Name</th>
-                                                <th scope="col">Role</th>
+                                                @if($focus === 'staff')
+                                                    <th scope="col">Employment Type</th>
+                                                    <th scope="col">Rate/hr</th>
+                                                @endif
                                                 <th scope="col">Period</th>
                                                 <th scope="col">Hours</th>
                                                 <th scope="col">Gross</th>
@@ -708,7 +723,19 @@
                                                     $periodLabel = $run->period_month
                                                         ? \Carbon\Carbon::parse($run->period_month . '-01')->format('M Y')
                                                         : '—';
-                                                    $deductionTotal = ($run->deduction_sss ?? 0) + ($run->deduction_philhealth ?? 0) + ($run->deduction_pagibig ?? 0) + ($run->deduction_app_cut ?? 0);
+                                                    $employmentTypeLabel = $staff
+                                                        ? match ($staff->employment_type ?? null) {
+                                                            'salaried' => 'Basic Pay',
+                                                            'contractor' => 'Contractor / Freelance',
+                                                            default => '—',
+                                                        }
+                                                        : '—';
+                                                    $hoursValue = (float) ($run->total_hours ?? 0);
+                                                    $grossValue = (float) ($run->gross_pay ?? 0);
+                                                    $rateValue = $hoursValue > 0 ? round($grossValue / $hoursValue, 2) : 0;
+                                                    $deductionTotal = $focus === 'staff'
+                                                        ? (($run->deduction_sss ?? 0) + ($run->deduction_philhealth ?? 0) + ($run->deduction_pagibig ?? 0))
+                                                        : (($run->deduction_app_cut ?? 0));
                                                 @endphp
                                                 <tr>
                                                     <td class="text-muted">#{{ $run->id }}</td>
@@ -717,19 +744,23 @@
                                                         <div class="muted">{{ $email }}</div>
                                                         <div class="muted">Code: {{ $code }}</div>
                                                     </td>
-                                                    <td>
-                                                        <span class="badge bg-light text-dark border">{{ $roleName !== '' ? $roleName : '—' }}</span>
-                                                    </td>
+                                                    @if($focus === 'staff')
+                                                        <td>{{ $employmentTypeLabel }}</td>
+                                                        <td>₱{{ number_format($rateValue, 2) }}/hr</td>
+                                                    @endif
                                                     <td>{{ $periodLabel }}</td>
-                                                    <td>{{ number_format((float) ($run->total_hours ?? 0), 2) }}</td>
-                                                    <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
+                                                    <td>{{ number_format($hoursValue, 2) }}</td>
+                                                    <td>₱{{ number_format($grossValue, 2) }}</td>
                                                     <td>
                                                         <div class="fw-semibold">₱{{ number_format((float) $deductionTotal, 2) }}</div>
                                                         <ul class="deduction-list list-unstyled mb-0">
-                                                            <li>SSS: ₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</li>
-                                                            <li>PhilHealth: ₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</li>
-                                                            <li>Pag-IBIG: ₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</li>
-                                                            <li>App cut: ₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</li>
+                                                            @if($focus === 'staff')
+                                                                <li>SSS: ₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</li>
+                                                                <li>PhilHealth: ₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</li>
+                                                                <li>Pag-IBIG: ₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</li>
+                                                            @else
+                                                                <li>App cut: ₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</li>
+                                                            @endif
                                                         </ul>
                                                     </td>
                                                     <td class="fw-semibold text-success">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
@@ -785,40 +816,53 @@
             return chips;
         }
 
-        function buildTotalsRow(totals, currencySymbol) {
+        function buildTotalsRow(totals, currencySymbol, focus) {
             if (!totals) return null;
             const fmtMoney = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-            return [
+            const base = [
                 '',
                 '<strong>Totals</strong>',
-                '',
+            ];
+            if (focus === 'staff') {
+                base.push('', '');
+            }
+            base.push(
                 '',
                 '',
                 fmtMoney(totals.gross),
-                fmtMoney(totals.sss),
-                fmtMoney(totals.philhealth),
-                fmtMoney(totals.pagibig),
-                fmtMoney(totals.app_cut),
-                `<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`,
-            ];
+            );
+            if (focus === 'staff') {
+                base.push(
+                    fmtMoney(totals.sss),
+                    fmtMoney(totals.philhealth),
+                    fmtMoney(totals.pagibig),
+                );
+            } else {
+                base.push(fmtMoney(totals.app_cut));
+            }
+            base.push(`<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`);
+            return base;
         }
 
-        function buildRows(items, totals, currencySymbol) {
+        function buildRows(items, totals, currencySymbol, focus) {
             const rows = (items || []).map((item) => ([
                 item.id ?? '—',
                 `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div><div class="muted">Code: ${item.user_code || '—'}</div>`,
-                item.role || '—',
+                ...(focus === 'staff' ? [item.employment_type || '—', `${currencySymbol}${item.rate || '0.00'}/hr`] : []),
                 item.period || '—',
                 `${item.hours || '0.00'} hrs`,
                 `${currencySymbol}${item.gross || '0.00'}`,
-                `${currencySymbol}${item.sss || '0.00'}`,
-                `${currencySymbol}${item.philhealth || '0.00'}`,
-                `${currencySymbol}${item.pagibig || '0.00'}`,
-                `${currencySymbol}${item.app_cut || '0.00'}`,
+                ...(focus === 'staff'
+                    ? [
+                        `${currencySymbol}${item.sss || '0.00'}`,
+                        `${currencySymbol}${item.philhealth || '0.00'}`,
+                        `${currencySymbol}${item.pagibig || '0.00'}`,
+                    ]
+                    : [`${currencySymbol}${item.app_cut || '0.00'}`]),
                 `<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`,
             ]));
 
-            const totalsRow = buildTotalsRow(totals, currencySymbol);
+            const totalsRow = buildTotalsRow(totals, currencySymbol, focus);
             if (totalsRow) rows.push(totalsRow);
             return rows;
         }
@@ -828,20 +872,18 @@
             const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
             const filters = buildFilters(payload.filters || {});
             const currencySymbol = payload.currency_symbol || '₱';
+            const focus = payload.filters?.focus || 'trainer';
             const headers = [
                 '#',
                 'Name',
-                'Role',
+                ...(focus === 'staff' ? ['Employment Type', 'Rate/hr'] : []),
                 'Period',
                 'Hours',
                 'Gross',
-                'SSS',
-                'PhilHealth',
-                'Pag-IBIG',
-                'App cut',
+                ...(focus === 'staff' ? ['SSS', 'PhilHealth', 'Pag-IBIG'] : ['App cut']),
                 'Net',
             ];
-            const rows = buildRows(items, payload.totals, currencySymbol);
+            const rows = buildRows(items, payload.totals, currencySymbol, focus);
             const filterChips = filters;
 
             return window.PrintPreview
@@ -1086,6 +1128,9 @@
                 this.classList.add('btn-dark', 'text-white');
                 if (focusField) {
                     focusField.value = selected;
+                }
+                if (reportForm) {
+                    reportForm.submit();
                 }
             });
         });
