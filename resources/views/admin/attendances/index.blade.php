@@ -181,6 +181,7 @@
                         'clock_in' => $clockIn ? $clockIn->format('M j, Y g:i A') : '—',
                         'clock_out' => $clockOut ? $clockOut->format('M j, Y g:i A') : '—',
                         'status' => $statusLabel,
+                        'created_by' => $item->created_by ?? '',
                         'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
                         'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
                     ];
@@ -201,14 +202,31 @@
                         'clock_in' => $clockIn ? $clockIn->format('M j, Y g:i A') : '—',
                         'clock_out' => $clockOut ? $clockOut->format('M j, Y g:i A') : '—',
                         'status' => $statusLabel,
+                        'created_by' => $item->created_by ?? '',
                         'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
                         'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
                     ];
                 })->values();
 
+                $printUser = auth()->user();
+                $printUserName = $printUser
+                    ? trim(($printUser->first_name ?? '') . ' ' . ($printUser->last_name ?? ''))
+                    : '';
+                if ($printUser && $printUserName === '') {
+                    $printUserName = $printUser->name ?? $printUser->email ?? '';
+                }
+                $printUserRole = $printUser ? optional($printUser->role)->name : null;
+                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+                if ($printUserRole) {
+                    $printGeneratedBy .= " ({$printUserRole})";
+                }
+
                 $printPayload = [
                     'title' => $showArchived ? 'Archived attendances' : 'Attendance log',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'status' => request('status', 'all') ?: 'all',
@@ -223,6 +241,9 @@
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived attendances (all pages)' : 'Attendance log (all pages)',
                     'generated_at' => now()->format('M d, Y g:i A'),
+                    'meta' => [
+                        'generated_by' => $printGeneratedBy,
+                    ],
                     'filters' => [
                         'search' => request('name'),
                         'status' => request('status', 'all') ?: 'all',
@@ -1354,14 +1375,14 @@
                     item.clock_in || '—',
                     item.clock_out || '—',
                     `<span class="badge ${getStatusBadgeClass(item.status)}">${item.status || '—'}</span>`,
-                    `<div>${item.created_at || ''}</div><div class="muted">${item.updated_at || ''}</div>`,
+                    `<div>${item.created_by || ''}</div><div>${item.created_at || ''}</div>`,
                 ]));
             }
 
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildPrintFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'User Code', 'Clock-in', 'Clock-out', 'Status', 'Audit'];
+                const headers = ['#', 'Member', 'User Code', 'Clock-in', 'Clock-out', 'Status', 'Created By'];
                 const rows = buildPrintRows(items);
 
                 return window.PrintPreview

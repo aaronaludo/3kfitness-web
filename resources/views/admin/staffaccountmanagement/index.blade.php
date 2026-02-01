@@ -782,15 +782,13 @@
                 return (items || []).map((item) => {
                     const rate = item.rate_per_hour ? `₱${item.rate_per_hour}` : '—';
                     const netPay = item.net_pay ? `<div class="muted">Net this month: ₱${item.net_pay}</div>` : '<div class="muted">Net this month: —</div>';
-                    const payrolls = typeof item.payrolls === 'number' ? `${item.payrolls} payroll${item.payrolls === 1 ? '' : 's'}` : '—';
                     const createdBy = item.created_by ? `${item.created_by}` : '—';
                     return [
                         item.id ?? '—',
                         item.user_code || '—',
                         `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
-                        `<div>${item.role || '—'}</div><div class="muted">${item.phone || ''}</div>`,
+                        `<div>${item.employment_type || item.role || '—'}</div><div class="muted">${item.phone || ''}</div>`,
                         `<div class="fw">${rate}</div>${netPay}`,
-                        `<div>${payrolls}</div>`,
                         `<div>${createdBy}</div><div class="muted">${item.created_at || ''}</div>`,
                     ];
                 });
@@ -800,7 +798,7 @@
                 const rawItems = payload && payload.items ? payload.items : [];
                 const items = Array.isArray(rawItems) ? rawItems : Object.values(rawItems);
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'User code', 'Staff', 'Role & contact', 'Rates & pay', 'Payrolls', 'Created By'];
+                const headers = ['#', 'User code', 'Staff', 'Employment Type & contact', 'Rates & pay', 'Created By'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview
