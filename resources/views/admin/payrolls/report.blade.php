@@ -622,10 +622,10 @@
                                         <label class="form-label text-muted small mb-1 d-block">Payroll type</label>
                                         <div class="btn-group" role="group" aria-label="Payroll focus">
                                             <button type="button" class="btn btn-outline-secondary focus-chip {{ $focus === 'trainer' ? 'btn-dark text-white' : '' }}" data-focus="trainer">
-                                                <i class="fa-solid fa-ranking-star me-1"></i>Trainer runs
+                                                <i class="fa-solid fa-ranking-star me-1"></i>Trainer payroll
                                             </button>
                                             <button type="button" class="btn btn-outline-secondary focus-chip {{ $focus === 'staff' ? 'btn-dark text-white' : '' }}" data-focus="staff">
-                                                <i class="fa-solid fa-user-gear me-1"></i>Staff runs
+                                                <i class="fa-solid fa-user-gear me-1"></i>Staff payroll
                                             </button>
                                         </div>
                                         <input type="hidden" name="focus" id="payroll-focus" value="{{ $focus }}">
