@@ -19,7 +19,7 @@
                 $showEmploymentColumn = $roleFilter === 'staff';
                 $showDeductionColumns = $roleFilter !== 'trainer';
                 $showAppCutColumn = $roleFilter !== 'staff';
-                $tableColumnCount = 12
+                $tableColumnCount = 13
                     + ($showEmploymentColumn ? 1 : 0)
                     + ($showDeductionColumns ? 3 : 0)
                     + ($showAppCutColumn ? 1 : 0);
@@ -90,6 +90,7 @@
                         };
                     }
                     $processedByCode = optional($run->processedByUser)->user_code ?? '—';
+                    $releasedByCode = optional($run->releasedByUser)->user_code ?? '—';
                     $periodLabel = $run->period_month ?? '—';
                     $processedAt = $run->processed_at
                         ? $run->processed_at->format('M d, Y g:i A')
@@ -121,6 +122,7 @@
                         'released_at' => $releasedAt,
                         'processed_sessions' => $processedSessionCount,
                         'processed_by' => $processedByCode,
+                        'released_by' => $releasedByCode,
                         'employment_type' => $employmentTypeLabel ?? '—',
                     ];
                 };
@@ -474,7 +476,7 @@
                                         <th scope="col">Net</th>
                                         <th scope="col">
                                             <div class="d-flex align-items-center gap-2">
-                                                <span>Processed</span>
+                                                <span>Process Date</span>
                                                 <a
                                                     href="{{ $processedSortToggleUrl }}"
                                                     class="btn btn-link px-1 {{ $sortProcessed ? 'text-danger' : 'text-muted' }}"
@@ -485,7 +487,7 @@
                                                 </a>
                                             </div>
                                         </th>
-                                        <th scope="col">Release status</th>
+                                        <th scope="col">Processed By</th>
                                         <th scope="col">
                                             <div class="d-flex align-items-center gap-2">
                                                 <span>Release Date</span>
@@ -499,7 +501,8 @@
                                                 </a>
                                             </div>
                                         </th>
-                                        <th scope="col">Processed By</th>
+                                        <th scope="col">Release By</th>
+                                        <th scope="col">Release status</th>
                                         <th scope="col" class="text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -536,6 +539,7 @@
                                                 return collect($item['sessions'] ?? [])->count();
                                             });
                                             $processedByCode = optional($run->processedByUser)->user_code ?? '—';
+                                            $releasedByCode = optional($run->releasedByUser)->user_code ?? '—';
                                             $processedByUser = $run->processedByUser;
                                             $processedByName = $processedByUser
                                                 ? trim(($processedByUser->first_name ?? '') . ' ' . ($processedByUser->last_name ?? ''))
@@ -610,11 +614,12 @@
                                             @endif
                                             <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
                                             <td>{{ $processedAt }}</td>
+                                            <td>{{ $processedByCode }}</td>
+                                            <td>{{ $releasedAt ? $releasedAt : '—' }}</td>
+                                            <td>{{ $releasedByCode }}</td>
                                             <td>
                                                 <span class="badge {{ $releaseBadge }} rounded-pill px-3 py-2">{{ $releaseStatus }}</span>
                                             </td>
-                                            <td>{{ $releasedAt ? $releasedAt : '—' }}</td>
-                                            <td>{{ $processedByCode }}</td>
                                             <td class="text-center">
                                                 @if($staff)
                                                     @if($releasedAt)
@@ -806,7 +811,7 @@
                         row.push(fmtMoney(totals.app_cut));
                     }
                     row.push(`<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`);
-                    row.push('', '', '', '');
+                    row.push('', '', '', '', '');
                     return row;
                 };
             }
@@ -835,9 +840,10 @@
                     }
                     row.push(`<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`);
                     row.push(item.processed_at || '—');
-                    row.push(item.status || 'Pending');
-                    row.push(item.released_at || '—');
                     row.push(item.processed_by || '—');
+                    row.push(item.released_at || '—');
+                    row.push(item.released_by || '—');
+                    row.push(item.status || 'Pending');
                     return row;
                 });
 
@@ -865,7 +871,7 @@
                 if (role !== 'staff') {
                     headers.push('App cut');
                 }
-                headers.push('Net', 'Processed', 'Release status', 'Release Date', 'Processed By');
+                headers.push('Net', 'Process Date', 'Processed By', 'Release Date', 'Release By', 'Release status');
                 const rows = buildRows(items, payload.totals, currencySymbol, role);
                 const filterChips = filters;
 
