@@ -189,11 +189,24 @@
                 'last_year' => 'Last Year',
                 'all_time' => 'All Time',
             ];
+            $formatDateLabel = function ($value) {
+                if (empty($value)) {
+                    return '—';
+                }
+
+                try {
+                    return \Carbon\Carbon::parse($value)->format('F j, Y');
+                } catch (\Throwable $th) {
+                    return (string) $value;
+                }
+            };
+            $startDateLabel = $formatDateLabel($startDateInput);
+            $endDateLabel = $formatDateLabel($endDateInput);
             $dateRangeLabel = !$hasFilterPreset
                 ? '—'
                 : ($datePreset === 'custom'
-                    ? trim(($startDateInput ?: '—') . ' → ' . ($endDateInput ?: '—'))
-                    : (($presetLabels[$datePreset] ?? 'All Time') . ($startDateInput && $endDateInput ? ' (' . $startDateInput . ' → ' . $endDateInput . ')' : '')));
+                    ? ($startDateLabel . ' - ' . $endDateLabel)
+                    : (($presetLabels[$datePreset] ?? 'All Time') . ($startDateInput && $endDateInput ? ' (' . $startDateLabel . ' - ' . $endDateLabel . ')' : '')));
             $perPage = 10;
             $currencySymbol = '₱';
             $focusLabel = 'All payroll runs';
@@ -228,7 +241,7 @@
             ];
 
             if ($hasFilterPreset) {
-                $runsQuery = \App\Models\PayrollRun::with(['user.role'])
+                $runsQuery = \App\Models\PayrollRun::with(['user.role', 'processedByUser', 'releasedByUser'])
                     ->orderByDesc('processed_at')
                     ->orderByDesc('id');
 
@@ -336,9 +349,15 @@
             $mapRun = function ($run) {
                 $staff = $run->user;
                 $name = trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? ''));
-                $periodLabel = $run->period_month
-                    ? \Carbon\Carbon::parse($run->period_month . '-01')->format('M Y')
-                    : '—';
+                $periodLabel = '—';
+                if (!empty($run->period_month)) {
+                    try {
+                        $periodMonth = \Carbon\Carbon::parse($run->period_month . '-01')->startOfMonth();
+                        $periodLabel = $periodMonth->format('F j') . ' - ' . $periodMonth->copy()->endOfMonth()->format('j');
+                    } catch (\Throwable $th) {
+                        $periodLabel = (string) $run->period_month;
+                    }
+                }
                 $employmentTypeLabel = $staff
                     ? match ($staff->employment_type ?? null) {
                         'salaried' => 'Basic Pay',
@@ -355,6 +374,30 @@
                 $formattedHours = $displayMinutes === 0 ? $hoursLabel : ($hoursLabel . ' ' . $minutesLabel);
                 $grossValue = (float) ($run->gross_pay ?? 0);
                 $rateValue = $hoursValue > 0 ? round($grossValue / $hoursValue, 2) : 0;
+                $formatActor = function ($user) {
+                    if (!$user) {
+                        return '—';
+                    }
+
+                    $fullName = trim(($user->first_name ?? '') . ' ' . ($user->last_name ?? ''));
+                    if ($fullName !== '') {
+                        return $fullName;
+                    }
+
+                    if (!empty($user->user_code)) {
+                        return $user->user_code;
+                    }
+
+                    return $user->email ?? '—';
+                };
+                $processBy = optional($run->processedByUser)->user_code ?? '—';
+                $releaseBy = optional($run->releasedByUser)->user_code ?? '—';
+                $processDate = $run->processed_at
+                    ? $run->processed_at->format('M d, Y g:i A')
+                    : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+                $releaseDate = $run->released_at
+                    ? $run->released_at->format('M d, Y g:i A')
+                    : '—';
 
                 return [
                     'id' => $run->id,
@@ -372,9 +415,10 @@
                     'pagibig' => number_format((float) ($run->deduction_pagibig ?? 0), 2),
                     'app_cut' => number_format((float) ($run->deduction_app_cut ?? 0), 2),
                     'net' => number_format((float) ($run->net_pay ?? 0), 2),
-                    'processed_at' => $run->processed_at
-                        ? $run->processed_at->format('M d, Y g:i A')
-                        : ($run->created_at?->format('M d, Y g:i A') ?? '—'),
+                    'process_by' => $processBy,
+                    'process_date' => $processDate,
+                    'release_by' => $releaseBy,
+                    'release_date' => $releaseDate,
                 ];
             };
 
@@ -393,6 +437,7 @@
             if ($printUserRole) {
                 $printGeneratedBy .= " ({$printUserRole})";
             }
+            $printDateRangeLabel = $datePreset === 'all_time' ? 'All Time' : $dateRangeLabel;
 
             $printPayload = [
                 'title' => 'Payroll report',
@@ -405,7 +450,7 @@
                     'focus' => $focus,
                     'focus_label' => $focusLabel,
                     'date_preset' => $datePreset,
-                    'date_range' => $dateRangeLabel,
+                    'date_range' => $printDateRangeLabel,
                     'start_date' => $startDateInput,
                     'end_date' => $endDateInput,
                 ],
@@ -426,7 +471,7 @@
                     'focus' => $focus,
                     'focus_label' => $focusLabel,
                     'date_preset' => $datePreset,
-                    'date_range' => $dateRangeLabel,
+                    'date_range' => $printDateRangeLabel,
                     'start_date' => $startDateInput,
                     'end_date' => $endDateInput,
                     'scope' => 'all',
@@ -436,10 +481,20 @@
                 'count' => $printAllRuns->count(),
                 'items' => $printAllRuns,
             ];
-            $baseMonth = now()->startOfMonth();
-            $monthFilterOptions = collect(range(0, 36))
-                ->map(function ($offset) use ($baseMonth) {
-                    $month = $baseMonth->copy()->subMonths($offset);
+            $monthFilterOptions = \App\Models\PayrollRun::query()
+                ->whereNotNull('period_month')
+                ->where('period_month', '<>', '')
+                ->select('period_month')
+                ->distinct()
+                ->orderByDesc('period_month')
+                ->get()
+                ->map(function ($run) {
+                    try {
+                        $month = \Carbon\Carbon::parse((string) $run->period_month . '-01')->startOfMonth();
+                    } catch (\Throwable $th) {
+                        return null;
+                    }
+
                     return [
                         'value' => $month->format('Y-m'),
                         'label' => $month->format('F Y'),
@@ -447,7 +502,7 @@
                         'end' => $month->copy()->endOfMonth()->format('Y-m-d'),
                     ];
                 })
-                ->sortByDesc('start')
+                ->filter()
                 ->values();
             $monthFilterSelection = null;
             if (!empty($datePreset) && $datePreset === 'this_month') {
@@ -853,6 +908,7 @@
                 base.push(fmtMoney(totals.app_cut));
             }
             base.push(`<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`);
+            base.push('', '', '', '');
             return base;
         }
 
@@ -872,6 +928,10 @@
                     ]
                     : [`${currencySymbol}${item.app_cut || '0.00'}`]),
                 `<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`,
+                item.process_by || '—',
+                item.process_date || '—',
+                item.release_by || '—',
+                item.release_date || '—',
             ]));
 
             const totalsRow = buildTotalsRow(totals, currencySymbol, focus);
@@ -894,6 +954,10 @@
                 'Gross',
                 ...(focus === 'staff' ? ['SSS', 'PhilHealth', 'Pag-IBIG'] : ['App cut']),
                 'Net',
+                'Process By',
+                'Process Date',
+                'Release By',
+                'Release Date',
             ];
             const rows = buildRows(items, payload.totals, currencySymbol, focus);
             const filterChips = filters;
