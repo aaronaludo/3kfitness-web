@@ -536,14 +536,42 @@
                                                 return collect($item['sessions'] ?? [])->count();
                                             });
                                             $processedByCode = optional($run->processedByUser)->user_code ?? '—';
+                                            $processedByUser = $run->processedByUser;
+                                            $processedByName = $processedByUser
+                                                ? trim(($processedByUser->first_name ?? '') . ' ' . ($processedByUser->last_name ?? ''))
+                                                : '';
+                                            if ($processedByName === '') {
+                                                $processedByName = optional($processedByUser)->name ?? '—';
+                                            }
+                                            $releasedByUser = $run->releasedByUser;
+                                            $releasedByName = $releasedByUser
+                                                ? trim(($releasedByUser->first_name ?? '') . ' ' . ($releasedByUser->last_name ?? ''))
+                                                : '';
+                                            if ($releasedByName === '') {
+                                                $releasedByName = optional($releasedByUser)->name ?? '—';
+                                            }
+                                            $periodRange = strtoupper((string) $periodLabel);
+                                            try {
+                                                $periodMonth = \Carbon\Carbon::createFromFormat('Y-m', (string) $periodLabel);
+                                                $periodRange = strtoupper(
+                                                    $periodMonth->format('F j') . ' - ' . $periodMonth->copy()->endOfMonth()->format('j Y')
+                                                );
+                                            } catch (\Throwable $th) {
+                                                $periodRange = strtoupper((string) $periodLabel);
+                                            }
                                             $payslipData = [
                                                 'type' => $isTrainer ? 'trainer' : 'staff',
                                                 'name' => $name,
                                                 'email' => optional($staff)->email ?? '—',
                                                 'month' => $periodLabel,
+                                                'period_range' => $periodRange,
                                                 'employment_type' => $employmentTypeLabel,
                                                 'generated_by' => $generatedByName,
                                                 'generated_at' => now()->format('M d, Y g:i A'),
+                                                'processed_by' => $processedByName,
+                                                'processed_at' => $processedAt,
+                                                'released_by' => $releasedByName,
+                                                'released_at' => $releasedAt ?? '—',
                                                 'gross' => (float) ($run->gross_pay ?? 0),
                                                 'net' => (float) ($run->net_pay ?? 0),
                                                 'rate' => $rate,
@@ -931,6 +959,14 @@
                     };
                     const isZeroAmount = (value) => Math.abs(normalizeAmount(value)) < 0.005;
                     const formatMoney = (value) => `₱${normalizeAmount(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                    const formatSummaryMoney = (value) => {
+                        const amount = normalizeAmount(value);
+                        const hasCentavos = Math.abs(amount - Math.round(amount)) >= 0.005;
+                        return `₱${amount.toLocaleString(undefined, {
+                            minimumFractionDigits: hasCentavos ? 2 : 0,
+                            maximumFractionDigits: 2,
+                        })}`;
+                    };
                     const formatNumber = (value) => {
                         const num = Number(value);
                         if (Number.isFinite(num)) {
@@ -945,17 +981,24 @@
                         return `<div class="date-bullets">${dates.map((date) => `<div>• ${date}</div>`).join('')}</div>`;
                     };
                     const totalHours = formatHoursWithMinutes(data.hours);
+                    const periodRange = data.period_range || data.month || '—';
                     const generatedBy = data.generated_by || '—';
                     const generatedDate = data.generated_at || new Date().toLocaleString();
+                    const processBy = data.processed_by || '—';
+                    const processDate = data.processed_at || '—';
+                    const releaseBy = data.released_by || '—';
+                    const releaseDate = data.released_at || '—';
                     const style = `
                         <style>
                             body { font-family: Arial, sans-serif; margin: 0; padding: 24px; color: #111827; }
                             .payslip { max-width: 800px; margin: 0 auto; border: 1px solid #e5e7eb; padding: 24px; border-radius: 12px; }
                             .header { text-align: center; margin-bottom: 24px; }
+                            .period-range { font-size: 18px; font-weight: 700; letter-spacing: 0.4px; margin-bottom: 12px; text-transform: uppercase; }
                             .header h1 { margin: 0 0 8px; }
                             .muted { color: #6b7280; font-size: 13px; }
                             .section { margin-bottom: 20px; }
                             .grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+                            .footer-meta { border-top: 1px solid #e5e7eb; padding-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px 16px; font-size: 13px; }
                             table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; }
                             th, td { border: 1px solid #e5e7eb; padding: 8px; text-align: left; }
                             th { background: #f3f4f6; }
@@ -965,6 +1008,9 @@
                             .badge-warning { background: #fef9c3; color: #854d0e; }
                             .date-bullets { display: grid; gap: 2px; }
                             .date-bullets div { line-height: 1.2; }
+                            @media (max-width: 680px) {
+                                .grid, .footer-meta { grid-template-columns: 1fr; }
+                            }
                         </style>
                     `;
 
@@ -1030,8 +1076,14 @@
                         `<div><strong>Employment Type:</strong> ${employmentType}</div>`,
                         ...(!isTrainer ? [`<div><strong>Per hour rate:</strong> ${hourlyRate}</div>`] : []),
                         `<div><strong>Total hours:</strong> ${totalHours}</div>`,
+                    ];
+                    const footerFields = [
                         `<div><strong>Generated By:</strong> ${generatedBy}</div>`,
                         `<div><strong>Generated Date:</strong> ${generatedDate}</div>`,
+                        `<div><strong>Process By:</strong> ${processBy}</div>`,
+                        `<div><strong>Process Date:</strong> ${processDate}</div>`,
+                        `<div><strong>Release By:</strong> ${releaseBy}</div>`,
+                        `<div><strong>Release Date:</strong> ${releaseDate}</div>`,
                     ];
 
                     const detailSection = isTrainer
@@ -1086,6 +1138,7 @@
                             <body>
                                 <div class="payslip">
                                     <div class="header">
+                                        <div class="period-range">${periodRange}</div>
                                         <h1>Payroll Payslip</h1>
                                         <div class="muted">3kfitness Gym • ${data.month || ''}</div>
                                     </div>
@@ -1111,7 +1164,7 @@
                                                             return !isZeroAmount(row.value);
                                                         })
                                                         .map((row) => {
-                                                            const cell = `${formatMoney(row.value)}`;
+                                                            const cell = `${formatSummaryMoney(row.value)}`;
                                                             if (row.isTotal) {
                                                                 return `<tr><th>${row.label}</th><th>${cell}</th></tr>`;
                                                             }
@@ -1121,6 +1174,9 @@
                                                 }
                                             </tbody>
                                         </table>
+                                    </div>
+                                    <div class="section footer-meta">
+                                        ${footerFields.join('')}
                                     </div>
                                 </div>
                                 <script>window.print();<\/script>

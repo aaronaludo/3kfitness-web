@@ -913,7 +913,7 @@ class PayrollController extends Controller
             $processedTo = null;
         }
 
-        $baseQuery = PayrollRun::with(['user', 'processedByUser'])
+        $baseQuery = PayrollRun::with(['user', 'processedByUser', 'releasedByUser'])
             ->when($search, function ($query) use ($search) {
                 $like = '%' . $search . '%';
                 $integerSearch = ctype_digit($search) ? (int) $search : null;
