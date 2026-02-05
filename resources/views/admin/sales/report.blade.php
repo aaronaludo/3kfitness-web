@@ -433,6 +433,26 @@
             ? collect($focusRowsAll->items())
             : collect($focusRowsAll ?? $printCollectionCurrent);
         $hasFilterPreset = !empty(request()->except(['page']));
+        $formatDate = function ($value) {
+            if (empty($value)) {
+                return '—';
+            }
+            try {
+                return \Carbon\Carbon::parse($value)->format('F j, Y');
+            } catch (\Throwable $th) {
+                return (string) $value;
+            }
+        };
+        $formatDateTime = function ($value) {
+            if (empty($value)) {
+                return '—';
+            }
+            try {
+                return \Carbon\Carbon::parse($value)->format('F j, Y g:iA');
+            } catch (\Throwable $th) {
+                return (string) $value;
+            }
+        };
 
         $mapPrintRow = function ($row) use ($focus, $currency) {
             $label = $row['label'] ?? '—';
@@ -497,7 +517,7 @@
                     $startDateTimeLabel = \Carbon\Carbon::createFromFormat(
                         'Y-m-d H:i',
                         $startDateValue . ' ' . ($startTimeValue ?: '00:00')
-                    )->format('M d, Y g:i A');
+                    )->format('F j, Y g:iA');
                 } catch (\Exception $e) {
                     $startDateTimeLabel = trim($startDateValue . ' ' . ($startTimeValue ?? ''));
                 }
@@ -508,7 +528,7 @@
                     $endDateTimeLabel = \Carbon\Carbon::createFromFormat(
                         'Y-m-d H:i',
                         $endDateValue . ' ' . ($endTimeValue ?: '23:59')
-                    )->format('M d, Y g:i A');
+                    )->format('F j, Y g:iA');
                 } catch (\Exception $e) {
                     $endDateTimeLabel = trim($endDateValue . ' ' . ($endTimeValue ?? ''));
                 }
@@ -548,7 +568,7 @@
 
         $printPayload = [
             'title' => 'Sales report',
-            'generated_at' => now()->format('M d, Y g:i A'),
+            'generated_at' => now()->format('F j, Y g:iA'),
             'focus' => $focus,
             'order' => $order,
             'currency' => $currency,
@@ -1000,8 +1020,8 @@
                                                     </td>
                                                     <td>{{ $payment['membership'] ?? '—' }}</td>
                                                     <td class="text-end">{{ $payment['currency'] ?? $currency }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
-                                                    <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
-                                                    <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
+                                                    <td class="text-end">{{ $formatDateTime($payment['created_at'] ?? null) }}</td>
+                                                    <td class="text-end">{{ $formatDate($payment['expiration_at'] ?? null) }}</td>
                                                 </tr>
                                             @empty
                                                 <tr>

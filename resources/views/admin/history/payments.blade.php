@@ -31,8 +31,8 @@
             $printItems = collect($payments->items())->map(function ($payment) {
                 $member = $payment->user;
                 $membership = $payment->membership;
-                $purchasedAt = $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : null;
-                $expiresAt = $payment->expiration_at ? \Carbon\Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : null;
+                $purchasedAt = $payment->created_at ? $payment->created_at->format('F j, Y g:iA') : null;
+                $expiresAt = $payment->expiration_at ? \Carbon\Carbon::parse($payment->expiration_at)->format('F j, Y g:iA') : null;
                 $statusMeta = [
                     0 => 'Pending',
                     1 => 'Approved',
@@ -58,8 +58,8 @@
             $printAllItems = collect($printAllPayments ?? [])->map(function ($payment) {
                 $member = $payment->user;
                 $membership = $payment->membership;
-                $purchasedAt = $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : null;
-                $expiresAt = $payment->expiration_at ? \Carbon\Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : null;
+                $purchasedAt = $payment->created_at ? $payment->created_at->format('F j, Y g:iA') : null;
+                $expiresAt = $payment->expiration_at ? \Carbon\Carbon::parse($payment->expiration_at)->format('F j, Y g:iA') : null;
                 $statusMeta = [
                     0 => 'Pending',
                     1 => 'Approved',
@@ -84,7 +84,7 @@
 
             $printPayload = [
                 'title' => $showArchived ? 'Archived payments history' : 'Payments history',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -102,7 +102,7 @@
 
             $printAllPayload = [
                 'title' => $showArchived ? 'Archived payments history (all pages)' : 'Payments history (all pages)',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -363,8 +363,8 @@
                                         @php
                                             $member = $payment->user;
                                             $membership = $payment->membership;
-                                            $purchasedAt = $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—';
-                                            $expiresAt = $payment->expiration_at ? \Carbon\Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—';
+                                            $purchasedAt = $payment->created_at ? $payment->created_at->format('F j, Y g:iA') : '—';
+                                            $expiresAt = $payment->expiration_at ? \Carbon\Carbon::parse($payment->expiration_at)->format('F j, Y g:iA') : '—';
                                             $fullName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : '';
                                             $statusValue = $payment->isapproved;
                                             $statusMeta = [

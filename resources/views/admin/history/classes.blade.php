@@ -45,8 +45,8 @@
                     'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
                     'trainer_code' => optional($trainer)->user_code ?? null,
                     'enrollments' => $class->user_schedules_count ?? 0,
-                    'start' => $start ? $start->format('M d, Y g:i A') : null,
-                    'end' => $end ? $end->format('M d, Y g:i A') : null,
+                    'start' => $start ? $start->format('F j, Y g:iA') : null,
+                    'end' => $end ? $end->format('F j, Y g:iA') : null,
                     'status' => $statusMeta[$class->isadminapproved] ?? 'Pending',
                     'archive' => (int) ($class->is_archieve ?? 0) === 1 ? 'Archived' : 'Active',
                 ];
@@ -69,8 +69,8 @@
                     'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
                     'trainer_code' => optional($trainer)->user_code ?? null,
                     'enrollments' => $class->user_schedules_count ?? 0,
-                    'start' => $start ? $start->format('M d, Y g:i A') : null,
-                    'end' => $end ? $end->format('M d, Y g:i A') : null,
+                    'start' => $start ? $start->format('F j, Y g:iA') : null,
+                    'end' => $end ? $end->format('F j, Y g:iA') : null,
                     'status' => $statusMeta[$class->isadminapproved] ?? 'Pending',
                     'archive' => (int) ($class->is_archieve ?? 0) === 1 ? 'Archived' : 'Active',
                 ];
@@ -78,7 +78,7 @@
 
             $printPayload = [
                 'title' => $showArchived ? 'Archived class history' : 'Class history',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -96,7 +96,7 @@
 
             $printAllPayload = [
                 'title' => $showArchived ? 'Archived class history (all pages)' : 'Class history (all pages)',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -388,8 +388,8 @@
                                             <td>{{ $class->user_schedules_count ?? 0 }}</td>
                                             <td>
                                                 @if($start || $end)
-                                                    <div>{{ $start ? $start->format('M d, Y g:i A') : '—' }}</div>
-                                                    <div class="text-muted small">to {{ $end ? $end->format('M d, Y g:i A') : '—' }}</div>
+                                                    <div>{{ $start ? $start->format('F j, Y g:iA') : '—' }}</div>
+                                                    <div class="text-muted small">to {{ $end ? $end->format('F j, Y g:iA') : '—' }}</div>
                                                 @else
                                                     <span class="text-muted">—</span>
                                                 @endif

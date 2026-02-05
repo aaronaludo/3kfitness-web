@@ -110,7 +110,7 @@
                                                 @endphp
                                                 @if($isUpcoming)
                                                     <option value="{{ $cls->id }}">
-                                                        {{ $cls->name }} ({{ $start ? $start->format('M j, Y g:iA') : 'TBA' }}) — Code: {{ $cls->class_code }}
+                                                        {{ $cls->name }} ({{ $start ? $start->format('F j, Y g:iA') : 'TBA' }}) — Code: {{ $cls->class_code }}
                                                     </option>
                                                 @endif
                                             @endforeach

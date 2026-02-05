@@ -21,7 +21,7 @@
             ->first();
         $membershipName = $activePayment?->membership?->name ?? ($latestPayment?->membership?->name ?? 'No membership');
         $expiresAt = $activePayment?->expiration_at ? \Carbon\Carbon::parse($activePayment->expiration_at) : null;
-        $expiresText = $expiresAt ? $expiresAt->format('M d, Y') : '—';
+        $expiresText = $expiresAt ? $expiresAt->format('F j, Y') : '—';
 
         $statusText = 'No active membership';
         $statusClass = 'neutral';
@@ -38,8 +38,8 @@
             };
             if ((int) $latestPayment->isapproved === 1 && $expiresAt) {
                 $statusText = $expiresAt->isPast()
-                    ? 'Expired ' . $expiresAt->format('M d, Y')
-                    : 'Active until ' . $expiresAt->format('M d, Y');
+                    ? 'Expired ' . $expiresAt->format('F j, Y')
+                    : 'Active until ' . $expiresAt->format('F j, Y');
             }
         }
     @endphp
@@ -90,7 +90,7 @@
                 <span class="label">Status</span>
                 <div class="value">{{ $statusText }}</div>
                 <div class="hint">
-                    Last payment {{ optional($latestPayment?->created_at)->format('M d, Y') ?? '—' }}
+                    Last payment {{ optional($latestPayment?->created_at)->format('F j, Y') ?? '—' }}
                 </div>
             </div>
             <div class="detail-stat">
@@ -108,7 +108,7 @@
         <div class="detail-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Key details</h5>
-                <span class="text-muted detail-meta">Last updated {{ optional($gym_member->updated_at)->format('M d, Y') ?? '—' }}</span>
+                <span class="text-muted detail-meta">Last updated {{ optional($gym_member->updated_at)->format('F j, Y') ?? '—' }}</span>
             </div>
             <div class="table-responsive">
                 <table class="detail-table">
@@ -147,11 +147,11 @@
                         </tr>
                         <tr>
                             <th scope="row">Created</th>
-                            <td>{{ optional($gym_member->created_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($gym_member->created_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Updated</th>
-                            <td>{{ optional($gym_member->updated_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($gym_member->updated_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -223,8 +223,8 @@
                                 $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
                                 $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
                                 $scheduleWindow = $start && $end
-                                    ? $start->format('M d, Y g:i A') . ' — ' . $end->format('M d, Y g:i A')
-                                    : ($start ? $start->format('M d, Y g:i A') : 'Not set');
+                                    ? $start->format('F j, Y g:iA') . ' — ' . $end->format('F j, Y g:iA')
+                                    : ($start ? $start->format('F j, Y g:iA') : 'Not set');
                                 $statusLabel = 'Not scheduled';
                                 $badgeClass = 'bg-secondary';
                                 if ($start && $end) {
@@ -242,7 +242,7 @@
                                     $statusLabel = $now->lt($start) ? 'Upcoming' : 'Completed';
                                     $badgeClass = $now->lt($start) ? 'bg-warning text-dark' : 'bg-secondary';
                                 }
-                                $joinedAt = optional($userSchedule->created_at)->format('M d, Y g:i A') ?? '—';
+                                $joinedAt = optional($userSchedule->created_at)->format('F j, Y g:iA') ?? '—';
                             @endphp
                             <tr>
                                 <td>{{ ($userSchedules->firstItem() ?? 0) + $index }}</td>

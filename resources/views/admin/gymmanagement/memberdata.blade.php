@@ -193,19 +193,19 @@
                         'user_code' => $item->user_code,
                         'membership' => $membershipName,
                         'membership_status' => $membershipStatus,
-                        'membership_expires' => $expirationAt ? \Carbon\Carbon::parse($expirationAt)->format('M j, Y g:i A') : 'No Expiration Date',
+                        'membership_expires' => $expirationAt ? \Carbon\Carbon::parse($expirationAt)->format('F j, Y g:iA') : 'No Expiration Date',
                         'name' => $memberName ?: '—',
                         'phone' => $item->phone_number,
                         'email' => $item->email,
-                        'created' => optional($item->created_at)->format('M j, Y g:i A') ?: '',
-                        'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?: '',
+                        'created' => optional($item->created_at)->format('F j, Y g:iA') ?: '',
+                        'updated' => optional($item->updated_at)->format('F j, Y g:iA') ?: '',
                         'approved_by' => $approvedBy ?: 'Pending staff approval',
                     ];
                 })->values();
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived members' : 'Member directory',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -238,19 +238,19 @@
                         'user_code' => $item->user_code,
                         'membership' => $membershipName,
                         'membership_status' => $membershipStatus,
-                        'membership_expires' => $expirationAt ? \Carbon\Carbon::parse($expirationAt)->format('M j, Y g:i A') : 'No Expiration Date',
+                        'membership_expires' => $expirationAt ? \Carbon\Carbon::parse($expirationAt)->format('F j, Y g:iA') : 'No Expiration Date',
                         'name' => $memberName ?: '—',
                         'phone' => $item->phone_number,
                         'email' => $item->email,
-                        'created' => optional($item->created_at)->format('M j, Y g:i A') ?: '',
-                        'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?: '',
+                        'created' => optional($item->created_at)->format('F j, Y g:iA') ?: '',
+                        'updated' => optional($item->updated_at)->format('F j, Y g:iA') ?: '',
                         'approved_by' => $approvedBy ?: 'Pending staff approval',
                     ];
                 })->values();
 
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived members (all pages)' : 'Member directory (all pages)',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],

@@ -393,10 +393,10 @@
                 $processBy = optional($run->processedByUser)->user_code ?? '—';
                 $releaseBy = optional($run->releasedByUser)->user_code ?? '—';
                 $processDate = $run->processed_at
-                    ? $run->processed_at->format('M d, Y g:i A')
-                    : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+                    ? $run->processed_at->format('F j, Y g:iA')
+                    : ($run->created_at?->format('F j, Y g:iA') ?? '—');
                 $releaseDate = $run->released_at
-                    ? $run->released_at->format('M d, Y g:i A')
+                    ? $run->released_at->format('F j, Y g:iA')
                     : '—';
 
                 return [
@@ -441,7 +441,7 @@
 
             $printPayload = [
                 'title' => 'Payroll report',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -451,8 +451,8 @@
                     'focus_label' => $focusLabel,
                     'date_preset' => $datePreset,
                     'date_range' => $printDateRangeLabel,
-                    'start_date' => $startDateInput,
-                    'end_date' => $endDateInput,
+                    'start_date' => $formatDateLabel($startDateInput),
+                    'end_date' => $formatDateLabel($endDateInput),
                 ],
                 'currency_symbol' => $currencySymbol,
                 'totals' => $pageTotals,
@@ -462,7 +462,7 @@
 
             $printAllPayload = [
                 'title' => 'Payroll report (all pages)',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -472,8 +472,8 @@
                     'focus_label' => $focusLabel,
                     'date_preset' => $datePreset,
                     'date_range' => $printDateRangeLabel,
-                    'start_date' => $startDateInput,
-                    'end_date' => $endDateInput,
+                    'start_date' => $formatDateLabel($startDateInput),
+                    'end_date' => $formatDateLabel($endDateInput),
                     'scope' => 'all',
                 ],
                 'currency_symbol' => $currencySymbol,
@@ -782,7 +782,7 @@
                                                     $code = $staff->user_code ?? '—';
                                                     $roleName = optional($staff->role)->name ?? '—';
                                                     $periodLabel = $run->period_month
-                                                        ? \Carbon\Carbon::parse($run->period_month . '-01')->format('M Y')
+                                                        ? \Carbon\Carbon::parse($run->period_month . '-01')->format('F Y')
                                                         : '—';
                                                     $employmentTypeLabel = $staff
                                                         ? match ($staff->employment_type ?? null) {

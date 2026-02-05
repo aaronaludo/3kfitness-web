@@ -666,14 +666,14 @@
                             $rescheduleTargetLabel = null;
                             if ($override['new_carbon']) {
                                 $targetTimeLabel = $formatTimeLabel($override['start_time'] ?? $startTimeString, $override['end_time'] ?? $endTimeString);
-                                $rescheduleTargetLabel = $override['new_carbon']->format('M j, Y');
+                                $rescheduleTargetLabel = $override['new_carbon']->format('F j, Y');
                                 if ($targetTimeLabel) {
                                     $rescheduleTargetLabel .= ' • ' . $targetTimeLabel;
                                 }
                             }
 
                             $sessions->push([
-                                'label' => $occurrenceDate->format('M j, Y'),
+                                'label' => $occurrenceDate->format('F j, Y'),
                                 'short' => $occurrenceDate->format('M d'),
                                 'weekday' => $weekdayLabel,
                                 'time' => $defaultTimeLabel,
@@ -713,7 +713,7 @@
                             $overrideTimeLabel = $formatTimeLabel($overrideStartTime, $overrideEndTime) ?? $defaultTimeLabel;
 
                             $sessions->push([
-                                'label' => $overrideDate->format('M j, Y'),
+                                'label' => $overrideDate->format('F j, Y'),
                                 'short' => $overrideDate->format('M d'),
                                 'weekday' => $overrideDate->format('l'),
                                 'time' => $overrideTimeLabel,
@@ -722,7 +722,7 @@
                                 'sort_key' => $overrideStart->timestamp,
                                 'is_rescheduled' => false,
                                 'is_override' => true,
-                                'rescheduled_from' => $occurrenceDate->format('M j, Y'),
+                                'rescheduled_from' => $occurrenceDate->format('F j, Y'),
                                 'date' => $overrideDate->toDateString(),
                                 'is_past' => $overrideIsPast,
                             ]);
@@ -730,7 +730,7 @@
                             [$sessionStatus, $statusClass, $sessionIsPast] = $resolveAttendanceStatus($sessionStart, $sessionEnd);
 
                             $sessions->push([
-                                'label' => $occurrenceDate->format('M j, Y'),
+                                'label' => $occurrenceDate->format('F j, Y'),
                                 'short' => $occurrenceDate->format('M d'),
                                 'weekday' => $weekdayLabel,
                                 'time' => $defaultTimeLabel,
@@ -756,8 +756,8 @@
                     $dateLabels = $actualSessions->pluck('short')->unique()->values();
                     $rangeLabel = '—';
                     if ($actualSessions->isNotEmpty()) {
-                        $firstDate = \Carbon\Carbon::parse($actualSessions->first()['date'])->format('M j, Y');
-                        $lastDate = \Carbon\Carbon::parse($actualSessions->last()['date'])->format('M j, Y');
+                        $firstDate = \Carbon\Carbon::parse($actualSessions->first()['date'])->format('F j, Y');
+                        $lastDate = \Carbon\Carbon::parse($actualSessions->last()['date'])->format('F j, Y');
                         $rangeLabel = $firstDate === $lastDate ? $firstDate : $firstDate . ' → ' . $lastDate;
                     }
 
@@ -810,8 +810,8 @@
                         'email' => $item->email ?: '—',
                         'salary' => $totalSalary > 0 ? number_format($totalSalary, 2) : null,
                         'status' => $statusLabel,
-                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
-                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('F j, Y g:iA') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('F j, Y g:iA') : '',
                         'created_by' => $item->created_by ?: '',
                     ];
                 };
@@ -834,7 +834,7 @@
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived trainers' : 'Trainer directory',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -851,7 +851,7 @@
 
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived trainers (all pages)' : 'Trainer directory (all pages)',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -1440,7 +1440,7 @@
                                                         'phone' => $item->phone_number ?? '',
                                                         'code' => $item->user_code ?? $item->id,
                                                     ],
-                                                    'generated_at' => now()->format('M d, Y g:i A'),
+                                                    'generated_at' => now()->format('F j, Y g:iA'),
                                                     'generated_by' => $printGeneratedBy ?? null,
                                                     'summary' => [
                                                         'total' => $totalAssignments,
@@ -1463,8 +1463,8 @@
                                                             'class_code' => $schedule->class_code ?? null,
                                                             'category' => $detail['category'],
                                                             'category_label' => $categoryLabel,
-                                                            'start_label' => $start ? $start->format('M j, Y g:i A') : 'Not set',
-                                                            'end_label' => $end ? $end->format('M j, Y g:i A') : '—',
+                                                            'start_label' => $start ? $start->format('F j, Y g:iA') : 'Not set',
+                                                            'end_label' => $end ? $end->format('F j, Y g:iA') : '—',
                                                             'start_date' => $detail['start_date'] ?? null,
                                                             'end_date' => $detail['end_date'] ?? null,
                                                             'hours' => isset($detail['hours']) ? (float) $detail['hours'] : null,
@@ -2065,7 +2065,7 @@
                                                         'phone' => $archive->phone_number ?? '',
                                                         'code' => $archive->user_code ?? $archive->id,
                                                     ],
-                                                    'generated_at' => now()->format('M d, Y g:i A'),
+                                                    'generated_at' => now()->format('F j, Y g:iA'),
                                                     'generated_by' => $printGeneratedBy ?? null,
                                                     'summary' => [
                                                         'total' => $archivedTotalAssignments,
@@ -2088,8 +2088,8 @@
                                                             'class_code' => $schedule->class_code ?? null,
                                                             'category' => $detail['category'],
                                                             'category_label' => $categoryLabel,
-                                                            'start_label' => $start ? $start->format('M j, Y g:i A') : 'Not set',
-                                                            'end_label' => $end ? $end->format('M j, Y g:i A') : '—',
+                                                            'start_label' => $start ? $start->format('F j, Y g:iA') : 'Not set',
+                                                            'end_label' => $end ? $end->format('F j, Y g:iA') : '—',
                                                             'start_date' => $detail['start_date'] ?? null,
                                                             'end_date' => $detail['end_date'] ?? null,
                                                             'hours' => isset($detail['hours']) ? (float) $detail['hours'] : null,

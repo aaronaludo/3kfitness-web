@@ -171,7 +171,7 @@
                 'role' => optional($admin->role)->name ?? 'Admin',
                 'status' => $statusName,
                 'status_hint' => $statusMeta['hint'] ?? '',
-                'created_at' => optional($admin->created_at)->format('M j, Y g:i A') ?? '',
+                'created_at' => optional($admin->created_at)->format('F j, Y g:iA') ?? '',
                 'created_by' => $admin->created_by ?? '',
             ];
         };
@@ -191,7 +191,7 @@
         }
         $printPayload = [
             'title' => $showArchived ? 'Archived admins' : 'Admin directory',
-            'generated_at' => now()->format('M d, Y g:i A'),
+            'generated_at' => now()->format('F j, Y g:iA'),
             'meta' => [
                 'generated_by' => $printGeneratedBy,
             ],
@@ -207,7 +207,7 @@
         ];
         $printAllPayload = [
             'title' => $showArchived ? 'Archived admins (all)' : 'Admin directory (all)',
-            'generated_at' => now()->format('M d, Y g:i A'),
+            'generated_at' => now()->format('F j, Y g:iA'),
             'meta' => [
                 'generated_by' => $printGeneratedBy,
             ],
@@ -494,7 +494,7 @@
                                             <span class="badge bg-success px-3 py-2">{{ $statusName }}</span>
                                         </td>
                                         <td>
-                                            <div>{{ optional($admin->created_at)->format('M d, Y') ?? '—' }}</div>
+                                            <div>{{ optional($admin->created_at)->format('F j, Y') ?? '—' }}</div>
                                             <div class="text-muted small">{{ $admin->created_by ?? '' }}</div>
                                         </td>
                                         <td>

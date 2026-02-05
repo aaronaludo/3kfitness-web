@@ -54,7 +54,7 @@
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Plan details</h5>
                 <span class="text-muted detail-meta">
-                    Updated {{ optional($data->updated_at)->format('M d, Y') ?? '—' }}
+                    Updated {{ optional($data->updated_at)->format('F j, Y') ?? '—' }}
                 </span>
             </div>
             <div class="table-responsive">
@@ -82,11 +82,11 @@
                         </tr>
                         <tr>
                             <th scope="row">Created</th>
-                            <td>{{ optional($data->created_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($data->created_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Last Updated</th>
-                            <td>{{ optional($data->updated_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($data->updated_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                     </tbody>
                 </table>

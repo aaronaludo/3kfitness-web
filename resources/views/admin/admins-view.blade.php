@@ -54,7 +54,7 @@
         <div class="detail-card">
             <div class="d-flex justify-content-between align-items-center mb-3">
                 <h5 class="mb-0">Profile details</h5>
-                <span class="text-muted detail-meta">Updated {{ optional($user->updated_at)->format('M d, Y') ?? '—' }}</span>
+                <span class="text-muted detail-meta">Updated {{ optional($user->updated_at)->format('F j, Y') ?? '—' }}</span>
             </div>
             <div class="table-responsive">
                 <table class="detail-table">
@@ -91,11 +91,11 @@
                         </tr>
                         <tr>
                             <th scope="row">Created</th>
-                            <td>{{ optional($user->created_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($user->created_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Last Updated</th>
-                            <td>{{ optional($user->updated_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($user->updated_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Created By</th>

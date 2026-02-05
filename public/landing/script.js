@@ -146,6 +146,17 @@ function closeReviewsModal() {
   document.getElementById('reviews-modal').style.display = 'none';
 }
 
+function formatReviewDate(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 function renderReviews() {
   const starFilter = document.getElementById('starFilter').value;
   const dateSort = document.getElementById('dateSort').value;
@@ -170,7 +181,7 @@ function renderReviews() {
 
   list.innerHTML = filtered.map(r => {
     const stars = Math.min(5, Math.max(1, Number(r.stars) || 5));
-    const dateLabel = r.date ? r.date : '';
+    const dateLabel = formatReviewDate(r.date);
     const name = r.name || 'Member';
     const text = r.text || '';
 

@@ -93,10 +93,10 @@
                     $releasedByCode = optional($run->releasedByUser)->user_code ?? '—';
                     $periodLabel = $run->period_month ?? '—';
                     $processedAt = $run->processed_at
-                        ? $run->processed_at->format('M d, Y g:i A')
-                        : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+                        ? $run->processed_at->format('F j, Y g:iA')
+                        : ($run->created_at?->format('F j, Y g:iA') ?? '—');
                     $releasedAt = $run->released_at
-                        ? $run->released_at->format('M d, Y g:i A')
+                        ? $run->released_at->format('F j, Y g:iA')
                         : '—';
                     $releaseStatus = $run->released_at ? 'Released' : 'Pending';
                     $processedSessions = collect($run->processed_session_series ?? []);
@@ -132,7 +132,7 @@
 
                 $printPayload = [
                     'title' => 'Payroll history',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $generatedByName,
                     ],
@@ -152,7 +152,7 @@
 
                 $printAllPayload = [
                     'title' => 'Payroll history (all pages)',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $generatedByName,
                     ],
@@ -513,10 +513,10 @@
                                             $name = $staff ? trim(($staff->first_name ?? '') . ' ' . ($staff->last_name ?? '')) : 'Unknown';
                                             $periodLabel = $run->period_month ?? '—';
                                             $processedAt = $run->processed_at
-                                                ? $run->processed_at->format('M d, Y g:i A')
-                                                : ($run->created_at?->format('M d, Y g:i A') ?? '—');
+                                                ? $run->processed_at->format('F j, Y g:iA')
+                                                : ($run->created_at?->format('F j, Y g:iA') ?? '—');
                                             $releasedAt = $run->released_at
-                                                ? $run->released_at->format('M d, Y g:i A')
+                                                ? $run->released_at->format('F j, Y g:iA')
                                                 : null;
                                             $releaseStatus = $run->released_at ? 'Released' : 'Pending';
                                             $releaseBadge = $run->released_at ? 'bg-success-subtle text-success' : 'bg-warning-subtle text-warning';
@@ -571,7 +571,7 @@
                                                 'period_range' => $periodRange,
                                                 'employment_type' => $employmentTypeLabel,
                                                 'generated_by' => $generatedByName,
-                                                'generated_at' => now()->format('M d, Y g:i A'),
+                                                'generated_at' => now()->format('F j, Y g:iA'),
                                                 'processed_by' => $processedByName,
                                                 'processed_at' => $processedAt,
                                                 'released_by' => $releasedByName,

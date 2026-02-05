@@ -27,7 +27,7 @@
 
                 $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
                 $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
-                $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('M d, Y g:i A') : null;
+                $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('F j, Y g:iA') : null;
                 $memberName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member';
 
                 return [
@@ -41,8 +41,8 @@
                     'class_code' => $class->class_code ?? null,
                     'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
                     'joined' => $joinedAt,
-                    'start' => $start ? $start->format('M d, Y g:i A') : null,
-                    'end' => $end ? $end->format('M d, Y g:i A') : null,
+                    'start' => $start ? $start->format('F j, Y g:iA') : null,
+                    'end' => $end ? $end->format('F j, Y g:iA') : null,
                 ];
             })->values();
 
@@ -50,7 +50,7 @@
                 $member = $enrollment->user ?? null;
                 $class = $enrollment->class ?? $enrollment->schedule ?? null;
                 $trainer = $class ? $class->trainer : null;
-                $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('M d, Y g:i A') : null;
+                $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('F j, Y g:iA') : null;
                 $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
                 $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
                 $memberName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member';
@@ -66,14 +66,14 @@
                     'class_code' => $class->class_code ?? null,
                     'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
                     'joined' => $joinedAt,
-                    'start' => $start ? $start->format('M d, Y g:i A') : null,
-                    'end' => $end ? $end->format('M d, Y g:i A') : null,
+                    'start' => $start ? $start->format('F j, Y g:iA') : null,
+                    'end' => $end ? $end->format('F j, Y g:iA') : null,
                 ];
             })->values();
 
             $printPayload = [
                 'title' => 'Enrollment history',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -89,7 +89,7 @@
 
             $printAllPayload = [
                 'title' => 'Enrollment history (all pages)',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -299,7 +299,7 @@
                                             $trainer = optional($class)->user;
                                             $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
                                             $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
-                                            $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('M d, Y g:i A') : '—';
+                                            $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('F j, Y g:iA') : '—';
                                             $fullName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : '';
                                             $displayId = $class ? $class->id : ($enrollment->schedule_id ?? '—');
                                         @endphp
@@ -336,8 +336,8 @@
                                             <td>{{ $joinedAt }}</td>
                                             <td>
                                                 @if($start || $end)
-                                                    <div>{{ $start ? $start->format('M d, Y g:i A') : '—' }}</div>
-                                                    <div class="text-muted small">to {{ $end ? $end->format('M d, Y g:i A') : '—' }}</div>
+                                                    <div>{{ $start ? $start->format('F j, Y g:iA') : '—' }}</div>
+                                                    <div class="text-muted small">to {{ $end ? $end->format('F j, Y g:iA') : '—' }}</div>
                                                 @else
                                                     <span class="text-muted">—</span>
                                                 @endif

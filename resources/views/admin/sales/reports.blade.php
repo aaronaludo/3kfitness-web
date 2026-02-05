@@ -247,12 +247,32 @@
 <div class="container-fluid report-shell">
     @php
         $hasFilterPreset = !empty(request()->except(['page']));
+        $formatDate = function ($value) {
+            if (empty($value)) {
+                return '—';
+            }
+            try {
+                return \Carbon\Carbon::parse($value)->format('F j, Y');
+            } catch (\Throwable $th) {
+                return (string) $value;
+            }
+        };
+        $formatDateTime = function ($value) {
+            if (empty($value)) {
+                return '—';
+            }
+            try {
+                return \Carbon\Carbon::parse($value)->format('F j, Y g:iA');
+            } catch (\Throwable $th) {
+                return (string) $value;
+            }
+        };
         $printFilters = [
-            'start_date' => $startDate,
-            'end_date' => $endDate,
+            'start_date' => $formatDate($startDate ?? null),
+            'end_date' => $formatDate($endDate ?? null),
             'currency' => $summary['currency'] ?? 'PHP',
         ];
-        $buildPrintRow = function ($payment) {
+        $buildPrintRow = function ($payment) use ($formatDateTime) {
             return [
                 'id' => $payment['id'] ?? '—',
                 'member' => $payment['member'] ?? '—',
@@ -260,7 +280,7 @@
                 'membership' => $payment['membership'] ?? '—',
                 'amount' => $payment['amount'] ?? '0.00',
                 'currency' => $payment['currency'] ?? '',
-                'created_at' => $payment['created_at'] ?? '—',
+                'created_at' => $formatDateTime($payment['created_at'] ?? null),
             ];
         };
         $printRows = collect($membershipPayments->items() ?? [])->map($buildPrintRow)->values();
@@ -289,7 +309,7 @@
         }
         $printPayload = [
             'title' => 'Sales detailed reports',
-            'generated_at' => now()->format('M d, Y g:i A'),
+            'generated_at' => now()->format('F j, Y g:iA'),
             'filters' => $hasFilterPreset ? array_merge($printFilters, ['scope' => 'current']) : [],
             'count' => $printRows->count(),
             'items' => $printRows,
@@ -297,16 +317,35 @@
         ];
         $printAllPayload = [
             'title' => 'Sales detailed reports (all pages)',
-            'generated_at' => now()->format('M d, Y g:i A'),
+            'generated_at' => now()->format('F j, Y g:iA'),
             'filters' => $hasFilterPreset ? array_merge($printFilters, ['scope' => 'all']) : [],
             'count' => $printAllRows->count(),
             'items' => $printAllRows,
             'meta' => $printMeta,
         ];
-        $baseMonth = now()->startOfMonth();
-        $monthFilterOptions = collect(range(0, 36))
-            ->map(function ($offset) use ($baseMonth) {
-                $month = $baseMonth->copy()->subMonths($offset);
+        $membershipMonths = \App\Models\MembershipPayment::query()
+            ->where('isapproved', 1)
+            ->where('is_archive', 0)
+            ->selectRaw("DATE_FORMAT(created_at, '%Y-%m') as period_month")
+            ->distinct()
+            ->pluck('period_month');
+
+        $payrollMonths = \App\Models\PayrollRun::query()
+            ->selectRaw("DATE_FORMAT(COALESCE(processed_at, created_at), '%Y-%m') as period_month")
+            ->distinct()
+            ->pluck('period_month');
+
+        $monthFilterOptions = $membershipMonths
+            ->merge($payrollMonths)
+            ->filter()
+            ->unique()
+            ->map(function ($value) {
+                try {
+                    $month = \Carbon\Carbon::parse((string) $value . '-01')->startOfMonth();
+                } catch (\Throwable $th) {
+                    return null;
+                }
+
                 return [
                     'value' => $month->format('Y-m'),
                     'label' => $month->format('F Y'),
@@ -314,7 +353,8 @@
                     'end' => $month->copy()->endOfMonth()->format('Y-m-d'),
                 ];
             })
-            ->sortByDesc('start')
+            ->filter()
+            ->sortByDesc('value')
             ->values();
         $monthFilterSelection = null;
         if (!empty($datePreset) && $datePreset === 'this_month') {
@@ -833,8 +873,8 @@
                                                                 </td>
                                                                 <td>{{ $payment['membership'] ?? '—' }}</td>
                                                                 <td class="text-end">{{ $payment['currency'] ?? ($summary['currency'] ?? 'PHP') }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
-                                                                <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
-                                                                <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
+                                                                <td class="text-end">{{ $formatDateTime($payment['created_at'] ?? null) }}</td>
+                                                                <td class="text-end">{{ $formatDate($payment['expiration_at'] ?? null) }}</td>
                                                             </tr>
                                                         @empty
                                                             <tr>
@@ -920,7 +960,7 @@
                                             </td>
                                             <td>{{ $payment['membership'] }}</td>
                                             <td class="text-end">{{ $payment['currency'] }} {{ $payment['amount'] }}</td>
-                                            <td class="text-end">{{ $payment['created_at'] }}</td>
+                                            <td class="text-end">{{ $formatDateTime($payment['created_at'] ?? null) }}</td>
                                         </tr>
                                     @empty
                                         <tr>

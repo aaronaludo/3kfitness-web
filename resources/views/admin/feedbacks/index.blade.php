@@ -217,7 +217,7 @@
                                                 {{ $item->admin_confirmation_status ? 'Confirmed' : 'Pending' }}
                                             </span>
                                         </td>
-                                        <td>{{ optional($item->created_at)->format('M d, Y g:i A') }}</td>
+                                        <td>{{ optional($item->created_at)->format('F j, Y g:iA') }}</td>
                                         <td>
                                             <div class="d-flex flex-wrap align-items-center gap-2">
                                                 <div class="action-button">

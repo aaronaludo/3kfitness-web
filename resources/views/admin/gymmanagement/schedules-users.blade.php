@@ -121,7 +121,7 @@
                                     <td>{{ $fullName !== '' ? $fullName : 'Unknown user' }}</td>
                                     <td>{{ $user->email ?? '—' }}</td>
                                     <td>{{ $user->phone_number ?? '—' }}</td>
-                                    <td>{{ optional($userSchedule->created_at)->format('M d, Y h:i A') }}</td>
+                                    <td>{{ optional($userSchedule->created_at)->format('F j, Y g:iA') }}</td>
                                     <td class="text-center">
                                         @if($user)
                                             <a

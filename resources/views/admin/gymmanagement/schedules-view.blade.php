@@ -181,7 +181,7 @@
                     if ($override) {
                         $sessionOccurrences[] = [
                             'date_key' => $sessionDateKey,
-                            'label' => $cursor->format('M j, Y'),
+                            'label' => $cursor->format('F j, Y'),
                             'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
                             'time' => $sessionTimeLabel,
                             'status' => 'Rescheduled',
@@ -190,7 +190,7 @@
                             'is_rescheduled' => true,
                             'is_override' => false,
                             'reschedule_target_label' => $override['new_carbon']
-                                ? $override['new_carbon']->format('M j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
+                                ? $override['new_carbon']->format('F j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
                                 : null,
                         ];
 
@@ -222,7 +222,7 @@
 
                         $sessionOccurrences[] = [
                             'date_key' => $overrideDate->toDateString(),
-                            'label' => $overrideDate->format('M j, Y'),
+                            'label' => $overrideDate->format('F j, Y'),
                             'weekday' => $overrideDate->format('l'),
                             'time' => $overrideTimeLabel,
                             'status' => $overrideStatus,
@@ -230,14 +230,14 @@
                             'sort_key' => $overrideStart->timestamp,
                             'is_rescheduled' => false,
                             'is_override' => true,
-                            'rescheduled_from' => $cursor->format('M j, Y'),
+                            'rescheduled_from' => $cursor->format('F j, Y'),
                         ];
                     } else {
                         [$sessionStatus, $statusClass] = $computeStatus($sessionStart, $sessionEnd);
 
                         $sessionOccurrences[] = [
                             'date_key' => $sessionDateKey,
-                            'label' => $cursor->format('M j, Y'),
+                            'label' => $cursor->format('F j, Y'),
                             'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
                             'time' => $sessionTimeLabel,
                             'status' => $sessionStatus,
@@ -264,7 +264,7 @@
             if ($override) {
                 $sessionOccurrences[] = [
                     'date_key' => $sessionStart->toDateString(),
-                    'label' => $sessionStart->format('M j, Y'),
+                    'label' => $sessionStart->format('F j, Y'),
                     'weekday' => $sessionStart->format('l'),
                     'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
                     'status' => 'Rescheduled',
@@ -273,7 +273,7 @@
                     'is_rescheduled' => true,
                     'is_override' => false,
                     'reschedule_target_label' => $override['new_carbon']
-                        ? $override['new_carbon']->format('M j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
+                        ? $override['new_carbon']->format('F j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
                         : null,
                 ];
 
@@ -305,7 +305,7 @@
 
                 $sessionOccurrences[] = [
                     'date_key' => $overrideDate->toDateString(),
-                    'label' => $overrideDate->format('M j, Y'),
+                    'label' => $overrideDate->format('F j, Y'),
                     'weekday' => $overrideDate->format('l'),
                     'time' => $overrideTimeLabel,
                     'status' => $overrideStatus,
@@ -313,14 +313,14 @@
                     'sort_key' => $overrideStart->timestamp,
                     'is_rescheduled' => false,
                     'is_override' => true,
-                    'rescheduled_from' => $sessionStart->format('M j, Y'),
+                    'rescheduled_from' => $sessionStart->format('F j, Y'),
                 ];
             } else {
                 [$sessionStatus, $statusClass] = $computeStatus($sessionStart, $sessionEnd);
 
                 $sessionOccurrences[] = [
                     'date_key' => $sessionStart->toDateString(),
-                    'label' => $sessionStart->format('M j, Y'),
+                    'label' => $sessionStart->format('F j, Y'),
                     'weekday' => $sessionStart->format('l'),
                     'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
                     'status' => $sessionStatus,
@@ -420,8 +420,8 @@
         <div class="detail-stats-grid">
             <div class="detail-stat">
                 <span class="label">Schedule window</span>
-                <div class="value">{{ $startDate ? $startDate->format('M d, Y g:i A') : 'Not set' }}</div>
-                <div class="hint">{{ $endDate ? 'Ends ' . $endDate->format('M d, Y g:i A') : 'No end date yet' }}</div>
+                <div class="value">{{ $startDate ? $startDate->format('F j, Y g:iA') : 'Not set' }}</div>
+                <div class="hint">{{ $endDate ? 'Ends ' . $endDate->format('F j, Y g:iA') : 'No end date yet' }}</div>
             </div>
             <div class="detail-stat">
                 <span class="label">Enrollment</span>
@@ -465,7 +465,7 @@
         <div class="detail-card">
             <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                 <h5 class="mb-0">Class details</h5>
-                <span class="text-muted detail-meta">Updated {{ optional($data->updated_at)->format('M d, Y') ?? '—' }}</span>
+                <span class="text-muted detail-meta">Updated {{ optional($data->updated_at)->format('F j, Y') ?? '—' }}</span>
             </div>
             <div class="table-responsive">
                 <table class="detail-table">
@@ -493,9 +493,9 @@
                         <tr>
                             <th scope="row">Series range</th>
                             <td>
-                                {{ $seriesStart ? $seriesStart->format('M d, Y') : '—' }}
+                                {{ $seriesStart ? $seriesStart->format('F j, Y') : '—' }}
                                 @if($seriesEnd)
-                                    &nbsp;to&nbsp;{{ $seriesEnd->format('M d, Y') }}
+                                    &nbsp;to&nbsp;{{ $seriesEnd->format('F j, Y') }}
                                 @endif
                             </td>
                         </tr>
@@ -518,11 +518,11 @@
                         </tr>
                         <tr>
                             <th scope="row">Created</th>
-                            <td>{{ optional($data->created_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($data->created_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Updated</th>
-                            <td>{{ optional($data->updated_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($data->updated_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                     </tbody>
                 </table>
@@ -538,7 +538,7 @@
                 @if($seriesStart && $seriesEnd)
                     <span class="detail-chip">
                         <span class="icon"><i class="fa-regular fa-calendar"></i></span>
-                        {{ $seriesStart->format('M d, Y') }} — {{ $seriesEnd->format('M d, Y') }}
+                        {{ $seriesStart->format('F j, Y') }} — {{ $seriesEnd->format('F j, Y') }}
                     </span>
                 @endif
             </div>
@@ -654,7 +654,7 @@
                                             $attendeeName = trim(($attendee->first_name ?? '') . ' ' . ($attendee->last_name ?? ''));
                                             $attendeeName = $attendeeName !== '' ? $attendeeName : ($attendee->email ?? 'Member');
                                             $attendedLabel = $attendance->attended_at
-                                                ? $attendance->attended_at->format('M d, Y g:i A')
+                                                ? $attendance->attended_at->format('F j, Y g:iA')
                                                 : null;
                                         @endphp
                                         <div class="d-flex align-items-start justify-content-between gap-3 p-3 {{ $loop->last ? '' : 'border-bottom' }}">

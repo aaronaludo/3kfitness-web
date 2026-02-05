@@ -33,7 +33,7 @@
                                 <p class="text-muted mb-0">Update feedback details, status, or the linked member.</p>
                             </div>
                             <div class="text-end">
-                                <span class="d-block text-muted small">Last updated {{ optional($feedback->updated_at)->format('M d, Y g:i A') }}</span>
+                                <span class="d-block text-muted small">Last updated {{ optional($feedback->updated_at)->format('F j, Y g:iA') }}</span>
                             </div>
                         </div>
 

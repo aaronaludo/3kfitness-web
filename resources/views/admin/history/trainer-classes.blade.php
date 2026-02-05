@@ -45,8 +45,8 @@
                     'trainer_code' => optional($trainer)->user_code ?? null,
                     'enrollments' => $class->user_schedules_count ?? 0,
                     'rate' => $class->trainer_rate_per_hour !== null ? number_format((float) $class->trainer_rate_per_hour, 2) : null,
-                    'start' => $start ? $start->format('M d, Y g:i A') : null,
-                    'end' => $end ? $end->format('M d, Y g:i A') : null,
+                    'start' => $start ? $start->format('F j, Y g:iA') : null,
+                    'end' => $end ? $end->format('F j, Y g:iA') : null,
                     'status' => $statusMeta[$class->isadminapproved] ?? 'Pending',
                     'archive' => (int) ($class->is_archieve ?? 0) === 1 ? 'Archived' : 'Active',
                 ];
@@ -70,8 +70,8 @@
                     'trainer_code' => optional($trainer)->user_code ?? null,
                     'enrollments' => $class->user_schedules_count ?? 0,
                     'rate' => $class->trainer_rate_per_hour !== null ? number_format((float) $class->trainer_rate_per_hour, 2) : null,
-                    'start' => $start ? $start->format('M d, Y g:i A') : null,
-                    'end' => $end ? $end->format('M d, Y g:i A') : null,
+                    'start' => $start ? $start->format('F j, Y g:iA') : null,
+                    'end' => $end ? $end->format('F j, Y g:iA') : null,
                     'status' => $statusMeta[$class->isadminapproved] ?? 'Pending',
                     'archive' => (int) ($class->is_archieve ?? 0) === 1 ? 'Archived' : 'Active',
                 ];
@@ -79,7 +79,7 @@
 
             $printPayload = [
                 'title' => 'Trainer class history',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -96,7 +96,7 @@
 
             $printAllPayload = [
                 'title' => 'Trainer class history (all pages)',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -374,8 +374,8 @@
                                             </td>
                                             <td>
                                                 @if($start || $end)
-                                                    <div>{{ $start ? $start->format('M d, Y g:i A') : '—' }}</div>
-                                                    <div class="text-muted small">to {{ $end ? $end->format('M d, Y g:i A') : '—' }}</div>
+                                                    <div>{{ $start ? $start->format('F j, Y g:iA') : '—' }}</div>
+                                                    <div class="text-muted small">to {{ $end ? $end->format('F j, Y g:iA') : '—' }}</div>
                                                 @else
                                                     <span class="text-muted">—</span>
                                                 @endif

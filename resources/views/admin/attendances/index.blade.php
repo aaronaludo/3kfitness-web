@@ -178,12 +178,12 @@
                         'role' => $role ?: '—',
                         'name' => $name ?: '—',
                         'user_code' => optional($item->user)->user_code ?? null,
-                        'clock_in' => $clockIn ? $clockIn->format('M j, Y g:i A') : '—',
-                        'clock_out' => $clockOut ? $clockOut->format('M j, Y g:i A') : '—',
+                        'clock_in' => $clockIn ? $clockIn->format('F j, Y g:iA') : '—',
+                        'clock_out' => $clockOut ? $clockOut->format('F j, Y g:iA') : '—',
                         'status' => $statusLabel,
                         'created_by' => $item->created_by ?? '',
-                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
-                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('F j, Y g:iA') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('F j, Y g:iA') : '',
                     ];
                 })->values();
 
@@ -199,12 +199,12 @@
                         'role' => $role ?: '—',
                         'name' => $name ?: '—',
                         'user_code' => optional($item->user)->user_code ?? null,
-                        'clock_in' => $clockIn ? $clockIn->format('M j, Y g:i A') : '—',
-                        'clock_out' => $clockOut ? $clockOut->format('M j, Y g:i A') : '—',
+                        'clock_in' => $clockIn ? $clockIn->format('F j, Y g:iA') : '—',
+                        'clock_out' => $clockOut ? $clockOut->format('F j, Y g:iA') : '—',
                         'status' => $statusLabel,
                         'created_by' => $item->created_by ?? '',
-                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
-                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('F j, Y g:iA') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('F j, Y g:iA') : '',
                     ];
                 })->values();
 
@@ -223,7 +223,7 @@
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived attendances' : 'Attendance log',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -240,7 +240,7 @@
 
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived attendances (all pages)' : 'Attendance log (all pages)',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],

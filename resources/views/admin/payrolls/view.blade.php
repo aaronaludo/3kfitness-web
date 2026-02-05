@@ -10,8 +10,8 @@
             <div class="col-lg-12">
                 <div class="alert alert-danger">
                     <p class="color-kabarkadogs">Member Name: <span class="fw-bold">{{ $data->user->first_name }} {{ $data->user->last_name }}</span></p>
-                    <p class="color-kabarkadogs">Clock In Date: <span class="fw-bold">{{ $data->clockin_at }}</span></p>
-                    <p class="color-kabarkadogs">Clock Out Date: <span class="fw-bold">{{ $data->clockout_at }}</span></p>
+                    <p class="color-kabarkadogs">Clock In Date: <span class="fw-bold">{{ $data->clockin_at ? \Carbon\Carbon::parse($data->clockin_at)->format('F j, Y g:iA') : '—' }}</span></p>
+                    <p class="color-kabarkadogs">Clock Out Date: <span class="fw-bold">{{ $data->clockout_at ? \Carbon\Carbon::parse($data->clockout_at)->format('F j, Y g:iA') : '—' }}</span></p>
                     <p class="color-kabarkadogs">Total Hours: 
                         <span class="fw-bold">
                             {{ $data->clockout_at 
@@ -19,7 +19,7 @@
                                 : 'Wait for clockout' }}
                         </span>
                     </p>
-                    <p class="color-kabarkadogs">Created Date: <span class="fw-bold">{{ $data->created_at }}</span></p>
+                    <p class="color-kabarkadogs">Created Date: <span class="fw-bold">{{ $data->created_at ? \Carbon\Carbon::parse($data->created_at)->format('F j, Y g:iA') : '—' }}</span></p>
                 </div>
             </div>                    
         </div>

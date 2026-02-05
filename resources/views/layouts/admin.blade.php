@@ -1270,7 +1270,7 @@
                             <div>
                                 <div class="staff-time-card__time live-clock" data-format="with-seconds">--:-- --</div>
                                 <div class="staff-time-card__meta">
-                                    Today, {{ now()->format('M d, Y') }} - Break time: 1 hour
+                                    Today, {{ now()->format('F j, Y') }} - Break time: 1 hour
                                 </div>
                             </div>
                         </div>

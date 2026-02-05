@@ -152,20 +152,20 @@
                                                 return $weekdayLookup[$d] ?? ucfirst($d);
                                             })->implode(', ');
                                             $seriesRange = $requestItem->proposed_series_start_date && $requestItem->proposed_series_end_date
-                                                ? $requestItem->proposed_series_start_date->format('M j, Y') . ' → ' . $requestItem->proposed_series_end_date->format('M j, Y')
+                                                ? $requestItem->proposed_series_start_date->format('F j, Y') . ' → ' . $requestItem->proposed_series_end_date->format('F j, Y')
                                                 : 'Keep existing';
                                             $targetDates = collect($requestItem->target_session_dates ?? []);
                                             $proposedDates = collect($requestItem->proposed_session_dates ?? []);
                                             $targetDatesLabel = $targetDates->map(function ($date) {
                                                 try {
-                                                    return \Carbon\Carbon::parse($date)->format('M j, Y');
+                                                    return \Carbon\Carbon::parse($date)->format('F j, Y');
                                                 } catch (\Exception $e) {
                                                     return $date;
                                                 }
                                             })->implode(', ');
                                             $proposedDatesLabel = $proposedDates->map(function ($date) {
                                                 try {
-                                                    return \Carbon\Carbon::parse($date)->format('M j, Y');
+                                                    return \Carbon\Carbon::parse($date)->format('F j, Y');
                                                 } catch (\Exception $e) {
                                                     return $date;
                                                 }
@@ -201,7 +201,7 @@
                                                 <div class="fw-semibold">{{ $proposedSummary }}</div>
                                                 <div class="text-muted small">{{ $proposedDatesLabel ?: 'Same dates as selected' }}</div>
                                                 <div class="text-muted small">{{ $timeWindowLabel }}</div>
-                                                <div class="text-muted small">Requested {{ $requestItem->created_at ? $requestItem->created_at->format('M j, Y g:i A') : '' }}</div>
+                                                <div class="text-muted small">Requested {{ $requestItem->created_at ? $requestItem->created_at->format('F j, Y g:iA') : '' }}</div>
                                             </td>
                                             <td class="text-muted">
                                                 {{ $requestItem->notes ?: '—' }}
@@ -209,7 +209,7 @@
                                             <td>
                                                 <span class="{{ $statusMeta['class'] }}">{{ $statusMeta['label'] }}</span>
                                                 @if($requestItem->responded_at)
-                                                    <div class="text-muted small mt-1">Handled {{ $requestItem->responded_at->format('M j, Y') }}</div>
+                                                    <div class="text-muted small mt-1">Handled {{ $requestItem->responded_at->format('F j, Y') }}</div>
                                                 @endif
                                             </td>
                                             <td>

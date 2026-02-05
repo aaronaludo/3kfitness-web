@@ -62,9 +62,9 @@
                         'member_email' => optional($member)->email ?? '',
                         'member_code' => $memberCode ?: '',
                         'membership' => optional($membership)->name ?: '—',
-                        'expiration' => $expirationAt ? $expirationAt->format('M j, Y g:i A') : '—',
-                        'created' => $createdAt ? $createdAt->format('M j, Y g:i A') : '—',
-                        'updated' => $updatedAt ? $updatedAt->format('M j, Y g:i A') : '—',
+                        'expiration' => $expirationAt ? $expirationAt->format('F j, Y g:iA') : '—',
+                        'created' => $createdAt ? $createdAt->format('F j, Y g:iA') : '—',
+                        'updated' => $updatedAt ? $updatedAt->format('F j, Y g:iA') : '—',
                         'status' => $statusMap[$item->isapproved] ?? 'Pending',
                         'amount' => trim(($currency ? $currency . ' ' : '') . number_format((float) $price, 2)),
                         'classes' => $classes->pluck('name')->all(),
@@ -74,7 +74,7 @@
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived membership payments' : 'Membership payments',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -127,9 +127,9 @@
                         'member_email' => optional($member)->email ?? '',
                         'member_code' => $memberCode ?: '',
                         'membership' => optional($membership)->name ?: '—',
-                        'expiration' => $expirationAt ? $expirationAt->format('M j, Y g:i A') : '—',
-                        'created' => $createdAt ? $createdAt->format('M j, Y g:i A') : '—',
-                        'updated' => $updatedAt ? $updatedAt->format('M j, Y g:i A') : '—',
+                        'expiration' => $expirationAt ? $expirationAt->format('F j, Y g:iA') : '—',
+                        'created' => $createdAt ? $createdAt->format('F j, Y g:iA') : '—',
+                        'updated' => $updatedAt ? $updatedAt->format('F j, Y g:iA') : '—',
                         'status' => $statusMap[$item->isapproved] ?? 'Pending',
                         'amount' => trim(($currency ? $currency . ' ' : '') . number_format((float) $price, 2)),
                         'classes' => $classes->pluck('name')->all(),
@@ -139,7 +139,7 @@
 
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived membership payments (all pages)' : 'Membership payments (all pages)',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],

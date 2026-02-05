@@ -316,7 +316,7 @@
                                                                 return $weekdayLookup[$d] ?? ucfirst($d);
                                                             })->implode(', ');
                                                             $seriesRange = $req->proposed_series_start_date && $req->proposed_series_end_date
-                                                                ? $req->proposed_series_start_date->format('M j, Y') . ' → ' . $req->proposed_series_end_date->format('M j, Y')
+                                                                ? $req->proposed_series_start_date->format('F j, Y') . ' → ' . $req->proposed_series_end_date->format('F j, Y')
                                                                 : 'Keep existing';
                                                         @endphp
                                                         <div class="col-12">
@@ -331,7 +331,7 @@
                                                                         @if($req->notes)
                                                                             <div class="text-muted small mt-1">Note: {{ $req->notes }}</div>
                                                                         @endif
-                                                                        <div class="text-muted small">Requested {{ $req->created_at? $req->created_at->format('M j, Y') : '' }}</div>
+                                                                        <div class="text-muted small">Requested {{ $req->created_at? $req->created_at->format('F j, Y') : '' }}</div>
                                                                     </div>
                                                                     <span class="badge {{ $statusMeta['class'] }} px-3 py-2">{{ $statusMeta['label'] }}</span>
                                                                 </div>

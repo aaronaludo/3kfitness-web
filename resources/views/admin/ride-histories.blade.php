@@ -39,7 +39,7 @@
                                                 <td>{{ $history->id }}</td>
                                                 <td>{{ $history->passenger->first_name }} {{ $history->passenger->last_name }}</td>
                                                 <td>{{ $history->driver->first_name }} {{ $history->driver->last_name }}</td>
-                                                <td>{{ \Carbon\Carbon::parse($history->created_at)->format('m/d/Y') }}</td>
+                                                <td>{{ \Carbon\Carbon::parse($history->created_at)->format('F j, Y') }}</td>
                                                 <td>
                                                     <div class="d-flex">
                                                         <div class="action-button"><a href="{{ route('admin.ride-histories.view', $history->id) }}" title="View"><i class="fa-solid fa-eye"></i></a></div>

@@ -25,7 +25,7 @@
                         'message' => $item->message,
                         'role_name' => $item->role_name,
                         'user_code' => optional($item->user)->user_code,
-                        'created_at' => optional($item->created_at)->format('M j, Y g:i A') ?? '',
+                        'created_at' => optional($item->created_at)->format('F j, Y g:iA') ?? '',
                     ];
                 };
 
@@ -47,7 +47,7 @@
 
                 $printPayload = [
                     'title' => 'Logs',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -63,7 +63,7 @@
 
                 $printAllPayload = [
                     'title' => 'Logs (all pages)',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],

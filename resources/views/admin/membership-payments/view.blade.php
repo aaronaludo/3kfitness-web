@@ -29,7 +29,7 @@
         $status = $statusMap[(int) $data->isapproved] ?? $statusMap[0];
 
         $expiresAt = $data->expiration_at ? \Carbon\Carbon::parse($data->expiration_at) : null;
-        $expiresText = $expiresAt ? $expiresAt->format('M d, Y g:i A') : '—';
+        $expiresText = $expiresAt ? $expiresAt->format('F j, Y g:iA') : '—';
 
         $amountText = $membership && $membership->price !== null
             ? ($membership->currency . ' ' . number_format((float) $membership->price, 2))
@@ -116,11 +116,11 @@
                         </tr>
                         <tr>
                             <th scope="row">Created</th>
-                            <td>{{ optional($data->created_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($data->created_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                         <tr>
                             <th scope="row">Last Updated</th>
-                            <td>{{ optional($data->updated_at)->format('M d, Y g:i A') ?? '—' }}</td>
+                            <td>{{ optional($data->updated_at)->format('F j, Y g:iA') ?? '—' }}</td>
                         </tr>
                     </tbody>
                 </table>

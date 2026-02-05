@@ -25,11 +25,21 @@
                 if ($printUser && $printUserName === '') {
                     $printUserName = $printUser->name ?? $printUser->email ?? '';
                 }
-                $printUserRole = $printUser ? optional($printUser->role)->name : null;
-                $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
-                if ($printUserRole) {
-                    $printGeneratedBy .= " ({$printUserRole})";
+            $printUserRole = $printUser ? optional($printUser->role)->name : null;
+            $printGeneratedBy = $printUserName !== '' ? $printUserName : '—';
+            if ($printUserRole) {
+                $printGeneratedBy .= " ({$printUserRole})";
+            }
+            $formatDateLabel = function ($value) {
+                if (empty($value)) {
+                    return null;
                 }
+                try {
+                    return \Carbon\Carbon::parse($value)->format('F j, Y');
+                } catch (\Throwable $th) {
+                    return (string) $value;
+                }
+            };
                 $nowForPrint = now();
                 $resolveScheduleStatus = function ($item) use ($nowForPrint) {
                     $startDate = $item->class_start_date ? \Carbon\Carbon::parse($item->class_start_date) : null;
@@ -219,8 +229,8 @@
                     $timeRange = $item->class_start_time && $item->class_end_time
                         ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
                         : null;
-                    $seriesStartLabel = $seriesStart ? $seriesStart->format('M j, Y') : null;
-                    $seriesEndLabel = $seriesEnd ? $seriesEnd->format('M j, Y') : null;
+                    $seriesStartLabel = $seriesStart ? $seriesStart->format('F j, Y') : null;
+                    $seriesEndLabel = $seriesEnd ? $seriesEnd->format('F j, Y') : null;
 
                     return [
                         'id' => $item->id,
@@ -232,8 +242,8 @@
                             : null,
                         'slots' => $item->slots,
                         'enrolled' => $item->user_schedules_count ?? 0,
-                        'start' => $startDate ? $startDate->format('M j, Y') : 'Not set',
-                        'end' => $endDate ? $endDate->format('M j, Y') : '—',
+                        'start' => $startDate ? $startDate->format('F j, Y') : 'Not set',
+                        'end' => $endDate ? $endDate->format('F j, Y') : '—',
                         'series_start' => $seriesStartLabel,
                         'series_end' => $seriesEndLabel,
                         'time_range' => $timeRange,
@@ -243,14 +253,14 @@
                         'rejection_reason' => $item->rejection_reason ?: '',
                         'created_by' => $item->created_by ?? '',
                         'created_role' => $item->created_role ?? '',
-                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
-                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('F j, Y g:iA') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('F j, Y g:iA') : '',
                     ];
                 })->values();
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived classes' : 'Class schedules',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -258,8 +268,8 @@
                         'search' => request('name'),
                         'status' => request('status', 'all') ?: 'all',
                         'month_filter' => request('month_filter'),
-                        'start' => request('start_date'),
-                        'end' => request('end_date'),
+                        'start' => $formatDateLabel(request('start_date')),
+                        'end' => $formatDateLabel(request('end_date')),
                         'show_archived' => $showArchived,
                     ],
                     'count' => $printSchedules->count(),
@@ -296,8 +306,8 @@
                     $timeRange = $item->class_start_time && $item->class_end_time
                         ? \Carbon\Carbon::parse($item->class_start_time)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($item->class_end_time)->format('g:i A')
                         : null;
-                    $seriesStartLabel = $seriesStart ? $seriesStart->format('M j, Y') : null;
-                    $seriesEndLabel = $seriesEnd ? $seriesEnd->format('M j, Y') : null;
+                    $seriesStartLabel = $seriesStart ? $seriesStart->format('F j, Y') : null;
+                    $seriesEndLabel = $seriesEnd ? $seriesEnd->format('F j, Y') : null;
 
                     return [
                         'id' => $item->id,
@@ -309,8 +319,8 @@
                             : null,
                         'slots' => $item->slots,
                         'enrolled' => $item->user_schedules_count ?? 0,
-                        'start' => $startDate ? $startDate->format('M j, Y') : 'Not set',
-                        'end' => $endDate ? $endDate->format('M j, Y') : '—',
+                        'start' => $startDate ? $startDate->format('F j, Y') : 'Not set',
+                        'end' => $endDate ? $endDate->format('F j, Y') : '—',
                         'series_start' => $seriesStartLabel,
                         'series_end' => $seriesEndLabel,
                         'time_range' => $timeRange,
@@ -320,14 +330,14 @@
                         'rejection_reason' => $item->rejection_reason ?: '',
                         'created_by' => $item->created_by ?? '',
                         'created_role' => $item->created_role ?? '',
-                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
-                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('F j, Y g:iA') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('F j, Y g:iA') : '',
                     ];
                 })->values();
 
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived classes (all pages)' : 'Class schedules (all pages)',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -335,8 +345,8 @@
                         'search' => request('name'),
                         'status' => request('status', 'all') ?: 'all',
                         'month_filter' => request('month_filter'),
-                        'start' => request('start_date'),
-                        'end' => request('end_date'),
+                        'start' => $formatDateLabel(request('start_date')),
+                        'end' => $formatDateLabel(request('end_date')),
                         'show_archived' => $showArchived,
                         'scope' => 'all',
                     ],
@@ -1128,7 +1138,7 @@
                                                 };
                                                 $formatRescheduleDate = function ($date) {
                                                     try {
-                                                        return \Carbon\Carbon::parse($date)->format('M j, Y');
+                                                        return \Carbon\Carbon::parse($date)->format('F j, Y');
                                                     } catch (\Throwable $th) {
                                                         return $date;
                                                     }
@@ -1155,7 +1165,7 @@
                                                             'target_label' => $targetLabel ?: 'Target dates not set',
                                                             'proposed_label' => $proposedLabel ?: ($targetLabel ?: 'Same dates'),
                                                             'time_label' => $formatTimeLabel($reschedule->proposed_start_time, $reschedule->proposed_end_time) ?: 'Time not set',
-                                                            'created_label' => optional($reschedule->created_at)->format('M j, Y') ?? null,
+                                                            'created_label' => optional($reschedule->created_at)->format('F j, Y') ?? null,
                                                             'notes' => $reschedule->notes ?: null,
                                                             'status_label' => $statusMeta['label'],
                                                             'status_class' => $statusMeta['class'],
@@ -1243,7 +1253,7 @@
 
                                                             if ($override) {
                                                                 $allSessionOccurrences[] = [
-                                                                    'label' => $cursor->format('M j, Y'),
+                                                                    'label' => $cursor->format('F j, Y'),
                                                                     'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
                                                                     'time' => $sessionTimeLabel,
                                                                     'status' => 'Rescheduled',
@@ -1252,7 +1262,7 @@
                                                                     'is_rescheduled' => true,
                                                                     'is_override' => false,
                                                                     'reschedule_target_label' => $override['new_carbon']
-                                                                        ? $override['new_carbon']->format('M j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
+                                                                        ? $override['new_carbon']->format('F j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
                                                                         : null,
                                                                 ];
 
@@ -1283,7 +1293,7 @@
                                                                 $overrideTimeLabel = $formatTimeLabel($overrideStartTime, $overrideEndTime) ?? $sessionTimeLabel;
 
                                                                 $allSessionOccurrences[] = [
-                                                                    'label' => $overrideDate->format('M j, Y'),
+                                                                    'label' => $overrideDate->format('F j, Y'),
                                                                     'weekday' => $overrideDate->format('l'),
                                                                     'time' => $overrideTimeLabel,
                                                                     'status' => $overrideStatus,
@@ -1291,13 +1301,13 @@
                                                                     'sort_key' => $overrideStart->timestamp,
                                                                     'is_rescheduled' => false,
                                                                     'is_override' => true,
-                                                                    'rescheduled_from' => $cursor->format('M j, Y'),
+                                                                    'rescheduled_from' => $cursor->format('F j, Y'),
                                                                 ];
                                                             } else {
                                                                 [$sessionStatus, $statusClass] = $computeStatus($sessionStart, $sessionEnd);
 
                                                                 $allSessionOccurrences[] = [
-                                                                    'label' => $cursor->format('M j, Y'),
+                                                                    'label' => $cursor->format('F j, Y'),
                                                                     'weekday' => $weekdayLookup[$dayKey] ?? ucfirst($dayKey),
                                                                     'time' => $sessionTimeLabel,
                                                                     'status' => $sessionStatus,
@@ -1322,7 +1332,7 @@
 
                                                     if ($override) {
                                                         $allSessionOccurrences[] = [
-                                                            'label' => $sessionStart->format('M j, Y'),
+                                                            'label' => $sessionStart->format('F j, Y'),
                                                             'weekday' => $sessionStart->format('l'),
                                                             'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
                                                             'status' => 'Rescheduled',
@@ -1331,7 +1341,7 @@
                                                             'is_rescheduled' => true,
                                                             'is_override' => false,
                                                             'reschedule_target_label' => $override['new_carbon']
-                                                                ? $override['new_carbon']->format('M j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
+                                                                ? $override['new_carbon']->format('F j, Y') . ($formatTimeLabel($override['start_time'], $override['end_time']) ? ' • ' . $formatTimeLabel($override['start_time'], $override['end_time']) : '')
                                                                 : null,
                                                         ];
 
@@ -1362,7 +1372,7 @@
                                                         $overrideTimeLabel = $formatTimeLabel($overrideStartTime, $overrideEndTime) ?? $sessionTimeLabel ?? $sessionStart->format('g:i A');
 
                                                         $allSessionOccurrences[] = [
-                                                            'label' => $overrideDate->format('M j, Y'),
+                                                            'label' => $overrideDate->format('F j, Y'),
                                                             'weekday' => $overrideDate->format('l'),
                                                             'time' => $overrideTimeLabel,
                                                             'status' => $overrideStatus,
@@ -1370,13 +1380,13 @@
                                                             'sort_key' => $overrideStart->timestamp,
                                                             'is_rescheduled' => false,
                                                             'is_override' => true,
-                                                            'rescheduled_from' => $sessionStart->format('M j, Y'),
+                                                            'rescheduled_from' => $sessionStart->format('F j, Y'),
                                                         ];
                                                     } else {
                                                         [$sessionStatus, $statusClass] = $computeStatus($sessionStart, $sessionEnd);
 
                                                         $allSessionOccurrences[] = [
-                                                            'label' => $sessionStart->format('M j, Y'),
+                                                            'label' => $sessionStart->format('F j, Y'),
                                                             'weekday' => $sessionStart->format('l'),
                                                             'time' => $sessionTimeLabel ?? $sessionStart->format('g:i A'),
                                                             'status' => $sessionStatus,
@@ -1441,9 +1451,9 @@
                                                         <div class="d-flex flex-column gap-1">
                                                             {{-- <div class="fw-semibold">
                                                                 @if($start_date || $end_date)
-                                                                    {{ $start_date ? $start_date->format('M j, Y') : 'Start not set' }}
+                                                                    {{ $start_date ? $start_date->format('F j, Y') : 'Start not set' }}
                                                                     @if($end_date)
-                                                                        <span class="text-muted small">→ {{ $end_date->format('M j, Y g:i A') }}</span>
+                                                                        <span class="text-muted small">→ {{ $end_date->format('F j, Y g:iA') }}</span>
                                                                     @endif
                                                                 @else
                                                                     <span class="text-muted">Schedule not set</span>
@@ -1461,7 +1471,7 @@
                                                             @if($seriesStart || $seriesEnd)
                                                                 <div class="text-muted small">
                                                                     <i class="fa-regular fa-calendar-days me-1"></i>
-                                                                    Series: {{ $seriesStart ? $seriesStart->format('M j, Y') : '—' }} → {{ $seriesEnd ? $seriesEnd->format('M j, Y') : '—' }}
+                                                                    Series: {{ $seriesStart ? $seriesStart->format('F j, Y') : '—' }} → {{ $seriesEnd ? $seriesEnd->format('F j, Y') : '—' }}
                                                                 </div>
                                                             @endif
                                                         </div>
@@ -1776,7 +1786,7 @@
                                                             <div class="text-muted small">{{ $archive->created_role }}</div>
                                                         @endif
                                                     </td>
-                                                    <td>{{ $archive->updated_at }}</td>
+                                                    <td>{{ $archive->updated_at ? \Carbon\Carbon::parse($archive->updated_at)->format('F j, Y g:iA') : '—' }}</td>
                                                     <td class="action-button">
                                                         <div class="d-flex gap-2">
                                                             <button type="button" data-bs-toggle="modal" data-bs-target="#archiveRestoreModal-{{ $archive->id }}" data-id="{{ $archive->id }}" title="Restore" style="background: none; border: none; padding: 0; cursor: pointer;">

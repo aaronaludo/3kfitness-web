@@ -43,8 +43,8 @@
                     'role' => $person && $person->role ? ($person->role->name ?? null) : null,
                     'email' => $person ? ($person->email ?? null) : null,
                     'phone' => $person ? ($person->phone_number ?? null) : null,
-                    'clock_in' => $clockIn ? $clockIn->format('M d, Y g:i A') : null,
-                    'clock_out' => $clockOut ? $clockOut->format('M d, Y g:i A') : null,
+                    'clock_in' => $clockIn ? $clockIn->format('F j, Y g:iA') : null,
+                    'clock_out' => $clockOut ? $clockOut->format('F j, Y g:iA') : null,
                     'duration' => $durationText,
                     'status' => $attendance->clockout_at ? 'Completed' : 'Open',
                     'archive' => (int) ($attendance->is_archive ?? 0) === 1 ? 'Archived' : 'Active',
@@ -67,8 +67,8 @@
                     'role' => $person && $person->role ? ($person->role->name ?? null) : null,
                     'email' => $person ? ($person->email ?? null) : null,
                     'phone' => $person ? ($person->phone_number ?? null) : null,
-                    'clock_in' => $clockIn ? $clockIn->format('M d, Y g:i A') : null,
-                    'clock_out' => $clockOut ? $clockOut->format('M d, Y g:i A') : null,
+                    'clock_in' => $clockIn ? $clockIn->format('F j, Y g:iA') : null,
+                    'clock_out' => $clockOut ? $clockOut->format('F j, Y g:iA') : null,
                     'duration' => $durationText,
                     'status' => $attendance->clockout_at ? 'Completed' : 'Open',
                     'archive' => (int) ($attendance->is_archive ?? 0) === 1 ? 'Archived' : 'Active',
@@ -77,7 +77,7 @@
 
             $printPayload = [
                 'title' => 'Attendance history',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -95,7 +95,7 @@
 
             $printAllPayload = [
                 'title' => 'Attendance history (all pages)',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -399,14 +399,14 @@
                                             </td>
                                             <td>
                                                 @if($clockIn)
-                                                    {{ $clockIn->format('M d, Y g:i A') }}
+                                                    {{ $clockIn->format('F j, Y g:iA') }}
                                                 @else
                                                     <span class="text-muted">—</span>
                                                 @endif
                                             </td>
                                             <td>
                                                 @if($clockOut)
-                                                    {{ $clockOut->format('M d, Y g:i A') }}
+                                                    {{ $clockOut->format('F j, Y g:iA') }}
                                                 @else
                                                     <span class="text-muted">—</span>
                                                 @endif

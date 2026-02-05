@@ -36,8 +36,8 @@
                         'approved' => $item->members_approved ?? 0,
                         'pending' => $item->members_pending ?? 0,
                         'rejected' => $item->members_reject ?? 0,
-                        'created' => optional($item->created_at)->format('M j, Y g:i A') ?? '',
-                        'updated' => optional($item->updated_at)->format('M j, Y g:i A') ?? '',
+                        'created' => optional($item->created_at)->format('F j, Y g:iA') ?? '',
+                        'updated' => optional($item->updated_at)->format('F j, Y g:iA') ?? '',
                         'created_by' => $item->created_by ?? '',
                         'archived' => (int) $item->is_archive === 1 ? 'Archived' : 'Active',
                     ];
@@ -48,7 +48,7 @@
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived memberships' : 'Membership performance',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -65,7 +65,7 @@
 
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived memberships (all pages)' : 'Membership performance (all pages)',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],

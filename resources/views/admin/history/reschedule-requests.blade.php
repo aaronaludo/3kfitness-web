@@ -71,7 +71,7 @@
                     : null;
 
                 $seriesRange = $requestItem->proposed_series_start_date && $requestItem->proposed_series_end_date
-                    ? $requestItem->proposed_series_start_date->format('M j, Y') . ' → ' . $requestItem->proposed_series_end_date->format('M j, Y')
+                    ? $requestItem->proposed_series_start_date->format('F j, Y') . ' → ' . $requestItem->proposed_series_end_date->format('F j, Y')
                     : 'Keep existing';
 
                 return [
@@ -83,8 +83,8 @@
                     'cadence_days' => $dayList ?: '—',
                     'cadence_time' => $cadenceTime,
                     'series_range' => $seriesRange,
-                    'requested_at' => $requestItem->created_at ? $requestItem->created_at->format('M j, Y g:i A') : null,
-                    'responded_at' => $requestItem->responded_at ? $requestItem->responded_at->format('M j, Y g:i A') : null,
+                    'requested_at' => $requestItem->created_at ? $requestItem->created_at->format('F j, Y g:iA') : null,
+                    'responded_at' => $requestItem->responded_at ? $requestItem->responded_at->format('F j, Y g:iA') : null,
                     'notes' => $requestItem->notes ?: '—',
                     'admin_comment' => $requestItem->admin_comment ?? null,
                     'status' => $statusMeta[$requestItem->status] ?? 'Pending',
@@ -106,7 +106,7 @@
 
             $printPayload = [
                 'title' => 'Reschedule request history',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -117,7 +117,7 @@
 
             $printAllPayload = [
                 'title' => 'Reschedule request history (all pages)',
-                'generated_at' => now()->format('M d, Y g:i A'),
+                'generated_at' => now()->format('F j, Y g:iA'),
                 'meta' => [
                     'generated_by' => $printGeneratedBy,
                 ],
@@ -306,7 +306,7 @@
                                                 return $weekdayLookup[$d] ?? ucfirst($d);
                                             })->implode(', ');
                                             $seriesRange = $requestItem->proposed_series_start_date && $requestItem->proposed_series_end_date
-                                                ? $requestItem->proposed_series_start_date->format('M j, Y') . ' → ' . $requestItem->proposed_series_end_date->format('M j, Y')
+                                                ? $requestItem->proposed_series_start_date->format('F j, Y') . ' → ' . $requestItem->proposed_series_end_date->format('F j, Y')
                                                 : 'Keep existing';
                                         @endphp
                                         <tr>
@@ -327,9 +327,9 @@
                                             </td>
                                             <td>
                                                 <div>{{ $seriesRange }}</div>
-                                                <div class="text-muted small">Requested {{ $requestItem->created_at ? $requestItem->created_at->format('M j, Y g:i A') : '' }}</div>
+                                                <div class="text-muted small">Requested {{ $requestItem->created_at ? $requestItem->created_at->format('F j, Y g:iA') : '' }}</div>
                                                 @if($requestItem->responded_at)
-                                                    <div class="text-muted small">Handled {{ $requestItem->responded_at->format('M j, Y g:i A') }}</div>
+                                                    <div class="text-muted small">Handled {{ $requestItem->responded_at->format('F j, Y g:iA') }}</div>
                                                 @endif
                                             </td>
                                             <td class="text-muted">

@@ -6,6 +6,26 @@
         <div class="row">
             @php
                 $filters = $filters ?? [];
+                $formatDate = function ($value) {
+                    if (empty($value)) {
+                        return '—';
+                    }
+                    try {
+                        return \Carbon\Carbon::parse($value)->format('F j, Y');
+                    } catch (\Throwable $th) {
+                        return (string) $value;
+                    }
+                };
+                $formatDateTime = function ($value) {
+                    if (empty($value)) {
+                        return '—';
+                    }
+                    try {
+                        return \Carbon\Carbon::parse($value)->format('F j, Y g:iA');
+                    } catch (\Throwable $th) {
+                        return (string) $value;
+                    }
+                };
                 $filterLabels = $filterLabels ?? [];
                 $conversionRates = $conversionRates ?? ['approval' => 0, 'rejection' => 0];
                 $filterStart = request('start_date', optional($start)->toDateString());
@@ -21,7 +41,7 @@
                     'run_count' => 0,
                     'period_label' => '',
                 ];
-                $payrollRuns = collect($payrollDetails ?? [])->map(function ($run) use ($currency) {
+                $payrollRuns = collect($payrollDetails ?? [])->map(function ($run) use ($currency, $formatDateTime) {
                     return [
                         'id' => $run['id'] ?? '—',
                         'name' => $run['name'] ?? '—',
@@ -29,13 +49,13 @@
                         'user_code' => $run['user_code'] ?? '—',
                         'role' => $run['role'] ?? '—',
                         'period' => $run['period'] ?? '—',
-                        'processed_at' => $run['processed_at'] ?? '—',
+                        'processed_at' => $formatDateTime($run['processed_at'] ?? null),
                         'net' => isset($run['net']) ? $currency . ' ' . $run['net'] : $currency . ' 0.00',
                     ];
                 });
                 $printPayload = [
                     'title' => 'Sales overview',
-                    'generated_at' => now()->format('M d, Y g:i A'),
+                    'generated_at' => now()->format('F j, Y g:iA'),
                     'filters' => [
                         'start' => $filterStart,
                         'end' => $filterEnd,
@@ -50,7 +70,7 @@
                     'totals' => [
                         'sales' => $totalSales,
                         'revenue' => number_format((float) ($totalRevenue ?? 0), 2),
-                        'revenue_period' => optional($start)->format('M d, Y') . ' → ' . optional($end)->format('M d, Y'),
+                        'revenue_period' => optional($start)->format('F j, Y') . ' → ' . optional($end)->format('F j, Y'),
                         'finance' => [
                             'revenue_total' => number_format((float) ($revenueTotal ?? 0), 2),
                             'revenue_components' => [
@@ -63,7 +83,7 @@
                                 'trainer' => number_format((float) ($payrollTotals['trainer_net'] ?? 0), 2),
                             ],
                             'profit_total' => number_format((float) ($profitTotal ?? 0), 2),
-                            'period' => ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('M d, Y') . ' → ' . optional($end)->format('M d, Y')),
+                            'period' => ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('F j, Y') . ' → ' . optional($end)->format('F j, Y')),
                         ],
                         'status' => [
                             'approved' => $statusTallies['approved'] ?? 0,
@@ -146,7 +166,7 @@
                                 <p class="text-muted mb-0">Filter by date, staff, trainer, membership plan, or member to focus profit and payroll slices.</p>
                             </div>
                             <div class="text-end">
-                                <span class="d-block text-muted small">Period {{ optional($start)->format('M d, Y') }} → {{ optional($end)->format('M d, Y') }}</span>
+                                <span class="d-block text-muted small">Period {{ optional($start)->format('F j, Y') }} → {{ optional($end)->format('F j, Y') }}</span>
                                 <span class="d-block text-muted small">Showing {{ $totalSales }} sale{{ $totalSales === 1 ? '' : 's' }}</span>
                             </div>
                         </div>
@@ -289,7 +309,7 @@
                             <div class="card-body d-flex flex-column">
                                 <div class="text-muted small">Membership revenue (approved)</div>
                                 <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($totalRevenue ?? 0), 2) }}</div>
-                                <small class="text-muted mt-auto">Period: {{ optional($start)->format('M d, Y') }} → {{ optional($end)->format('M d, Y') }}</small>
+                                <small class="text-muted mt-auto">Period: {{ optional($start)->format('F j, Y') }} → {{ optional($end)->format('F j, Y') }}</small>
                             </div>
                         </div>
                     </div>
@@ -336,7 +356,7 @@
                                 <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($revenueTotal ?? 0), 2) }}</div>
                                 <small class="text-muted">Membership: {{ $currency }} {{ number_format((float) ($totalRevenue ?? 0), 2) }}</small>
                                 <small class="text-muted mb-2">App cut: {{ $currency }} {{ number_format((float) ($payrollTotals['app_cut'] ?? 0), 2) }}</small>
-                                <small class="text-muted mt-auto">Period: {{ ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('M d, Y') . ' → ' . optional($end)->format('M d, Y')) }}</small>
+                                <small class="text-muted mt-auto">Period: {{ ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('F j, Y') . ' → ' . optional($end)->format('F j, Y')) }}</small>
                             </div>
                         </div>
                     </div>
@@ -356,7 +376,7 @@
                             <div class="card-body d-flex flex-column">
                                 <div class="text-muted small">Profit (revenue − cost)</div>
                                 <div class="h4 mb-2">{{ $currency }} {{ number_format((float) ($profitTotal ?? 0), 2) }}</div>
-                                <small class="text-muted mt-auto">Period: {{ ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('M d, Y') . ' → ' . optional($end)->format('M d, Y')) }}</small>
+                                <small class="text-muted mt-auto">Period: {{ ($payrollTotals['period_label'] ?? '') ?: (optional($start)->format('F j, Y') . ' → ' . optional($end)->format('F j, Y')) }}</small>
                             </div>
                         </div>
                     </div>
@@ -648,8 +668,8 @@
                                                                 </td>
                                                                 <td>{{ $payment['membership'] ?? '—' }}</td>
                                                                 <td class="text-end">{{ $payment['currency'] ?? $currency }} {{ number_format((float) ($payment['price'] ?? 0), 2) }}</td>
-                                                                <td class="text-end">{{ $payment['created_at'] ?? '—' }}</td>
-                                                                <td class="text-end">{{ $payment['expiration_at'] ?? '—' }}</td>
+                                                                <td class="text-end">{{ $formatDateTime($payment['created_at'] ?? null) }}</td>
+                                                                <td class="text-end">{{ $formatDate($payment['expiration_at'] ?? null) }}</td>
                                                             </tr>
                                                         @empty
                                                             <tr>

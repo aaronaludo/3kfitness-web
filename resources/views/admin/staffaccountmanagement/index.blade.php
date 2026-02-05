@@ -61,8 +61,8 @@
                         'email' => $item->email,
                         'role' => optional($item->role)->name,
                         'phone' => $item->phone_number,
-                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('M j, Y g:i A') : '',
-                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('M j, Y g:i A') : '',
+                        'created_at' => $item->created_at ? \Carbon\Carbon::parse($item->created_at)->format('F j, Y g:iA') : '',
+                        'updated_at' => $item->updated_at ? \Carbon\Carbon::parse($item->updated_at)->format('F j, Y g:iA') : '',
                         'rate_per_hour' => $item->rate_per_hour !== null ? number_format((float) $item->rate_per_hour, 2) : null,
                         'payrolls' => $item->payrolls_count ?? collect($item->payrolls ?? [])->count(),
                         'net_pay' => $totalHours > 0 ? number_format($netPay, 2) : null,
@@ -89,7 +89,7 @@
 
                 $printPayload = [
                     'title' => $showArchived ? 'Archived staff' : 'Staff accounts',
-                    'generated_at' => $nowForPrint->format('M d, Y g:i A'),
+                    'generated_at' => $nowForPrint->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],
@@ -107,7 +107,7 @@
 
                 $printAllPayload = [
                     'title' => $showArchived ? 'Archived staff (all pages)' : 'Staff accounts (all pages)',
-                    'generated_at' => $nowForPrint->format('M d, Y g:i A'),
+                    'generated_at' => $nowForPrint->format('F j, Y g:iA'),
                     'meta' => [
                         'generated_by' => $printGeneratedBy,
                     ],

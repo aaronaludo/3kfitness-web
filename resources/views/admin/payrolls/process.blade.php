@@ -339,7 +339,7 @@
                                                             $clockIn = $entry['clockin_at'] ?? null;
                                                             $clockOut = $entry['clockout_at'] ?? null;
                                                             $dateSource = $clockIn ?: $clockOut;
-                                                            $dateLabel = $dateSource ? $dateSource->format('M j, Y') : '—';
+                                                            $dateLabel = $dateSource ? $dateSource->format('F j, Y') : '—';
                                                             $day = $dateSource ? $dateSource->day : null;
                                                             $timeRange = '—';
                                                             if ($clockIn && $clockOut) {
@@ -410,8 +410,8 @@
                                                         $printEntries = $summary['entries']->map(function ($entry) {
                                                             return [
                                                                 'id' => $entry['id'],
-                                                                'clockin' => $entry['clockin_at'] ? $entry['clockin_at']->format('M d, Y g:i A') : '—',
-                                                                'clockout' => $entry['clockout_at'] ? $entry['clockout_at']->format('M d, Y g:i A') : '—',
+                                                                'clockin' => $entry['clockin_at'] ? $entry['clockin_at']->format('F j, Y g:iA') : '—',
+                                                                'clockout' => $entry['clockout_at'] ? $entry['clockout_at']->format('F j, Y g:iA') : '—',
                                                                 'hours' => $entry['hours'],
                                                                 'amount' => $entry['amount'],
                                                                 'status' => $entry['status'],
@@ -434,7 +434,7 @@
                                                             'deductions' => $staffDeductionsForDisplay,
                                                             'employment_type' => $staffEmploymentTypeLabel,
                                                             'generated_by' => $generatedByName,
-                                                            'generated_at' => now()->format('M d, Y g:i A'),
+                                                            'generated_at' => now()->format('F j, Y g:iA'),
                                                             'month' => $monthLabel,
                                                             'entries' => $printEntries,
                                                         ];
@@ -471,7 +471,7 @@
                                             </div>
                                             <div class="ms-auto text-end">
                                                 @if(!$hasStaffRemaining && $hasStaffProcessed)
-                                                    <span class="text-muted small">Payroll locked on {{ $staffLastProcessedAt ? $staffLastProcessedAt->format('M d, Y') : '—' }} - edits disabled</span>
+                                                    <span class="text-muted small">Payroll locked on {{ $staffLastProcessedAt ? $staffLastProcessedAt->format('F j, Y') : '—' }} - edits disabled</span>
                                                 @else
                                                     <span class="text-muted small">Payroll open - edits enabled</span>
                                                 @endif
@@ -688,10 +688,10 @@
                                                         >
                                                             <td class="text-muted">#{{ $entry['id'] }}</td>
                                                             <td>
-                                                                {{ $entry['clockin_at'] ? $entry['clockin_at']->format('M d, Y g:i A') : '—' }}
+                                                                {{ $entry['clockin_at'] ? $entry['clockin_at']->format('F j, Y g:iA') : '—' }}
                                                             </td>
                                                             <td>
-                                                                {{ $entry['clockout_at'] ? $entry['clockout_at']->format('M d, Y g:i A') : '—' }}
+                                                                {{ $entry['clockout_at'] ? $entry['clockout_at']->format('F j, Y g:iA') : '—' }}
                                                             </td>
                                                             <td class="text-end">{{ !is_null($entry['hours']) ? $formatHours($entry['hours']) : 'Pending' }}</td>
                                                             <td class="text-end">
@@ -923,7 +923,7 @@
                                     ->values();
                                 $processedSeries = collect($assignment['processed_series'] ?? []);
                                 $processedLabel = $lastProcessedAt instanceof \Carbon\CarbonInterface
-                                    ? 'Processed ' . $lastProcessedAt->format('M d, Y g:i A')
+                                    ? 'Processed ' . $lastProcessedAt->format('F j, Y g:iA')
                                     : 'Processed';
                                 $attendanceAssignments = $assignmentDetails
                                     ->filter(function ($detail) {
@@ -936,14 +936,14 @@
                                         $end = $detail['end'];
                                         $paidDates = collect($detail['paid_dates'] ?? $detail['occurrence_dates'] ?? collect())->map(function ($date) {
                                             try {
-                                                return \Carbon\Carbon::parse($date)->format('M d, Y');
+                                                return \Carbon\Carbon::parse($date)->format('F j, Y');
                                             } catch (\Throwable $th) {
                                                 return $date;
                                             }
                                         })->filter()->values();
                                         $dateList = $paidDates->isNotEmpty()
                                             ? $paidDates
-                                            : collect([$start ? $start->format('M d, Y') : '—']);
+                                            : collect([$start ? $start->format('F j, Y') : '—']);
                                         $attendance = collect($detail['attendances'] ?? collect())->map(function ($record) {
                                             $clockIn = $record['clockin_at'] ?? null;
                                             $clockOut = $record['clockout_at'] ?? null;
@@ -994,7 +994,7 @@
                                     ],
                                     'employment_type' => $employmentTypeLabel($trainer->employment_type ?? null),
                                     'generated_by' => $generatedByName,
-                                    'generated_at' => now()->format('M d, Y g:i A'),
+                                    'generated_at' => now()->format('F j, Y g:iA'),
                                     'month' => $monthLabel,
                                     'assignments' => $attendanceAssignments,
                                 ];
@@ -1075,7 +1075,7 @@
                                                                     $status = $isFuture ? 'Upcoming' : ($isPaid ? 'Completed (paid)' : ($isPast ? 'Completed' : '—'));
 
                                                                     return [
-                                                                        'label' => $parsed->format('M j, Y'),
+                                                                        'label' => $parsed->format('F j, Y'),
                                                                         'day' => $parsed->day,
                                                                         'status' => $status,
                                                                         'payable' => $isPaid ? 1 : 0,
@@ -1143,7 +1143,7 @@
                                                     </div>
                                                     <div class="ms-auto text-end">
                                                         @if(!$hasRemaining && $hasProcessed)
-                                                            <span class="text-muted small">Payroll locked on {{ $lastProcessedAt ? $lastProcessedAt->format('M d, Y') : '—' }} - edits disabled</span>
+                                                            <span class="text-muted small">Payroll locked on {{ $lastProcessedAt ? $lastProcessedAt->format('F j, Y') : '—' }} - edits disabled</span>
                                                         @else
                                                             <span class="text-muted small">Payroll open - edits enabled</span>
                                                         @endif
@@ -1387,16 +1387,16 @@
                             $hasPaid = $paidDatesRaw->isNotEmpty() || (int) ($detail['past_paid_count'] ?? 0) > 0;
                             $categoryLabel = $hasPaid ? 'Completed' : ($category === 'future' ? 'Upcoming' : 'Completed');
                             $badgeClass = $categoryLabel === 'Upcoming' ? 'bg-success text-white' : 'bg-secondary';
-                            $rangeStart = $start ? $start->format('F j, Y g:i A') : 'N/A';
-                            $rangeEnd = $end ? $end->format('F j, Y g:i A') : null;
+                            $rangeStart = $start ? $start->format('F j, Y g:iA') : 'N/A';
+                            $rangeEnd = $end ? $end->format('F j, Y g:iA') : null;
                             $students = $detail['students'];
                             $hasAttendance = $detail['has_attendance'] ?? false;
                             $attendanceRecords = collect($detail['attendances'] ?? collect());
                             $attendanceList = $attendanceRecords->map(function ($record) {
                                 $clockIn = $record['clockin_at'] ?? null;
                                 $clockOut = $record['clockout_at'] ?? null;
-                                $clockInLabel = $clockIn ? $clockIn->format('M d, Y g:i A') : '—';
-                                $clockOutLabel = $clockOut ? $clockOut->format('M d, Y g:i A') : null;
+                                $clockInLabel = $clockIn ? $clockIn->format('F j, Y g:iA') : '—';
+                                $clockOutLabel = $clockOut ? $clockOut->format('F j, Y g:iA') : null;
                                 return $clockOutLabel ? $clockInLabel . ' – ' . $clockOutLabel : $clockInLabel;
                             })->values();
                             $payableSalary = $detail['payroll_salary'] ?? 0;
@@ -1494,7 +1494,7 @@
                                     }
 
                                     return [
-                                        'label' => $parsed->format('M j, Y'),
+                                        'label' => $parsed->format('F j, Y'),
                                         'status' => $status,
                                         'status_class' => $statusClass,
                                         'day' => $parsed->day,

@@ -148,6 +148,17 @@ function closeReviewsModal() {
   document.getElementById('reviews-modal').style.display = 'none';
 }
 
+function formatReviewDate(value) {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+}
+
 function renderReviews() {
   const starFilter = document.getElementById('starFilter').value;
   const dateSort = document.getElementById('dateSort').value;
@@ -170,7 +181,7 @@ function renderReviews() {
       <div class="stars">${"★".repeat(r.stars)}${"☆".repeat(5 - r.stars)}</div>
       <p>“${r.text}”</p>
       <strong>— ${r.name}</strong><br>
-      <span class="review-date">${r.date}</span>
+      <span class="review-date">${formatReviewDate(r.date)}</span>
     </div>
   `).join("");
 }

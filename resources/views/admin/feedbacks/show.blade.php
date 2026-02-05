@@ -30,7 +30,7 @@
                             <div>
                                 <span class="badge bg-light text-dark fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Details</span>
                                 <h4 class="fw-semibold mb-1">Feedback from {{ $memberName }}</h4>
-                                <p class="text-muted mb-0">Submitted on {{ optional($feedback->created_at)->format('M d, Y g:i A') }}</p>
+                                <p class="text-muted mb-0">Submitted on {{ optional($feedback->created_at)->format('F j, Y g:iA') }}</p>
                             </div>
                             <div class="text-end">
                                 <span class="badge {{ $feedback->admin_confirmation_status ? 'bg-success' : 'bg-warning text-dark' }}">
@@ -53,7 +53,7 @@
                             </div>
                             <div class="col-lg-4 mb-3">
                                 <div class="text-muted">Last updated</div>
-                                <div class="fw-semibold">{{ optional($feedback->updated_at)->format('M d, Y g:i A') }}</div>
+                                <div class="fw-semibold">{{ optional($feedback->updated_at)->format('F j, Y g:iA') }}</div>
                             </div>
                         </div>
 
