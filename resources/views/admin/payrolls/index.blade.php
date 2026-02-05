@@ -711,8 +711,30 @@
             function buildFilters(filters) {
                 const formatDate = (value) => {
                     if (!value) return null;
-                    const parsed = new Date(value);
-                    return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleDateString();
+                    const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(value));
+                    const parsed = match
+                        ? new Date(Number(match[1]), Number(match[2]) - 1, Number(match[3]))
+                        : new Date(value);
+                    return Number.isNaN(parsed.getTime())
+                        ? value
+                        : parsed.toLocaleDateString('en-US', {
+                            month: 'long',
+                            day: 'numeric',
+                            year: 'numeric',
+                        });
+                };
+                const formatPeriodRange = (value) => {
+                    if (!value) return null;
+                    const match = /^(\d{4})-(\d{2})$/.exec(String(value));
+                    if (!match) return value;
+                    const year = Number(match[1]);
+                    const month = Number(match[2]);
+                    if (!Number.isInteger(year) || !Number.isInteger(month) || month < 1 || month > 12) {
+                        return value;
+                    }
+                    const monthName = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long' });
+                    const lastDay = new Date(year, month, 0).getDate();
+                    return `${monthName} 1 - ${lastDay} - ${year}`;
                 };
                 const chips = [];
                 if (filters.member_name) {
@@ -721,11 +743,11 @@
                         value: filters.member_name,
                     });
                 }
-                if (filters.period_month) chips.push({ label: 'Period', value: filters.period_month });
+                if (filters.period_month) chips.push({ label: 'Period', value: formatPeriodRange(filters.period_month) });
                 if (filters.processed_from || filters.processed_to) {
                     const from = formatDate(filters.processed_from) || 'Any';
                     const to = formatDate(filters.processed_to) || 'Any';
-                    chips.push({ label: 'Processed', value: `${from} → ${to}` });
+                    chips.push({ label: 'Processed', value: `${from} - ${to}` });
                 }
                 if (filters.role && filters.role !== 'all') {
                     chips.push({ label: 'Role', value: filters.role === 'trainer' ? 'Trainer only' : 'Staff only' });

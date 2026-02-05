@@ -1062,11 +1062,6 @@
                                 Payroll Report
                             </a>
                         </li>
-                        <li>
-                            <a href="{{ route('admin.payrolls.cash-release') }}" class="{{ request()->routeIs('admin.payrolls.cash-release') ? 'active' : '' }}">
-                                Payroll Cash Release
-                            </a>
-                        </li>
                     </ul>
                 </li>
                 @endif
