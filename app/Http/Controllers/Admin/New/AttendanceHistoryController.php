@@ -3,7 +3,7 @@
 namespace App\Http\Controllers\Admin\New;
 
 use App\Http\Controllers\Controller;
-use App\Models\Attendance2;
+use App\Models\Attendance;
 use App\Models\Role;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -39,7 +39,7 @@ class AttendanceHistoryController extends Controller
             $filters['status'] = 'completed';
         }
 
-        $baseQuery = Attendance2::with(['user.role'])
+        $baseQuery = Attendance::with(['user.role'])
             ->where('is_archive', $filters['show_archived'] ? 1 : 0);
 
         if ($filters['search'] !== '') {
@@ -129,7 +129,7 @@ class AttendanceHistoryController extends Controller
             $filters['status'] = 'completed';
         }
 
-        $query = Attendance2::with(['user.role'])
+        $query = Attendance::with(['user.role'])
             ->where('is_archive', $filters['show_archived'] ? 1 : 0);
 
         if ($filters['search'] !== '') {

@@ -177,7 +177,7 @@
                         <span class="badge bg-dark text-white fw-semibold px-3 py-2 rounded-pill text-uppercase small mb-2">Staff payroll</span>
                         <h4 class="fw-semibold mb-0">Hourly staff payout review</h4>
                     </div>
-                    <span class="text-muted small">Focused on Attendance2 clock-ins and clock-outs</span>
+                    <span class="text-muted small">Focused on attendance clock-ins and clock-outs</span>
                 </div>
             </div>
             <div class="col-12 mb-3">

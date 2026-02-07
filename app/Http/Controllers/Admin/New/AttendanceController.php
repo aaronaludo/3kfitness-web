@@ -6,7 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Models\User;
 use App\Models\Attendance;
-use App\Models\Attendance2;
+use App\Models\AttendanceLegacy;
 use App\Models\UserQrCode;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Hash;
@@ -37,7 +37,7 @@ class AttendanceController extends Controller
             $statusFilter = 'all';
         }
     
-        $activeAttendanceBase = Attendance2::where('is_archive', 0)
+        $activeAttendanceBase = Attendance::where('is_archive', 0)
             ->when($restrictStaffView, function ($query) {
                 $query->whereDoesntHave('user', function ($q) {
                     $q->where('role_id', 2);
@@ -49,7 +49,7 @@ class AttendanceController extends Controller
             'completed' => (clone $activeAttendanceBase)->whereNotNull('clockout_at')->count(),
         ];
 
-        $baseQuery = Attendance2::query()
+        $baseQuery = Attendance::query()
             ->with('user.role') // Ensure role relationship is loaded
             ->when($restrictStaffView, function ($query) {
                 $query->whereDoesntHave('user', function ($q) {
@@ -142,7 +142,7 @@ class AttendanceController extends Controller
                 }
             }
     
-            $existingAttendance = Attendance::where('user_id', $user->id)
+            $existingAttendance = AttendanceLegacy::where('user_id', $user->id)
                 ->whereDate('created_at', now()->toDateString())
                 ->pluck('type')
                 ->toArray();
@@ -156,7 +156,7 @@ class AttendanceController extends Controller
                 return response()->json(['data' => "User has already clocked $type today."]);
             }
     
-            $data = new Attendance;
+            $data = new AttendanceLegacy;
             $data->user_id = $user->id;
             $data->type = $type;
             $data->save();
@@ -312,7 +312,7 @@ class AttendanceController extends Controller
         }
     
         // Check if the user has already clocked in or out for today (active records only)
-        $attendance = Attendance2::where('user_id', $user->id)
+        $attendance = Attendance::where('user_id', $user->id)
             ->where('is_archive', 0)
             ->whereDate('created_at', now()->toDateString())
             ->orderBy('created_at', 'desc') // Get the latest record
@@ -324,7 +324,7 @@ class AttendanceController extends Controller
                 return $respond($user->first_name . ' ' . $user->last_name . ' already clocked in today.', 'error', $userPayload);
             }
 
-            $attendance = new Attendance2();
+            $attendance = new Attendance();
             $attendance->user_id = $user->id;
             $attendance->clockin_at = now();
             $attendance->save();
@@ -347,7 +347,7 @@ class AttendanceController extends Controller
         // Default behavior: toggle clock-in/clock-out
         if (!$attendance || $attendance->clockout_at) {
             // If no attendance record exists, or if the user has clocked out, clock in
-            $attendance = new Attendance2();
+            $attendance = new Attendance();
             $attendance->user_id = $user->id;
             $attendance->clockin_at = now();
             $attendance->save();
@@ -370,7 +370,7 @@ class AttendanceController extends Controller
     {
         try {
             $request->validate([
-                'id' => 'required|exists:attendances2,id',
+                'id' => 'required|exists:attendances,id',
                 'password' => 'required',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -383,7 +383,7 @@ class AttendanceController extends Controller
             return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
         }
 
-        $data = Attendance2::findOrFail($request->id);
+        $data = Attendance::findOrFail($request->id);
 
         $attendanceId = $data->id;
         $attendanceUser = optional($data->user);
@@ -410,7 +410,7 @@ class AttendanceController extends Controller
     {
         try {
             $request->validate([
-                'id' => 'required|exists:attendances2,id',
+                'id' => 'required|exists:attendances,id',
                 'password' => 'required',
             ]);
         } catch (\Illuminate\Validation\ValidationException $e) {
@@ -423,7 +423,7 @@ class AttendanceController extends Controller
             return redirect()->back()->withErrors(['password' => 'Invalid password.'])->withInput();
         }
 
-        $data = Attendance2::findOrFail($request->id);
+        $data = Attendance::findOrFail($request->id);
         $attendanceId = $data->id;
         $attendanceUser = optional($data->user);
         $attendanceUserName = trim(sprintf('%s %s', $attendanceUser->first_name ?? '', $attendanceUser->last_name ?? ''));
@@ -467,7 +467,7 @@ class AttendanceController extends Controller
         $start = $startDate ? Carbon::createFromFormat('Y-m-d', $startDate)->startOfDay() : null;
         $end   = $endDate   ? Carbon::createFromFormat('Y-m-d', $endDate)->endOfDay()   : null;
 
-        $query = Attendance2::query()
+        $query = Attendance::query()
             ->with('user.role')
             ->when($restrictStaffView, function ($query) {
                 $query->whereDoesntHave('user', function ($q) {

@@ -727,7 +727,7 @@
                         @php
                             $currentUserId = auth()->guard('admin')->user()->id;
                             $today = now()->toDateString();
-                            $attendance = \App\Models\Attendance2::where('user_id', $currentUserId)
+                            $attendance = \App\Models\Attendance::where('user_id', $currentUserId)
                                         ->where('is_archive', 0)
                                         ->whereDate('clockin_at', $today)
                                         ->orderByDesc('clockin_at')
@@ -1241,7 +1241,7 @@
                 @php
                     $currentUserId = auth()->guard('admin')->user()->id;
                     $today = now()->toDateString();
-                    $attendance = \App\Models\Attendance2::where('user_id', $currentUserId)
+                    $attendance = \App\Models\Attendance::where('user_id', $currentUserId)
                                 ->where('is_archive', 0)
                                 ->whereDate('clockin_at', $today)
                                 ->orderByDesc('clockin_at')

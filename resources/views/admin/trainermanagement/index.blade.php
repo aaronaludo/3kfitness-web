@@ -1326,7 +1326,7 @@
                                                     if ($attendanceWindowStart && $attendanceWindowEnd) {
                                                         $windowStart = $attendanceWindowStart->copy()->startOfDay();
                                                         $windowEnd = $attendanceWindowEnd->copy()->endOfDay();
-                                                        $trainerAttendances = \App\Models\Attendance2::where('user_id', $item->id)
+                                                        $trainerAttendances = \App\Models\Attendance::where('user_id', $item->id)
                                                             ->where('is_archive', 0)
                                                             ->where(function ($query) use ($windowStart, $windowEnd) {
                                                                 $query->whereBetween('clockin_at', [$windowStart, $windowEnd])
@@ -1995,7 +1995,7 @@
                                                     if ($archivedAttendanceWindowStart && $archivedAttendanceWindowEnd) {
                                                         $windowStart = $archivedAttendanceWindowStart->copy()->startOfDay();
                                                         $windowEnd = $archivedAttendanceWindowEnd->copy()->endOfDay();
-                                                        $archivedTrainerAttendances = \App\Models\Attendance2::where('user_id', $archive->id)
+                                                        $archivedTrainerAttendances = \App\Models\Attendance::where('user_id', $archive->id)
                                                             ->where('is_archive', 0)
                                                             ->where(function ($query) use ($windowStart, $windowEnd) {
                                                                 $query->whereBetween('clockin_at', [$windowStart, $windowEnd])

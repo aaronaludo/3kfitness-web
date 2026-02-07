@@ -5,11 +5,11 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
-class Attendance2 extends Model
+class AttendanceLegacy extends Model
 {
     use HasFactory;
 
-    protected $table = 'attendances2';
+    protected $table = 'attendances';
 
     public function user()
     {

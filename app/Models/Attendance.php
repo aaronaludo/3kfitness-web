@@ -9,6 +9,8 @@ class Attendance extends Model
 {
     use HasFactory;
 
+    protected $table = 'attendances';
+
     public function user()
     {
         return $this->belongsTo(User::class);

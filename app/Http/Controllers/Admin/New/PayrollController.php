@@ -8,7 +8,7 @@ use App\Models\User;
 use App\Models\Payroll;
 use App\Models\PayrollRun;
 use App\Models\Schedule;
-use App\Models\Attendance2;
+use App\Models\Attendance;
 use App\Models\ClassAttendance;
 use App\Models\DeductionSetting;
 use App\Models\MembershipPayment;
@@ -185,7 +185,7 @@ class PayrollController extends Controller
         }
 
         $now = Carbon::now();
-        $trainerAttendances = Attendance2::where('user_id', $trainer->id)
+        $trainerAttendances = Attendance::where('user_id', $trainer->id)
             ->where('is_archive', 0)
             ->where(function ($query) use ($startOfMonth, $endOfMonth) {
                 $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
@@ -1026,11 +1026,11 @@ class PayrollController extends Controller
             if ($user->role_id === 2) {
                 $processedAttendanceIds = $run->processed_attendance_ids ?? [];
                 if (is_array($processedAttendanceIds) && !empty($processedAttendanceIds)) {
-                    $attendanceRecords = Attendance2::whereIn('id', $processedAttendanceIds)
+                    $attendanceRecords = Attendance::whereIn('id', $processedAttendanceIds)
                         ->orderBy('clockin_at')
                         ->get();
                 } else {
-                    $attendanceRecords = Attendance2::where('user_id', $user->id)
+                    $attendanceRecords = Attendance::where('user_id', $user->id)
                         ->where('is_archive', 0)
                         ->where(function ($query) use ($startOfMonth, $endOfMonth) {
                             $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
@@ -1378,7 +1378,7 @@ class PayrollController extends Controller
                 return strtolower(trim($payment->created_by ?? ''));
             });
 
-        $attendanceByUser = Attendance2::whereIn('user_id', $staffIds)
+        $attendanceByUser = Attendance::whereIn('user_id', $staffIds)
             ->where('is_archive', 0)
             ->where(function ($query) use ($startOfMonth, $endOfMonth) {
                 $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
@@ -1653,7 +1653,7 @@ class PayrollController extends Controller
             ->get();
         $processedMembershipIds = $this->buildProcessedMembershipPaymentIdSet($existingRuns);
 
-        $attendanceRecords = Attendance2::where('user_id', $staff->id)
+        $attendanceRecords = Attendance::where('user_id', $staff->id)
             ->where('is_archive', 0)
             ->where(function ($query) use ($startOfMonth, $endOfMonth) {
                 $query->whereBetween('clockin_at', [$startOfMonth, $endOfMonth])
@@ -1920,14 +1920,14 @@ class PayrollController extends Controller
     {
         $user = $request->user();
 
-        $attendance = Attendance2::where('user_id', $user->id)
+        $attendance = Attendance::where('user_id', $user->id)
             ->where('is_archive', 0)
             ->whereDate('clockin_at', now()->toDateString())
             ->orderByDesc('clockin_at')
             ->first();
     
         if (!$attendance || $attendance->clockout_at) {
-            $attendance = new Attendance2();
+            $attendance = new Attendance();
             $attendance->user_id = $user->id;
             $attendance->clockin_at = now();
             $attendance->is_archive = 0;
@@ -1943,7 +1943,7 @@ class PayrollController extends Controller
     {
         $user = $request->user();
 
-        $attendance = Attendance2::where('user_id', $user->id)
+        $attendance = Attendance::where('user_id', $user->id)
             ->where('is_archive', 0)
             ->whereDate('clockin_at', now()->toDateString())
             ->orderByDesc('clockin_at')

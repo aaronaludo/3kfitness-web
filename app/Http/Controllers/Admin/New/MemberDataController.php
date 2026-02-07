@@ -10,7 +10,7 @@ use App\Models\MembershipPayment;
 use App\Models\Schedule;
 use App\Models\UserSchedule;
 use App\Models\Attendance;
-use App\Models\Attendance2;
+use App\Models\AttendanceLegacy;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Carbon\Carbon;
@@ -451,8 +451,8 @@ class MemberDataController extends Controller
             DB::transaction(function () use ($data) {
                 MembershipPayment::where('user_id', $data->id)->delete();
                 UserSchedule::where('user_id', $data->id)->delete();
+                AttendanceLegacy::where('user_id', $data->id)->delete();
                 Attendance::where('user_id', $data->id)->delete();
-                Attendance2::where('user_id', $data->id)->delete();
 
                 $data->delete();
             });
