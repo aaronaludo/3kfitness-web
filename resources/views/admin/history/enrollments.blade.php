@@ -20,13 +20,99 @@
                 $printGeneratedBy .= " ({$printUserRole})";
             }
 
-            $printItems = collect($enrollments->items())->map(function ($enrollment) {
+            $weekdayLookup = [
+                'sun' => 'Sunday',
+                'mon' => 'Monday',
+                'tue' => 'Tuesday',
+                'wed' => 'Wednesday',
+                'thu' => 'Thursday',
+                'fri' => 'Friday',
+                'sat' => 'Saturday',
+            ];
+            $normalizeDayKeys = function ($value) {
+                if (is_array($value)) {
+                    return $value;
+                }
+
+                if (is_string($value) && trim($value) !== '') {
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        return $decoded;
+                    }
+
+                    return [$value];
+                }
+
+                return [];
+            };
+            $formatTimeLabel = function ($startTime, $endTime) {
+                try {
+                    if ($startTime && $endTime) {
+                        return \Carbon\Carbon::parse($startTime)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($endTime)->format('g:i A');
+                    }
+                    if ($startTime) {
+                        return \Carbon\Carbon::parse($startTime)->format('g:i A');
+                    }
+                    if ($endTime) {
+                        return \Carbon\Carbon::parse($endTime)->format('g:i A');
+                    }
+                } catch (\Throwable $th) {
+                    return null;
+                }
+
+                return null;
+            };
+            $formatDateLabel = function ($value) {
+                if (empty($value)) {
+                    return null;
+                }
+
+                try {
+                    return \Carbon\Carbon::parse($value)->format('F j, Y');
+                } catch (\Throwable $th) {
+                    return (string) $value;
+                }
+            };
+            $buildScheduleMeta = function ($class) use ($weekdayLookup, $normalizeDayKeys, $formatTimeLabel, $formatDateLabel) {
+                if (!$class) {
+                    return [
+                        'time' => null,
+                        'days' => null,
+                        'series' => null,
+                    ];
+                }
+
+                $timeLabel = $formatTimeLabel($class->class_start_time ?? null, $class->class_end_time ?? null);
+                $dayKeys = $normalizeDayKeys($class->recurring_days ?? []);
+                $dayLabel = collect($dayKeys)->map(function ($dayKey) use ($weekdayLookup) {
+                    $value = is_string($dayKey) ? trim($dayKey) : (string) $dayKey;
+                    if ($value === '') {
+                        return null;
+                    }
+
+                    $lookupKey = strtolower(substr($value, 0, 3));
+
+                    return $weekdayLookup[$lookupKey] ?? ucfirst($value);
+                })->filter()->implode(', ');
+
+                $seriesStart = $formatDateLabel($class->series_start_date ?? null) ?: $formatDateLabel($class->class_start_date ?? null);
+                $seriesEnd = $formatDateLabel($class->series_end_date ?? null) ?: $formatDateLabel($class->class_end_date ?? null);
+                $seriesRange = ($seriesStart || $seriesEnd)
+                    ? ($seriesStart ?: '—') . ' → ' . ($seriesEnd ?: '—')
+                    : null;
+
+                return [
+                    'time' => $timeLabel,
+                    'days' => $dayLabel !== '' ? $dayLabel : 'One-time',
+                    'series' => $seriesRange,
+                ];
+            };
+
+            $printItems = collect($enrollments->items())->map(function ($enrollment) use ($buildScheduleMeta) {
                 $member = $enrollment->user;
                 $class = $enrollment->schedule;
                 $trainer = optional($class)->user;
-
-                $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
-                $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
+                $scheduleMeta = $buildScheduleMeta($class);
                 $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('F j, Y g:iA') : null;
                 $memberName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member';
 
@@ -41,18 +127,18 @@
                     'class_code' => $class->class_code ?? null,
                     'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
                     'joined' => $joinedAt,
-                    'start' => $start ? $start->format('F j, Y g:iA') : null,
-                    'end' => $end ? $end->format('F j, Y g:iA') : null,
+                    'schedule_time' => $scheduleMeta['time'],
+                    'schedule_days' => $scheduleMeta['days'],
+                    'schedule_series' => $scheduleMeta['series'],
                 ];
             })->values();
 
-            $printAllItems = collect($printAllEnrollments ?? [])->map(function ($enrollment) {
+            $printAllItems = collect($printAllEnrollments ?? [])->map(function ($enrollment) use ($buildScheduleMeta) {
                 $member = $enrollment->user ?? null;
                 $class = $enrollment->class ?? $enrollment->schedule ?? null;
-                $trainer = $class ? $class->trainer : null;
+                $trainer = $class ? ($class->user ?? $class->trainer ?? null) : null;
+                $scheduleMeta = $buildScheduleMeta($class);
                 $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('F j, Y g:iA') : null;
-                $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
-                $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
                 $memberName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : 'Unknown member';
 
                 return [
@@ -66,8 +152,9 @@
                     'class_code' => $class->class_code ?? null,
                     'trainer' => $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : 'Not assigned',
                     'joined' => $joinedAt,
-                    'start' => $start ? $start->format('F j, Y g:iA') : null,
-                    'end' => $end ? $end->format('F j, Y g:iA') : null,
+                    'schedule_time' => $scheduleMeta['time'],
+                    'schedule_days' => $scheduleMeta['days'],
+                    'schedule_series' => $scheduleMeta['series'],
                 ];
             })->values();
 
@@ -287,7 +374,7 @@
                                         <th>Class</th>
                                         <th>Trainer</th>
                                         <th>Joined</th>
-                                        <th>Class Window</th>
+                                        <th>Schedule</th>
                                         <th class="text-center">Actions</th>
                                     </tr>
                                 </thead>
@@ -297,8 +384,7 @@
                                             $member = $enrollment->user;
                                             $class = $enrollment->schedule;
                                             $trainer = optional($class)->user;
-                                            $start = $class && $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
-                                            $end = $class && $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
+                                            $scheduleMeta = $buildScheduleMeta($class);
                                             $joinedAt = $enrollment->created_at ? $enrollment->created_at->format('F j, Y g:iA') : '—';
                                             $fullName = $member ? trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) : '';
                                             $displayId = $class ? $class->id : ($enrollment->schedule_id ?? '—');
@@ -335,11 +421,20 @@
                                             </td>
                                             <td>{{ $joinedAt }}</td>
                                             <td>
-                                                @if($start || $end)
-                                                    <div>{{ $start ? $start->format('F j, Y g:iA') : '—' }}</div>
-                                                    <div class="text-muted small">to {{ $end ? $end->format('F j, Y g:iA') : '—' }}</div>
+                                                @if($scheduleMeta['time'] || $scheduleMeta['days'] || $scheduleMeta['series'])
+                                                    <div class="fw-semibold">
+                                                        <i class="fa-regular fa-clock me-1"></i>{{ $scheduleMeta['time'] ?? 'Time not set' }}
+                                                    </div>
+                                                    <div class="text-muted small">
+                                                        <i class="fa-solid fa-rotate me-1"></i>{{ $scheduleMeta['days'] ?? 'One-time' }}
+                                                    </div>
+                                                    @if($scheduleMeta['series'])
+                                                        <div class="text-muted small">
+                                                            <i class="fa-regular fa-calendar-days me-1"></i>Series: {{ $scheduleMeta['series'] }}
+                                                        </div>
+                                                    @endif
                                                 @else
-                                                    <span class="text-muted">—</span>
+                                                    <span class="text-muted">Schedule not set</span>
                                                 @endif
                                             </td>
                                             <td class="text-center">
@@ -407,9 +502,10 @@
                     const role = item.role ? `<div class="muted">${item.role}</div>` : '';
                     const phone = item.phone ? `<div class="muted">${item.phone}</div>` : '';
                     const classCode = item.class_code ? `<div class="muted">${item.class_code}</div>` : '';
-                    const range = item.start || item.end
-                        ? `<div>${item.start || '—'}</div><div class="muted">${item.end ? 'to ' + item.end : ''}</div>`
-                        : '<div class="muted">—</div>';
+                    const hasSchedule = item.schedule_time || item.schedule_days || item.schedule_series;
+                    const schedule = hasSchedule
+                        ? `<div>${item.schedule_time || 'Time not set'}</div><div class="muted">${item.schedule_days || 'One-time'}</div>${item.schedule_series ? `<div class="muted">Series: ${item.schedule_series}</div>` : ''}`
+                        : '<div class="muted">Schedule not set</div>';
 
                     return [
                         item.id ?? '—',
@@ -419,7 +515,7 @@
                         `<div class="fw">${item.class_name || '—'}</div>${classCode}`,
                         item.trainer || 'Not assigned',
                         item.joined || '—',
-                        range,
+                        schedule,
                     ];
                 });
             }
@@ -427,7 +523,7 @@
             function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Member', 'User Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Window'];
+                const headers = ['#', 'Member', 'User Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Schedule'];
                 const rows = buildRows(items);
 
                 return window.PrintPreview

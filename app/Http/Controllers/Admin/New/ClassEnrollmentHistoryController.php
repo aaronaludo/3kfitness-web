@@ -168,8 +168,89 @@ class ClassEnrollmentHistoryController extends Controller
         $phpWord->addTableStyle('EnrollmentHistoryTable', $tableStyle, $firstRowStyle);
         $table = $section->addTable('EnrollmentHistoryTable');
 
+        $weekdayLookup = [
+            'sun' => 'Sunday',
+            'mon' => 'Monday',
+            'tue' => 'Tuesday',
+            'wed' => 'Wednesday',
+            'thu' => 'Thursday',
+            'fri' => 'Friday',
+            'sat' => 'Saturday',
+        ];
+        $normalizeDayKeys = function ($value) {
+            if (is_array($value)) {
+                return $value;
+            }
+
+            if (is_string($value) && trim($value) !== '') {
+                $decoded = json_decode($value, true);
+                if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                    return $decoded;
+                }
+
+                return [$value];
+            }
+
+            return [];
+        };
+        $formatTimeLabel = function ($startTime, $endTime) {
+            try {
+                if ($startTime && $endTime) {
+                    return Carbon::parse($startTime)->format('g:i A') . ' - ' . Carbon::parse($endTime)->format('g:i A');
+                }
+                if ($startTime) {
+                    return Carbon::parse($startTime)->format('g:i A');
+                }
+                if ($endTime) {
+                    return Carbon::parse($endTime)->format('g:i A');
+                }
+            } catch (\Throwable $th) {
+                return null;
+            }
+
+            return null;
+        };
+        $formatDateLabel = function ($value) {
+            if (empty($value)) {
+                return null;
+            }
+
+            try {
+                return Carbon::parse($value)->format('M d, Y');
+            } catch (\Throwable $th) {
+                return (string) $value;
+            }
+        };
+        $buildScheduleLabel = function ($class) use ($weekdayLookup, $normalizeDayKeys, $formatTimeLabel, $formatDateLabel) {
+            if (!$class) {
+                return 'Schedule not set';
+            }
+
+            $timeLabel = $formatTimeLabel($class->class_start_time ?? null, $class->class_end_time ?? null) ?: 'Time not set';
+            $dayKeys = $normalizeDayKeys($class->recurring_days ?? []);
+            $dayLabel = collect($dayKeys)->map(function ($dayKey) use ($weekdayLookup) {
+                $value = is_string($dayKey) ? trim($dayKey) : (string) $dayKey;
+                if ($value === '') {
+                    return null;
+                }
+
+                $lookupKey = strtolower(substr($value, 0, 3));
+
+                return $weekdayLookup[$lookupKey] ?? ucfirst($value);
+            })->filter()->implode(', ');
+            $dayLabel = $dayLabel !== '' ? $dayLabel : 'One-time';
+
+            $seriesStart = $formatDateLabel($class->series_start_date ?? null) ?: $formatDateLabel($class->class_start_date ?? null);
+            $seriesEnd = $formatDateLabel($class->series_end_date ?? null) ?: $formatDateLabel($class->class_end_date ?? null);
+            $seriesLabel = ($seriesStart || $seriesEnd)
+                ? 'Series: ' . ($seriesStart ?: '—') . ' -> ' . ($seriesEnd ?: '—')
+                : null;
+
+            return $timeLabel . ' | ' . $dayLabel . ($seriesLabel ? ' | ' . $seriesLabel : '');
+        };
+
         $headers = [
-            '#', 'Member', 'User Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Class Start', 'Class End',
+            '#', 'Member', 'User Code', 'Contact', 'Class', 'Trainer', 'Joined', 'Schedule',
         ];
         $headerRow = $table->addRow();
         foreach ($headers as $h) {
@@ -194,13 +275,7 @@ class ClassEnrollmentHistoryController extends Controller
             $joined = $enrollment->created_at
                 ? $enrollment->created_at->format('M d, Y g:i A')
                 : '—';
-
-            $classStart = $class && $class->class_start_date
-                ? Carbon::parse($class->class_start_date)->format('M d, Y g:i A')
-                : '—';
-            $classEnd = $class && $class->class_end_date
-                ? Carbon::parse($class->class_end_date)->format('M d, Y g:i A')
-                : '—';
+            $scheduleLabel = $buildScheduleLabel($class);
 
             $row = $table->addRow();
             $cells = [
@@ -211,8 +286,7 @@ class ClassEnrollmentHistoryController extends Controller
                 $classTitle,
                 $trainerName,
                 $joined,
-                $classStart,
-                $classEnd,
+                $scheduleLabel,
             ];
 
             foreach ($cells as $val) {

@@ -27,10 +27,97 @@
                 $printGeneratedBy .= " ({$printUserRole})";
             }
 
-            $printItems = collect($classes->items())->map(function ($class) {
+            $weekdayLookup = [
+                'sun' => 'Sunday',
+                'mon' => 'Monday',
+                'tue' => 'Tuesday',
+                'wed' => 'Wednesday',
+                'thu' => 'Thursday',
+                'fri' => 'Friday',
+                'sat' => 'Saturday',
+            ];
+            $normalizeDayKeys = function ($value) {
+                if (is_array($value)) {
+                    return $value;
+                }
+
+                if (is_string($value) && trim($value) !== '') {
+                    $decoded = json_decode($value, true);
+                    if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+                        return $decoded;
+                    }
+
+                    return [$value];
+                }
+
+                return [];
+            };
+            $formatTimeLabel = function ($startTime, $endTime) {
+                try {
+                    if ($startTime && $endTime) {
+                        return \Carbon\Carbon::parse($startTime)->format('g:i A') . ' - ' . \Carbon\Carbon::parse($endTime)->format('g:i A');
+                    }
+                    if ($startTime) {
+                        return \Carbon\Carbon::parse($startTime)->format('g:i A');
+                    }
+                    if ($endTime) {
+                        return \Carbon\Carbon::parse($endTime)->format('g:i A');
+                    }
+                } catch (\Throwable $th) {
+                    return null;
+                }
+
+                return null;
+            };
+            $formatDateLabel = function ($value) {
+                if (empty($value)) {
+                    return null;
+                }
+
+                try {
+                    return \Carbon\Carbon::parse($value)->format('F j, Y');
+                } catch (\Throwable $th) {
+                    return (string) $value;
+                }
+            };
+            $buildScheduleMeta = function ($class) use ($weekdayLookup, $normalizeDayKeys, $formatTimeLabel, $formatDateLabel) {
+                if (!$class) {
+                    return [
+                        'time' => null,
+                        'days' => null,
+                        'series' => null,
+                    ];
+                }
+
+                $timeLabel = $formatTimeLabel($class->class_start_time ?? null, $class->class_end_time ?? null);
+                $dayKeys = $normalizeDayKeys($class->recurring_days ?? []);
+                $dayLabel = collect($dayKeys)->map(function ($dayKey) use ($weekdayLookup) {
+                    $value = is_string($dayKey) ? trim($dayKey) : (string) $dayKey;
+                    if ($value === '') {
+                        return null;
+                    }
+
+                    $lookupKey = strtolower(substr($value, 0, 3));
+
+                    return $weekdayLookup[$lookupKey] ?? ucfirst($value);
+                })->filter()->implode(', ');
+
+                $seriesStart = $formatDateLabel($class->series_start_date ?? null) ?: $formatDateLabel($class->class_start_date ?? null);
+                $seriesEnd = $formatDateLabel($class->series_end_date ?? null) ?: $formatDateLabel($class->class_end_date ?? null);
+                $seriesRange = ($seriesStart || $seriesEnd)
+                    ? ($seriesStart ?: '—') . ' → ' . ($seriesEnd ?: '—')
+                    : null;
+
+                return [
+                    'time' => $timeLabel,
+                    'days' => $dayLabel !== '' ? $dayLabel : 'One-time',
+                    'series' => $seriesRange,
+                ];
+            };
+
+            $printItems = collect($classes->items())->map(function ($class) use ($buildScheduleMeta) {
                 $trainer = $class->user;
-                $start = $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
-                $end = $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
+                $scheduleMeta = $buildScheduleMeta($class);
                 $statusMeta = [
                     0 => 'Pending',
                     1 => 'Approved',
@@ -45,17 +132,17 @@
                     'trainer_code' => optional($trainer)->user_code ?? null,
                     'enrollments' => $class->user_schedules_count ?? 0,
                     'rate' => $class->trainer_rate_per_hour !== null ? number_format((float) $class->trainer_rate_per_hour, 2) : null,
-                    'start' => $start ? $start->format('F j, Y g:iA') : null,
-                    'end' => $end ? $end->format('F j, Y g:iA') : null,
+                    'schedule_time' => $scheduleMeta['time'],
+                    'schedule_days' => $scheduleMeta['days'],
+                    'schedule_series' => $scheduleMeta['series'],
                     'status' => $statusMeta[$class->isadminapproved] ?? 'Pending',
                     'archive' => (int) ($class->is_archieve ?? 0) === 1 ? 'Archived' : 'Active',
                 ];
             })->values();
 
-            $printAllItems = collect($printAllClasses ?? [])->map(function ($class) {
-                $trainer = $class->trainer ?? null;
-                $start = $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
-                $end = $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
+            $printAllItems = collect($printAllClasses ?? [])->map(function ($class) use ($buildScheduleMeta) {
+                $trainer = $class->user ?? $class->trainer ?? null;
+                $scheduleMeta = $buildScheduleMeta($class);
                 $statusMeta = [
                     0 => 'Pending',
                     1 => 'Approved',
@@ -70,8 +157,9 @@
                     'trainer_code' => optional($trainer)->user_code ?? null,
                     'enrollments' => $class->user_schedules_count ?? 0,
                     'rate' => $class->trainer_rate_per_hour !== null ? number_format((float) $class->trainer_rate_per_hour, 2) : null,
-                    'start' => $start ? $start->format('F j, Y g:iA') : null,
-                    'end' => $end ? $end->format('F j, Y g:iA') : null,
+                    'schedule_time' => $scheduleMeta['time'],
+                    'schedule_days' => $scheduleMeta['days'],
+                    'schedule_series' => $scheduleMeta['series'],
                     'status' => $statusMeta[$class->isadminapproved] ?? 'Pending',
                     'archive' => (int) ($class->is_archieve ?? 0) === 1 ? 'Archived' : 'Active',
                 ];
@@ -328,7 +416,7 @@
                                         <th>User Code</th>
                                         <th>Members</th>
                                         <th>Trainer Rate</th>
-                                        <th>Class Window</th>
+                                        <th>Schedule</th>
                                         <th>Status</th>
                                         <th>Archive</th>
                                         <th class="text-center">Actions</th>
@@ -339,8 +427,7 @@
                                         @php
                                             $trainer = $class->user;
                                             $trainerName = $trainer ? trim(($trainer->first_name ?? '') . ' ' . ($trainer->last_name ?? '')) : '';
-                                            $start = $class->class_start_date ? \Carbon\Carbon::parse($class->class_start_date) : null;
-                                            $end = $class->class_end_date ? \Carbon\Carbon::parse($class->class_end_date) : null;
+                                            $scheduleMeta = $buildScheduleMeta($class);
                                             $statusValue = $class->isadminapproved;
                                             $statusMeta = [
                                                 0 => ['label' => 'Pending', 'class' => 'bg-warning text-dark'],
@@ -373,11 +460,20 @@
                                                 @endif
                                             </td>
                                             <td>
-                                                @if($start || $end)
-                                                    <div>{{ $start ? $start->format('F j, Y g:iA') : '—' }}</div>
-                                                    <div class="text-muted small">to {{ $end ? $end->format('F j, Y g:iA') : '—' }}</div>
+                                                @if($scheduleMeta['time'] || $scheduleMeta['days'] || $scheduleMeta['series'])
+                                                    <div class="fw-semibold">
+                                                        <i class="fa-regular fa-clock me-1"></i>{{ $scheduleMeta['time'] ?? 'Time not set' }}
+                                                    </div>
+                                                    <div class="text-muted small">
+                                                        <i class="fa-solid fa-rotate me-1"></i>{{ $scheduleMeta['days'] ?? 'One-time' }}
+                                                    </div>
+                                                    @if($scheduleMeta['series'])
+                                                        <div class="text-muted small">
+                                                            <i class="fa-regular fa-calendar-days me-1"></i>Series: {{ $scheduleMeta['series'] }}
+                                                        </div>
+                                                    @endif
                                                 @else
-                                                    <span class="text-muted">—</span>
+                                                    <span class="text-muted">Schedule not set</span>
                                                 @endif
                                             </td>
                                             <td>
@@ -451,6 +547,10 @@
                 return (items || []).map((item) => {
                     const trainer = item.trainer ? `<div class="muted">${item.trainer}</div>` : '';
                     const rate = item.rate ? `PHP ${item.rate}` : '—';
+                    const hasSchedule = item.schedule_time || item.schedule_days || item.schedule_series;
+                    const schedule = hasSchedule
+                        ? `<div>${item.schedule_time || 'Time not set'}</div><div class="muted">${item.schedule_days || 'One-time'}</div>${item.schedule_series ? `<div class="muted">Series: ${item.schedule_series}</div>` : ''}`
+                        : '<div class="muted">Schedule not set</div>';
 
                     return `
                         <tr>
@@ -463,10 +563,7 @@
                             <td>${item.trainer_code || '—'}</td>
                             <td>${item.enrollments ?? 0}</td>
                             <td>${rate}</td>
-                            <td>
-                                <div>${item.start || '—'}</div>
-                                <div class="muted">${item.end ? 'to ' + item.end : ''}</div>
-                            </td>
+                            <td>${schedule}</td>
                             <td>${item.status || '—'}</td>
                             <td>${item.archive || '—'}</td>
                         </tr>
@@ -477,7 +574,7 @@
                         function renderPrintWindow(payload) {
                 const items = payload.items || [];
                 const filters = buildFilters(payload.filters || {});
-                const headers = ['#', 'Class', 'Trainer', 'User Code', 'Members', 'Rate', 'Class Window', 'Status', 'Archive'];
+                const headers = ['#', 'Class', 'Trainer', 'User Code', 'Members', 'Rate', 'Schedule', 'Status', 'Archive'];
                 const rowsHtml = buildRows(items);
 
                 const finalPayload = {
