@@ -603,16 +603,16 @@
                                                 <td>{{ $employmentTypeLabel ?? '—' }}</td>
                                             @endif
                                             <td><span class="fw-semibold">{{ $formatHours($run->total_hours ?? 0) }}</span></td>
-                                            <td>₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
+                                            <td class="text-end">₱{{ number_format((float) ($run->gross_pay ?? 0), 2) }}</td>
                                             @if($showDeductionColumns)
-                                                <td>₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</td>
-                                                <td>₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</td>
-                                                <td>₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</td>
+                                                <td class="text-end">₱{{ number_format((float) ($run->deduction_sss ?? 0), 2) }}</td>
+                                                <td class="text-end">₱{{ number_format((float) ($run->deduction_philhealth ?? 0), 2) }}</td>
+                                                <td class="text-end">₱{{ number_format((float) ($run->deduction_pagibig ?? 0), 2) }}</td>
                                             @endif
                                             @if($showAppCutColumn)
-                                                <td>₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</td>
+                                                <td class="text-end">₱{{ number_format((float) ($run->deduction_app_cut ?? 0), 2) }}</td>
                                             @endif
-                                            <td class="text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
+                                            <td class="text-end text-success fw-semibold">₱{{ number_format((float) ($run->net_pay ?? 0), 2) }}</td>
                                             <td>{{ $processedAt }}</td>
                                             <td>{{ $processedByCode }}</td>
                                             <td>{{ $releasedAt ? $releasedAt : '—' }}</td>
