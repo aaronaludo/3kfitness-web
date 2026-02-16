@@ -883,12 +883,35 @@
             return chips;
         }
 
+        function parseMoneyValue(value) {
+            if (typeof value === 'number') {
+                return Number.isFinite(value) ? value : 0;
+            }
+            if (typeof value === 'string') {
+                const parsed = Number(value.replace(/,/g, '').trim());
+                return Number.isFinite(parsed) ? parsed : 0;
+            }
+            return 0;
+        }
+
+        function formatMoneyCell(value, currencySymbol, options = {}) {
+            const amount = parseMoneyValue(value).toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+            });
+            const prefix = options.deduction ? '' : '';
+            const suffix = options.deduction ? '' : '';
+            const trailing = options.suffix || '';
+            const className = options.success ? ' class="text-success"' : '';
+
+            return `<span${className} style="white-space: nowrap;">${prefix}${currencySymbol}${amount}${suffix}${trailing}</span>`;
+        }
+
         function buildTotalsRow(totals, currencySymbol, focus) {
             if (!totals) return null;
-            const fmtMoney = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
             const base = [
                 '',
-                '<strong>Totals</strong>',
+                'Totals',
             ];
             if (focus === 'staff') {
                 base.push('', '');
@@ -896,18 +919,18 @@
             base.push(
                 '',
                 '',
-                fmtMoney(totals.gross),
+                formatMoneyCell(totals.gross, currencySymbol),
             );
             if (focus === 'staff') {
                 base.push(
-                    fmtMoney(totals.sss),
-                    fmtMoney(totals.philhealth),
-                    fmtMoney(totals.pagibig),
+                    formatMoneyCell(totals.sss, currencySymbol, { deduction: true }),
+                    formatMoneyCell(totals.philhealth, currencySymbol, { deduction: true }),
+                    formatMoneyCell(totals.pagibig, currencySymbol, { deduction: true }),
                 );
             } else {
-                base.push(fmtMoney(totals.app_cut));
+                base.push(formatMoneyCell(totals.app_cut, currencySymbol, { deduction: true }));
             }
-            base.push(`<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`);
+            base.push(formatMoneyCell(totals.net, currencySymbol, { success: true }));
             base.push('', '', '', '');
             return base;
         }
@@ -916,18 +939,18 @@
             const rows = (items || []).map((item) => ([
                 item.id ?? '—',
                 `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div><div class="muted">Code: ${item.user_code || '—'}</div>`,
-                ...(focus === 'staff' ? [item.employment_type || '—', `${currencySymbol}${item.rate || '0.00'}/hr`] : []),
+                ...(focus === 'staff' ? [item.employment_type || '—', formatMoneyCell(item.rate, currencySymbol, { suffix: '/hr' })] : []),
                 item.period || '—',
                 `${item.hours || '0 hr 0 mins'}`,
-                `${currencySymbol}${item.gross || '0.00'}`,
+                formatMoneyCell(item.gross, currencySymbol),
                 ...(focus === 'staff'
                     ? [
-                        `${currencySymbol}${item.sss || '0.00'}`,
-                        `${currencySymbol}${item.philhealth || '0.00'}`,
-                        `${currencySymbol}${item.pagibig || '0.00'}`,
+                        formatMoneyCell(item.sss, currencySymbol, { deduction: true }),
+                        formatMoneyCell(item.philhealth, currencySymbol, { deduction: true }),
+                        formatMoneyCell(item.pagibig, currencySymbol, { deduction: true }),
                     ]
-                    : [`${currencySymbol}${item.app_cut || '0.00'}`]),
-                `<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`,
+                    : [formatMoneyCell(item.app_cut, currencySymbol, { deduction: true })]),
+                formatMoneyCell(item.net, currencySymbol, { success: true }),
                 item.process_by || '—',
                 item.process_date || '—',
                 item.release_by || '—',

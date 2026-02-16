@@ -967,9 +967,8 @@
                     const formatMoney = (value) => `₱${normalizeAmount(value).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                     const formatSummaryMoney = (value) => {
                         const amount = normalizeAmount(value);
-                        const hasCentavos = Math.abs(amount - Math.round(amount)) >= 0.005;
                         return `₱${amount.toLocaleString(undefined, {
-                            minimumFractionDigits: hasCentavos ? 2 : 0,
+                            minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                         })}`;
                     };
