@@ -92,6 +92,18 @@
                     $processedByCode = optional($run->processedByUser)->user_code ?? '—';
                     $releasedByCode = optional($run->releasedByUser)->user_code ?? '—';
                     $periodLabel = $run->period_month ?? '—';
+                    $periodDisplay = $periodLabel;
+                    if (!empty($periodLabel) && $periodLabel !== '—') {
+                        try {
+                            $periodDisplay = \Carbon\Carbon::createFromFormat('Y-m', (string) $periodLabel)->format('F Y');
+                        } catch (\Throwable $th) {
+                            try {
+                                $periodDisplay = \Carbon\Carbon::createFromFormat('m-Y', (string) $periodLabel)->format('F Y');
+                            } catch (\Throwable $th2) {
+                                $periodDisplay = $periodLabel;
+                            }
+                        }
+                    }
                     $processedAt = $run->processed_at
                         ? $run->processed_at->format('F j, Y g:iA')
                         : ($run->created_at?->format('F j, Y g:iA') ?? '—');
@@ -109,7 +121,7 @@
                         'name' => $name !== '' ? $name : '—',
                         'email' => $email,
                         'user_code' => $userCode,
-                        'period' => $periodLabel,
+                        'period' => $periodDisplay,
                         'hours' => (float) ($run->total_hours ?? 0),
                         'gross' => number_format((float) ($run->gross_pay ?? 0), 2),
                         'sss' => number_format((float) ($run->deduction_sss ?? 0), 2),
@@ -766,8 +778,7 @@
                         return value;
                     }
                     const monthName = new Date(year, month - 1, 1).toLocaleDateString('en-US', { month: 'long' });
-                    const lastDay = new Date(year, month, 0).getDate();
-                    return `${monthName} 1 - ${lastDay} - ${year}`;
+                    return `${monthName} ${year}`;
                 };
                 const chips = [];
                 if (filters.member_name) {
@@ -793,24 +804,43 @@
 
             function buildTotalsRow(totals, currencySymbol) {
                 if (!totals) return null;
-                const fmtMoney = (value) => `${currencySymbol}${Number(value || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                const parseMoneyValue = (value) => {
+                    if (typeof value === 'number') {
+                        return Number.isFinite(value) ? value : 0;
+                    }
+                    if (typeof value === 'string') {
+                        const parsed = Number(value.replace(/[^0-9.-]/g, '').trim());
+                        return Number.isFinite(parsed) ? parsed : 0;
+                    }
+                    return 0;
+                };
+                const fmtMoney = (value, options = {}) => {
+                    const amount = parseMoneyValue(value).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                    });
+                    const prefix = options.deduction ? '' : '';
+                    const suffix = options.deduction ? '' : '';
+                    const className = options.success ? ' class="text-success"' : '';
+                    return `<span${className} style="white-space: nowrap;">${prefix}${currencySymbol}${amount}${suffix}</span>`;
+                };
                 const fmtHours = (value) => formatHoursWithMinutes(value);
                 return (role) => {
-                    const row = ['', '<strong>Totals</strong>', '', ''];
+                    const row = ['', 'Totals', '', ''];
                     if (role === 'staff') {
                         row.push('');
                     }
                     row.push(fmtHours(totals.hours));
                     row.push(fmtMoney(totals.gross));
                     if (role !== 'trainer') {
-                        row.push(fmtMoney(totals.sss));
-                        row.push(fmtMoney(totals.philhealth));
-                        row.push(fmtMoney(totals.pagibig));
+                        row.push(fmtMoney(totals.sss, { deduction: true }));
+                        row.push(fmtMoney(totals.philhealth, { deduction: true }));
+                        row.push(fmtMoney(totals.pagibig, { deduction: true }));
                     }
                     if (role !== 'staff') {
-                        row.push(fmtMoney(totals.app_cut));
+                        row.push(fmtMoney(totals.app_cut, { deduction: true }));
                     }
-                    row.push(`<span class="text-success fw-semibold">${fmtMoney(totals.net)}</span>`);
+                    row.push(fmtMoney(totals.net, { success: true }));
                     row.push('', '', '', '', '');
                     return row;
                 };
@@ -818,6 +848,26 @@
 
 
             function buildRows(items, totals, currencySymbol, role = 'all') {
+                const parseMoneyValue = (value) => {
+                    if (typeof value === 'number') {
+                        return Number.isFinite(value) ? value : 0;
+                    }
+                    if (typeof value === 'string') {
+                        const parsed = Number(value.replace(/[^0-9.-]/g, '').trim());
+                        return Number.isFinite(parsed) ? parsed : 0;
+                    }
+                    return 0;
+                };
+                const fmtMoney = (value, options = {}) => {
+                    const amount = parseMoneyValue(value).toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                    });
+                    const prefix = options.deduction ? '' : '';
+                    const suffix = options.deduction ? '' : '';
+                    const className = options.success ? ' class="text-success"' : '';
+                    return `<span${className} style="white-space: nowrap;">${prefix}${currencySymbol}${amount}${suffix}</span>`;
+                };
                 const rows = (items || []).map((item) => {
                     const row = [
                         item.id ?? '—',
@@ -829,16 +879,16 @@
                         row.push(item.employment_type || '—');
                     }
                     row.push(formatHoursWithMinutes(item.hours));
-                    row.push(`${currencySymbol}${item.gross || '0.00'}`);
+                    row.push(fmtMoney(item.gross));
                     if (role !== 'trainer') {
-                        row.push(`${currencySymbol}${item.sss || '0.00'}`);
-                        row.push(`${currencySymbol}${item.philhealth || '0.00'}`);
-                        row.push(`${currencySymbol}${item.pagibig || '0.00'}`);
+                        row.push(fmtMoney(item.sss, { deduction: true }));
+                        row.push(fmtMoney(item.philhealth, { deduction: true }));
+                        row.push(fmtMoney(item.pagibig, { deduction: true }));
                     }
                     if (role !== 'staff') {
-                        row.push(`${currencySymbol}${item.app_cut || '0.00'}`);
+                        row.push(fmtMoney(item.app_cut, { deduction: true }));
                     }
-                    row.push(`<span class="text-success fw-semibold">${currencySymbol}${item.net || '0.00'}</span>`);
+                    row.push(fmtMoney(item.net, { success: true }));
                     row.push(item.processed_at || '—');
                     row.push(item.processed_by || '—');
                     row.push(item.released_at || '—');
