@@ -866,7 +866,7 @@
                     const prefix = options.deduction ? '' : '';
                     const suffix = options.deduction ? '' : '';
                     const className = options.success ? ' class="text-success"' : '';
-                    return `<span${className} style="white-space: nowrap;">${prefix}${currencySymbol}${amount}${suffix}</span>`;
+                    return `<div style="text-align: right;"><span${className} style="white-space: nowrap;">${prefix}${currencySymbol}${amount}${suffix}</span></div>`;
                 };
                 const rows = (items || []).map((item) => {
                     const row = [
@@ -916,7 +916,11 @@
                 }
                 headers.push('Hours', 'Gross');
                 if (role !== 'trainer') {
-                    headers.push('SSS', 'PhilHealth', 'Pag-IBIG');
+                    headers.push(
+                        'SSS',
+                        'PhilHealth',
+                        'Pag-IBIG'
+                    );
                 }
                 if (role !== 'staff') {
                     headers.push('App cut');
@@ -1221,9 +1225,9 @@
                                                         .map((row) => {
                                                             const cell = `${formatSummaryMoney(row.value)}`;
                                                             if (row.isTotal) {
-                                                                return `<tr><th>${row.label}</th><th>${cell}</th></tr>`;
+                                                                return `<tr><th>${row.label}</th><th style="text-align: right;">${cell}</th></tr>`;
                                                             }
-                                                            return `<tr><td>${row.label}</td><td>${cell}</td></tr>`;
+                                                            return `<tr><td>${row.label}</td><td style="text-align: right;">${cell}</td></tr>`;
                                                         })
                                                         .join('')
                                                 }

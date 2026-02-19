@@ -788,7 +788,7 @@
                         item.user_code || '—',
                         `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
                         `<div>${item.employment_type || item.role || '—'}</div><div class="muted">${item.phone || ''}</div>`,
-                        `<div class="fw">${rate}</div>${netPay}`,
+                        `<div style="text-align: right;"><div class="fw">${rate}</div>${netPay}</div>`,
                         `<div>${createdBy}</div><div class="muted">${item.created_at || ''}</div>`,
                     ];
                 });

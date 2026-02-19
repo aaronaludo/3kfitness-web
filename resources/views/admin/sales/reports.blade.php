@@ -1041,7 +1041,7 @@
                     item.id ?? '—',
                     `<div class="fw">${item.member || '—'}</div><div class="muted">${item.user_code || ''}</div>`,
                     item.membership || '—',
-                    `${itemCurrency ? itemCurrency + ' ' : ''}${item.amount || '0.00'}`,
+                    `<div style="text-align: right;">${itemCurrency ? itemCurrency + ' ' : ''}${item.amount || '0.00'}</div>`,
                     item.created_at || '—',
                 ]);
             });
@@ -1052,7 +1052,7 @@
                     '',
                     '',
                     '<strong>Total Amount</strong>',
-                    `${defaultCurrency ? defaultCurrency + ' ' : ''}${formattedTotal}`,
+                    `<div style="text-align: right;">${defaultCurrency ? defaultCurrency + ' ' : ''}${formattedTotal}</div>`,
                     '',
                 ]);
             }

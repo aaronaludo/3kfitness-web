@@ -481,7 +481,7 @@
                         item.member_code || '—',
                         `<div>${item.email || '—'}</div>${phone}`,
                         item.membership || '—',
-                        price,
+                        `<div style="text-align: right;">${price}</div>`,
                         item.status || '—',
                         item.purchased || '—',
                         item.expires || '—',

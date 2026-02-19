@@ -907,7 +907,7 @@
                         `<div class="fw">${item.member || '—'}</div><div class="muted">${item.member_email || ''}</div>`,
                         item.member_code || '—',
                         `<div>${item.membership || '—'}</div><div class="muted">Expires: ${item.expiration || '—'}</div>`,
-                        `<div class="fw">${item.amount || 'PHP 0.00'}</div><div class="muted">Created: ${item.created || '—'}</div><div class="muted">Updated: ${item.updated || '—'}</div>`,
+                        `<div style="text-align: right;"><div class="fw">${item.amount || 'PHP 0.00'}</div><div class="muted">Created: ${item.created || '—'}</div><div class="muted">Updated: ${item.updated || '—'}</div></div>`,
                         `<span class="badge ${getBadgeClass(item.status)}">${item.status || '—'}</span>`,
                         classes,
                         item.approved_by || '—',

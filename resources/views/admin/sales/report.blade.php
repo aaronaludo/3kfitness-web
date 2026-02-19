@@ -1177,7 +1177,7 @@
                         item.label || '—',
                         item.type || '—',
                         (item.sales ?? 0).toString(),
-                        currency + ' ' + Number(item.revenue || 0).toFixed(2),
+                        '<div style="text-align: right;">' + currency + ' ' + Number(item.revenue || 0).toFixed(2) + '</div>',
                         item.last_sale || '—',
                     ];
                 });
@@ -1194,7 +1194,7 @@
                         'Totals',
                         revenueLabel,
                         salesTotal.toString(),
-                        (currency ? currency + ' ' : '') + revenueTotal.toFixed(2),
+                        '<div style="text-align: right;">' + (currency ? currency + ' ' : '') + revenueTotal.toFixed(2) + '</div>',
                         '—',
                     ]);
                 }

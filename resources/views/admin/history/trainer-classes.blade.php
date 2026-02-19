@@ -562,7 +562,7 @@
                             <td>${trainer || 'Not assigned'}</td>
                             <td>${item.trainer_code || '—'}</td>
                             <td>${item.enrollments ?? 0}</td>
-                            <td>${rate}</td>
+                            <td style="text-align: right;">${rate}</td>
                             <td>${schedule}</td>
                             <td>${item.status || '—'}</td>
                             <td>${item.archive || '—'}</td>

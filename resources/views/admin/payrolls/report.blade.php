@@ -904,7 +904,7 @@
             const trailing = options.suffix || '';
             const className = options.success ? ' class="text-success"' : '';
 
-            return `<span${className} style="white-space: nowrap;">${prefix}${currencySymbol}${amount}${suffix}${trailing}</span>`;
+            return `<div style="text-align: right;"><span${className} style="white-space: nowrap;">${prefix}${currencySymbol}${amount}${suffix}${trailing}</span></div>`;
         }
 
         function buildTotalsRow(totals, currencySymbol, focus) {
@@ -975,7 +975,13 @@
                 'Period',
                 'Hours',
                 'Gross',
-                ...(focus === 'staff' ? ['SSS', 'PhilHealth', 'Pag-IBIG'] : ['App cut']),
+                ...(focus === 'staff'
+                    ? [
+                        'SSS',
+                        'PhilHealth',
+                        'Pag-IBIG',
+                    ]
+                    : ['App cut']),
                 'Net',
                 'Process By',
                 'Process Date',
