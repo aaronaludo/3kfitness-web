@@ -1144,6 +1144,13 @@
             var items = Array.isArray(payload.items) ? payload.items : [];
             var headers = [];
             var rows = [];
+            var formatMoney = function (value) {
+                var numericValue = Number(value || 0);
+                return numericValue.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                });
+            };
 
             if (meta.hide_table) {
                 return { headers: [], rows: [] };
@@ -1177,7 +1184,7 @@
                         item.label || '—',
                         item.type || '—',
                         (item.sales ?? 0).toString(),
-                        '<div style="text-align: right;">' + currency + ' ' + Number(item.revenue || 0).toFixed(2) + '</div>',
+                        '<div style="text-align: right;">' + currency + ' ' + formatMoney(item.revenue) + '</div>',
                         item.last_sale || '—',
                     ];
                 });
@@ -1194,7 +1201,7 @@
                         'Totals',
                         revenueLabel,
                         salesTotal.toString(),
-                        '<div style="text-align: right;">' + (currency ? currency + ' ' : '') + revenueTotal.toFixed(2) + '</div>',
+                        '<div style="text-align: right;">' + (currency ? currency + ' ' : '') + formatMoney(revenueTotal) + '</div>',
                         '—',
                     ]);
                 }
