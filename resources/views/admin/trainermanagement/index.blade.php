@@ -2910,7 +2910,7 @@
                         item.id ?? '—',
                         `<div class="fw">${item.name || '—'}</div><div class="muted">${item.email || ''}</div>`,
                         item.phone || '—',
-                        item.salary ? `₱${item.salary}` : '—',
+                        `<div style="text-align: right;">${item.salary ? `₱${item.salary}` : '—'}</div>`,
                         `<span class="badge ${getStatusBadgeClass(item.status)}">${item.status || '—'}</span>`,
                         `<div>${item.created_by || '—'}</div><div class="muted">${item.created_at || ''}</div>`,
                     ]));

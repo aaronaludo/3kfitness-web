@@ -685,10 +685,19 @@
                     }
 
                     function buildRows(items) {
+                        const formatPlanPrice = (value) => {
+                            const numericValue = Number(String(value ?? 0).replace(/[^0-9.-]/g, ''));
+                            const safeValue = Number.isFinite(numericValue) ? numericValue : 0;
+                            return safeValue.toLocaleString(undefined, {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                            });
+                        };
+
                         return items.map((item) => ([
                             item.id || '—',
                             `<div class="fw">${item.name || '—'}</div><div class="muted">${item.description || ''}</div>`,
-                            `<div style="text-align: right;"><div>₱${item.price || '0'}</div><div class="muted">Plan length: ${item.month || '0'} mo., ${item.day || '0'} day(s).</div><div class="muted">Classes/mo: ${item.classes_per_month !== null && item.classes_per_month !== undefined && item.classes_per_month !== '' ? item.classes_per_month : 'Unlimited'}</div></div>`,
+                            `<div style="text-align: right;"><div>₱${formatPlanPrice(item.price)}</div><div class="muted">Plan length: ${item.month || '0'} mo., ${item.day || '0'} day(s).</div><div class="muted">Classes/mo: ${item.classes_per_month !== null && item.classes_per_month !== undefined && item.classes_per_month !== '' ? item.classes_per_month : 'Unlimited'}</div></div>`,
                             `<div class="member-stats">
                                 <span class="member-pill member-pill--success"><span class="member-pill-label">Approved</span>${item.approved || '0'}</span>
                                 <span class="member-pill member-pill--warning"><span class="member-pill-label">Pending</span>${item.pending || '0'}</span>
