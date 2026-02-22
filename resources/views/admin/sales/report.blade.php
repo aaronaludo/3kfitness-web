@@ -1151,6 +1151,15 @@
                     maximumFractionDigits: 2,
                 });
             };
+            var formatCurrencyValue = function (value, curr) {
+                var activeCurrency = curr || currency;
+                return (activeCurrency ? activeCurrency + ' ' : '') + formatMoney(value);
+            };
+            var formatCurrencyCell = function (value, curr) {
+                return '<div style="text-align: right; font-weight: 600; white-space: nowrap;">'
+                    + formatCurrencyValue(value, curr)
+                    + '</div>';
+            };
 
             if (meta.hide_table) {
                 return { headers: [], rows: [] };
@@ -1158,25 +1167,50 @@
 
             if (focus === 'trainer') {
                 headers = ['#', 'Trainer', 'Class Commission (' + currency + ')', 'Last Sale'];
+                var trainerCommissionTotal = 0;
                 rows = items.map(function (item, idx) {
+                    var commission = Number(item.value || 0);
+                    trainerCommissionTotal += commission;
                     return [
                         idx + 1,
                         item.label || '—',
-                        currency + ' ' + Number(item.value || 0).toFixed(2),
+                        formatCurrencyCell(commission),
                         item.last_sale || '—',
                     ];
                 });
+                if (rows.length) {
+                    rows.push([
+                        '',
+                        'Totals',
+                        formatCurrencyCell(trainerCommissionTotal),
+                        '—',
+                    ]);
+                }
             } else if (focus === 'staff') {
                 headers = ['#', 'Staff', 'Membership Payments (' + currency + ')', 'Count'];
+                var staffPaymentsTotal = 0;
+                var staffPaymentsCountTotal = 0;
                 rows = items.map(function (item, idx) {
                     var curr = item.currency || currency;
+                    var paymentTotal = Number(item.value || 0);
+                    var paymentCount = Number(item.count ?? 0);
+                    staffPaymentsTotal += paymentTotal;
+                    staffPaymentsCountTotal += paymentCount;
                     return [
                         idx + 1,
                         item.label || '—',
-                        curr + ' ' + Number(item.value || 0).toFixed(2),
-                        (item.count ?? 0).toString(),
+                        formatCurrencyCell(paymentTotal, curr),
+                        paymentCount.toString(),
                     ];
                 });
+                if (rows.length) {
+                    rows.push([
+                        '',
+                        'Totals',
+                        formatCurrencyCell(staffPaymentsTotal),
+                        staffPaymentsCountTotal.toString(),
+                    ]);
+                }
             } else {
                 headers = ['Focus', 'Type', 'Sales', 'Revenue (' + currency + ')', 'Last Sale'];
                 rows = items.map(function (item) {
@@ -1184,7 +1218,7 @@
                         item.label || '—',
                         item.type || '—',
                         (item.sales ?? 0).toString(),
-                        '<div style="text-align: right;">' + currency + ' ' + formatMoney(item.revenue) + '</div>',
+                        formatCurrencyCell(item.revenue),
                         item.last_sale || '—',
                     ];
                 });
@@ -1201,7 +1235,7 @@
                         'Totals',
                         revenueLabel,
                         salesTotal.toString(),
-                        '<div style="text-align: right;">' + (currency ? currency + ' ' : '') + formatMoney(revenueTotal) + '</div>',
+                        formatCurrencyCell(revenueTotal),
                         '—',
                     ]);
                 }
