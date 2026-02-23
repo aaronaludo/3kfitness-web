@@ -1018,61 +1018,152 @@ class SalesController extends Controller
             ->sortBy('name')
             ->values();
 
-        $staffMembershipPayments = $staffPayrollRows
-            ->mapWithKeys(function ($staffRow) use ($paymentRecords) {
-                $staffId = $staffRow['id'] ?? null;
-                $staffCode = strtolower(trim($staffRow['user_code'] ?? ''));
+        $mapStaffMembershipPayment = function ($payment) {
+            $member = $payment->user;
+            $membership = $payment->membership;
+            $currency = $membership->currency ?? 'PHP';
+            $price = (float) ($membership->price ?? 0);
 
-                $items = $paymentRecords
-                    ->filter(function ($payment) use ($staffCode) {
-                        $createdBy = strtolower(trim($payment->created_by ?? ''));
-                        return $staffCode !== '' && $createdBy === $staffCode;
-                    })
-                    ->map(function ($payment) {
-                        $member = $payment->user;
-                        $membership = $payment->membership;
-                        $currency = $membership->currency ?? 'PHP';
-                        $price = (float) ($membership->price ?? 0);
+            return [
+                'id' => $payment->id,
+                'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
+                'member_code' => $member->user_code ?? '—',
+                'membership' => $membership->name ?? '—',
+                'currency' => $currency,
+                'price' => $price,
+                'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
+                'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
+                'membership_id' => $membership->id ?? null,
+            ];
+        };
 
-                        return [
-                            'id' => $payment->id,
-                            'member_name' => trim(($member->first_name ?? '') . ' ' . ($member->last_name ?? '')) ?: '—',
-                            'member_code' => $member->user_code ?? '—',
-                            'membership' => $membership->name ?? '—',
-                            'currency' => $currency,
-                            'price' => $price,
-                            'created_at' => $payment->created_at ? $payment->created_at->format('M d, Y g:i A') : '—',
-                            'expiration_at' => $payment->expiration_at ? Carbon::parse($payment->expiration_at)->format('M d, Y g:i A') : '—',
-                            'membership_id' => $membership->id ?? null,
-                        ];
-                    })
-                    ->values();
+        $summarizeStaffPaymentGroup = function ($group) use ($mapStaffMembershipPayment) {
+            $source = ($group instanceof \Illuminate\Support\Collection ? $group : collect($group ?? []));
+            $items = $source->map($mapStaffMembershipPayment)->values();
+            $total = $items->sum(fn ($item) => (float) ($item['price'] ?? 0));
+            $currency = $items->first()['currency'] ?? 'PHP';
 
-                $total = $items->sum(fn ($item) => $item['price'] ?? 0);
-                $firstItem = $items->first();
-                $currency = is_array($firstItem) && array_key_exists('currency', $firstItem)
-                    ? $firstItem['currency']
-                    : 'PHP';
+            return [
+                'count' => $items->count(),
+                'total' => round($total, 2),
+                'currency' => $currency,
+                'items' => $items,
+            ];
+        };
 
-                return [
-                    $staffId => [
-                        'count' => $items->count(),
-                        'total' => round($total, 2),
-                        'currency' => $currency,
-                        'items' => $items,
-                    ],
-                ];
+        $paymentGroupsByCreator = $paymentRecords
+            ->filter(function ($payment) {
+                return trim((string) ($payment->created_by ?? '')) !== '';
+            })
+            ->groupBy(function ($payment) {
+                return strtolower(trim((string) ($payment->created_by ?? '')));
             });
 
-        $staffPayrollRows = $staffPayrollRows->map(function ($row) use ($staffMembershipPayments, $currency) {
-            $row['membership_payments'] = $staffMembershipPayments->get($row['id'] ?? null, [
+        $staffRows = $staffPayrollRows->map(function ($row) use ($currency) {
+            $row['membership_payments'] = [
                 'count' => 0,
                 'total' => 0,
                 'currency' => $currency,
                 'items' => collect(),
-            ]);
+            ];
+            $row['_staff_code_key'] = strtolower(trim((string) ($row['user_code'] ?? '')));
+            $row['_staff_name_key'] = strtolower(trim((string) ($row['name'] ?? '')));
             return $row;
-        });
+        })->values()->all();
+
+        $staffRowIndexByCode = [];
+        $staffRowIndexByName = [];
+        foreach ($staffRows as $index => $row) {
+            $codeKey = strtolower(trim((string) ($row['_staff_code_key'] ?? '')));
+            $nameKey = strtolower(trim((string) ($row['_staff_name_key'] ?? '')));
+            if ($codeKey !== '' && !array_key_exists($codeKey, $staffRowIndexByCode)) {
+                $staffRowIndexByCode[$codeKey] = $index;
+            }
+            if ($nameKey !== '' && !array_key_exists($nameKey, $staffRowIndexByName)) {
+                $staffRowIndexByName[$nameKey] = $index;
+            }
+        }
+
+        $staffUsers = User::query()
+            ->where('role_id', 2)
+            ->get(['id', 'first_name', 'last_name', 'user_code', 'email']);
+        $staffByCode = [];
+        $staffByName = [];
+        foreach ($staffUsers as $staffUser) {
+            $codeKey = strtolower(trim((string) ($staffUser->user_code ?? '')));
+            $nameKey = strtolower(trim(($staffUser->first_name ?? '') . ' ' . ($staffUser->last_name ?? '')));
+            if ($codeKey !== '' && !array_key_exists($codeKey, $staffByCode)) {
+                $staffByCode[$codeKey] = $staffUser;
+            }
+            if ($nameKey !== '' && !array_key_exists($nameKey, $staffByName)) {
+                $staffByName[$nameKey] = $staffUser;
+            }
+        }
+
+        foreach ($paymentGroupsByCreator as $creatorKey => $group) {
+            $normalizedCreatorKey = strtolower(trim((string) $creatorKey));
+            if ($normalizedCreatorKey === '') {
+                continue;
+            }
+
+            $membershipPaymentsPayload = $summarizeStaffPaymentGroup($group);
+            $targetIndex = $staffRowIndexByCode[$normalizedCreatorKey]
+                ?? $staffRowIndexByName[$normalizedCreatorKey]
+                ?? null;
+
+            if (!is_null($targetIndex)) {
+                $staffRows[$targetIndex]['membership_payments'] = $membershipPaymentsPayload;
+                continue;
+            }
+
+            $matchedUser = $staffByCode[$normalizedCreatorKey] ?? $staffByName[$normalizedCreatorKey] ?? null;
+            $matchedName = $matchedUser
+                ? trim(($matchedUser->first_name ?? '') . ' ' . ($matchedUser->last_name ?? ''))
+                : '';
+            $matchedCode = $matchedUser->user_code ?? '—';
+            $matchedEmail = $matchedUser->email ?? '—';
+            $fallbackLabel = trim((string) ($group->first()->created_by ?? ''));
+            $label = $matchedName !== '' ? $matchedName : ($fallbackLabel !== '' ? $fallbackLabel : 'Unknown staff');
+            $codeKey = strtolower(trim((string) ($matchedUser->user_code ?? '')));
+            $nameKey = strtolower(trim($matchedName !== '' ? $matchedName : $label));
+
+            $staffRows[] = [
+                'id' => $matchedUser->id ?? null,
+                'name' => $label,
+                'user_code' => $matchedCode,
+                'email' => $matchedEmail,
+                'role_id' => 2,
+                'role' => 'Staff',
+                'run_count' => 0,
+                'gross' => 0.0,
+                'net' => 0.0,
+                'app_cut' => 0.0,
+                'membership_payments' => $membershipPaymentsPayload,
+                '_staff_code_key' => $codeKey,
+                '_staff_name_key' => $nameKey,
+            ];
+
+            $newIndex = count($staffRows) - 1;
+            if ($codeKey !== '' && !array_key_exists($codeKey, $staffRowIndexByCode)) {
+                $staffRowIndexByCode[$codeKey] = $newIndex;
+            }
+            if ($nameKey !== '' && !array_key_exists($nameKey, $staffRowIndexByName)) {
+                $staffRowIndexByName[$nameKey] = $newIndex;
+            }
+        }
+
+        $staffPayrollRows = collect($staffRows)->map(function ($row) use ($currency) {
+            if (!isset($row['membership_payments'])) {
+                $row['membership_payments'] = [
+                    'count' => 0,
+                    'total' => 0,
+                    'currency' => $currency,
+                    'items' => collect(),
+                ];
+            }
+            unset($row['_staff_code_key'], $row['_staff_name_key']);
+            return $row;
+        })->values();
 
         $trainerPayrollRows = $payrollByUser
             ->filter(fn ($row) => (int) ($row['role_id'] ?? 0) === 5)
